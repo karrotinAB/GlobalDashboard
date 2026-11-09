@@ -63,7 +63,7 @@ const ampm = (hhmm: string) => {
   return { t: `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')}`, p: h < 12 ? 'AM' : 'PM' };
 };
 
-function DigitalClock({ label, tz, color, now, home }: { label: string; tz: string; color?: string; now: Date; home?: boolean }) {
+function DigitalClock({ label, tz, now, home }: { label: string; tz: string; now: Date; home?: boolean }) {
   const p = tzParts(now, tz);
   const seoul = tzParts(now, HOME_TZ);
   const diffH = (p.wall - seoul.wall) / 60;
@@ -75,7 +75,6 @@ function DigitalClock({ label, tz, color, now, home }: { label: string; tz: stri
   return (
     <div className={`dclock ${night ? 'night' : 'day'}`}>
       <div className="dc-label">
-        <span className="dot" style={{ background: home ? 'var(--primary)' : (color ?? '#999') }} />
         {label}
       </div>
       <div className="dc-time">
@@ -212,7 +211,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
         <div className="dclocks">
           <DigitalClock label="서울" tz={HOME_TZ} now={now} home />
           {clocks.map((c) => (
-            <DigitalClock key={c.tz} label={c.label} tz={c.tz} color={c.color} now={now} />
+            <DigitalClock key={c.tz} label={c.label} tz={c.tz} now={now} />
           ))}
         </div>
       </section>
