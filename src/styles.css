@@ -1806,3 +1806,40 @@ tr:hover .more-btn,
     width: 62px;
   }
 }
+
+/* 담당 직접 쓰기 + 자동완성 */
+.assignee-input {
+  position: relative;
+}
+.assignee-input .cell-input {
+  position: relative;
+  background: transparent;
+  z-index: 1;
+}
+.assignee-input::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  border-radius: 6px;
+}
+.assignee-input .ghost {
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  translate: 0 -50%;
+  font-size: 13px;
+  color: #c3aaa3;
+  white-space: pre;
+  pointer-events: none;
+  z-index: 2;
+}
+.ghost-typed {
+  color: transparent;
+}
+.assignee-input .cands {
+  display: block;
+  font-size: 11px;
+  color: var(--mut);
+  margin-top: 2px;
+}

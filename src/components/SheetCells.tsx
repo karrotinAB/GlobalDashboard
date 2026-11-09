@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type FocusEvent } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import type { Company, Member } from '../types';
 import { shortDate } from '../lib/date';
 import { MemberChip } from './ui';
@@ -51,11 +51,6 @@ export function EditableText({
   );
 }
 
-/** 칸 밖을 누르면 닫히는 편집 상자 */
-const closeOnOutside = (close: () => void) => (e: FocusEvent<HTMLDivElement>) => {
-  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close();
-};
-
 export function MiniPicker({ members, value, onToggle }: { members: Member[]; value: string[]; onToggle: (id: string) => void }) {
   return (
     <div className="mini-picker">
@@ -77,6 +72,109 @@ export function MiniPicker({ members, value, onToggle }: { members: Member[]; va
   );
 }
 
+/* ---------- 담당자 직접 쓰기 (자동완성) ---------- */
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const chosung = (s: string) =>
+  [...s].map((ch) => {
+    const c = ch.charCodeAt(0);
+    return c >= 0xac00 && c <= 0xd7a3 ? CHO[Math.floor((c - 0xac00) / 588)] : ch;
+  }).join('');
+const SEP = /[/,·&\s]+/;
+const matches = (m: Member, tok: string) => !!tok && (m.name.startsWith(tok) || chosung(m.name).startsWith(tok));
+
+/** "유정/민" → [유정 id, 민지 id] (첫 글자·초성만 써도 하나로 정해지면 인정) */
+export function parseAssignees(text: string, members: Member[]): string[] {
+  const ids: string[] = [];
+  for (const tok of text.split(SEP).map((t) => t.trim()).filter(Boolean)) {
+    const exact = members.find((m) => m.name === tok);
+    const cands = exact ? [exact] : members.filter((m) => matches(m, tok));
+    if (cands.length === 1 && !ids.includes(cands[0].id)) ids.push(cands[0].id);
+  }
+  return ids;
+}
+
+const namesOf = (ids: string[], members: Member[]) =>
+  ids
+    .map((id) => members.find((m) => m.id === id)?.name)
+    .filter(Boolean)
+    .join('/');
+
+/** 담당 입력칸: 쓰는 중에 회색으로 이름이 미리 보이고 Tab(또는 Enter)으로 채움. 두 명은 "유정/민지" */
+export function AssigneeInput({
+  members,
+  ids,
+  onChange,
+  onEnter,
+  onEscape,
+  onBlur,
+  autoFocus,
+}: {
+  members: Member[];
+  ids: string[];
+  onChange: (ids: string[]) => void;
+  onEnter?: () => void;
+  onEscape?: () => void;
+  onBlur?: () => void;
+  autoFocus?: boolean;
+}) {
+  const [text, setText] = useState(() => namesOf(ids, members));
+  const parts = text.split(SEP);
+  const last = parts[parts.length - 1] ?? '';
+  const cands = last ? members.filter((m) => matches(m, last) && m.name !== last) : [];
+  const ghost = cands.length === 1 ? cands[0].name : '';
+  const ghostRest = ghost && ghost.startsWith(last) ? ghost.slice(last.length) : ghost ? ` → ${ghost}` : '';
+
+  const update = (t: string) => {
+    setText(t);
+    onChange(parseAssignees(t, members));
+  };
+  const complete = () => {
+    if (!ghost) return false;
+    const head = text.slice(0, text.length - last.length);
+    update(`${head}${ghost}/`);
+    return true;
+  };
+
+  return (
+    <div className="assignee-input">
+      <input
+        className="cell-input"
+        autoFocus={autoFocus}
+        placeholder="유정/민지"
+        value={text}
+        onChange={(e) => update(e.target.value)}
+        onBlur={() => {
+          // 끝에 남은 "/" 정리
+          const clean = namesOf(parseAssignees(text, members), members);
+          if (clean !== text) setText(clean);
+          onBlur?.();
+        }}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+          if ((e.key === 'Tab' && !e.shiftKey) || e.key === 'Enter') {
+            if (complete()) {
+              e.preventDefault();
+              return;
+            }
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onEnter?.();
+          }
+          if (e.key === 'Escape') onEscape?.();
+        }}
+      />
+      {ghostRest && (
+        <span className="ghost" aria-hidden="true">
+          <span className="ghost-typed">{text}</span>
+          {ghostRest}
+        </span>
+      )}
+      {cands.length > 1 && <span className="cands">{cands.map((m) => m.name).join(' · ')}</span>}
+    </div>
+  );
+}
+
 export function AssigneeCell({
   ids,
   members,
@@ -91,17 +189,37 @@ export function AssigneeCell({
   onSave: (ids: string[]) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const draft = useRef(ids);
+  const closed = useRef(false);
   if (!editing) {
     return (
-      <div className={`cell-view chips ${disabled ? '' : 'editable'}`} onClick={() => !disabled && setEditing(true)}>
+      <div className={`cell-view chips ${disabled ? '' : 'editable'}`} onClick={() => {
+          if (disabled) return;
+          draft.current = ids;
+          closed.current = false;
+          setEditing(true);
+        }}
+      >
         {ids.length ? ids.map((id) => <MemberChip key={id} member={memberById.get(id)} small />) : !disabled && <span className="cell-ph">담당</span>}
       </div>
     );
   }
+  const done = () => {
+    if (closed.current) return; // Enter 뒤에 blur 가 한 번 더 와도 한 번만 저장
+    closed.current = true;
+    setEditing(false);
+    if (draft.current.join() !== ids.join()) onSave(draft.current);
+  };
   return (
-    <div tabIndex={-1} ref={(el) => el?.focus()} onBlur={closeOnOutside(() => setEditing(false))} className="cell-pop">
-      <MiniPicker members={members} value={ids} onToggle={(id) => onSave(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])} />
-    </div>
+    <AssigneeInput
+      members={members}
+      ids={ids}
+      autoFocus
+      onChange={(v) => (draft.current = v)}
+      onEnter={done}
+      onBlur={done}
+      onEscape={() => setEditing(false)}
+    />
   );
 }
 
@@ -170,6 +288,8 @@ export function AddTaskRow({
   const blank = (): NewTaskDraft => ({ title: '', assigneeIds: defaultAssignees, companyId: defaultCompanyId });
   const [open, setOpen] = useState(false);
   const [d, setD] = useState<NewTaskDraft>(blank);
+  const [rowKey, setRowKey] = useState(0);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   if (!open) {
     return (
@@ -193,6 +313,8 @@ export function AddTaskRow({
     if (!d.title.trim()) return;
     onAdd({ ...d, title: d.title.trim(), note: d.note?.trim() || undefined });
     setD({ ...blank(), assigneeIds: d.assigneeIds, companyId: d.companyId }); // 담당·업체는 유지하고 다음 줄
+    setRowKey((k) => k + 1);
+    titleRef.current?.focus();
   };
   const keys = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -220,13 +342,16 @@ export function AddTaskRow({
         </td>
       )}
       <td>
-        <input className="cell-input" autoFocus placeholder="업무 입력 후 Enter" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} onKeyDown={keys} />
+        <input ref={titleRef} className="cell-input" autoFocus placeholder="업무 입력 후 Enter" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} onKeyDown={keys} />
       </td>
       <td className="c-who">
-        <MiniPicker
+        <AssigneeInput
+          key={rowKey}
           members={members}
-          value={d.assigneeIds}
-          onToggle={(id) => setD({ ...d, assigneeIds: d.assigneeIds.includes(id) ? d.assigneeIds.filter((x) => x !== id) : [...d.assigneeIds, id] })}
+          ids={d.assigneeIds}
+          onChange={(v) => setD((p) => ({ ...p, assigneeIds: v }))}
+          onEnter={submit}
+          onEscape={() => setOpen(false)}
         />
       </td>
       <td className="c-due">
