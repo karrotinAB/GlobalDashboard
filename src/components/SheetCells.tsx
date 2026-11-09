@@ -125,10 +125,31 @@ const chosung = (s: string) =>
 const SEP = /[/,·&\s]+/;
 const matches = (m: Member, tok: string) => !!tok && (m.name.startsWith(tok) || chosung(m.name).startsWith(tok));
 
+/** "유정/민" → ["유정","민"]. 구분자 없이 붙여 쓴 "가영유" 도 ["가영","유"] 로 나눔 */
+function tokenize(text: string, members: Member[]): string[] {
+  const out: string[] = [];
+  const names = [...members.map((m) => m.name)].sort((a, b) => b.length - a.length);
+  for (let tok of text.split(SEP)) {
+    tok = tok.trim();
+    let peeled = true;
+    while (tok && peeled) {
+      peeled = false;
+      const n = names.find((nm) => tok.startsWith(nm) && tok.length > nm.length);
+      if (n) {
+        out.push(n);
+        tok = tok.slice(n.length);
+        peeled = true;
+      }
+    }
+    out.push(tok);
+  }
+  return out;
+}
+
 /** "유정/민" → [유정 id, 민지 id] (첫 글자·초성만 써도 하나로 정해지면 인정) */
 export function parseAssignees(text: string, members: Member[]): string[] {
   const ids: string[] = [];
-  for (const tok of text.split(SEP).map((t) => t.trim()).filter(Boolean)) {
+  for (const tok of tokenize(text, members).filter(Boolean)) {
     const exact = members.find((m) => m.name === tok);
     const cands = exact ? [exact] : members.filter((m) => matches(m, tok));
     if (cands.length === 1 && !ids.includes(cands[0].id)) ids.push(cands[0].id);
@@ -161,9 +182,13 @@ export function AssigneeInput({
   autoFocus?: boolean;
 }) {
   const [text, setText] = useState(() => namesOf(ids, members));
-  const parts = text.split(SEP);
+  const [focused, setFocused] = useState(false);
+  const parts = tokenize(text, members);
   const last = parts[parts.length - 1] ?? '';
+  const chosen = parseAssignees(text, members);
   const cands = last ? members.filter((m) => matches(m, last) && m.name !== last) : [];
+  // 아래에 보여줄 후보: 쓰는 중이면 맞는 사람, 비어 있으면 아직 안 고른 사람 전부
+  const suggestions = last ? cands : members.filter((m) => !chosen.includes(m.id));
   const ghost = cands.length === 1 ? cands[0].name : '';
   const ghostRest = ghost && ghost.startsWith(last) ? ghost.slice(last.length) : ghost ? ` → ${ghost}` : '';
 
@@ -171,10 +196,14 @@ export function AssigneeInput({
     setText(t);
     onChange(parseAssignees(t, members));
   };
+  const pick = (name: string) => {
+    const head = text.slice(0, text.length - last.length);
+    const sep = head && !SEP.test(head.slice(-1)) ? '/' : '';
+    update(`${head}${sep}${name}/`);
+  };
   const complete = () => {
     if (!ghost) return false;
-    const head = text.slice(0, text.length - last.length);
-    update(`${head}${ghost}/`);
+    pick(ghost);
     return true;
   };
 
@@ -186,7 +215,12 @@ export function AssigneeInput({
         placeholder="유정/민지"
         value={text}
         onChange={(e) => update(e.target.value)}
+        onFocus={(e) => {
+          setFocused(true);
+          e.currentTarget.select(); // 이미 있는 이름은 전체 선택 → 바로 덮어쓰기
+        }}
         onBlur={() => {
+          setFocused(false);
           // 끝에 남은 "/" 정리
           const clean = namesOf(parseAssignees(text, members), members);
           if (clean !== text) setText(clean);
@@ -213,7 +247,26 @@ export function AssigneeInput({
           {ghostRest}
         </span>
       )}
-      {cands.length > 1 && <span className="cands">{cands.map((m) => m.name).join(' · ')}</span>}
+      {focused && suggestions.length > 0 && (
+        <div className="suggest">
+          {suggestions.map((m, i) => (
+            <button
+              type="button"
+              key={m.id}
+              className={`suggest-item ${last && i === 0 && cands.length === 1 ? 'on' : ''}`}
+              style={{ '--c': m.color } as CSSProperties}
+              onMouseDown={(e) => {
+                e.preventDefault(); // 입력칸 포커스 유지
+                pick(m.name);
+              }}
+            >
+              <i />
+              {m.name}
+            </button>
+          ))}
+          {last && cands.length === 1 && <span className="suggest-hint">Tab</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -527,7 +580,7 @@ export function CompanyMemo({
   return (
     <>
       <button
-        className={`company-memo ${first ? '' : 'empty'}`}
+        className={`company-memo ${first ? '' : 'is-empty'}`}
         draggable={false}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={() => {

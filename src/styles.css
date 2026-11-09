@@ -286,7 +286,7 @@ input.num {
   margin-bottom: 14px;
   font-size: 13px;
 }
-.empty {
+.empty-box {
   margin: 40px auto;
   text-align: center;
   color: var(--mut);
@@ -2110,11 +2110,11 @@ tr.drop-after td {
   border-color: var(--line);
   background: #fff;
 }
-.company-memo.empty {
+.company-memo.is-empty {
   background: none;
   color: #cdb8b2;
 }
-.company-memo.empty .memo-icon {
+.company-memo.is-empty .memo-icon {
   opacity: 0.5;
 }
 .memo-text {
@@ -2146,4 +2146,54 @@ tr.drop-after td {
 }
 .form-actions .muted {
   align-self: center;
+}
+
+/* 담당 후보 목록 */
+.suggest {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-h);
+  white-space: nowrap;
+}
+.suggest-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.suggest-item i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.suggest-item:hover,
+.suggest-item.on {
+  background: color-mix(in srgb, var(--c) 14%, #fff);
+  border-color: var(--c);
+  font-weight: 700;
+}
+.suggest-hint {
+  font-size: 10px;
+  color: var(--mut);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 2px;
+}
+.task-table td.c-who {
+  overflow: visible;
 }

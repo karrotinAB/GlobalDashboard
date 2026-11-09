@@ -75,7 +75,7 @@ export function MemberPicker({
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="empty">{children}</div>;
+  return <div className="empty-box">{children}</div>;
 }
 
 export function Avatar({ member, size = 40 }: { member?: Member; size?: number }) {
