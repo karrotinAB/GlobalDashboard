@@ -9,12 +9,14 @@ export function EditableText({
   onSave,
   placeholder,
   multiline,
+  oneLine,
   disabled,
 }: {
   value: string;
   onSave: (v: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  oneLine?: boolean; // 한 줄로 자르고(…) 마우스를 올리면 전체 보기
   disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -22,7 +24,8 @@ export function EditableText({
   if (!editing) {
     return (
       <div
-        className={`cell-view ${disabled ? '' : 'editable'}`}
+        className={`cell-view ${disabled ? '' : 'editable'} ${oneLine ? 'one-line' : ''}`}
+        title={oneLine && value ? value : undefined}
         onClick={() => {
           if (disabled) return;
           setV(value);
@@ -69,6 +72,46 @@ export function MiniPicker({ members, value, onToggle }: { members: Member[]; va
         );
       })}
     </div>
+  );
+}
+
+/** 번호 칸: 평소엔 자동 번호, 누르면 직접 입력 (예: 1-1). 비우면 다시 자동 */
+export function NumCell({ value, custom, disabled, onSave }: { value: string; custom: boolean; disabled?: boolean; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState('');
+  if (!editing) {
+    return (
+      <span
+        className={`num ${custom ? 'custom' : ''} ${disabled ? '' : 'editable'}`}
+        title={disabled ? undefined : custom ? '직접 정한 번호 (지우면 자동 번호)' : '눌러서 번호 바꾸기 (예: 1-1)'}
+        onClick={() => {
+          if (disabled) return;
+          setV(custom ? value : '');
+          setEditing(true);
+        }}
+      >
+        {value})
+      </span>
+    );
+  }
+  const commit = () => {
+    setEditing(false);
+    const clean = v.trim().replace(/\)+$/, '');
+    if (clean !== (custom ? value : '')) onSave(clean);
+  };
+  return (
+    <input
+      className="cell-input num-input"
+      autoFocus
+      placeholder={value}
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) commit();
+        if (e.key === 'Escape') setEditing(false);
+      }}
+    />
   );
 }
 
@@ -329,6 +372,7 @@ export function AddTaskRow({
       <td className="c-check">
         <span className="add-plus">+</span>
       </td>
+      <td className="c-num" />
       {showCompany && (
         <td className="c-company">
           <select className="cell-input" value={d.companyId ?? ''} onChange={(e) => setD({ ...d, companyId: e.target.value || null })}>

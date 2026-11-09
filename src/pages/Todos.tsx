@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import type { Company, Member, Task } from '../types';
 import { Avatar, characterSrc, CompanyDot, Empty, Field, MemberPicker, Modal, Ring } from '../components/ui';
-import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText } from '../components/SheetCells';
+import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText, NumCell } from '../components/SheetCells';
 
 type GroupBy = 'company' | 'member' | 'due';
 type StatusFilter = 'all' | 'open' | 'done';
@@ -54,6 +54,58 @@ export default function Todos() {
 
   const weekRows = useMemo(() => tasksForWeek(data.tasks, monday), [data.tasks, monday]);
   const summary = useMemo(() => summarize(weekRows, members, todayIso), [weekRows, members, todayIso]);
+
+  /** 업체마다 위에서부터 1), 2)… 자동 번호. 직접 정한 번호(1-1 등)가 있는 줄은 건너뜀 */
+  const numberMap = useMemo(() => {
+    const byCompany = new Map<string, Task[]>();
+    for (const { task } of weekRows) {
+      const k = task.companyId ?? '';
+      if (!byCompany.has(k)) byCompany.set(k, []);
+      byCompany.get(k)!.push(task);
+    }
+    const map = new Map<string, string>();
+    for (const list of byCompany.values()) {
+      let n = 0;
+      for (const t of list.sort((a, b) => a.order - b.order)) map.set(t.id, t.num || String(++n));
+    }
+    return map;
+  }, [weekRows]);
+
+  // 시트에서 옮겨온 "1) …", "1-1) …" 제목은 번호를 떼어냄 (1-1 같은 번호는 직접 번호로 보관)
+  useEffect(() => {
+    const NUM = /^\s*(\d+(?:-\d+)*)\)\s*/;
+    const fix = data.tasks.filter((t) => NUM.test(t.title) && t.title.replace(NUM, '').trim());
+    if (!fix.length) return;
+    saveMany(
+      'tasks',
+      fix.map((t) => {
+        const m = t.title.match(NUM)!;
+        return { ...t, title: t.title.slice(m[0].length).trim(), num: m[1].includes('-') ? (t.num ?? m[1]) : t.num };
+      }),
+    );
+  }, [data.tasks, saveMany]);
+
+  // 업무 끌어서 순서 바꾸기 (업체별 보기에서, 다른 업체로 옮기면 업체도 바뀜)
+  const taskDragRef = useRef<string | null>(null);
+  const [taskDrag, setTaskDrag] = useState<string | null>(null);
+  const [taskOver, setTaskOver] = useState<{ id: string; after: boolean } | null>(null);
+  const endTaskDrag = () => {
+    taskDragRef.current = null;
+    setTaskDrag(null);
+    setTaskOver(null);
+  };
+  const moveTask = (fromId: string, companyId: string | null, toId: string | null, after: boolean) => {
+    const from = data.tasks.find((t) => t.id === fromId);
+    if (!from || fromId === toId) return;
+    const list = data.tasks.filter((t) => (t.companyId ?? null) === companyId && t.id !== fromId).sort((a, b) => a.order - b.order);
+    const at = toId ? list.findIndex((t) => t.id === toId) + (after ? 1 : 0) : list.length;
+    list.splice(at < 0 ? list.length : at, 0, { ...from, companyId });
+    const before = new Map(data.tasks.map((t) => [t.id, t]));
+    saveMany(
+      'tasks',
+      list.map((t, i) => ({ ...t, order: i })).filter((t) => before.get(t.id)?.order !== t.order || (before.get(t.id)?.companyId ?? null) !== t.companyId),
+    );
+  };
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -187,14 +239,6 @@ export default function Todos() {
             미정
           </button>
         </div>
-        <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-          <option value="">모든 업체</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
         <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
           <option value="all">완료 포함</option>
           <option value="open">미완료만</option>
@@ -212,6 +256,22 @@ export default function Todos() {
             마감순
           </button>
         </div>
+        <div className="company-chips">
+          <button className={`cchip ${!companyFilter ? 'on' : ''}`} onClick={() => setCompanyFilter('')}>
+            모든 업체
+          </button>
+          {companies.map((c) => (
+            <button
+              key={c.id}
+              className={`cchip ${companyFilter === c.id ? 'on' : ''}`}
+              style={{ '--c': c.color ?? '#999' } as CSSProperties}
+              onClick={() => setCompanyFilter(companyFilter === c.id ? '' : c.id)}
+            >
+              <span className="dot" style={{ background: c.color }} />
+              {c.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {readOnly && <div className="banner">지난주 기록이에요 (그 주 일요일 기준 상태). 수정은 이번주에서 해주세요.</div>}
@@ -222,7 +282,8 @@ export default function Todos() {
       <div className="groups">
         {groups.map((g) => {
           const showCompany = groupBy !== 'company';
-          const colSpan = showCompany ? 7 : 6;
+          const colSpan = showCompany ? 8 : 7;
+          const taskMovable = !readOnly && groupBy === 'company';
           const canAdd = !readOnly && groupBy !== 'due';
           const movable = !readOnly && groupBy === 'company' && !!g.company && !companyFilter;
           const cid = g.company?.id ?? '';
@@ -231,12 +292,22 @@ export default function Todos() {
               key={g.key}
               className={`group ${dragId === cid && movable ? 'dragging' : ''} ${overId === cid && dragId && dragId !== cid ? 'drop-target' : ''}`}
               onDragOver={(e) => {
+                if (taskMovable && taskDragRef.current) {
+                  e.preventDefault();
+                  return;
+                }
                 if (!movable || !dragRef.current) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 if (overId !== cid) setOverId(cid);
               }}
               onDrop={(e) => {
+                if (taskMovable && taskDragRef.current) {
+                  e.preventDefault();
+                  moveTask(taskDragRef.current, g.company?.id ?? null, null, true); // 줄 밖(빈 곳)에 놓으면 그 업체 맨 아래로
+                  endTaskDrag();
+                  return;
+                }
                 const from = dragRef.current;
                 if (!movable || !from) return;
                 e.preventDefault();
@@ -288,6 +359,7 @@ export default function Todos() {
                   <thead>
                     <tr>
                       <th className="c-check">완료</th>
+                      <th className="c-num">No.</th>
                       {showCompany && <th className="c-company">업체</th>}
                       <th>업무</th>
                       <th className="c-who">담당</th>
@@ -303,9 +375,50 @@ export default function Todos() {
                     const company = companyById.get(task.companyId ?? '');
                     const patch = (p: Partial<Task>) => save('tasks', { ...task, ...p });
                     return (
-                      <tr key={task.id} className={`${doneInWeek ? 'is-done' : ''} ${task.important ? 'is-important' : ''}`}>
+                      <tr
+                        key={task.id}
+                        className={`${doneInWeek ? 'is-done' : ''} ${task.important ? 'is-important' : ''} ${taskDrag === task.id ? 'row-dragging' : ''} ${
+                          taskOver?.id === task.id ? (taskOver.after ? 'drop-after' : 'drop-before') : ''
+                        }`}
+                        onDragOver={(e) => {
+                          if (!taskMovable || !taskDragRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const r = e.currentTarget.getBoundingClientRect();
+                          const after = e.clientY > r.top + r.height / 2;
+                          if (taskOver?.id !== task.id || taskOver.after !== after) setTaskOver({ id: task.id, after });
+                        }}
+                        onDrop={(e) => {
+                          if (!taskMovable || !taskDragRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          moveTask(taskDragRef.current, task.companyId ?? null, task.id, taskOver?.id === task.id ? taskOver.after : false);
+                          endTaskDrag();
+                        }}
+                      >
                         <td className="c-check">
                           <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />
+                        </td>
+                        <td className="c-num">
+                          {taskMovable && (
+                            <span
+                              className="row-handle"
+                              draggable
+                              title="끌어서 순서 바꾸기"
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', task.title);
+                                const tr = e.currentTarget.closest('tr');
+                                if (tr) e.dataTransfer.setDragImage(tr, 20, 14);
+                                taskDragRef.current = task.id;
+                                setTimeout(() => setTaskDrag(task.id), 0);
+                              }}
+                              onDragEnd={endTaskDrag}
+                            >
+                              ⠿
+                            </span>
+                          )}
+                          <NumCell value={numberMap.get(task.id) ?? ''} custom={!!task.num} disabled={readOnly} onSave={(v) => patch({ num: v || undefined })} />
                         </td>
                         {showCompany && (
                           <td className="c-company">
@@ -319,7 +432,7 @@ export default function Todos() {
                           </td>
                         )}
                         <td className="c-title">
-                          <EditableText value={task.title} disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
+                          <EditableText value={task.title} oneLine disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
                         </td>
                         <td className="c-who">
                           <AssigneeCell ids={task.assigneeIds} members={members} memberById={memberById} disabled={readOnly} onSave={(ids) => patch({ assigneeIds: ids })} />
@@ -328,7 +441,7 @@ export default function Todos() {
                           <DueCell date={task.dueDate} text={task.dueText} state={ds} disabled={readOnly} onSave={(d) => patch({ dueDate: d })} />
                         </td>
                         <td className="c-note">
-                          <EditableText value={task.note ?? ''} multiline placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
+                          <EditableText value={task.note ?? ''} oneLine placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
                         </td>
                         <td className="c-more">
                           {!readOnly && (

@@ -28,6 +28,7 @@ export interface Task {
   doneAt?: string; // YYYY-MM-DD
   note?: string;
   important?: boolean;
+  num?: string; // 직접 정한 번호 (예: 1-1). 없으면 업체 안에서 자동 번호
   order: number;
   createdAt: string; // YYYY-MM-DD
 }

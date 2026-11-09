@@ -1888,3 +1888,138 @@ tr:hover .more-btn,
     opacity: 1;
   }
 }
+
+/* ---------- 촘촘한 할일 표 + 번호 + 줄 끌기 ---------- */
+.task-table td {
+  padding: 2px 6px;
+  vertical-align: middle;
+}
+.task-table th {
+  padding: 5px 6px;
+}
+.task-table .c-check {
+  width: 40px;
+}
+.task-table .c-num {
+  width: 62px;
+  white-space: nowrap;
+}
+.task-table .c-who {
+  width: 120px;
+}
+.task-table .c-due {
+  width: 96px;
+}
+.task-table .c-note {
+  width: 42%;
+  max-width: none;
+}
+.task-table .c-company {
+  width: 150px;
+}
+.task-table .cell-view {
+  min-height: 26px;
+  padding: 3px 6px;
+  line-height: 20px;
+}
+.cell-view.one-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-table .c-company {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 4px;
+  border-radius: 5px;
+}
+.num.custom {
+  color: var(--primary);
+}
+.num.editable {
+  cursor: text;
+}
+.num.editable:hover {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.num-input {
+  width: 44px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+.row-handle {
+  display: inline-block;
+  width: 12px;
+  margin-left: -4px;
+  color: transparent;
+  cursor: grab;
+  user-select: none;
+  font-size: 13px;
+}
+tr:hover .row-handle {
+  color: #c9aea6;
+}
+.row-handle:hover {
+  color: var(--primary) !important;
+}
+tr.row-dragging td {
+  opacity: 0.4;
+}
+tr.drop-before td {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+tr.drop-after td {
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+.task-table .mc-flags,
+.task-table .chips {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+/* 업체 버튼 줄 */
+.company-chips {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+.cchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink-2);
+}
+.cchip:hover {
+  border-color: var(--c, var(--primary));
+}
+.cchip.on {
+  background: color-mix(in srgb, var(--c, var(--primary)) 14%, #fff);
+  border-color: var(--c, var(--primary));
+  color: var(--ink);
+  font-weight: 700;
+}
+.cchip:first-child.on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+@media (max-width: 760px) {
+  .task-table .c-note {
+    display: none;
+  }
+}
