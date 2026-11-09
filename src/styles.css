@@ -2086,3 +2086,64 @@ tr.drop-after td {
 .add-row .c-num {
   padding-left: 14px;
 }
+
+/* 업체 메모 */
+.company-memo {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-align: left;
+}
+.company-memo:hover {
+  border-color: var(--line);
+  background: #fff;
+}
+.company-memo.empty {
+  background: none;
+  color: #cdb8b2;
+}
+.company-memo.empty .memo-icon {
+  opacity: 0.5;
+}
+.memo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.memo-icon {
+  font-size: 12px;
+  flex: none;
+}
+.memo-more {
+  flex: none;
+  font-size: 11px;
+  color: var(--mut);
+}
+.modal.wide {
+  width: 760px;
+}
+.memo-area {
+  width: 100%;
+  min-height: 360px;
+  resize: vertical;
+  line-height: 1.7;
+  font-size: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+.form-actions .muted {
+  align-self: center;
+}

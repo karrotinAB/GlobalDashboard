@@ -15,6 +15,9 @@ export interface Company {
   timezone?: string; // IANA 타임존 예: Asia/Ulaanbaatar
   color?: string;
   order: number;
+  memo?: string; // 업체 메모 (주간 할일 화면 업체 이름 옆, 첫 줄만 보임)
+  memoUpdatedAt?: string;
+  memoUpdatedBy?: string;
 }
 
 export interface Task {

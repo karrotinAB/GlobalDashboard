@@ -5,7 +5,7 @@ import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/ta
 import type { Company, Member, Task } from '../types';
 import { Avatar, characterSrc, CompanyDot, Empty, Ring } from '../components/ui';
 import { useAccess } from '../components/AuthGate';
-import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
+import { AddCompany, AddTaskRow, AssigneeCell, CompanyMemo, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
 
 type GroupBy = 'company' | 'member' | 'due';
 type StatusFilter = 'all' | 'open' | 'done';
@@ -361,6 +361,22 @@ export default function Todos() {
                 <span className="muted small">
                   {g.rows.filter((r) => !r.doneInWeek).length} 남음 / {g.rows.length}
                 </span>
+                {g.company && (
+                  <CompanyMemo
+                    name={g.company.name}
+                    memo={g.company.memo}
+                    updatedAt={g.company.memoUpdatedAt}
+                    updatedBy={g.company.memoUpdatedBy}
+                    onSave={(memo) =>
+                      save('companies', {
+                        ...g.company!,
+                        memo: memo.trim() ? memo : undefined,
+                        memoUpdatedAt: new Date().toISOString(),
+                        memoUpdatedBy: access.email || undefined,
+                      })
+                    }
+                  />
+                )}
                 {movable && (
                   <span className="move-btns">
                     <button className="icon-btn" title="위로" onClick={() => nudge(cid, -1)}>

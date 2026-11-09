@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import type { Company, Member } from '../types';
 import { shortDate } from '../lib/date';
-import { MemberChip } from './ui';
+import { MemberChip, Modal } from './ui';
 
 /** 구글 시트처럼: 누르면 그 자리에서 입력, Enter = 저장, Esc = 취소, 다른 데 누르면 저장 */
 export function EditableText({
@@ -493,5 +493,79 @@ export function RowMenu({ important, onImportant, onDelete }: { important: boole
         </div>
       )}
     </div>
+  );
+}
+
+/** 업체 이름 옆 메모: 첫 줄만 보이고, 누르면 큰 메모장 */
+export function CompanyMemo({
+  name,
+  memo,
+  updatedAt,
+  updatedBy,
+  onSave,
+}: {
+  name: string;
+  memo?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+  onSave: (memo: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const first = (memo ?? '').split('\n').find((l) => l.trim()) ?? '';
+  const lines = (memo ?? '').split('\n').filter((l) => l.trim()).length;
+
+  const close = () => {
+    if (text !== (memo ?? '') && !confirm('저장하지 않은 메모가 있어요. 그냥 닫을까요?')) return;
+    setOpen(false);
+  };
+  const save = () => {
+    if (text !== (memo ?? '')) onSave(text);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        className={`company-memo ${first ? '' : 'empty'}`}
+        draggable={false}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={() => {
+          setText(memo ?? '');
+          setOpen(true);
+        }}
+        title={memo || '업체 메모 남기기'}
+      >
+        <span className="memo-icon">📝</span>
+        <span className="memo-text">{first || '메모 남기기'}</span>
+        {lines > 1 && <span className="memo-more">+{lines - 1}줄</span>}
+      </button>
+      {open && (
+        <Modal title={`${name} 메모`} onClose={close} wide>
+          <textarea
+            className="memo-area"
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={'이 업체에 대해 기억해 둘 것들을 자유롭게 적어 주세요.\n첫 줄은 할일 화면 업체 이름 옆에 보여요.'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
+            }}
+          />
+          <div className="form-actions">
+            <span className="muted small">
+              {updatedAt
+                ? `마지막 수정 ${new Date(updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${updatedBy ? ` · ${updatedBy}` : ''}`
+                : ''}
+            </span>
+            <span className="spacer" />
+            <button onClick={close}>닫기</button>
+            <button className="primary" onClick={save} title="Ctrl+Enter">
+              저장
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
