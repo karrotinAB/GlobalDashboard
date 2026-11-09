@@ -4,6 +4,7 @@ import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import type { Company, Member, Task } from '../types';
 import { Avatar, characterSrc, CompanyDot, Empty, Field, MemberPicker, Modal, Ring } from '../components/ui';
+import { useAccess } from '../components/AuthGate';
 import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText, NumCell } from '../components/SheetCells';
 
 type GroupBy = 'company' | 'member' | 'due';
@@ -23,6 +24,7 @@ export default function Todos() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [q, setQ] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('company');
+  const [showCompanies, setShowCompanies] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -41,6 +43,16 @@ export default function Todos() {
       'companies',
       ids.map((id, i) => ({ ...companyById.get(id)!, order: i })).filter((c) => companyById.get(c.id)!.order !== c.order),
     );
+  };
+  const access = useAccess();
+  const canManage = access.role !== 'member'; // 관리자 (로컬 모드는 모두)
+  const deleteCompany = (id: string) => {
+    const c = companyById.get(id);
+    if (!c) return;
+    const nTasks = data.tasks.filter((t) => t.companyId === id && !t.done).length;
+    const nOrders = data.orders.filter((o) => o.companyId === id).length;
+    const detail = nTasks || nOrders ? `\n\n남은 할일 ${nTasks}개 · 주문 ${nOrders}건은 지워지지 않고 '기타 / 업체 없음'으로 옮겨져요.` : '';
+    if (confirm(`'${c.name}' 업체를 삭제할까요?${detail}`)) remove('companies', id);
   };
   const nudge = (id: string, dir: -1 | 1) => {
     const i = companies.findIndex((c) => c.id === id);
@@ -223,22 +235,27 @@ export default function Todos() {
 
       <div className="toolbar">
         <div className="seg">
-          <button className={!memberFilter ? 'on' : ''} onClick={() => setMemberFilter(null)}>
-            전체
+          <button className={memberFilter !== '__none' ? 'on' : ''} onClick={() => setMemberFilter(null)}>
+            {memberFilter && memberFilter !== '__none' ? `${memberById.get(memberFilter)?.name ?? ''} ✕` : '전체'}
           </button>
-          {members.map((m) => (
-            <button
-              key={m.id}
-              className={memberFilter === m.id ? 'on' : ''}
-              onClick={() => setMemberFilter(memberFilter === m.id ? null : m.id)}
-            >
-              {m.name}
-            </button>
-          ))}
           <button className={memberFilter === '__none' ? 'on' : ''} onClick={() => setMemberFilter(memberFilter === '__none' ? null : '__none')}>
-            미정
+            담당 미정
           </button>
         </div>
+        <button
+          className={`company-toggle ${companyFilter || showCompanies ? 'on' : ''}`}
+          onClick={() => (companyFilter ? setCompanyFilter('') : setShowCompanies((v) => !v))}
+          title={companyFilter ? '업체 필터 해제' : '업체별로 골라 보기'}
+        >
+          {companyFilter ? (
+            <>
+              <span className="dot" style={{ background: companyById.get(companyFilter)?.color }} />
+              {companyById.get(companyFilter)?.name} ✕
+            </>
+          ) : (
+            <>업체 고르기 {showCompanies ? '▴' : '▾'}</>
+          )}
+        </button>
         <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
           <option value="all">완료 포함</option>
           <option value="open">미완료만</option>
@@ -256,22 +273,24 @@ export default function Todos() {
             마감순
           </button>
         </div>
+        {showCompanies && !companyFilter && (
         <div className="company-chips">
-          <button className={`cchip ${!companyFilter ? 'on' : ''}`} onClick={() => setCompanyFilter('')}>
-            모든 업체
-          </button>
           {companies.map((c) => (
             <button
               key={c.id}
               className={`cchip ${companyFilter === c.id ? 'on' : ''}`}
               style={{ '--c': c.color ?? '#999' } as CSSProperties}
-              onClick={() => setCompanyFilter(companyFilter === c.id ? '' : c.id)}
+              onClick={() => {
+                setCompanyFilter(c.id);
+                setShowCompanies(false);
+              }}
             >
               <span className="dot" style={{ background: c.color }} />
               {c.name}
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {readOnly && <div className="banner">지난주 기록이에요 (그 주 일요일 기준 상태). 수정은 이번주에서 해주세요.</div>}
@@ -351,6 +370,11 @@ export default function Todos() {
                     <button className="icon-btn" title="아래로" onClick={() => nudge(cid, 1)}>
                       ▼
                     </button>
+                    {canManage && (
+                      <button className="icon-btn danger-icon" title="업체 삭제" onClick={() => deleteCompany(cid)}>
+                        🗑
+                      </button>
+                    )}
                   </span>
                 )}
               </header>

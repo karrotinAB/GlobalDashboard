@@ -124,7 +124,7 @@ export default function Settings() {
       <MemSection members={members} />
 
       <section className="card">
-        <h2>업체</h2>
+        <h2>업체 관리</h2>
         <p className="muted small">타임존을 넣으면 홈 화면에 그 나라 시계가 나와요.</p>
         <div className="table-scroll">
           <table className="settings-table">
@@ -140,7 +140,14 @@ export default function Settings() {
             </thead>
             <tbody>
               {companies.map((c) => (
-                <CompanyRow key={c.id} c={c} onSave={(x) => save('companies', x)} onDelete={() => confirm(`${c.name} 삭제? (할일/주문은 남아요)`) && remove('companies', c.id)} />
+                <CompanyRow key={c.id} c={c} onSave={(x) => save('companies', x)} onDelete={
+                  access.role === 'member'
+                    ? undefined
+                    : () =>
+                        confirm(
+                          `'${c.name}' 업체를 삭제할까요?\n\n이 업체의 할일·주문은 지워지지 않고 '기타 / 업체 없음'으로 옮겨져요.`,
+                        ) && remove('companies', c.id)
+                } />
               ))}
             </tbody>
           </table>
@@ -204,15 +211,17 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
         <input type="number" className="num" value={m.order} onChange={(e) => onSave({ ...m, order: Number(e.target.value) })} />
       </td>
       <td>
-        <button className="danger small" onClick={onDelete}>
-          삭제
-        </button>
+        {onDelete && (
+          <button className="danger small" onClick={onDelete}>
+            삭제
+          </button>
+        )}
       </td>
     </tr>
   );
 }
 
-function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) => void; onDelete: () => void }) {
+function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) => void; onDelete?: () => void }) {
   const [name, setName] = useState(c.name);
   const [country, setCountry] = useState(c.country);
   return (
@@ -240,9 +249,11 @@ function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) 
         <input type="number" className="num" value={c.order} onChange={(e) => onSave({ ...c, order: Number(e.target.value) })} />
       </td>
       <td>
-        <button className="danger small" onClick={onDelete}>
-          삭제
-        </button>
+        {onDelete && (
+          <button className="danger small" onClick={onDelete}>
+            삭제
+          </button>
+        )}
       </td>
     </tr>
   );
