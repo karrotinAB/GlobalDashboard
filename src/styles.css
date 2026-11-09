@@ -2080,3 +2080,9 @@ tr.drop-after td {
 .task-table td.c-more {
   overflow: visible;
 }
+.task-table .c-check {
+  width: 48px;
+}
+.add-row .c-num {
+  padding-left: 14px;
+}

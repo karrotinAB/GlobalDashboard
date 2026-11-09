@@ -369,10 +369,9 @@ export function AddTaskRow({
 
   return (
     <tr className="add-row editing">
-      <td className="c-check">
+      <td className="c-num">
         <span className="add-plus">+</span>
       </td>
-      <td className="c-num" />
       {showCompany && (
         <td className="c-company">
           <select className="cell-input" value={d.companyId ?? ''} onChange={(e) => setD({ ...d, companyId: e.target.value || null })}>
@@ -401,6 +400,7 @@ export function AddTaskRow({
       <td className="c-due">
         <input className="cell-input" type="date" value={d.dueDate ?? ''} onChange={(e) => setD({ ...d, dueDate: e.target.value || undefined })} />
       </td>
+      <td className="c-check" />
       <td className="c-note">
         <input className="cell-input" placeholder="비고" value={d.note ?? ''} onChange={(e) => setD({ ...d, note: e.target.value })} onKeyDown={keys} />
       </td>

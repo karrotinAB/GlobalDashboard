@@ -381,12 +381,12 @@ export default function Todos() {
                 {g.rows.length > 0 && (
                   <thead>
                     <tr>
-                      <th className="c-check">완료</th>
                       <th className="c-num">No.</th>
                       {showCompany && <th className="c-company">업체</th>}
                       <th>업무</th>
                       <th className="c-who">담당</th>
                       <th className="c-due">마감기한</th>
+                      <th className="c-check">완료</th>
                       <th className="c-note">비고</th>
                       <th className="c-more" />
                     </tr>
@@ -419,9 +419,6 @@ export default function Todos() {
                           endTaskDrag();
                         }}
                       >
-                        <td className="c-check">
-                          <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />
-                        </td>
                         <td className="c-num">
                           {taskMovable && (
                             <span
@@ -462,6 +459,9 @@ export default function Todos() {
                         </td>
                         <td className="c-due">
                           <DueCell date={task.dueDate} text={task.dueText} state={ds} disabled={readOnly} onSave={(d) => patch({ dueDate: d })} />
+                        </td>
+                        <td className="c-check">
+                          <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />
                         </td>
                         <td className="c-note">
                           <EditableText value={task.note ?? ''} oneLine placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
