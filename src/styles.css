@@ -1638,3 +1638,23 @@ button.bubble:hover {
   flex-wrap: wrap;
   margin-top: 16px;
 }
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.login-seg {
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+.login-note {
+  margin: 0;
+  text-align: center;
+}
+.login-links {
+  display: flex;
+  justify-content: space-between;
+}
+.login-card p {
+  line-height: 1.6;
+}

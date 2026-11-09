@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bookmarklet, memNames } from '../lib/mem';
-import { currentEmail } from '../components/AuthGate';
+import { useAccess } from '../components/AuthGate';
+import AccessAdmin from '../components/AccessAdmin';
 import { useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
@@ -36,6 +37,7 @@ const TIMEZONES = [
 
 export default function Settings() {
   const { data, mode, save, saveMany, remove } = useStore();
+  const access = useAccess();
   const { members, companies } = useLookups();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
@@ -81,7 +83,7 @@ export default function Settings() {
         {mode === 'firestore' ? (
           <p>
             <span className="tag green">팀 공유 (Firebase)</span> 모든 팀원이 같은 데이터를 보고, 바뀐 내용이 실시간으로 반영돼요.
-            {currentEmail() && <span className="muted small"> · {currentEmail()} 로그인 중</span>}
+            {access.email && <span className="muted small"> · {access.email} 로그인 중 ({access.role === 'admin' ? '관리자' : '조원'})</span>}
           </p>
         ) : (
           <p>
@@ -89,6 +91,8 @@ export default function Settings() {
           </p>
         )}
       </section>
+
+      {access.role === 'admin' && <AccessAdmin />}
 
       <section className="card">
         <h2>담당자 (조원)</h2>

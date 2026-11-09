@@ -33,9 +33,10 @@ npm run dev
 
 - 설정값: `src/firebase.ts` (공개용 값)
 - 데이터: Firestore 컬렉션 `members`, `companies`, `tasks`, `orders`, `attendance`
-- 로그인: Authentication > 이메일/비밀번호. **계정은 콘솔 > Authentication > Users 에서 관리자가 직접 추가**
-- 보안 규칙: `firestore.rules` 의 이메일 목록을 우리 조 이메일로 바꾸고 → 콘솔 > Firestore > 규칙 에 붙여넣기 → 게시
-- 콘솔 > Authentication > 설정 > 사용자 작업 에서 **"생성(가입) 사용 설정"을 꺼 두기** (아무나 가입 못 하게)
+- 로그인: Authentication > 이메일/비밀번호. 각자 로그인 화면의 **"계정 만들기"로 가입 → 메일 인증**
+- 접근 권한: Firestore `access/{이메일}` 문서의 `role` (`admin` / `member`). **대시보드 설정 > 접근 권한(관리자만 보임)에서 추가·삭제**
+- 첫 관리자 1명만 콘솔에서 직접 만들기: Firestore > 데이터 > 컬렉션 `access` > 문서 ID = 내 이메일(소문자) > 필드 `role` = `admin`
+- 보안 규칙: `firestore.rules` 를 콘솔 > Firestore > 규칙 에 붙여넣고 게시 (이메일을 적지 않으므로 한 번만 하면 됨)
 - 처음 로그인하면 설정 → 백업 가져오기로 JSON 데이터를 넣음 (실제 업무 데이터는 공개 저장소에 두지 않음)
 
 ## mem 근태 연결
