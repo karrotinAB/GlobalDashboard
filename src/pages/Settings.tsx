@@ -271,22 +271,42 @@ function MemSection({ members }: { members: Member[] }) {
   return (
     <section className="card">
       <h2>mem 근태 연결</h2>
+      <h3 className="sub-title">⭐ 크롬 확장 프로그램 (자동, 추천)</h3>
+      <ol className="mem-steps">
+        <li>
+          <a className="link-strong" href="./gd-extension.zip" download>
+            확장 프로그램 내려받기 (zip)
+          </a>{' '}
+          → 압축 풀기
+        </li>
+        <li>
+          크롬 주소창에 <code>chrome://extensions</code> → 오른쪽 위 <b>개발자 모드</b> 켜기 → <b>압축해제된 확장 프로그램을 로드합니다</b> → 압축 푼{' '}
+          <b>2조-근태-보내기</b> 폴더 선택
+        </li>
+        <li>
+          mem에 로그인한 탭에서 크롬 오른쪽 위 🧩 → <b>2조 근태 보내기</b> 🪼 → <b>"지금 보고 있는 사이트를 mem으로 등록"</b> (처음 한 번만)
+        </li>
+        <li>
+          이제 mem에서 <b>부서 근태 현황</b>이 뜰 때마다 우리 조 근태가 자동으로 대시보드에 들어가요. 대시보드를 안 열어 뒀으면 다음에 열 때
+          들어가요.
+        </li>
+      </ol>
+      <p className="muted small">
+        mem 화면에서 우리 조 이름({names.join(', ')})인 줄만 읽고 다른 사람 정보는 가져오지 않아요. 저장은 로그인된 대시보드가 해요.
+      </p>
+
+      <h3 className="sub-title">북마크 버튼 (확장 프로그램을 못 쓸 때)</h3>
       <ol className="mem-steps">
         <li>
           아래 버튼을 브라우저 <b>즐겨찾기바로 끌어다 놓기</b> (즐겨찾기바가 안 보이면 Ctrl+Shift+B)
         </li>
         <li>
-          mem에서 <b>부서 근태 현황</b> 창을 연 상태로 그 즐겨찾기를 클릭
+          mem에서 <b>부서 근태 현황</b> 창을 연 상태로 그 즐겨찾기를 클릭 (한 명만 눌러도 우리 조 다 반영)
         </li>
-        <li>대시보드가 열리면서 우리 조 출근·퇴근·휴가가 자동으로 들어가요 (한 명만 눌러도 네 명 다 반영)</li>
       </ol>
       <a ref={ref} className="bookmarklet" onClick={(e) => e.preventDefault()} title="즐겨찾기바로 끌어다 놓으세요">
         🕘 2조 근태 보내기
       </a>
-      <p className="muted small" style={{ marginTop: 12 }}>
-        찾는 이름: {names.join(', ')} · mem 화면에서 우리 조 이름만 읽고, 다른 사람 정보는 가져오지 않아요. 담당자 이름이나 mem 이름을 바꾸면
-        버튼을 다시 끌어다 놓아 주세요.
-      </p>
     </section>
   );
 }

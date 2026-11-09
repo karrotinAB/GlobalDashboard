@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 290px; margin: 0; padding: 16px; font: 13px/1.5 'Malgun Gothic', 'Noto Sans KR', sans-serif; background: #fffaf6; color: #3b2626; }
+  h1 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  h1 img { width: 26px; }
+  .box { background: #fff; border: 1px solid #ead7d1; border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .muted { color: #9c8480; font-size: 12px; }
+  button { width: 100%; border: 0; border-radius: 10px; padding: 9px; font: inherit; font-weight: 700; cursor: pointer; background: #8c2f3c; color: #fff; margin-top: 6px; }
+  button.ghost { background: #f3e5e2; color: #6a4f4c; font-weight: 500; }
+  .ok { color: #5f7f3e; font-weight: 700; }
+  #msg { min-height: 16px; color: #b3372f; font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1><img src="icon48.png" alt="">2조 근태 보내기</h1>
+  <div class="box" id="site"></div>
+  <div class="box" id="status"></div>
+  <button id="register">지금 보고 있는 사이트를 mem으로 등록</button>
+  <button class="ghost" id="open">대시보드 열기</button>
+  <div id="msg"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

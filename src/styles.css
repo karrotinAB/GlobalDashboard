@@ -2197,3 +2197,48 @@ tr.drop-after td {
 .task-table td.c-who {
   overflow: visible;
 }
+.sub-title {
+  font-size: 14px;
+  margin: 16px 0 6px;
+}
+.sub-title:first-of-type {
+  margin-top: 4px;
+}
+.link-strong {
+  color: var(--primary);
+  font-weight: 700;
+}
+.mem-steps code {
+  background: var(--surface-2);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+/* 공휴일: 회색 */
+.wd.holiday {
+  background: #e4dedc;
+  color: #9a9290;
+  opacity: 1;
+}
+.wd.holiday b {
+  text-decoration: line-through;
+  text-decoration-color: rgba(0, 0, 0, 0.25);
+}
+.wd.holiday.today {
+  background: #8f8784;
+  color: #fff;
+  box-shadow: none;
+}
+.wd-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wd-hol {
+  font-size: 11px;
+  color: #8f8784;
+}
+.wd-hol::before {
+  content: '🎌 ';
+}

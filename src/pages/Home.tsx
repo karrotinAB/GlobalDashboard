@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
+import { holidayName } from '../lib/holidays';
 import { isOrderDone, ORDER_STEPS, type Attendance, type Member } from '../types';
 import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
 
@@ -133,6 +134,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
   });
 
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(monday, i));
+  const weekHolidays = weekDays.filter((d) => holidayName(d)).map((d) => [d, holidayName(d)!] as const);
   const friday = weekDays[4];
   const todayDate = fromISO(todayIso);
   const daysToFri = Math.round((fromISO(friday).getTime() - todayDate.getTime()) / 86400000);
@@ -169,14 +171,22 @@ export default function Home({ go }: { go: (page: string) => void }) {
               {weekDays.map((d) => {
                 const dt = fromISO(d);
                 const state = d < todayIso ? 'past' : d === todayIso ? 'today' : 'future';
+                const hol = holidayName(d);
                 return (
-                  <div key={d} className={`wd ${state}`}>
+                  <div key={d} className={`wd ${state} ${hol ? 'holiday' : ''}`} title={hol}>
                     <span>{DOW[dt.getDay()]}</span>
                     <b>{dt.getDate()}</b>
                   </div>
                 );
               })}
-              <span className="wd-left muted">{daysToFri > 0 ? `금요일까지 ${daysToFri}일` : daysToFri === 0 ? '오늘은 금요일 🎉' : '주말이에요 🌿'}</span>
+              <span className="wd-left muted">
+                {daysToFri > 0 ? `금요일까지 ${daysToFri}일` : daysToFri === 0 ? '오늘은 금요일 🎉' : '주말이에요 🌿'}
+                {weekHolidays.length > 0 && (
+                  <span className="wd-hol">
+                    {weekHolidays.map(([d, n]) => `${DOW[fromISO(d).getDay()]} ${n}`).join(' · ')}
+                  </span>
+                )}
+              </span>
             </div>
           </div>
         </div>

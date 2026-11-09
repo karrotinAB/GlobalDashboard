@@ -9,6 +9,7 @@ import Todos from './pages/Todos';
 import Orders from './pages/Orders';
 import Settings from './pages/Settings';
 import Import from './pages/Import';
+import ExtensionBridge from './components/ExtensionBridge';
 
 const PAGES = [
   { key: 'home', label: '홈', icon: 'jelly' },
@@ -49,6 +50,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <ExtensionBridge />
       <Cover tall={page === 'home'} />
       <div className="shell">
         <div className="page-icon" aria-hidden="true">
