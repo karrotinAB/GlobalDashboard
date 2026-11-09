@@ -3,9 +3,9 @@ import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import type { Company, Member, Task } from '../types';
-import { Avatar, characterSrc, CompanyDot, Empty, Field, MemberPicker, Modal, Ring } from '../components/ui';
+import { Avatar, characterSrc, CompanyDot, Empty, Ring } from '../components/ui';
 import { useAccess } from '../components/AuthGate';
-import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText, NumCell } from '../components/SheetCells';
+import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
 
 type GroupBy = 'company' | 'member' | 'due';
 type StatusFilter = 'all' | 'open' | 'done';
@@ -25,7 +25,6 @@ export default function Todos() {
   const [q, setQ] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('company');
   const [showCompanies, setShowCompanies] = useState(false);
-  const [editing, setEditing] = useState<Task | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const dragRef = useRef<string | null>(null); // 끌고 있는 업체 (화면 갱신 없이 바로 기억)
@@ -469,9 +468,13 @@ export default function Todos() {
                         </td>
                         <td className="c-more">
                           {!readOnly && (
-                            <button className="icon-btn more-btn" title="더보기 (중요 표시·마감 메모·삭제)" onClick={() => setEditing(task)}>
-                              ⋯
-                            </button>
+                            <RowMenu
+                              important={!!task.important}
+                              onImportant={() => patch({ important: !task.important })}
+                              onDelete={() => {
+                                if (confirm(`"${task.title}" 할일을 삭제할까요?\n(완료 체크하면 그 주 기록에 남고, 삭제하면 기록에서도 사라져요)`)) remove('tasks', task.id);
+                              }}
+                            />
                           )}
                         </td>
                       </tr>
@@ -503,25 +506,6 @@ export default function Todos() {
         {groupBy === 'company' && !readOnly && !companyFilter && <AddCompany companies={companies} onAdd={(c) => save('companies', c)} />}
       </div>
 
-      {editing && (
-        <TaskEditor
-          task={editing}
-          isNew={!data.tasks.some((t) => t.id === editing.id)}
-          members={members}
-          companies={companies}
-          onClose={() => setEditing(null)}
-          onSave={(t) => {
-            save('tasks', t);
-            setEditing(null);
-          }}
-          onDelete={(t) => {
-            if (confirm(`"${t.title}" 할일을 삭제할까요?\n(완료 처리하면 기록이 남고, 삭제하면 지난주 기록에서도 사라져요)`)) {
-              remove('tasks', t.id);
-              setEditing(null);
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -563,90 +547,5 @@ function SummaryTable({
         </button>
       ))}
     </div>
-  );
-}
-
-function TaskEditor({
-  task,
-  isNew,
-  members,
-  companies,
-  onClose,
-  onSave,
-  onDelete,
-}: {
-  task: Task;
-  isNew: boolean;
-  members: Member[];
-  companies: Company[];
-  onClose: () => void;
-  onSave: (t: Task) => void;
-  onDelete: (t: Task) => void;
-}) {
-  const [t, setT] = useState<Task>(task);
-  const set = <K extends keyof Task>(k: K, v: Task[K]) => setT((prev) => ({ ...prev, [k]: v }));
-
-  return (
-    <Modal title={isNew ? '할일 추가' : '할일 수정'} onClose={onClose}>
-      <form
-        className="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!t.title.trim()) return;
-          onSave({ ...t, title: t.title.trim() });
-        }}
-      >
-        <Field label="업체">
-          <select value={t.companyId ?? ''} onChange={(e) => set('companyId', e.target.value || null)}>
-            <option value="">(업체 없음)</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="담당">
-          <MemberPicker members={members} value={t.assigneeIds} onChange={(v) => set('assigneeIds', v)} />
-        </Field>
-        <Field label="업무" full>
-          <input autoFocus value={t.title} onChange={(e) => set('title', e.target.value)} placeholder="예: 1-1) 몽골 검사용 샘플 출고" required />
-        </Field>
-        <Field label="마감일">
-          <input type="date" value={t.dueDate ?? ''} onChange={(e) => set('dueDate', e.target.value || undefined)} />
-        </Field>
-        <Field label="마감 메모 (선택)">
-          <input value={t.dueText ?? ''} onChange={(e) => set('dueText', e.target.value || undefined)} placeholder="예: 오픈 이후" />
-        </Field>
-        <Field label="비고" full>
-          <textarea rows={3} value={t.note ?? ''} onChange={(e) => set('note', e.target.value || undefined)} />
-        </Field>
-        <label className="check-line">
-          <input type="checkbox" checked={!!t.important} onChange={(e) => set('important', e.target.checked)} /> 중요 (강조 표시)
-        </label>
-        <label className="check-line">
-          <input
-            type="checkbox"
-            checked={t.done}
-            onChange={(e) => setT((p) => (e.target.checked ? { ...p, done: true, doneAt: p.doneAt ?? today() } : { ...p, done: false, doneAt: undefined }))}
-          />{' '}
-          완료 {t.done && t.doneAt && <span className="muted small">({t.doneAt})</span>}
-        </label>
-        <div className="form-actions">
-          {!isNew && (
-            <button type="button" className="danger" onClick={() => onDelete(t)}>
-              삭제
-            </button>
-          )}
-          <span className="spacer" />
-          <button type="button" onClick={onClose}>
-            취소
-          </button>
-          <button type="submit" className="primary">
-            저장
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }

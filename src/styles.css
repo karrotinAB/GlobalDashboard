@@ -2043,3 +2043,40 @@ tr.drop-after td {
 .danger-icon:hover {
   color: var(--red) !important;
 }
+
+/* 줄 끝 ⋯ 메뉴 */
+.row-menu {
+  position: relative;
+}
+.more-btn.open {
+  opacity: 1;
+  color: var(--primary);
+}
+.row-menu-pop {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-h);
+  padding: 4px;
+}
+.row-menu-pop button {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.row-menu-pop button:hover {
+  background: var(--surface-2);
+}
+.task-table td.c-more {
+  overflow: visible;
+}
