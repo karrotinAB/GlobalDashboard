@@ -3,7 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 // 웹 앱 설정값: 브라우저에 그대로 내려가는 공개용 값 (보안은 firestore.rules + 로그인으로 지킴)
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: 'AIzaSyDSM1YEHCyjuEfhKH3NY-_i1ppDoHo-QOQ',
   authDomain: 'global-dash-1d62d.firebaseapp.com',
   projectId: 'global-dash-1d62d',

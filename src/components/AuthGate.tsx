@@ -1,13 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signOut,
-  type User,
-} from 'firebase/auth';
+import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Cover } from './ui';
@@ -37,17 +29,15 @@ export function logout() {
   return signOut(auth);
 }
 
-/** 로그인 → 이메일 인증 → 관리자가 준 권한 확인 → 대시보드 */
+/** 로그인 → 관리자가 준 권한 확인 → 대시보드 */
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [verified, setVerified] = useState(false);
   const [role, setRole] = useState<Role | 'none' | undefined>(undefined);
 
   useEffect(
     () =>
       onAuthStateChanged(auth, (u) => {
         setUser(u);
-        setVerified(!!u?.emailVerified);
         setRole(undefined);
       }),
     [],
@@ -55,7 +45,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   // 내 권한 문서를 실시간으로 봄 → 관리자가 추가하면 바로 열림
   useEffect(() => {
-    if (!user || !verified || !user.email) return;
+    if (!user || !user.email) return;
     const email = user.email.toLowerCase();
     return onSnapshot(
       doc(db, 'access', email),
@@ -65,11 +55,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       },
       () => setRole('none'),
     );
-  }, [user, verified]);
+  }, [user]);
 
   if (user === undefined) return <Centered>불러오는 중…</Centered>;
   if (!user) return <LoginForm />;
-  if (!verified) return <VerifyEmail user={user} onVerified={() => setVerified(true)} />;
   if (role === undefined) return <Centered>권한 확인 중…</Centered>;
   if (role === 'none') return <NoAccess email={user.email ?? ''} />;
   return <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role }}>{children}</AccessContext.Provider>;
@@ -97,29 +86,19 @@ function Shell({ children }: { children: ReactNode }) {
 }
 
 function LoginForm() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg('');
-    if (mode === 'signup' && pw !== pw2) {
-      setMsg('비밀번호 확인이 달라요.');
-      return;
-    }
     setBusy(true);
     try {
-      if (mode === 'login') await signInWithEmailAndPassword(auth, email.trim(), pw);
-      else {
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), pw);
-        await sendEmailVerification(cred.user);
-      }
+      await signInWithEmailAndPassword(auth, email.trim(), pw);
     } catch (err) {
-      setMsg(errMsg(err, mode === 'login' ? '로그인 실패' : '가입 실패'));
+      setMsg(errMsg(err, '로그인 실패'));
     } finally {
       setBusy(false);
     }
@@ -137,79 +116,20 @@ function LoginForm() {
 
   return (
     <Shell>
-      <div className="seg login-seg">
-        <button type="button" className={mode === 'login' ? 'on' : ''} onClick={() => setMode('login')}>
-          로그인
-        </button>
-        <button type="button" className={mode === 'signup' ? 'on' : ''} onClick={() => setMode('signup')}>
-          처음이에요 (계정 만들기)
-        </button>
-      </div>
+      <p className="muted small" style={{ margin: 0 }}>
+        관리자가 만들어 준 계정으로 로그인해 주세요
+      </p>
       <form className="login-form" onSubmit={submit}>
         <input type="email" placeholder="이메일" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <input
-          type="password"
-          placeholder={mode === 'signup' ? '비밀번호 (6자 이상)' : '비밀번호'}
-          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          required
-        />
-        {mode === 'signup' && (
-          <input type="password" placeholder="비밀번호 확인" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} required />
-        )}
+        <input type="password" placeholder="비밀번호" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required />
         <button className="primary" type="submit" disabled={busy}>
-          {busy ? '잠시만요…' : mode === 'login' ? '로그인' : '계정 만들기'}
+          {busy ? '잠시만요…' : '로그인'}
         </button>
         <div className="login-msg">{msg}</div>
-        {mode === 'login' ? (
-          <button type="button" className="link" onClick={reset}>
-            비밀번호를 잊어버렸어요
-          </button>
-        ) : (
-          <p className="muted small login-note">가입 후 메일 인증을 하고, 관리자가 권한을 주면 대시보드가 열려요.</p>
-        )}
+        <button type="button" className="link" onClick={reset}>
+          비밀번호를 잊어버렸어요
+        </button>
       </form>
-    </Shell>
-  );
-}
-
-function VerifyEmail({ user, onVerified }: { user: User; onVerified: () => void }) {
-  const [msg, setMsg] = useState('');
-  const check = async () => {
-    await user.reload();
-    if (auth.currentUser?.emailVerified) {
-      await auth.currentUser.getIdToken(true); // 인증 완료가 보안 규칙에 반영되도록 토큰 새로 받기
-      onVerified();
-    } else setMsg('아직 인증 전이에요. 메일함(스팸함 포함)의 링크를 눌러 주세요.');
-  };
-  const resend = async () => {
-    try {
-      await sendEmailVerification(user);
-      setMsg('인증 메일을 다시 보냈어요.');
-    } catch (err) {
-      setMsg(errMsg(err, '메일을 보내지 못했어요'));
-    }
-  };
-  return (
-    <Shell>
-      <p>
-        <b>{user.email}</b> 로 인증 메일을 보냈어요.
-        <br />
-        메일의 링크를 누른 뒤 아래 버튼을 눌러 주세요.
-      </p>
-      <button className="primary" onClick={check}>
-        인증했어요
-      </button>
-      <div className="login-msg">{msg}</div>
-      <div className="login-links">
-        <button className="link" onClick={resend}>
-          메일 다시 보내기
-        </button>
-        <button className="link" onClick={logout}>
-          다른 계정으로
-        </button>
-      </div>
     </Shell>
   );
 }

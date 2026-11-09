@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { bookmarklet, memNames } from '../lib/mem';
 import { useAccess } from '../components/AuthGate';
 import AccessAdmin from '../components/AccessAdmin';
+import ChangePassword from '../components/ChangePassword';
 import { useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
@@ -93,6 +94,7 @@ export default function Settings() {
       </section>
 
       {access.role === 'admin' && <AccessAdmin />}
+      {access.email && <ChangePassword />}
 
       <section className="card">
         <h2>담당자 (조원)</h2>
