@@ -1,0 +1,90 @@
+export interface Member {
+  id: string;
+  name: string;
+  color: string; // 담당자 색
+  order: number;
+  character?: string; // public/characters 안 파일 이름 (예: c05)
+  memName?: string; // mem 에 표시되는 이름 (비워두면 이름 끝글자로 찾음: '길동' → '홍길동')
+  status?: string; // 상태메시지
+}
+
+export interface Company {
+  id: string;
+  name: string; // 예: 몽골 (SJNET)
+  country: string; // 시계 라벨용 예: 몽골
+  timezone?: string; // IANA 타임존 예: Asia/Ulaanbaatar
+  color?: string;
+  order: number;
+}
+
+export interface Task {
+  id: string;
+  companyId: string | null;
+  title: string;
+  assigneeIds: string[];
+  dueDate?: string; // YYYY-MM-DD
+  dueText?: string; // "9/20 이후 (오픈 이후)" 같은 자유 텍스트
+  done: boolean;
+  doneAt?: string; // YYYY-MM-DD
+  note?: string;
+  important?: boolean;
+  order: number;
+  createdAt: string; // YYYY-MM-DD
+}
+
+export interface Order {
+  id: string;
+  companyId: string | null;
+  name: string;
+  realOrder: boolean; // 실주문 여부
+  erp: boolean; // ERP 등록 여부
+  inbound: boolean; // 입고처리 여부
+  shipped: boolean; // 출고 여부
+  invoice: boolean; // 인보이스 제작 여부
+  storeCode?: string; // 주문넣은 매장코드
+  orderDate?: string; // 주문넣은 일자
+  packing?: string; // 패킹 완료일 (자유 텍스트)
+  shipFrom?: string; // 출고 장소
+  note?: string;
+  closed?: boolean; // 수동 완료 처리 (출고/인보이스가 필요 없는 건 등)
+  createdAt: string;
+}
+
+/** 주문 완료 기준: 출고 + 인보이스 제작 완료, 또는 수동으로 완료 처리 */
+export function isOrderDone(o: Order): boolean {
+  return !!o.closed || (o.shipped && o.invoice);
+}
+
+/** mem(근태 사이트) 부서 근태 현황에서 가져온 하루 기록. id = `${date}_${memberId}` */
+export interface Attendance {
+  id: string;
+  memberId: string;
+  date: string; // YYYY-MM-DD
+  status: string; // 근무 / 연차 / 출장 / 대체휴가 ...
+  start?: string; // 출근 HH:MM
+  end?: string; // 퇴근 예정 HH:MM (출근 태그 기준)
+  period?: string; // 휴가·출장 기간 텍스트 (예: 26.11.09~26.11.24)
+  source?: 'mem';
+  updatedAt?: string;
+}
+
+export interface Collections {
+  members: Member[];
+  companies: Company[];
+  tasks: Task[];
+  orders: Order[];
+  attendance: Attendance[];
+}
+
+export type CollectionName = keyof Collections;
+export type Item<C extends CollectionName> = Collections[C][number];
+
+export const ORDER_STEPS = [
+  { key: 'realOrder', label: '실주문' },
+  { key: 'erp', label: 'ERP 등록' },
+  { key: 'inbound', label: '입고처리' },
+  { key: 'shipped', label: '출고' },
+  { key: 'invoice', label: '인보이스' },
+] as const;
+
+export type OrderStepKey = (typeof ORDER_STEPS)[number]['key'];
