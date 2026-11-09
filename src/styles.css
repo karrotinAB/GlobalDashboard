@@ -1843,3 +1843,48 @@ tr:hover .more-btn,
   color: var(--mut);
   margin-top: 2px;
 }
+
+/* 업체 순서 끌어서 바꾸기 */
+.group-head.movable {
+  cursor: grab;
+}
+.group-head.movable:active {
+  cursor: grabbing;
+}
+.drag-handle {
+  color: #cdb3ab;
+  font-size: 16px;
+  line-height: 1;
+  margin-right: -2px;
+}
+.group-head:hover .drag-handle {
+  color: var(--primary);
+}
+.move-btns {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.group-head:hover .move-btns {
+  opacity: 1;
+}
+.move-btns .icon-btn {
+  font-size: 10px;
+  padding: 4px 6px;
+}
+.move-btns .icon-btn:hover {
+  color: var(--primary);
+}
+.group.dragging {
+  opacity: 0.45;
+}
+.group.drop-target {
+  box-shadow: 0 0 0 2px var(--primary), var(--shadow);
+}
+@media (hover: none) {
+  .move-btns {
+    opacity: 1;
+  }
+}

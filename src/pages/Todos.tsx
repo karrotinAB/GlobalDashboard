@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
@@ -12,7 +12,7 @@ type Row = { task: Task; doneInWeek: boolean };
 type Group = { key: string; title: string; color?: string; company?: Company; member?: Member; rows: Row[] };
 
 export default function Todos() {
-  const { data, save, remove } = useStore();
+  const { data, save, saveMany, remove } = useStore();
   const { members, companies, memberById, companyById } = useLookups();
   const todayIso = today();
   const thisMonday = weekStart(todayIso);
@@ -24,6 +24,29 @@ export default function Todos() {
   const [q, setQ] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('company');
   const [editing, setEditing] = useState<Task | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const dragRef = useRef<string | null>(null); // 끌고 있는 업체 (화면 갱신 없이 바로 기억)
+
+  /** 업체 순서 바꾸기: from 을 to 자리로 (아래로 끌면 to 뒤, 위로 끌면 to 앞) */
+  const moveCompany = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const ids = companies.map((c) => c.id);
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, fromId);
+    saveMany(
+      'companies',
+      ids.map((id, i) => ({ ...companyById.get(id)!, order: i })).filter((c) => companyById.get(c.id)!.order !== c.order),
+    );
+  };
+  const nudge = (id: string, dir: -1 | 1) => {
+    const i = companies.findIndex((c) => c.id === id);
+    const target = companies[i + dir];
+    if (target) moveCompany(id, target.id);
+  };
 
   const isPast = monday < thisMonday;
   const isFuture = monday > thisMonday;
@@ -201,14 +224,64 @@ export default function Todos() {
           const showCompany = groupBy !== 'company';
           const colSpan = showCompany ? 7 : 6;
           const canAdd = !readOnly && groupBy !== 'due';
+          const movable = !readOnly && groupBy === 'company' && !!g.company && !companyFilter;
+          const cid = g.company?.id ?? '';
           return (
-            <section key={g.key} className="group">
-              <header className="group-head">
+            <section
+              key={g.key}
+              className={`group ${dragId === cid && movable ? 'dragging' : ''} ${overId === cid && dragId && dragId !== cid ? 'drop-target' : ''}`}
+              onDragOver={(e) => {
+                if (!movable || !dragRef.current) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (overId !== cid) setOverId(cid);
+              }}
+              onDrop={(e) => {
+                const from = dragRef.current;
+                if (!movable || !from) return;
+                e.preventDefault();
+                moveCompany(from, cid);
+                dragRef.current = null;
+                setDragId(null);
+                setOverId(null);
+              }}
+            >
+              <header
+                className={`group-head ${movable ? 'movable' : ''}`}
+                draggable={movable}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', g.title);
+                  dragRef.current = cid;
+                  // 드래그 시작 순간에 화면을 바꾸면 크롬이 드래그를 취소해서 한 박자 늦게
+                  setTimeout(() => setDragId(cid), 0);
+                }}
+                onDragEnd={() => {
+                  dragRef.current = null;
+                  setDragId(null);
+                  setOverId(null);
+                }}
+              >
+                {movable && (
+                  <span className="drag-handle" title="끌어서 순서 바꾸기">
+                    ⠿
+                  </span>
+                )}
                 {g.company && <CompanyDot color={g.color} />}
                 <h2>{g.title}</h2>
                 <span className="muted small">
                   {g.rows.filter((r) => !r.doneInWeek).length} 남음 / {g.rows.length}
                 </span>
+                {movable && (
+                  <span className="move-btns">
+                    <button className="icon-btn" title="위로" onClick={() => nudge(cid, -1)}>
+                      ▲
+                    </button>
+                    <button className="icon-btn" title="아래로" onClick={() => nudge(cid, 1)}>
+                      ▼
+                    </button>
+                  </span>
+                )}
               </header>
               <table className="task-table">
                 {g.rows.length > 0 && (
