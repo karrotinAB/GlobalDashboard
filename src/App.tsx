@@ -11,7 +11,7 @@ import Settings from './pages/Settings';
 import Import from './pages/Import';
 
 const PAGES = [
-  { key: 'home', label: '홈', icon: '🍂' },
+  { key: 'home', label: '홈', icon: 'jelly' },
   { key: 'todos', label: '주간 할일', icon: '📝' },
   { key: 'orders', label: '주문 관리', icon: '📦' },
   { key: 'settings', label: '설정', icon: '⚙️' },
@@ -52,12 +52,15 @@ export default function App() {
       <Cover tall={page === 'home'} />
       <div className="shell">
         <div className="page-icon" aria-hidden="true">
-          {current.icon}
+          <PageIcon icon={current.icon} />
         </div>
         <nav className="tabs">
           {PAGES.map((p) => (
             <a key={p.key} href={`#/${p.key}`} className={page === p.key ? 'active' : ''}>
-              <span aria-hidden="true">{p.icon}</span> {p.label}
+              <span aria-hidden="true" className="tab-icon">
+                <PageIcon icon={p.icon} />
+              </span>{' '}
+              {p.label}
             </a>
           ))}
           <span className={`mode ${mode}`} title={mode === 'firestore' ? '팀원과 실시간 공유 중' : '이 브라우저에만 저장 중'}>
@@ -97,4 +100,9 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+/** 'jelly' 는 해파리 그림, 나머지는 이모지 */
+function PageIcon({ icon }: { icon: string }) {
+  return icon === 'jelly' ? <img className="jelly" src="./jelly.png" alt="" /> : <>{icon}</>;
 }

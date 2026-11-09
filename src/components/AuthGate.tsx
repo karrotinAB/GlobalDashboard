@@ -77,7 +77,9 @@ function Shell({ children }: { children: ReactNode }) {
     <div className="login">
       <Cover tall />
       <div className="login-card">
-        <div className="login-icon">🍂</div>
+        <div className="login-icon">
+          <img className="jelly" src="./jelly.png" alt="" />
+        </div>
         <h1>2조 Dashboard</h1>
         {children}
       </div>

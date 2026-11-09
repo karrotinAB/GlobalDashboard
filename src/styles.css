@@ -1784,3 +1784,25 @@ tr:hover .more-btn,
   padding: 8px 10px;
   font-size: 14px;
 }
+
+/* 해파리 아이콘 */
+.page-icon .jelly {
+  width: 84px;
+  height: auto;
+  display: block;
+}
+.login-icon .jelly {
+  width: 66px;
+  height: auto;
+  display: block;
+}
+.tab-icon .jelly {
+  width: 18px;
+  height: auto;
+  vertical-align: -3px;
+}
+@media (max-width: 760px) {
+  .page-icon .jelly {
+    width: 62px;
+  }
+}
