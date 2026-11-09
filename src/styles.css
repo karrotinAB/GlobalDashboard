@@ -1658,3 +1658,129 @@ button.bubble:hover {
 .login-card p {
   line-height: 1.6;
 }
+
+/* ---------- 시트처럼 바로 고치기 ---------- */
+.sheet-hint {
+  margin: -6px 0 12px 4px;
+}
+.task-table td {
+  padding: 6px 8px;
+}
+.cell-view {
+  min-height: 28px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.cell-view.editable {
+  cursor: text;
+}
+.cell-view.editable:hover {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.cell-ph {
+  color: #cdb8b2;
+  opacity: 0;
+  font-size: 12px;
+}
+tr:hover .cell-ph {
+  opacity: 1;
+}
+.cell-input {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  border: 1px solid var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+  background: #fff;
+}
+textarea.cell-input {
+  resize: vertical;
+  line-height: 1.45;
+}
+.add-row .cell-input,
+.add-company .cell-input {
+  border-color: var(--line);
+  box-shadow: none;
+}
+.add-row .cell-input:focus,
+.add-company .cell-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.cell-pop {
+  outline: none;
+  padding: 2px;
+}
+.mini-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.mini-picker .chip.toggle {
+  padding: 2px 9px;
+  font-size: 11px;
+}
+.c-more {
+  width: 36px;
+  text-align: center !important;
+}
+.more-btn {
+  opacity: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+tr:hover .more-btn,
+.more-btn:focus {
+  opacity: 1;
+}
+.add-row td {
+  border-bottom: 0;
+}
+.add-row-btn {
+  border: 0;
+  background: none;
+  color: var(--mut);
+  padding: 4px 6px;
+  font-size: 13px;
+}
+.add-row-btn:hover {
+  color: var(--primary);
+  background: none;
+}
+.add-row.editing td {
+  background: #fffdfb;
+  vertical-align: middle;
+}
+.add-plus {
+  color: var(--primary);
+  font-weight: 700;
+}
+.add-company {
+  align-self: flex-start;
+  border: 1px dashed #d9bcb4;
+  background: rgba(255, 250, 246, 0.6);
+  color: var(--ink-2);
+  border-radius: var(--r);
+  padding: 12px 18px;
+}
+.add-company:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.add-company.editing {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.add-company.editing .cell-input {
+  flex: 1;
+  min-width: 240px;
+  padding: 8px 10px;
+  font-size: 14px;
+}

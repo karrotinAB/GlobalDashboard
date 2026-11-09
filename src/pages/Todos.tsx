@@ -1,9 +1,10 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
-import { addDays, shortDate, today, uid, weekLabel, weekStart } from '../lib/date';
+import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import type { Company, Member, Task } from '../types';
-import { Avatar, characterSrc, CompanyDot, Empty, Field, MemberChip, MemberPicker, Modal, Ring } from '../components/ui';
+import { Avatar, characterSrc, CompanyDot, Empty, Field, MemberPicker, Modal, Ring } from '../components/ui';
+import { AddCompany, AddTaskRow, AssigneeCell, DueCell, EditableText } from '../components/SheetCells';
 
 type GroupBy = 'company' | 'member' | 'due';
 type StatusFilter = 'all' | 'open' | 'done';
@@ -188,67 +189,52 @@ export default function Todos() {
             마감순
           </button>
         </div>
-        {!readOnly && (
-          <button className="primary" onClick={() => setEditing(newTask(companyFilter || null, memberFilter && memberFilter !== '__none' ? [memberFilter] : []))}>
-            + 할일 추가
-          </button>
-        )}
       </div>
 
       {readOnly && <div className="banner">지난주 기록이에요 (그 주 일요일 기준 상태). 수정은 이번주에서 해주세요.</div>}
+      {!readOnly && <p className="muted small sheet-hint">칸을 누르면 바로 고칠 수 있어요 · Enter 저장 · Esc 취소 · ⋯ 에서 중요 표시·삭제</p>}
 
-      {groups.length === 0 && <Empty>조건에 맞는 할일이 없어요.</Empty>}
+      {groups.length === 0 && groupBy !== 'company' && <Empty>조건에 맞는 할일이 없어요.</Empty>}
 
       <div className="groups">
-        {groups.map((g) => (
-          <section key={g.key} className="group">
-            <header className="group-head">
-              {g.company && <CompanyDot color={g.color} />}
-              <h2>{g.title}</h2>
-              <span className="muted small">
-                {g.rows.filter((r) => !r.doneInWeek).length} 남음 / {g.rows.length}
-              </span>
-              {!readOnly && groupBy !== 'due' && (
-                <button
-                  className="link small add-inline"
-                  onClick={() =>
-                    setEditing(
-                      newTask(g.company?.id ?? (companyFilter || null), g.member ? [g.member.id] : memberFilter && memberFilter !== '__none' ? [memberFilter] : []),
-                    )
-                  }
-                >
-                  + 추가
-                </button>
-              )}
-            </header>
-            {g.rows.length === 0 ? (
-              <div className="muted small pad">할일 없음</div>
-            ) : (
+        {groups.map((g) => {
+          const showCompany = groupBy !== 'company';
+          const colSpan = showCompany ? 7 : 6;
+          const canAdd = !readOnly && groupBy !== 'due';
+          return (
+            <section key={g.key} className="group">
+              <header className="group-head">
+                {g.company && <CompanyDot color={g.color} />}
+                <h2>{g.title}</h2>
+                <span className="muted small">
+                  {g.rows.filter((r) => !r.doneInWeek).length} 남음 / {g.rows.length}
+                </span>
+              </header>
               <table className="task-table">
-                <thead>
-                  <tr>
-                    <th className="c-check">완료</th>
-                    {groupBy !== 'company' && <th className="c-company">업체</th>}
-                    <th>업무</th>
-                    <th className="c-who">담당</th>
-                    <th className="c-due">마감기한</th>
-                    <th className="c-note">비고</th>
-                  </tr>
-                </thead>
+                {g.rows.length > 0 && (
+                  <thead>
+                    <tr>
+                      <th className="c-check">완료</th>
+                      {showCompany && <th className="c-company">업체</th>}
+                      <th>업무</th>
+                      <th className="c-who">담당</th>
+                      <th className="c-due">마감기한</th>
+                      <th className="c-note">비고</th>
+                      <th className="c-more" />
+                    </tr>
+                  </thead>
+                )}
                 <tbody>
                   {g.rows.map(({ task, doneInWeek }) => {
                     const ds = doneInWeek ? 'none' : dueState(task, todayIso);
                     const company = companyById.get(task.companyId ?? '');
+                    const patch = (p: Partial<Task>) => save('tasks', { ...task, ...p });
                     return (
-                      <tr
-                        key={task.id}
-                        className={`${doneInWeek ? 'is-done' : ''} ${task.important ? 'is-important' : ''} ${readOnly ? '' : 'clickable'}`}
-                        onClick={() => !readOnly && setEditing(task)}
-                      >
-                        <td className="c-check" onClick={(e) => e.stopPropagation()}>
+                      <tr key={task.id} className={`${doneInWeek ? 'is-done' : ''} ${task.important ? 'is-important' : ''}`}>
+                        <td className="c-check">
                           <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />
                         </td>
-                        {groupBy !== 'company' && (
+                        {showCompany && (
                           <td className="c-company">
                             {company ? (
                               <>
@@ -259,27 +245,52 @@ export default function Todos() {
                             )}
                           </td>
                         )}
-                        <td className="c-title">{task.title || <span className="muted">(제목 없음)</span>}</td>
+                        <td className="c-title">
+                          <EditableText value={task.title} disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
+                        </td>
                         <td className="c-who">
-                          <div className="chips">
-                            {task.assigneeIds.map((id) => (
-                              <MemberChip key={id} member={memberById.get(id)} small />
-                            ))}
-                          </div>
+                          <AssigneeCell ids={task.assigneeIds} members={members} memberById={memberById} disabled={readOnly} onSave={(ids) => patch({ assigneeIds: ids })} />
                         </td>
-                        <td className={`c-due due-${ds}`}>
-                          {task.dueDate && <div>{shortDate(task.dueDate)}</div>}
-                          {task.dueText && <div className="small">{task.dueText}</div>}
+                        <td className="c-due">
+                          <DueCell date={task.dueDate} text={task.dueText} state={ds} disabled={readOnly} onSave={(d) => patch({ dueDate: d })} />
                         </td>
-                        <td className="c-note">{task.note}</td>
+                        <td className="c-note">
+                          <EditableText value={task.note ?? ''} multiline placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
+                        </td>
+                        <td className="c-more">
+                          {!readOnly && (
+                            <button className="icon-btn more-btn" title="더보기 (중요 표시·마감 메모·삭제)" onClick={() => setEditing(task)}>
+                              ⋯
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
+                  {canAdd && (
+                    <AddTaskRow
+                      colSpan={colSpan}
+                      members={members}
+                      companies={companies}
+                      showCompany={showCompany}
+                      defaultCompanyId={g.company?.id ?? (companyFilter || null)}
+                      defaultAssignees={g.member ? [g.member.id] : memberFilter && memberFilter !== '__none' ? [memberFilter] : []}
+                      onAdd={(d) => save('tasks', { ...newTask(d.companyId, d.assigneeIds), title: d.title, dueDate: d.dueDate, note: d.note })}
+                    />
+                  )}
+                  {!canAdd && g.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={colSpan} className="muted small pad">
+                        할일 없음
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-            )}
-          </section>
-        ))}
+            </section>
+          );
+        })}
+        {groupBy === 'company' && !readOnly && !companyFilter && <AddCompany companies={companies} onAdd={(c) => save('companies', c)} />}
       </div>
 
       {editing && (
