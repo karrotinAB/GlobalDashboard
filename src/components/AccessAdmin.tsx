@@ -43,11 +43,12 @@ export default function AccessAdmin() {
   useEffect(
     () =>
       onSnapshot(
-        collection(db, 'access'),
+        collection(db, 'roles'),
         (snap) =>
           setRows(
             snap.docs
-              .map((d) => ({ email: d.id, ...(d.data() as Omit<Row, 'email'>) }))
+              .map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined }))
+              .filter((r) => r.role === 'admin' || r.role === 'member')
               .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'admin' ? -1 : 1)),
           ),
         (err) => setMsg(`목록을 못 불러왔어요: ${err.message}`),
@@ -57,7 +58,7 @@ export default function AccessAdmin() {
 
   const put = async (e: string, r: Role, n?: string) => {
     try {
-      await setDoc(doc(db, 'access', e), { role: r, ...(n ? { name: n } : {}), addedBy: me.email, addedAt: serverTimestamp() });
+      await setDoc(doc(db, 'roles', e), { level: r, ...(n ? { name: n } : {}), addedBy: me.email, addedAt: serverTimestamp() });
       setMsg('');
       return true;
     } catch (err) {
@@ -140,7 +141,7 @@ export default function AccessAdmin() {
                       onClick={async () => {
                         if (!confirm(`${r.email} 의 접근 권한을 뺄까요?`)) return;
                         try {
-                          await deleteDoc(doc(db, 'access', r.email));
+                          await deleteDoc(doc(db, 'roles', r.email));
                         } catch (err) {
                           setMsg(`삭제 실패: ${(err as Error).message}`);
                         }

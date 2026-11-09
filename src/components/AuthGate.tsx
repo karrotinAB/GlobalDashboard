@@ -48,9 +48,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     if (!user || !user.email) return;
     const email = user.email.toLowerCase();
     return onSnapshot(
-      doc(db, 'access', email),
+      doc(db, 'roles', email),
       (snap) => {
-        const r = snap.data()?.role;
+        const r = snap.data()?.level;
         setRole(r === 'admin' || r === 'member' ? r : 'none');
       },
       () => setRole('none'),
