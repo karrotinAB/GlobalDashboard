@@ -93,11 +93,19 @@ function DigitalClock({ label, tz, now, home }: { label: string; tz: string; now
   );
 }
 
-function greeting(h: number) {
-  if (h < 11) return '좋은 아침이에요';
-  if (h < 14) return '점심은 드셨나요';
-  if (h < 18) return '오후도 힘내요';
-  return '오늘도 수고했어요';
+// 우리 점심시간: 12:40 ~ 13:40
+const LUNCH_START = 12 * 60 + 40;
+const LUNCH_END = 13 * 60 + 40;
+
+function greeting(h: number, m: number) {
+  const t = h * 60 + m;
+  if (t < 11 * 60) return '좋은 아침이에요 ☕';
+  if (t < LUNCH_START - 30) return '오전도 힘내요 ☕';
+  if (t < LUNCH_START) return '곧 점심시간이에요 🍱';
+  if (t < LUNCH_END) return '맛있는 점심 드세요 🍚';
+  if (t < LUNCH_END + 60) return '점심은 맛있게 드셨나요 ☕';
+  if (t < 18 * 60) return '오후도 힘내요 ☕';
+  return '오늘도 수고했어요 🌙';
 }
 
 export default function Home({ go }: { go: (page: string) => void }) {
@@ -147,7 +155,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
       {/* 제목 + 오늘 / 이번주 구역 */}
       <header className="hero">
         <h1>2조 Dashboard</h1>
-        <p className="hero-greet">{greeting(seoul.h)} ☕</p>
+        <p className="hero-greet">{greeting(seoul.h, seoul.mi)}</p>
         <div className="zones">
           <div className="zone zone-today">
             <span className="zone-tag">TODAY</span>
