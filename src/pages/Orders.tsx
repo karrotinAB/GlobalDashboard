@@ -386,6 +386,9 @@ export default function Orders() {
             <td colSpan={colSpan - 1}>
               <div className="bundle-title">
                 <span className="bundle-chip">🔗 같이 출고 {u.orders.length}건</span>
+                <div className="bundle-name">
+                  <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 (예: 4번째 컨테이너)" onSave={(v) => renameBundle(u.bundle!, v)} />
+                </div>
                 {(hasAmt(u.orders, 'amountKRW') || hasAmt(u.orders, 'amountForeign')) && (
                   <span className="bundle-sum">
                     합계 {hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}
@@ -393,9 +396,6 @@ export default function Orders() {
                     {hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}
                   </span>
                 )}
-                <div className="bundle-name">
-                  <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 (예: 4번째 컨테이너)" onSave={(v) => renameBundle(u.bundle!, v)} />
-                </div>
                 <button className="link small" onClick={() => confirm('이 묶음을 풀까요? (주문은 그대로 남아요)') && dissolve(u.bundle!)}>
                   묶음 풀기
                 </button>
