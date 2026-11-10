@@ -470,15 +470,16 @@ function CharacterPicker({ member, onClose, onPick }: { member: Member; onClose:
 
 /** mem 근태가 있을 때만 보이는 띠 (없으면 아무것도 안 그림) */
 function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
-  const working = r.status === '근무';
+  // mem 이 '퇴근'으로 바뀐 경우에만 퇴근한 걸로 봄 (시간이 지났다고 단정하지 않음)
+  const clockedOut = r.status.includes('퇴근');
+  const working = r.status === '근무' || clockedOut;
   if (r.end) {
     const end = ampm(r.end);
     const left = toMin(r.end) - nowMin;
-    const off = left <= 0;
     return (
-      <div className={`leave ${off ? 'off' : ''}`}>
+      <div className={`leave ${clockedOut ? 'off' : ''}`}>
         <div className="leave-main">
-          <span className="leave-label">퇴근</span>
+          <span className="leave-label">{clockedOut ? '퇴근' : '퇴근 예정'}</span>
           <span className="leave-time">
             {end.t}
             <small>{end.p}</small>
@@ -486,7 +487,9 @@ function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
         </div>
         <div className="leave-side">
           {!working && <span className="leave-tag">{r.status}</span>}
-          <span className="leave-detail">{off ? '퇴근했어요 👋' : `퇴근까지 ${fmtDur(left)}`}</span>
+          <span className="leave-detail">
+            {clockedOut ? '퇴근했어요 👋' : left > 0 ? `퇴근까지 ${fmtDur(left)}` : '퇴근 시간이 지났어요'}
+          </span>
           {r.start && <span className="leave-detail muted">출근 {ampm(r.start).t} {ampm(r.start).p}</span>}
         </div>
       </div>
