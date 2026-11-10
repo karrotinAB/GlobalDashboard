@@ -155,6 +155,8 @@ export default function Orders() {
   };
   const renameBundle = (b: OrderBundle, name: string) =>
     saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: { ...b, name: name || undefined } })));
+  const recolorBundle = (b: OrderBundle, color: string) =>
+    saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: { ...b, color } })));
   const dissolve = (b: OrderBundle) => saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: undefined })));
 
   // 끌어서 위치 바꾸기: 놓은 자리의 묶음에 같이 들어감 (묶음 아닌 줄에 놓으면 묶음에서 빠짐)
@@ -170,6 +172,7 @@ export default function Orders() {
     const fromId = dragRef.current;
     endDrag();
     if (!fromId || fromId === targetId) return;
+    if (fromId.startsWith('b:')) return moveBundle(fromId.slice(2), targetId, after);
     const from = flat.find((o) => o.id === fromId);
     const target = flat.find((o) => o.id === targetId);
     if (!from || !target) return;
@@ -184,6 +187,21 @@ export default function Orders() {
         const before = data.orders.find((x) => x.id === o.id);
         return before?.sort !== o.sort || before?.bundle?.id !== o.bundle?.id;
       });
+    saveMany('orders', changed);
+  };
+
+  /** 묶음 통째로 옮기기: 놓은 줄이 속한 덩어리(묶음/주문) 앞이나 뒤로. 묶음 구성은 그대로 */
+  const moveBundle = (bundleId: string, targetId: string, after: boolean) => {
+    const from = units.find((u) => u.bundle?.id === bundleId);
+    const target = units.find((u) => u.orders.some((o) => o.id === targetId));
+    if (!from || !target || from === target) return;
+    const list = units.filter((u) => u !== from);
+    list.splice(list.indexOf(target) + (after ? 1 : 0), 0, from);
+    const keys = flat.map(keyOf).sort((a, b) => a - b);
+    const changed = list
+      .flatMap((u) => u.orders)
+      .map((o, i) => ({ ...o, sort: keys[i] + i * 0.001 }))
+      .filter((o) => data.orders.find((x) => x.id === o.id)?.sort !== o.sort);
     saveMany('orders', changed);
   };
 
@@ -448,6 +466,22 @@ export default function Orders() {
             </td>
             <td colSpan={colSpan - 5}>
               <div className="bundle-title">
+                <span
+                  className="row-handle bundle-handle"
+                  draggable
+                  title="끌어서 묶음 통째로 옮기기"
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', u.bundle!.name ?? '묶음');
+                    const tr = e.currentTarget.closest('tr');
+                    if (tr) e.dataTransfer.setDragImage(tr, 20, 14);
+                    dragRef.current = `b:${u.bundle!.id}`;
+                  }}
+                  onDragEnd={endDrag}
+                >
+                  ⠿
+                </span>
+                <BundleColor color={u.bundle.color} onPick={(c) => recolorBundle(u.bundle!, c)} />
                 <div className={`bundle-name-block ${u.bundle.name ? '' : 'unnamed'}`}>
                   <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 쓰기 ✎" onSave={(v) => renameBundle(u.bundle!, v)} />
                 </div>
@@ -830,5 +864,35 @@ function RawBlock({ title, call }: { title: string; call: RawCall | null }) {
         <pre className="insp-json">{call.body ? JSON.stringify(call.body, null, 2) : call.text}</pre>
       </details>
     </section>
+  );
+}
+
+/** 묶음 색 바꾸기: 동그라미를 누르면 색 고르기 */
+function BundleColor({ color, onPick }: { color: string; onPick: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="bundle-color" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setOpen(false)}>
+      <button className="bundle-color-dot" style={{ background: color }} title="묶음 색 바꾸기" onClick={() => setOpen((v) => !v)} />
+      {open && (
+        <div className="bundle-color-pop" tabIndex={-1}>
+          {BUNDLE_COLORS.map((c) => (
+            <button
+              key={c}
+              className={`swatch ${c === color ? 'on' : ''}`}
+              style={{ background: c }}
+              title={c}
+              onClick={() => {
+                onPick(c);
+                setOpen(false);
+              }}
+            />
+          ))}
+          <label className="swatch custom" title="다른 색 직접 고르기">
+            +
+            <input type="color" value={color} onChange={(e) => onPick(e.target.value)} />
+          </label>
+        </div>
+      )}
+    </span>
   );
 }
