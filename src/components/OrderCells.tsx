@@ -12,8 +12,8 @@ export function DateCell({ value, onSave }: { value?: string; onSave: (v?: strin
     );
   }
   return (
-    <div className="cell-view editable nowrap" onClick={() => setEditing(true)}>
-      {value || <span className="cell-ph">날짜</span>}
+    <div className="cell-view editable nowrap" onClick={() => setEditing(true)} title={value}>
+      {value ? value.slice(2).replace(/-/g, '.') : <span className="cell-ph">날짜</span>}
     </div>
   );
 }
@@ -55,9 +55,9 @@ export function CompanyCell({ company, companies, onSave }: { company?: Company;
   );
 }
 
-type Draft = Pick<Order, 'name' | 'companyId' | 'storeCode' | 'orderDate' | 'packing' | 'shipFrom' | 'note' | 'currency'>;
+type Draft = Pick<Order, 'name' | 'companyId' | 'storeCode' | 'orderDate' | 'packing' | 'shipFrom' | 'note'> & { krw?: string; fx?: string };
 
-/** 표 맨 위 "+ 주문 추가" 줄: 그 자리에서 쓰고 Enter → 저장, 업체·매장코드·출고장소는 다음 줄에 그대로 */
+/** 표 맨 아래 "+ 주문 추가" 줄: 그 자리에서 쓰고 Enter → 저장, 다음 줄은 빈칸으로 시작 */
 export function AddOrderRow({
   colSpan,
   companies,
@@ -109,7 +109,8 @@ export function AddOrderRow({
       packing: clean(d.packing),
       shipFrom: clean(d.shipFrom),
       note: clean(d.note),
-      currency: d.currency,
+      amountKRW: parseAmount(d.krw ?? ''),
+      amountForeign: parseAmount(d.fx ?? ''),
       realOrder: false,
       erp: false,
       inbound: false,
@@ -117,7 +118,7 @@ export function AddOrderRow({
       invoice: false,
       createdAt: today(),
     });
-    setD({ ...blank(), companyId: d.companyId, storeCode: d.storeCode, shipFrom: d.shipFrom, orderDate: d.orderDate, currency: d.currency });
+    setD(blank()); // 다음 줄은 빈칸으로
     nameRef.current?.focus();
   };
   const keys = (e: React.KeyboardEvent) => {
@@ -159,30 +160,69 @@ export function AddOrderRow({
       <td>{text('packing', '패킹')}</td>
       <td>{text('shipFrom', '출고 장소')}</td>
       <td className="c-step" />
+      <td className="c-amt">
+        <input className="cell-input amt" placeholder="₩ 원화" value={d.krw ?? ''} onChange={(e) => set('krw', e.target.value)} onKeyDown={keys} />
+      </td>
+      <td className="c-amt">
+        <input className="cell-input amt" placeholder="$ 외화" value={d.fx ?? ''} onChange={(e) => set('fx', e.target.value)} onKeyDown={keys} />
+      </td>
       <td>{text('note', '비고')}</td>
       <td className="c-more">
-        <div className="status-cell">
-          <CurrencyToggle value={d.currency} onChange={(v) => set('currency', v)} />
-          <button className="icon-btn" title="닫기 (Esc)" onClick={() => setOpen(false)}>
-            ✕
-          </button>
-        </div>
+        <button className="icon-btn" title="닫기 (Esc)" onClick={() => setOpen(false)}>
+          ✕
+        </button>
       </td>
     </tr>
   );
 }
 
-/** 원화 / 외화: 누를 때마다 원화 → 외화 → 비움 */
-export function CurrencyToggle({ value, onChange }: { value?: 'KRW' | 'FOREIGN'; onChange: (v?: 'KRW' | 'FOREIGN') => void }) {
-  const next = value === 'KRW' ? 'FOREIGN' : value === 'FOREIGN' ? undefined : 'KRW';
+/** "1,234,500원" · "$12,345.60" · "12345" → 숫자 (비우면 undefined) */
+export function parseAmount(raw: string): number | undefined {
+  const clean = raw.replace(/[^\d.\-]/g, '');
+  if (!clean) return undefined;
+  const n = Number(clean);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export const fmtKRW = (n?: number) => (n === undefined ? '' : `₩${Math.round(n).toLocaleString('ko-KR')}`);
+export const fmtFX = (n?: number) =>
+  n === undefined ? '' : `$${n.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+
+/** 금액 칸: 평소엔 ₩1,234,500 / $12,345.6 으로 보이고, 누르면 숫자 입력 (붙여넣기 가능) */
+export function AmountCell({ value, kind, onSave }: { value?: number; kind: 'krw' | 'fx'; onSave: (v?: number) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+  const fmt = kind === 'krw' ? fmtKRW : fmtFX;
+  if (!editing) {
+    return (
+      <div
+        className="cell-view editable amt"
+        onClick={() => {
+          setText(value === undefined ? '' : String(value));
+          setEditing(true);
+        }}
+      >
+        {value !== undefined ? fmt(value) : <span className="cell-ph">{kind === 'krw' ? '₩' : '$'}</span>}
+      </div>
+    );
+  }
+  const commit = () => {
+    setEditing(false);
+    const v = parseAmount(text);
+    if (v !== value) onSave(v);
+  };
   return (
-    <button
-      type="button"
-      className={`currency ${value ? value.toLowerCase() : 'none'}`}
-      title="누르면 원화 → 외화 → 비움"
-      onClick={() => onChange(next)}
-    >
-      {value === 'KRW' ? '₩ 원화' : value === 'FOREIGN' ? '$ 외화' : '₩/$'}
-    </button>
+    <input
+      className="cell-input amt"
+      autoFocus
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        if (e.key === 'Escape') setEditing(false);
+      }}
+    />
   );
 }

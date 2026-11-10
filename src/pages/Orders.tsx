@@ -3,7 +3,7 @@ import { useLookups, useStore } from '../data/store';
 import { isOrderDone, ORDER_STEPS, type Order, type OrderBundle, type OrderStepKey } from '../types';
 import { uid } from '../lib/date';
 import { EditableText, MoreMenu } from '../components/SheetCells';
-import { AddOrderRow, CompanyCell, CurrencyToggle, DateCell } from '../components/OrderCells';
+import { AddOrderRow, AmountCell, CompanyCell, DateCell, fmtFX, fmtKRW } from '../components/OrderCells';
 
 type Tab = 'open' | 'done' | 'all';
 
@@ -11,11 +11,11 @@ type Tab = 'open' | 'done' | 'all';
 const MID_STEPS = ORDER_STEPS.filter((s) => s.key !== 'invoice');
 const BUNDLE_COLORS = ['#c0587a', '#4f7cae', '#d08a2e', '#5f8a4e', '#8e5a8a', '#3f8f8a', '#b5543c', '#7a6a4f'];
 
-/** 순서 기준값: 직접 옮긴 순서가 있으면 그것, 없으면 주문일자 (클수록 위) */
+/** 순서 기준값: 직접 옮긴 순서가 있으면 그것, 없으면 주문일자 (작을수록 위 → 새 주문은 맨 아래) */
 const keyOf = (o: Order) => o.sort ?? Date.parse(o.orderDate ?? o.createdAt) ?? 0;
 
 type Unit = { bundle?: OrderBundle; orders: Order[] };
-/** 묶음은 한 덩어리로: 묶음 안 가장 위 주문 기준으로 자리 잡고, 안에서는 순서대로 */
+/** 묶음은 한 덩어리로: 묶음 안 가장 위(가장 오래된) 주문 기준으로 자리 잡고, 안에서는 순서대로 */
 function toUnits(rows: Order[]): Unit[] {
   const units: Unit[] = [];
   const byBundle = new Map<string, Unit>();
@@ -30,9 +30,9 @@ function toUnits(rows: Order[]): Unit[] {
       u.orders.push(o);
     } else units.push({ orders: [o] });
   }
-  const top = (u: Unit) => Math.max(...u.orders.map(keyOf));
-  for (const u of units) u.orders.sort((a, b) => keyOf(b) - keyOf(a));
-  return units.sort((a, b) => top(b) - top(a));
+  const top = (u: Unit) => Math.min(...u.orders.map(keyOf));
+  for (const u of units) u.orders.sort((a, b) => keyOf(a) - keyOf(b));
+  return units.sort((a, b) => top(a) - top(b));
 }
 
 export default function Orders() {
@@ -137,13 +137,13 @@ export default function Orders() {
     const from = flat.find((o) => o.id === fromId);
     const target = flat.find((o) => o.id === targetId);
     if (!from || !target) return;
-    const keys = flat.map(keyOf).sort((a, b) => b - a); // 지금 보이는 줄들의 순서값을 그대로 다시 나눠 씀
+    const keys = flat.map(keyOf).sort((a, b) => a - b); // 지금 보이는 줄들의 순서값을 그대로 다시 나눠 씀
     const list = flat.filter((o) => o.id !== fromId);
     const at = list.findIndex((o) => o.id === targetId) + (after ? 1 : 0);
     const bundle = bundleOverride === undefined ? target.bundle : bundleOverride ?? undefined;
     list.splice(at, 0, { ...from, bundle });
     const changed = list
-      .map((o, i) => ({ ...o, sort: keys[i] - i * 0.001 }))
+      .map((o, i) => ({ ...o, sort: keys[i] + i * 0.001 }))
       .filter((o) => {
         const before = data.orders.find((x) => x.id === o.id);
         return before?.sort !== o.sort || before?.bundle?.id !== o.bundle?.id;
@@ -154,7 +154,9 @@ export default function Orders() {
   const toggle = (o: Order, key: OrderStepKey) => save('orders', { ...o, [key]: !o[key] });
 
   const sheet = companyById.get(companyFilter); // 지금 보고 있는 업체 시트 (없으면 전체)
-  const colSpan = sheet ? 13 : 14;
+  const colSpan = sheet ? 15 : 16;
+  const sum = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
+  const hasAmt = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.some((o) => o[k] !== undefined);
 
   return (
     <div className="page">
@@ -252,11 +254,23 @@ export default function Orders() {
               <th className="c-pack">패킹 완료일</th>
               <th className="c-from">출고 장소</th>
               <th className="c-step">인보이스</th>
+              <th className="c-amt">원화 금액</th>
+              <th className="c-amt">외화 금액</th>
               <th className="c-onote">비고</th>
-              <th className="c-more">원화/외화</th>
+              <th className="c-more" />
             </tr>
           </thead>
           <tbody>
+            {units.map((u) => (
+              <Fragment key={u.bundle?.id ?? u.orders[0].id}>{renderUnit(u)}</Fragment>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={colSpan} className="muted small pad">
+                  해당하는 주문이 없어요.
+                </td>
+              </tr>
+            )}
             {tab !== 'done' && !query && !sheet && (
               <tr className="add-row">
                 <td colSpan={colSpan}>
@@ -277,17 +291,17 @@ export default function Orders() {
                 onAdd={(o) => save('orders', { ...o, sort: Date.now() })}
               />
             )}
-            {units.map((u) => (
-              <Fragment key={u.bundle?.id ?? u.orders[0].id}>{renderUnit(u)}</Fragment>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={colSpan} className="muted small pad">
-                  해당하는 주문이 없어요.
-                </td>
-              </tr>
-            )}
           </tbody>
+          {rows.length > 0 && (hasAmt(rows, 'amountKRW') || hasAmt(rows, 'amountForeign')) && (
+            <tfoot>
+              <tr className="sum-row">
+                <td colSpan={colSpan - 4}>합계 · 지금 보이는 주문 {rows.length}건</td>
+                <td className="c-amt">{fmtKRW(sum(rows, 'amountKRW'))}</td>
+                <td className="c-amt">{fmtFX(sum(rows, 'amountForeign'))}</td>
+                <td colSpan={2} />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
@@ -330,6 +344,13 @@ export default function Orders() {
             <td colSpan={colSpan - 1}>
               <div className="bundle-title">
                 <span className="bundle-chip">🔗 같이 출고 {u.orders.length}건</span>
+                {(hasAmt(u.orders, 'amountKRW') || hasAmt(u.orders, 'amountForeign')) && (
+                  <span className="bundle-sum">
+                    합계 {hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}
+                    {hasAmt(u.orders, 'amountKRW') && hasAmt(u.orders, 'amountForeign') && ' · '}
+                    {hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}
+                  </span>
+                )}
                 <div className="bundle-name">
                   <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 (예: 4번째 컨테이너)" onSave={(v) => renameBundle(u.bundle!, v)} />
                 </div>
@@ -413,10 +434,15 @@ export default function Orders() {
         <td className="c-pack">{txt('packing', '패킹')}</td>
         <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
         {step('invoice', '인보이스')}
+        <td className="c-amt">
+          <AmountCell value={o.amountKRW} kind="krw" onSave={(v) => patch({ amountKRW: v })} />
+        </td>
+        <td className="c-amt">
+          <AmountCell value={o.amountForeign} kind="fx" onSave={(v) => patch({ amountForeign: v })} />
+        </td>
         <td className="c-onote">{txt('note', '비고')}</td>
         <td className="c-more">
           <div className="status-cell">
-            <CurrencyToggle value={o.currency} onChange={(v) => patch({ currency: v })} />
             {done && <span className="tag green">완료</span>}
             <MoreMenu
               title="완료 처리 · 삭제"
