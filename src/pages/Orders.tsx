@@ -385,20 +385,24 @@ export default function Orders() {
             </td>
             <td colSpan={colSpan - 1}>
               <div className="bundle-title">
-                <span className="bundle-chip">🔗 같이 출고 {u.orders.length}건</span>
-                <div className="bundle-name">
-                  <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 (예: 4번째 컨테이너)" onSave={(v) => renameBundle(u.bundle!, v)} />
+                <div className={`bundle-name-block ${u.bundle.name ? '' : 'unnamed'}`}>
+                  <button
+                    className="bundle-undo"
+                    title="묶음 풀기 (주문은 그대로 남아요)"
+                    onClick={() => confirm('이 묶음을 풀까요? (주문은 그대로 남아요)') && dissolve(u.bundle!)}
+                  >
+                    풀기
+                  </button>
+                  <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 쓰기 ✎" onSave={(v) => renameBundle(u.bundle!, v)} />
                 </div>
                 {(hasAmt(u.orders, 'amountKRW') || hasAmt(u.orders, 'amountForeign')) && (
                   <span className="bundle-sum">
-                    합계 {hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}
+                    {hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}
                     {hasAmt(u.orders, 'amountKRW') && hasAmt(u.orders, 'amountForeign') && ' · '}
                     {hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}
                   </span>
                 )}
-                <button className="link small" onClick={() => confirm('이 묶음을 풀까요? (주문은 그대로 남아요)') && dissolve(u.bundle!)}>
-                  묶음 풀기
-                </button>
+                <span className="bundle-count">🔗 {u.orders.length}건 묶음</span>
               </div>
             </td>
           </tr>

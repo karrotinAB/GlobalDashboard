@@ -2725,3 +2725,93 @@ td.c-note {
 .select-bar .link {
   padding: 4px 6px;
 }
+
+/* 묶음 이름: 세로줄에서 이어지는 색 블록 */
+tr.bundle-head td {
+  padding-top: 8px;
+  padding-bottom: 4px;
+}
+tr.bundle-head .bundle-bar.top {
+  top: 8px;
+  bottom: 0;
+  border-radius: 0;
+}
+.bundle-name-block {
+  position: relative;
+  z-index: 2;
+  margin-left: -43px; /* 세로줄 위치까지 끌어와서 이어 보이게 */
+  padding-left: 40px;
+  min-width: 220px;
+  max-width: 420px;
+  background: var(--bc);
+  border-radius: 0 999px 999px 0;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+.bundle-name-block .cell-view {
+  color: #fff;
+  min-height: 24px;
+  line-height: 18px;
+  padding: 3px 14px 3px 2px;
+}
+.bundle-name-block .cell-view.editable:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
+.bundle-name-block .cell-ph {
+  color: rgba(255, 255, 255, 0.85);
+  opacity: 1;
+  font-weight: 500;
+}
+.bundle-name-block .cell-input {
+  color: var(--ink);
+  margin: 2px 8px 2px 0;
+  width: calc(100% - 8px);
+}
+.bundle-sum {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.bundle-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bc);
+  background: color-mix(in srgb, var(--bc) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--bc) 35%, #fff);
+  padding: 1px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.bundle-name-block {
+  margin-left: -49px; /* 세로줄 시작점(3px)에 딱 붙게 */
+  padding-left: 46px;
+}
+/* 묶음 풀기: 색 블록 맨 앞 (묶음마다 같은 자리) */
+.bundle-name-block {
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+}
+.bundle-name-block > .cell-view,
+.bundle-name-block > .cell-input {
+  flex: 1;
+}
+.bundle-undo {
+  flex: none;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.bundle-undo:hover {
+  background: #fff;
+  color: var(--bc);
+  border-color: #fff;
+}
