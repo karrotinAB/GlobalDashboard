@@ -25,7 +25,7 @@ async function apiKey() {
   return String(key).trim();
 }
 
-async function runSync({ companyId, force = false } = {}) {
+async function runSync({ companyId } = {}) {
   const key = await apiKey();
   const snap = companyId ? await db.collection('orders').where('companyId', '==', companyId).get() : await db.collection('orders').get();
   const now = Date.now();
@@ -34,7 +34,7 @@ async function runSync({ companyId, force = false } = {}) {
   const errors = [];
   for (const d of snap.docs) {
     const o = { ...d.data(), id: d.id };
-    if (!needsSync(o, now, { force })) continue;
+    if (!needsSync(o, now)) continue;
     checked++;
     try {
       const next = await syncOne(o, key);
@@ -67,7 +67,7 @@ export const syncOrderAmountsNow = onCall({ region: REGION }, async (req) => {
   const role = (await db.doc(`roles/${email}`).get()).get('level');
   if (role !== 'admin' && role !== 'member') throw new HttpsError('permission-denied', '대시보드 사용자만 쓸 수 있어요');
   try {
-    return await runSync({ companyId: typeof req.data?.companyId === 'string' ? req.data.companyId : undefined, force: true });
+    return await runSync({ companyId: typeof req.data?.companyId === 'string' ? req.data.companyId : undefined });
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
