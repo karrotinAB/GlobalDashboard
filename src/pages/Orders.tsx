@@ -603,14 +603,15 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
 function ApiTag({ o, onInspect }: { o: Order; onInspect?: () => void }) {
   const [open, setOpen] = useState(false);
   const approved = !!o.outStatus && o.outStatus !== 'pending';
+  const label = o.outStatus === 'partial' ? '일부' : approved ? '승인' : '예정';
   const rows = o.outRows ?? [];
   const okRows = rows.filter((r) => r.status === '출고승인');
   const sumK = okRows.reduce((a, r) => a + (r.k ?? 0), 0);
   const sumF = okRows.reduce((a, r) => a + (r.f ?? 0), 0);
   return (
     <span className="api-tag-box" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setOpen(false)}>
-      <button className={`api-tag ${approved ? 'approved' : 'pending'}`} onClick={() => setOpen((v) => !v)} title="눌러서 ERP 내역 보기">
-        {approved ? '승인' : '예정'}
+      <button className={`api-tag ${o.outStatus === 'partial' ? 'partial' : approved ? 'approved' : 'pending'}`} onClick={() => setOpen((v) => !v)} title="눌러서 ERP 내역 보기">
+        {label}
       </button>
       {open && (
         <div className="api-pop" tabIndex={-1}>

@@ -65,11 +65,12 @@ export async function syncOne(o, apiKey, fetchImpl = fetch) {
   next.planKRW = next.amountKRW; // API 1 예정 금액 (비교용)
   next.planForeign = next.amountForeign;
   if (approved.length) {
-    // 출고승인이 하나라도 있으면 '승인', 금액 = 승인 난 줄의 출고 금액 합계
+    // 출고승인이 하나라도 있으면 금액 = 승인 난 줄의 출고 금액 합계
     next.amountKRW = r0(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0));
     next.amountForeign = r2(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0));
     next.amountSource = 'api-outbound';
-    next.outStatus = 'approved';
+    // 승인 안 난 줄이 남아 있으면 '일부', 전부 승인이면 '승인' (금액은 둘 다 승인 난 줄의 합계)
+    next.outStatus = approved.length < out.length ? 'partial' : 'approved';
     next.outDate = approved.map((r) => r.OUT_DATE).filter(Boolean).sort().pop()?.replace(/\./g, '-');
   }
   return next;
