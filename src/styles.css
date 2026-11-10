@@ -3057,3 +3057,28 @@ tr.bundle-head .bundle-bar.top {
 tr.bundle-head .bundle-undo {
   z-index: 1;
 }
+
+/* 주문 표 칸 너비 정리: 업체 칸이 있어도(전체 보기) 카드 안에 들어가게.
+   비고는 남는 자리를 다 씀 */
+.order-table {
+  min-width: 1150px;
+}
+.order-table .c-gutter {
+  width: 76px;
+}
+.order-table .c-name {
+  width: 150px;
+}
+.order-table .c-co {
+  width: 88px;
+}
+.order-table .c-amt {
+  width: 100px;
+}
+.order-table .c-more {
+  width: 48px;
+}
+.order-table .c-onote {
+  width: auto !important;
+  min-width: 0 !important;
+}
