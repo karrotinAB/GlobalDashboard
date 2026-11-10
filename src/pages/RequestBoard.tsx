@@ -81,11 +81,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
             ? '무역사무에 업무를 요청하고, 진행 상황을 확인해요. 무역사무 담당자를 누르면 그 사람이 가진 업무가 보여요.'
             : '2조에서 들어온 요청이에요. 상태·작업유형·요청자·처리 예상일·처리자를 바로 바꿀 수 있어요.'}
         </p>
-        {isTeamSide && (
-          <button className="primary rq-new" onClick={() => setCreating(true)}>
-            ＋ 새 요청
-          </button>
-        )}
+        <button className="primary rq-new" onClick={() => setCreating(true)}>
+          {isTeamSide ? '＋ 새 요청' : '＋ 업무 추가'}
+        </button>
       </div>
 
       {/* 무역사무 담당자별 남은 업무 */}
@@ -267,7 +265,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         </table>
       </div>
 
-      {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
+      {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} side={side} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
       {detail && (
         <RequestDetail
           key={detail.id + (detail.log?.length ?? 0)}
@@ -342,7 +340,7 @@ function Row({
       <td className="c-who">
         {edit ? (
           <select className="cell-select" value={r.requesterId ?? ''} onChange={(e) => onPatch({ requesterId: e.target.value || undefined })}>
-            <option value="">-</option>
+            <option value="">무역사무</option>
             {team.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
@@ -351,7 +349,7 @@ function Row({
           </select>
         ) : (
           <span className="rq-person" style={{ '--c': requester?.color } as CSSProperties}>
-            {requester?.name ?? r.requesterEmail?.split('@')[0] ?? '-'}
+            {requester?.name ?? r.requesterEmail?.split('@')[0] ?? '무역사무'}
           </span>
         )}
       </td>

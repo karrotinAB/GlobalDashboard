@@ -108,11 +108,11 @@ function Fields({
       </label>
       <div className="rq-f">
         <span>주문일자</span>
-        <DateInput value={d.orderDate} onChange={(v) => set({ orderDate: v })} />
+        <DateInput value={d.orderDate} placeholder="예: 20261110" onChange={(v) => set({ orderDate: v })} />
       </div>
       <div className="rq-f">
         <span>마감일</span>
-        <DateInput value={d.dueDate} onChange={(v) => set({ dueDate: v })} />
+        <DateInput value={d.dueDate} placeholder="예: 20261110" onChange={(v) => set({ dueDate: v })} />
       </div>
       <label className="rq-f">
         <span>우선순위</span>
@@ -129,7 +129,7 @@ function Fields({
       <label className="rq-f">
         <span>요청자</span>
         <select value={d.requesterId ?? ''} disabled={lockRequester} onChange={(e) => set({ requesterId: e.target.value || undefined })}>
-          <option value="">(고르기)</option>
+          <option value="">(없음 · 무역사무 자체 업무)</option>
           {team.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
@@ -158,6 +158,7 @@ export function NewRequest({
   trade,
   me,
   myEmail,
+  side = 'team',
   onCreate,
   onClose,
 }: {
@@ -165,11 +166,19 @@ export function NewRequest({
   trade: Member[];
   me?: Member;
   myEmail: string;
+  side?: 'team' | 'trade'; // trade = 무역사무가 직접 넣는 업무 (처리자 기본 = 나, 요청자는 비워도 됨)
   onCreate: (r: TradeRequest) => void;
   onClose: () => void;
 }) {
   const [id] = useState(uid);
-  const [d, setD] = useState<Draft>({ title: '', priority: '이번주', requesterId: me?.id, files: [] });
+  const isTrade = side === 'trade';
+  const [d, setD] = useState<Draft>({
+    title: '',
+    priority: '이번주',
+    requesterId: !isTrade && me && team.some((m) => m.id === me.id) ? me.id : undefined,
+    assigneeId: isTrade && me && trade.some((m) => m.id === me.id) ? me.id : undefined,
+    files: [],
+  });
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const submit = () => {
     if (!d.title.trim()) return;
@@ -182,20 +191,20 @@ export function NewRequest({
       body: d.body?.trim() || undefined,
       storeCode: d.storeCode?.trim() || undefined,
       requestedAt: today(),
-      requesterEmail: team.find((m) => m.id === d.requesterId)?.email ?? (myEmail || undefined),
+      requesterEmail: team.find((m) => m.id === d.requesterId)?.email ?? (isTrade ? undefined : myEmail || undefined),
       status: 'requested',
       createdAt: now,
-      log: [{ at: now, by, text: '요청함' }],
+      log: [{ at: now, by, text: isTrade ? '무역사무에서 업무 추가' : '요청함' }],
     });
     onClose();
   };
   return (
-    <Modal title="무역사무 요청하기" onClose={onClose} wide>
+    <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide>
       <Fields d={d} set={set} reqId={id} team={team} trade={trade} />
       <div className="rq-actions">
         <button onClick={onClose}>닫기</button>
         <button className="primary" disabled={!d.title.trim()} onClick={submit}>
-          요청 보내기
+          {isTrade ? '추가' : '요청 보내기'}
         </button>
       </div>
     </Modal>
@@ -242,7 +251,7 @@ export function RequestDetail({
         <PriorityTag p={r.priority} />
         {r.workType && <span className="tag gray">{r.workType}</span>}
         <span className="muted small">
-          {requester?.name ?? r.requesterEmail ?? '요청자 미정'} · {dot(r.requestedAt)} 의뢰
+          {requester?.name ?? r.requesterEmail ?? '무역사무 자체 업무'} · {dot(r.requestedAt)} {r.requesterId || r.requesterEmail ? '의뢰' : '등록'}
         </span>
       </div>
 
