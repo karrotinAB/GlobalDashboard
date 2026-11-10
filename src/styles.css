@@ -3411,3 +3411,12 @@ tr.bundle-head .bundle-undo {
   background: var(--red);
   color: #fff;
 }
+/* 주간 할일 업체 줄 오른쪽 끝 [클레임] */
+.group-head .claim-link {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 11px;
+}
+.group-head .claim-link + .move-btns {
+  margin-left: 6px;
+}

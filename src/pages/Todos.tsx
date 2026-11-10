@@ -377,6 +377,22 @@ export default function Todos() {
                     }
                   />
                 )}
+                {g.company &&
+                  (() => {
+                    // 이 업체 클레임: 환급 안 된 게 있으면 빨간 버튼
+                    const open = data.claims.filter((c) => c.companyId === g.company!.id && !c.refunded).length;
+                    return (
+                      <a
+                        className={`claim-link small-link ${open ? 'open' : ''}`}
+                        href={`#/claims?c=${g.company!.id}`}
+                        title={open ? `환급 안 된 클레임 ${open}건` : '클레임 보기'}
+                        draggable={false}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        클레임{open ? ` ${open}` : ''}
+                      </a>
+                    );
+                  })()}
                 {movable && (
                   <span className="move-btns">
                     <button className="icon-btn" title="위로" onClick={() => nudge(cid, -1)}>
