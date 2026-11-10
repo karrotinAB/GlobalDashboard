@@ -2815,3 +2815,37 @@ tr.bundle-head .bundle-bar.top {
   color: var(--bc);
   border-color: #fff;
 }
+
+/* 묶음 헤더: 줄 전체를 묶음 색으로 */
+tr.bundle-head td {
+  background: var(--bc) !important;
+  color: #fff;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+tr.bundle-head td.c-gutter {
+  border-radius: 10px 0 0 0;
+}
+tr.bundle-head td:last-child {
+  border-radius: 0 10px 0 0;
+}
+tr.bundle-head .bundle-bar.top {
+  display: none;
+}
+tr.bundle-head .bundle-name-block {
+  background: transparent;
+  border-radius: 0;
+  margin-left: -40px;
+  padding-left: 0;
+}
+tr.bundle-head .bundle-sum {
+  color: #fff;
+}
+tr.bundle-head .bundle-count {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+tr.bundle-head.drop-target td {
+  filter: brightness(1.1);
+}
