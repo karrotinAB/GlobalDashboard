@@ -181,6 +181,8 @@ export default function Orders() {
 
   const sheet = companyById.get(companyFilter); // 지금 보고 있는 업체 시트 (없으면 전체)
   const colSpan = sheet ? 15 : 16;
+  // 첫 화면: 업체를 고르기 전에는 '업체를 골라주세요'만
+  const landing = !sheet && !query && !missingStep;
   const sum = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
   const hasAmt = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.some((o) => o[k] !== undefined);
 
@@ -193,6 +195,8 @@ export default function Orders() {
         </div>
       </div>
 
+      {!landing && (
+      <>
       <p className="stat-scope muted small">
         {sheet ? `${sheet.name} 기준` : '전체 업체 기준'}
         {period ? ` · ${year}년${month ? ` ${Number(month)}월` : ''}` : ''} · 숫자를 누르면 그 단계가 안 된 주문만 보여요
@@ -292,12 +296,14 @@ export default function Orders() {
         )}
       </div>
 
+      </>
+      )}
       {query && <div className="banner">검색 중에는 진행중/완료 구분 없이 전체에서 찾아요. ({rows.length}건)</div>}
 
-      {!sheet && !query && !missingStep ? (
+      {landing ? (
         <div className="pick-company">
           <p>
-            <b>업체를 골라주세요</b> · 고른 업체의 주문만 보여요 (검색은 업체를 안 골라도 전체에서 찾아요)
+            <b>업체를 골라주세요</b> · 고른 업체의 주문을 볼 수 있어요
           </p>
           <div className="company-chips">
             {companies.map((c) => (
