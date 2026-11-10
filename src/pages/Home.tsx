@@ -3,6 +3,7 @@ import { useLookups, useStore } from '../data/store';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import { holidayName } from '../lib/holidays';
+import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
 import { isOrderDone, ORDER_STEPS, type Attendance, type Member } from '../types';
 import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
@@ -42,6 +43,7 @@ function tzParts(date: Date, tz: string) {
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
   const n = (t: string) => Number(get(t));
   return {
+    y: n('year'),
     mo: n('month'),
     d: n('day'),
     h: n('hour'),
@@ -65,19 +67,28 @@ const ampm = (hhmm: string) => {
   return { t: `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')}`, p: h < 12 ? 'AM' : 'PM' };
 };
 
-function DigitalClock({ label, tz, now, home }: { label: string; tz: string; now: Date; home?: boolean }) {
+/** 그 나라 날짜 'YYYY-MM-DD' */
+const isoOf = (p: { y: number; mo: number; d: number }) => `${p.y}-${String(p.mo).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+
+function DigitalClock({ label, tz, now, home, holidayOf }: { label: string; tz: string; now: Date; home?: boolean; holidayOf?: (iso: string) => string | undefined }) {
   const p = tzParts(now, tz);
+  const holiday = holidayOf?.(isoOf(p));
   const seoul = tzParts(now, HOME_TZ);
   const diffH = (p.wall - seoul.wall) / 60;
   const night = p.h < 7 || p.h >= 19;
   const weekend = p.weekday === 'Sat' || p.weekday === 'Sun';
-  const working = !weekend && p.h >= 9 && p.h < 18;
+  const working = !weekend && !holiday && p.h >= 9 && p.h < 18;
   const { t, p: ap } = ampm(`${p.h}:${p.mi}`);
   const diffLabel = home ? '우리 시간' : diffH === 0 ? '서울과 같음' : `서울 ${diffH > 0 ? '+' : ''}${Number.isInteger(diffH) ? diffH : diffH.toFixed(1)}h`;
   return (
-    <div className={`dclock ${night ? 'night' : 'day'}`}>
+    <div className={`dclock ${night ? 'night' : 'day'} ${holiday ? 'holiday' : ''}`}>
       <div className="dc-label">
         {label}
+        {holiday && (
+          <span className="dc-holiday" title={holiday}>
+            {holiday}
+          </span>
+        )}
       </div>
       <div className="dc-time">
         {t}
@@ -87,7 +98,9 @@ function DigitalClock({ label, tz, now, home }: { label: string; tz: string; now
         <span>
           {p.mo}/{p.d} · {diffLabel}
         </span>
-        <span className={`dc-status ${working ? 'on' : ''}`}>{working ? '업무중' : weekend ? '주말' : night ? '밤' : '업무 외'}</span>
+        <span className={`dc-status ${working ? 'on' : ''} ${holiday ? 'hol' : ''}`} title={holiday}>
+          {holiday ? '공휴일' : working ? '업무중' : weekend ? '주말' : night ? '밤' : '업무 외'}
+        </span>
       </div>
     </div>
   );
@@ -122,15 +135,19 @@ export default function Home({ go }: { go: (page: string) => void }) {
   const [editing, setEditing] = useState<Member | null>(null);
 
   const clocks = useMemo(() => {
-    const map = new Map<string, { names: string[]; color?: string }>();
+    const map = new Map<string, { names: string[]; codes: string[]; color?: string }>();
     for (const c of companies) {
       if (!c.timezone || !isValidTz(c.timezone) || c.timezone === HOME_TZ) continue;
-      const e = map.get(c.timezone) ?? { names: [], color: c.color };
+      const e = map.get(c.timezone) ?? { names: [], codes: [], color: c.color };
       e.names.push(c.country || c.name);
+      const code = countryCode(c.country || c.name, c.timezone);
+      if (code) e.codes.push(code);
       map.set(c.timezone, e);
     }
-    return [...map.entries()].map(([tz, v]) => ({ tz, label: [...new Set(v.names)].join(' · '), color: v.color }));
+    return [...map.entries()].map(([tz, v]) => ({ tz, label: [...new Set(v.names)].join(' · '), codes: [...new Set(v.codes)], color: v.color }));
   }, [companies]);
+
+  const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y);
 
   const weekRows = useMemo(() => tasksForWeek(data.tasks, monday), [data.tasks, monday]);
   const summary = useMemo(() => summarize(weekRows, members, todayIso), [weekRows, members, todayIso]);
@@ -237,9 +254,20 @@ export default function Home({ go }: { go: (page: string) => void }) {
           <span className="muted small">흰색 = 낮 · 검정 = 밤 (7PM–7AM)</span>
         </div>
         <div className="dclocks">
-          <DigitalClock label="서울" tz={HOME_TZ} now={now} home />
+          <DigitalClock label="서울" tz={HOME_TZ} now={now} home holidayOf={holidayName} />
           {clocks.map((c) => (
-            <DigitalClock key={c.tz} label={c.label} tz={c.tz} now={now} />
+            <DigitalClock
+              key={c.tz}
+              label={c.label}
+              tz={c.tz}
+              now={now}
+              holidayOf={(iso) => {
+                // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
+                const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);
+                if (!hits.length) return undefined;
+                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
+              }}
+            />
           ))}
         </div>
       </section>

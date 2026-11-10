@@ -3708,3 +3708,26 @@ button.api-tag {
   padding: 10px;
   font-size: 11px;
 }
+
+/* 세계 시계: 그 나라 공휴일 */
+.dc-holiday {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #c0392b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dclock.night .dc-holiday {
+  color: #ff9a8a;
+}
+.dc-status.hol {
+  background: #fde3df;
+  color: #b0322a;
+}
+.dclock.night .dc-status.hol {
+  background: rgba(255, 120, 100, 0.22);
+  color: #ffb4a8;
+}
