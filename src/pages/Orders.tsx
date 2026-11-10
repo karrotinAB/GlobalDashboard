@@ -355,7 +355,7 @@ export default function Orders() {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={colSpan} className="muted small pad">
+                <td colSpan={colSpan} className="muted small pad empty-cell">
                   해당하는 주문이 없어요.
                 </td>
               </tr>

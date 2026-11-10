@@ -3082,3 +3082,14 @@ tr.bundle-head .bundle-undo {
   width: auto !important;
   min-width: 0 !important;
 }
+
+/* 빈 표 안내 · '+ 주문 추가' 줄: 주문명 칸과 같은 줄에서 시작 (왼쪽 여백 맞춤) */
+.order-table td.empty-cell,
+.order-table tr.add-row:not(.editing) td {
+  padding-left: 82px !important;
+  border-bottom: 0;
+}
+.order-table td.empty-cell {
+  padding-top: 14px !important;
+  padding-bottom: 6px !important;
+}
