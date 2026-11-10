@@ -50,6 +50,14 @@ export default function Claims() {
   const [showCompanies, setShowCompanies] = useState(false);
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState('');
+  const [detail, setDetail] = useState<Claim | null>(null);
+  /** 묶음 이름을 나중에 바꿔도 따라가게: 지금 묶음/주문 이름, 없으면 저장된 이름 */
+  const liveTitle = (c: Claim) =>
+    (c.source === 'bundle'
+      ? data.orders.find((o) => o.bundle?.id === c.sourceId)?.bundle?.name
+      : c.source === 'order'
+        ? data.orders.find((o) => o.id === c.sourceId)?.name
+        : undefined) || c.title;
   const sheet = companyById.get(companyFilter);
 
   /** 클레임을 걸 수 있는 대상: 묶음(이름으로) + 개별 주문 */
@@ -246,7 +254,9 @@ export default function Claims() {
                       <span className="k-icon" title={c.source === 'bundle' ? '묶음' : c.source === 'order' ? '주문' : '직접 입력'}>
                         {c.source === 'bundle' ? '🔗' : '💼'}
                       </span>
-                      <EditableText value={c.title} oneLine onSave={(v) => v && patch(c, { title: v })} />
+                      <button className="k-title-btn" onClick={() => setDetail(c)} title="눌러서 포함된 주문 보기">
+                        {liveTitle(c)}
+                      </button>
                       {!sheet && company && <span className="k-co">{company.country || company.name}</span>}
                     </div>
                   </td>
@@ -335,6 +345,14 @@ export default function Claims() {
       </div>
       </>
       )}
+      {detail && (
+        <ClaimDetail
+          title={liveTitle(detail)}
+          orders={detail.source === 'bundle' ? data.orders.filter((o) => o.bundle?.id === detail.sourceId) : data.orders.filter((o) => o.id === detail.sourceId)}
+          companyName={companyById.get(detail.companyId ?? '')?.name}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   );
 }
@@ -354,7 +372,6 @@ function ClaimDate({ value, onSave }: { value?: string; onSave: (v?: string) => 
 function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) => void }) {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState('');
-  const [title, setTitle] = useState('');
   const [currency, setCurrency] = useState<Claim['currency']>('FOREIGN');
   const [shipDate, setShipDate] = useState<string | undefined>();
   const [claim, setClaim] = useState('');
@@ -377,13 +394,12 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
     setKey(k);
     const s = sources.find((x) => x.key === k);
     if (s) {
-      setTitle(s.label);
       setCurrency(s.fx > 0 || s.krw === 0 ? 'FOREIGN' : 'KRW');
     }
   };
   const submit = () => {
-    const t = (title || src?.label || '').trim();
-    if (!t) return;
+    if (!src) return; // 묶음이나 주문을 골라야 추가됨
+    const t = src.label;
     onAdd({
       id: uid(),
       companyId: src?.companyId ?? null,
@@ -398,7 +414,6 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
       createdAt: today(),
     });
     setKey('');
-    setTitle('');
     setClaim('');
     setShipDate(undefined);
   };
@@ -428,13 +443,6 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
             }}
           />
         )}
-        <input
-          className="cell-input k-title-input"
-          placeholder="이름 (고르면 자동으로 채워져요)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
-        />
       </td>
       <td className="k-cur">
         <select className="cell-input" value={currency} onChange={(e) => setCurrency(e.target.value as Claim['currency'])}>
@@ -494,6 +502,70 @@ function SourcePicker({ sources, onClose, onPick }: { sources: Source[]; onClose
         {orders.map(row)}
         {!list.length && <p className="muted small">맞는 묶음·주문이 없어요.</p>}
       </div>
+    </Modal>
+  );
+}
+
+/** 클레임 이름을 누르면: 그 묶음/주문에 들어 있는 주문들 (금액 · 주문일자 · 매장코드 · 출고 장소 등) */
+function ClaimDetail({ title, orders, companyName, onClose }: { title: string; orders: Order[]; companyName?: string; onClose: () => void }) {
+  const list = [...orders].sort((a, b) => (a.orderDate ?? '').localeCompare(b.orderDate ?? ''));
+  const krw = sum(list, 'amountKRW');
+  const fx = sum(list, 'amountForeign');
+  return (
+    <Modal title={title} onClose={onClose} wide>
+      <p className="muted small detail-sub">
+        {companyName} · 주문 {list.length}건{krw ? ` · ${fmtKRW(krw)}` : ''}
+        {fx ? ` · ${fmtFX(fx)}` : ''}
+      </p>
+      {list.length === 0 ? (
+        <p className="muted small">연결된 주문을 찾을 수 없어요 (묶음이 풀렸거나 주문이 지워졌을 수 있어요).</p>
+      ) : (
+        <div className="detail-table-wrap">
+          <table className="detail-table">
+            <thead>
+              <tr>
+                <th>주문</th>
+                <th>주문일자</th>
+                <th>매장코드</th>
+                <th>출고 장소</th>
+                <th>패킹 완료일</th>
+                <th className="r">원화 금액</th>
+                <th className="r">외화 금액</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((o) => (
+                <tr key={o.id}>
+                  <td>
+                    <b>{o.name}</b>
+                    {o.note && <div className="detail-note">{o.note}</div>}
+                  </td>
+                  <td className="nowrap">{o.orderDate?.replace(/-/g, '.') ?? ''}</td>
+                  <td>{o.storeCode ?? ''}</td>
+                  <td>{o.shipFrom ?? ''}</td>
+                  <td>{o.packing ?? ''}</td>
+                  <td className="r">{fmtKRW(o.amountKRW)}</td>
+                  <td className="r">{fmtFX(o.amountForeign)}</td>
+                  <td>
+                    <span className={`tag ${isOrderDone(o) ? 'green' : 'gray'}`}>{isOrderDone(o) ? '완료' : '진행중'}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {list.length > 1 && (
+              <tfoot>
+                <tr>
+                  <td colSpan={5}>합계</td>
+                  <td className="r">{krw ? fmtKRW(krw) : ''}</td>
+                  <td className="r">{fx ? fmtFX(fx) : ''}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
     </Modal>
   );
 }

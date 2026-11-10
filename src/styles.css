@@ -3420,3 +3420,72 @@ tr.bundle-head .bundle-undo {
 .group-head .claim-link + .move-btns {
   margin-left: 6px;
 }
+
+/* 클레임 이름 → 포함된 주문 팝업 */
+.k-title-btn {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 3px 4px;
+  text-align: left;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: underline dotted transparent;
+}
+.k-title-btn:hover {
+  background: none;
+  color: var(--primary);
+  text-decoration-color: currentColor;
+}
+.modal.wide:has(.detail-table) {
+  width: 1000px;
+}
+.detail-sub {
+  margin: -8px 0 12px;
+}
+.detail-table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.detail-table th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mut);
+  background: var(--surface-2);
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.detail-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-2);
+  vertical-align: top;
+}
+.detail-table .r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.detail-table tfoot td {
+  font-weight: 700;
+  background: var(--surface-2);
+  border-bottom: 0;
+}
+.detail-note {
+  font-size: 11px;
+  color: var(--red);
+  margin-top: 2px;
+}
