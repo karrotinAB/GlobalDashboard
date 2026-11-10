@@ -303,8 +303,16 @@ export default function Orders() {
             </tr>
           </thead>
           <tbody>
-            {units.map((u) => (
-              <Fragment key={u.bundle?.id ?? u.orders[0].id}>{renderUnit(u)}</Fragment>
+            {units.map((u, i) => (
+              <Fragment key={u.bundle?.id ?? u.orders[0].id}>
+                {/* 묶음 앞뒤로 살짝 띄우기 */}
+                {i > 0 && (u.bundle || units[i - 1].bundle) && (
+                  <tr className="bundle-gap" aria-hidden="true">
+                    <td colSpan={colSpan} />
+                  </tr>
+                )}
+                {renderUnit(u)}
+              </Fragment>
             ))}
             {rows.length === 0 && (
               <tr>

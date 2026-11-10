@@ -2856,3 +2856,17 @@ tr.bundle-head.drop-target td {
   top: var(--tabs-h, 56px);
   z-index: 30;
 }
+
+/* 묶음 사이 여백 */
+tr.bundle-gap td {
+  height: 10px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+tr.bundle-gap:hover td {
+  background: transparent !important;
+}
+tr.bundle-gap:first-child {
+  display: none;
+}
