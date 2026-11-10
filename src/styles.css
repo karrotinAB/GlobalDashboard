@@ -3009,3 +3009,18 @@ tr.bundle-head td.bundle-amt {
   color: #fff;
   border-style: solid;
 }
+
+/* 왼쪽 바깥 여백(풀기 자리) 정리
+   1) 제목 줄 왼쪽 칸도 같이 고정 (position: relative 가 sticky 를 덮어쓰고 있었음)
+   2) 바깥 여백 36px 은 어떤 줄이든(마우스 올림·선택·완료·묶음) 카드 배경색으로 → 표 밖처럼 보임 */
+.order-table thead th.c-gutter {
+  position: sticky;
+}
+.order-table th.c-gutter,
+.order-table td.c-gutter {
+  box-shadow: inset 36px 0 0 var(--surface) !important;
+  border-bottom-color: transparent !important;
+}
+.order-table tr.bundle-gap td {
+  background: var(--surface) !important;
+}
