@@ -28,11 +28,15 @@ async function call(path, params, apiKey, fetchImpl) {
 }
 
 /** 이 주문을 API 로 갱신할 대상인지 */
-export function needsSync(o, now = Date.now()) {
+export function needsSync(o, now = Date.now(), { force = false } = {}) {
   if (o.amountSource === 'manual') return false;
   if (!o.storeCode || !/^\d+$/.test(String(o.storeCode).trim())) return false; // 826702~4 같은 건 건너뜀
   if (!o.orderDate || o.orderDate < '2025-01-01') return false; // API 조회 하한
-  if (o.outStatus === 'approved' && o.apiSyncedAt && now - Date.parse(o.apiSyncedAt) < RECHECK_APPROVED_MS) return false;
+  if (force) return true; // '금액 새로고침' 버튼: 하루 한 번 규칙 없이 다시 확인
+  // 하루 한 번만 다시 확인하는 건 '줄별 내역이 있고 전부 출고승인'인 주문만
+  // (예전 버전이 일부 승인도 'approved' 로 저장했던 주문은 바로 다시 확인돼서 '일부'로 고쳐짐)
+  const fullyApproved = o.outStatus === 'approved' && Array.isArray(o.outRows) && o.outRows.length > 0 && o.outRows.every((r) => r.status === '출고승인');
+  if (fullyApproved && o.apiSyncedAt && now - Date.parse(o.apiSyncedAt) < RECHECK_APPROVED_MS) return false;
   return true;
 }
 
