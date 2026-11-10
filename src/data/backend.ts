@@ -1,12 +1,14 @@
 import { collection, deleteDoc, doc, onSnapshot, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import type { CollectionName, Collections } from '../types';
 
-export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims'];
+export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims', 'requests', 'tradeMembers'];
 // 보안 규칙이 아직 안 바뀌어도 대시보드는 열리게: 이 컬렉션들은 못 읽으면 빈 채로 계속
-const OPTIONAL: CollectionName[] = ['config', 'claims'];
+const OPTIONAL: CollectionName[] = ['config', 'claims', 'requests', 'tradeMembers'];
+/** 무역사무 계정이 읽는 컬렉션 (나머지는 보안 규칙상 못 읽음) */
+export const TRADE_COLLECTIONS: CollectionName[] = ['members', 'requests', 'tradeMembers'];
 
 export function emptyCollections(): Collections {
-  return { members: [], companies: [], tasks: [], orders: [], attendance: [], config: [], claims: [] };
+  return { members: [], companies: [], tasks: [], orders: [], attendance: [], config: [], claims: [], requests: [], tradeMembers: [] };
 }
 
 export interface Backend {
@@ -17,6 +19,8 @@ export interface Backend {
   remove(col: CollectionName, id: string): Promise<void>;
   /** 다른 사람/탭에서 데이터가 바뀌면 콜백 호출 (patch 가 있으면 그 컬렉션만 교체, 없으면 전체 다시 읽기). 해제 함수 반환 */
   subscribe(onChange: (patch?: Partial<Collections>) => void): () => void;
+  /** 이 계정이 읽을 컬렉션만 구독 (무역사무 계정). load() 전에 부름 */
+  scope(cols: CollectionName[]): void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -82,6 +86,7 @@ export function createLocalBackend(seed: () => Collections): Backend {
       window.addEventListener('storage', handler);
       return () => window.removeEventListener('storage', handler);
     },
+    scope() {},
   };
 }
 
@@ -95,24 +100,25 @@ export function createFirestoreBackend(db: Firestore): Backend {
   const listeners = new Set<(patch?: Partial<Collections>) => void>();
   let unsubs: (() => void)[] = [];
   let ready: Promise<Collections> | null = null;
+  let active: CollectionName[] = COLLECTIONS;
 
   // 컬렉션마다 실시간 구독 1개. 처음 받은 결과로 load() 를 끝내고, 이후 변경은 patch 로 전달
   const start = () =>
     new Promise<Collections>((resolve, reject) => {
-      unsubs = COLLECTIONS.map((col) =>
+      unsubs = active.map((col) =>
         onSnapshot(
           collection(db, col),
           (snap) => {
             (latest[col] as unknown[]) = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
             seen.add(col);
-            if (seen.size === COLLECTIONS.length) resolve(latest);
+            if (seen.size === active.length) resolve(latest);
             listeners.forEach((fn) => fn({ [col]: latest[col] }));
           },
           (err) => {
             // 공용 설정(config)은 보안 규칙이 아직 안 바뀌었어도 대시보드는 열리게: 빈 설정으로 계속
             if (OPTIONAL.includes(col)) {
               seen.add(col);
-              if (seen.size === COLLECTIONS.length) resolve(latest);
+              if (seen.size === active.length) resolve(latest);
               return;
             }
             reject(new Error(`${col}: ${err.message}`));
@@ -151,6 +157,9 @@ export function createFirestoreBackend(db: Firestore): Backend {
           seen.clear();
         }
       };
+    },
+    scope(cols) {
+      active = cols;
     },
   };
 }

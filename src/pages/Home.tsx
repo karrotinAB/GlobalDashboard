@@ -162,64 +162,10 @@ export default function Home({ go }: { go: (page: string) => void }) {
     return { c, total: rows.length, done, open: rows.length - done, orders: openOrders.filter((o) => o.companyId === c.id).length };
   });
 
-  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(monday, i));
-  const weekHolidays = weekDays.filter((d) => holidayName(d)).map((d) => [d, holidayName(d)!] as const);
-  const friday = weekDays[4];
-  const todayDate = fromISO(todayIso);
-  const daysToFri = Math.round((fromISO(friday).getTime() - todayDate.getTime()) / 86400000);
-  const nowAp = ampm(`${seoul.h}:${seoul.mi}`);
 
   return (
     <div className="page">
-      {/* 제목 + 오늘 / 이번주 구역 */}
-      <header className="hero">
-        <h1>2조 Dashboard</h1>
-        <p className="hero-greet">{greeting(seoul.h, seoul.mi)}</p>
-        <div className="zones">
-          <div className="zone zone-today">
-            <span className="zone-tag">TODAY</span>
-            <div className="zone-date">
-              {todayDate.getMonth() + 1}월 {todayDate.getDate()}일
-              <span>{DOW[todayDate.getDay()]}요일</span>
-            </div>
-            <div className="zone-foot">
-              <span className="zone-now">
-                {nowAp.t}
-                <small>{nowAp.p}</small>
-              </span>
-              <span className="muted">{todayDate.getFullYear()}년 · 서울</span>
-            </div>
-          </div>
-          <div className="zone zone-week">
-            <span className="zone-tag">THIS WEEK</span>
-            <div className="zone-date">
-              {shortDate(monday)} <span className="arrow">→</span> {shortDate(friday)}
-              <span>월 – 금</span>
-            </div>
-            <div className="week-days">
-              {weekDays.map((d) => {
-                const dt = fromISO(d);
-                const state = d < todayIso ? 'past' : d === todayIso ? 'today' : 'future';
-                const hol = holidayName(d);
-                return (
-                  <div key={d} className={`wd ${state} ${hol ? 'holiday' : ''}`} title={hol}>
-                    <span>{DOW[dt.getDay()]}</span>
-                    <b>{dt.getDate()}</b>
-                  </div>
-                );
-              })}
-              <span className="wd-left muted">
-                {daysToFri > 0 ? `금요일까지 ${daysToFri}일` : daysToFri === 0 ? '오늘은 금요일 🎉' : '주말이에요 🌿'}
-                {weekHolidays.length > 0 && (
-                  <span className="wd-hol">
-                    {weekHolidays.map(([d, n]) => `${DOW[fromISO(d).getDay()]} ${n}`).join(' · ')}
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Hero title="2조 Dashboard" />
 
       {/* 우리 팀 오늘 */}
       <section className="section">
@@ -545,3 +491,72 @@ function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
     </div>
   );
 }
+
+/** 제목 + 인사 + TODAY / THIS WEEK 구역 (2조 홈, 무역사무 홈 같이 씀) */
+export function Hero({ title }: { title: string }) {
+  const now = useNow();
+  const seoul = tzParts(now, HOME_TZ);
+  const todayIso = today();
+  const monday = weekStart(todayIso);
+  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(monday, i));
+  const weekHolidays = weekDays.filter((d) => holidayName(d)).map((d) => [d, holidayName(d)!] as const);
+  const friday = weekDays[4];
+  const todayDate = fromISO(todayIso);
+  const daysToFri = Math.round((fromISO(friday).getTime() - todayDate.getTime()) / 86400000);
+  const nowAp = ampm(`${seoul.h}:${seoul.mi}`);
+  return (
+    <>
+    {/* 제목 + 오늘 / 이번주 구역 */}
+    <header className="hero">
+      <h1>{title}</h1>
+      <p className="hero-greet">{greeting(seoul.h, seoul.mi)}</p>
+      <div className="zones">
+        <div className="zone zone-today">
+          <span className="zone-tag">TODAY</span>
+          <div className="zone-date">
+            {todayDate.getMonth() + 1}월 {todayDate.getDate()}일
+            <span>{DOW[todayDate.getDay()]}요일</span>
+          </div>
+          <div className="zone-foot">
+            <span className="zone-now">
+              {nowAp.t}
+              <small>{nowAp.p}</small>
+            </span>
+            <span className="muted">{todayDate.getFullYear()}년 · 서울</span>
+          </div>
+        </div>
+        <div className="zone zone-week">
+          <span className="zone-tag">THIS WEEK</span>
+          <div className="zone-date">
+            {shortDate(monday)} <span className="arrow">→</span> {shortDate(friday)}
+            <span>월 – 금</span>
+          </div>
+          <div className="week-days">
+            {weekDays.map((d) => {
+              const dt = fromISO(d);
+              const state = d < todayIso ? 'past' : d === todayIso ? 'today' : 'future';
+              const hol = holidayName(d);
+              return (
+                <div key={d} className={`wd ${state} ${hol ? 'holiday' : ''}`} title={hol}>
+                  <span>{DOW[dt.getDay()]}</span>
+                  <b>{dt.getDate()}</b>
+                </div>
+              );
+            })}
+            <span className="wd-left muted">
+              {daysToFri > 0 ? `금요일까지 ${daysToFri}일` : daysToFri === 0 ? '오늘은 금요일 🎉' : '주말이에요 🌿'}
+              {weekHolidays.length > 0 && (
+                <span className="wd-hol">
+                  {weekHolidays.map(([d, n]) => `${DOW[fromISO(d).getDay()]} ${n}`).join(' · ')}
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      </div>
+    </header>
+    </>
+  );
+}
+
+export { CharacterPicker };

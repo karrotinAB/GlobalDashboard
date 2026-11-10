@@ -4,7 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Cover } from './ui';
 
-export type Role = 'admin' | 'member';
+export type Role = 'admin' | 'member' | 'trade'; // trade = 무역사무
 
 const ERRORS: Record<string, string> = {
   'auth/invalid-credential': '이메일이나 비밀번호가 맞지 않아요.',
@@ -51,7 +51,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       doc(db, 'roles', email),
       (snap) => {
         const r = snap.data()?.level;
-        setRole(r === 'admin' || r === 'member' ? r : 'none');
+        setRole(r === 'admin' || r === 'member' || r === 'trade' ? r : 'none');
       },
       () => setRole('none'),
     );

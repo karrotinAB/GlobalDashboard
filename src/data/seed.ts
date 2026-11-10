@@ -15,5 +15,7 @@ export function seedData(): Collections {
     attendance: [],
     config: [],
     claims: [],
+    requests: [],
+    tradeMembers: [],
   };
 }

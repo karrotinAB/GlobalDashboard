@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './data/store';
 import { Cover } from './components/ui';
-import { logout } from './components/AuthGate';
+import { logout, useAccess } from './components/AuthGate';
 import { seedData } from './data/seed';
 import { COLLECTIONS } from './data/backend';
 import Home from './pages/Home';
@@ -9,6 +9,8 @@ import Todos from './pages/Todos';
 import Orders from './pages/Orders';
 import Claims from './pages/Claims';
 import Settings from './pages/Settings';
+import RequestBoard from './pages/RequestBoard';
+import TradeHome from './pages/TradeHome';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
@@ -19,8 +21,15 @@ const PAGES = [
   { key: 'orders', label: '주문 관리', icon: '📦' },
   { key: 'claims', label: '클레임', icon: '🧾' },
   { key: 'settings', label: '설정', icon: '⚙️' },
+  { key: 'requests', label: '무역사무요청', icon: '📨' },
+  // 무역사무 페이지 (무역사무 계정 + 관리자)
+  { key: 'thome', label: '홈', icon: 'jelly' },
+  { key: 'twork', label: '업무', icon: '📋' },
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
+const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
+const TRADE_TABS: PageKey[] = ['thome', 'twork'];
+const isTradePage = (p: PageKey) => TRADE_TABS.includes(p);
 
 function readHash(): PageKey {
   const h = window.location.hash.replace('#/', '').replace('#', '').split('?')[0];
@@ -29,9 +38,27 @@ function readHash(): PageKey {
 }
 
 export default function App() {
-  const [page, setPage] = useState<PageKey>(readHash);
+  const [hashPage, setPage] = useState<PageKey>(readHash);
   const { loading, error, mode, data, saveMany } = useStore();
-  const firstRun = !loading && mode === 'firestore' && data.members.length === 0 && page !== 'import';
+  const { role } = useAccess();
+  const tradeOnly = role === 'trade'; // 무역사무 계정: 무역사무 페이지 + 설정만
+  const canTrade = role !== 'member'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
+  const page: PageKey = tradeOnly
+    ? isTradePage(hashPage) || hashPage === 'settings'
+      ? hashPage
+      : 'thome'
+    : isTradePage(hashPage) && !canTrade
+      ? 'home'
+      : hashPage;
+  // 설정 화면에서는 직전에 보던 쪽(2조/무역사무) 탭을 그대로
+  const [side, setSide] = useState<'team' | 'trade'>(tradeOnly || isTradePage(page) ? 'trade' : 'team');
+  useEffect(() => {
+    if (tradeOnly) setSide('trade');
+    else if (isTradePage(page)) setSide('trade');
+    else if (page !== 'settings' && page !== 'import') setSide('team');
+  }, [page, tradeOnly]);
+  const tabs = side === 'trade' ? TRADE_TABS : TEAM_TABS;
+  const firstRun = !loading && !tradeOnly && mode === 'firestore' && data.members.length === 0 && page !== 'import';
   const loadSample = async () => {
     const s = seedData();
     for (const col of COLLECTIONS) if (col !== 'attendance') await saveMany(col, s[col] as never);
@@ -65,8 +92,13 @@ export default function App() {
   return (
     <div className="app">
       <ExtensionBridge />
-      <Cover tall={page === 'home'} />
+      <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
+        {!tradeOnly && canTrade && (
+          <a href={side === 'trade' ? '#/home' : '#/thome'} className="top-btn" title="관리자: 2조 / 무역사무 페이지 오가기">
+            {side === 'trade' ? '← 2조 페이지' : '무역사무 페이지 →'}
+          </a>
+        )}
         <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
           ⚙️ 설정
         </a>
@@ -81,7 +113,7 @@ export default function App() {
           <PageIcon icon={current.icon} />
         </div>
         <nav className="tabs">
-          {PAGES.filter((p) => p.key !== 'settings').map((p) => (
+          {PAGES.filter((p) => tabs.includes(p.key)).map((p) => (
             <a key={p.key} href={`#/${p.key}`} className={page === p.key ? 'active' : ''}>
               <span aria-hidden="true" className="tab-icon">
                 <PageIcon icon={p.icon} />
@@ -89,6 +121,11 @@ export default function App() {
               {p.label}
             </a>
           ))}
+          {side === 'team' && (
+            <a href="#/requests" className={`tab-request ${page === 'requests' ? 'active' : ''}`} title="무역사무에 업무 요청하기">
+              <span aria-hidden="true">📨</span> 무역사무요청
+            </a>
+          )}
           {mode === 'firestore' ? (
             <Presence page={page} />
           ) : (
@@ -120,6 +157,12 @@ export default function App() {
             <Orders />
           ) : page === 'claims' ? (
             <Claims />
+          ) : page === 'requests' ? (
+            <RequestBoard key="team" side="team" />
+          ) : page === 'thome' ? (
+            <TradeHome />
+          ) : page === 'twork' ? (
+            <RequestBoard key="trade" side="trade" />
           ) : (
             <Settings />
           )}

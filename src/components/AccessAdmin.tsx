@@ -11,7 +11,8 @@ interface Row {
   name?: string;
 }
 
-const ROLE_LABEL: Record<Role, string> = { admin: '관리자', member: '조원' };
+const ROLE_LABEL: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무' };
+const ROLE_ORDER: Record<Role, number> = { admin: 0, member: 1, trade: 2 };
 
 /** 새 로그인 계정 만들기. 보조 앱으로 만들어서 관리자 본인의 로그인은 그대로 유지됨 */
 async function createAccount(email: string, password: string): Promise<'created' | 'exists'> {
@@ -48,8 +49,8 @@ export default function AccessAdmin() {
           setRows(
             snap.docs
               .map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined }))
-              .filter((r) => r.role === 'admin' || r.role === 'member')
-              .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : a.role === 'admin' ? -1 : 1)),
+              .filter((r) => r.role in ROLE_ORDER)
+              .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : ROLE_ORDER[a.role] - ROLE_ORDER[b.role])),
           ),
         (err) => setMsg(`목록을 못 불러왔어요: ${err.message}`),
       ),
@@ -106,7 +107,7 @@ export default function AccessAdmin() {
       <p className="muted small">
         여기 추가한 사람만 대시보드에 로그인해서 쓸 수 있어요. 이메일과 임시 비밀번호를 넣으면 로그인 계정까지 만들어져요.
         <br />
-        <b>조원</b> = 대시보드 사용 · <b>관리자</b> = 조원 + 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
+        <b>조원</b> = 2조 대시보드 사용 · <b>무역사무</b> = 무역사무 페이지만 · <b>관리자</b> = 조원 + 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
         (목록에서 빼도 로그인 계정은 남지만 아무것도 볼 수 없어요)
       </p>
       <table className="settings-table">
@@ -134,6 +135,7 @@ export default function AccessAdmin() {
                   ) : (
                     <select value={r.role} onChange={(e) => put(r.email, e.target.value as Role, r.name)}>
                       <option value="member">조원</option>
+                      <option value="trade">무역사무</option>
                       <option value="admin">관리자</option>
                     </select>
                   )}
@@ -166,6 +168,7 @@ export default function AccessAdmin() {
         <input placeholder="임시 비밀번호 (6자 이상)" value={pw} onChange={(e) => setPw(e.target.value)} style={{ flex: 1, minWidth: 140 }} autoComplete="off" />
         <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
           <option value="member">조원</option>
+          <option value="trade">무역사무</option>
           <option value="admin">관리자</option>
         </select>
         <button className="primary" type="submit" disabled={busy}>

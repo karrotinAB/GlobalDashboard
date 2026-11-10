@@ -6,6 +6,15 @@ service firebase.storage {
       return request.auth != null && request.auth.token.email != null
         && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member'];
     }
+    function isAny() {
+      return request.auth != null && request.auth.token.email != null
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'trade'];
+    }
+    // 무역사무 요청 사진
+    match /requests/{reqId}/{file} {
+      allow read, delete: if isAny();
+      allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
+    }
     match /claims/{claimId}/{file} {
       allow read, delete: if isTeam();
       allow create: if isTeam() && request.resource.size < 20 * 1024 * 1024;

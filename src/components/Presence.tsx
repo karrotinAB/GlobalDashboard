@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useLookups } from '../data/store';
+import { useLookups, useStore } from '../data/store';
 import { useAccess } from './AuthGate';
 
 interface Seen {
@@ -13,12 +13,22 @@ interface Seen {
 const BEAT = 40_000; // 40초마다 "보는 중" 신호
 const ALIVE = 95_000; // 이 안에 신호가 있으면 지금 보는 중
 
-const PAGE_NAME: Record<string, string> = { home: '홈', todos: '주간 할일', orders: '주문 관리', claims: '클레임', settings: '설정' };
+const PAGE_NAME: Record<string, string> = {
+  home: '홈',
+  todos: '주간 할일',
+  orders: '주문 관리',
+  claims: '클레임',
+  settings: '설정',
+  requests: '무역사무요청',
+  thome: '무역사무 홈',
+  twork: '무역사무 업무',
+};
 
 /** 지금 이 페이지를 보고 있는 사람 (presence/{이메일} 문서). 로그인한 Firebase 모드에서만 */
 export default function Presence({ page }: { page: string }) {
   const me = useAccess();
-  const { members } = useLookups();
+  const { members: team } = useLookups();
+  const members = [...team, ...useStore().data.tradeMembers];
   const [all, setAll] = useState<Seen[]>([]);
   const [, tick] = useState(0);
 

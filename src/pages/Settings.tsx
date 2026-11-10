@@ -84,7 +84,12 @@ export default function Settings() {
         {mode === 'firestore' ? (
           <p>
             <span className="tag green">팀 공유 (Firebase)</span> 모든 팀원이 같은 데이터를 보고, 바뀐 내용이 실시간으로 반영돼요.
-            {access.email && <span className="muted small"> · {access.email} 로그인 중 ({access.role === 'admin' ? '관리자' : '조원'})</span>}
+            {access.email && (
+              <span className="muted small">
+                {' '}
+                · {access.email} 로그인 중 ({access.role === 'admin' ? '관리자' : access.role === 'trade' ? '무역사무' : '조원'})
+              </span>
+            )}
           </p>
         ) : (
           <p>
@@ -94,6 +99,11 @@ export default function Settings() {
       </section>
 
       {access.role === 'admin' && <AccessAdmin />}
+      {access.role !== 'member' && <TradeMembersSection />}
+      {access.role === 'trade' ? (
+        access.email && <ChangePassword />
+      ) : (
+      <>
       {access.role !== 'member' && (
         <section className="card">
           <h2>
@@ -204,9 +214,11 @@ export default function Settings() {
         </div>
         {msg && <p className="small">{msg}</p>}
         <p className="muted small">
-          할일 {data.tasks.length} · 주문 {data.orders.length} · 근태 기록 {data.attendance.length}
+          할일 {data.tasks.length} · 주문 {data.orders.length} · 근태 기록 {data.attendance.length} · 무역사무 요청 {data.requests.length}
         </p>
       </section>
+      </>
+      )}
     </div>
   );
 }
@@ -343,5 +355,68 @@ function MemSection({ members }: { members: Member[] }) {
         🕘 2조 근태 보내기
       </a>
     </section>
+  );
+}
+
+/** 무역사무 담당자 카드 (관리자·무역사무가 관리). 로그인 이메일을 넣으면 그 사람 카드가 됨 */
+function TradeMembersSection() {
+  const { data, save, remove } = useStore();
+  const isAdmin = useAccess().role !== 'trade';
+  const list = [...data.tradeMembers].sort((a, b) => a.order - b.order);
+  return (
+    <section className="card">
+      <h2>무역사무 담당자</h2>
+      <p className="muted small">무역사무 홈의 팀 카드와 요청의 '처리자'로 쓰여요. 로그인 이메일은 관리자만 넣을 수 있어요 (본인은 홈에서 '이 카드가 나예요').</p>
+      <table className="settings-table">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>로그인 이메일 (본인 카드)</th>
+            <th>색</th>
+            <th>순서</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((m) => (
+            <TradeMemberRow key={m.id} m={m} isAdmin={isAdmin} onSave={(x) => save('tradeMembers', x)} onDelete={() => confirm(`${m.name} 삭제?`) && remove('tradeMembers', m.id)} />
+          ))}
+        </tbody>
+      </table>
+      <button onClick={() => save('tradeMembers', { id: uid(), name: '새 담당자', color: '#d9c7e8', order: list.length } satisfies Member)}>+ 담당자 추가</button>
+    </section>
+  );
+}
+
+function TradeMemberRow({ m, isAdmin, onSave, onDelete }: { m: Member; isAdmin: boolean; onSave: (m: Member) => void; onDelete: () => void }) {
+  const [name, setName] = useState(m.name);
+  const [email, setEmail] = useState(m.email ?? '');
+  return (
+    <tr>
+      <td>
+        <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== m.name && onSave({ ...m, name: name.trim() })} />
+      </td>
+      <td>
+        <input
+          type="email"
+          value={email}
+          disabled={!isAdmin}
+          placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
+        />
+      </td>
+      <td>
+        <input type="color" value={m.color} onChange={(e) => onSave({ ...m, color: e.target.value })} />
+      </td>
+      <td>
+        <input type="number" className="num" value={m.order} onChange={(e) => onSave({ ...m, order: Number(e.target.value) })} />
+      </td>
+      <td>
+        <button className="danger small" onClick={onDelete}>
+          삭제
+        </button>
+      </td>
+    </tr>
   );
 }

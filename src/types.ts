@@ -138,6 +138,8 @@ export interface Collections {
   attendance: Attendance[];
   config: ConfigDoc[];
   claims: Claim[];
+  requests: TradeRequest[];
+  tradeMembers: Member[];
 }
 
 export type CollectionName = keyof Collections;
@@ -152,3 +154,53 @@ export const ORDER_STEPS = [
 ] as const;
 
 export type OrderStepKey = (typeof ORDER_STEPS)[number]['key'];
+
+/* ------------------------------------------------------------------ */
+/* 무역사무 요청 (2조 → 무역사무)                                       */
+/* ------------------------------------------------------------------ */
+export const PRIORITIES = ['초긴급', '마감일 오전', '마감일 퇴근 전', '이번주', '기한없음'] as const;
+export type Priority = (typeof PRIORITIES)[number];
+
+export const WORK_TYPES = [
+  '이메일 송부', '업무협조전', '선적서류작성(CI/PL등)', '재무팀 결재서류', '기타', '번역', '인수인계', '구매확인서',
+  'Fedex 발송', '전자세금계산서', '외화정리', '회의', '전략물자비해당 자가판정서', '배차', '수출면장',
+  '담당자에 진행상황 체크', '주문수동 생성', 'DHL 송부', '개발협력', '포워더 소통', '등기발송', '계약서류',
+  'PO 수동 제작', '원산지 업무', '인증관련', '창고 소통', '미국법인(지사) 중국창고', 'HS 코드 관련', '출고마감',
+] as const;
+
+export type RequestStatus = 'requested' | 'progress' | 'done' | 'cancelled';
+export const REQUEST_STATUS: Record<RequestStatus, string> = { requested: '요청됨', progress: '진행중', done: '완료', cancelled: '취소' };
+
+export interface RequestFile {
+  name: string;
+  url: string;
+  path?: string; // Storage 경로 (지울 때)
+}
+
+export interface RequestLog {
+  at: string; // ISO
+  by: string; // 이메일 또는 이름
+  text: string; // 예: "제목: A → B", "취소함"
+  prev?: string; // 바뀌기 전 긴 내용 (내용 수정 시)
+}
+
+export interface TradeRequest {
+  id: string;
+  title: string; // 업무 내용(제목)
+  body?: string; // 자세한 내용
+  files?: RequestFile[]; // 사진
+  storeCode?: string;
+  orderDate?: string; // YYYY-MM-DD
+  requestedAt: string; // 의뢰일 YYYY-MM-DD
+  requesterId?: string; // 2조 담당자(members) id
+  requesterEmail?: string;
+  dueDate?: string;
+  priority: Priority;
+  workType?: string;
+  eta?: string; // 처리 예상일
+  status: RequestStatus;
+  assigneeId?: string; // 무역사무 담당자(tradeMembers) id
+  doneAt?: string; // 완료(또는 취소)한 날 YYYY-MM-DD
+  log?: RequestLog[];
+  createdAt: string;
+}

@@ -3807,3 +3807,581 @@ button.api-tag {
   opacity: 0;
   cursor: pointer;
 }
+
+/* ================================================================== */
+/* 무역사무 요청                                                       */
+/* ================================================================== */
+.tabs a.tab-request {
+  margin-left: auto;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--primary);
+  font-weight: 600;
+}
+.tab-request ~ .presence,
+.tab-request ~ .mode {
+  margin-left: 10px;
+}
+/* 우선순위 */
+.prio {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #eee9e7;
+  color: var(--ink-2);
+}
+.prio.p-hot {
+  background: #c0392b;
+  color: #fff;
+}
+.prio.p-am {
+  background: #fbe0d6;
+  color: #a6402a;
+}
+.prio.p-pm {
+  background: #fcebd3;
+  color: #9a5a14;
+}
+.prio.p-week {
+  background: #e3ecf6;
+  color: #3e5f86;
+}
+.prio.p-none {
+  background: #efedeb;
+  color: var(--mut);
+}
+/* 상태 */
+.rstat {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.rs-requested {
+  background: #f1e6ec;
+  color: #8a3c5e;
+}
+.rs-progress {
+  background: #fff1d6;
+  color: #94600f;
+}
+.rs-done {
+  background: var(--olive-soft);
+  color: var(--olive);
+}
+.rs-cancelled {
+  background: #ececec;
+  color: var(--mut);
+  text-decoration: line-through;
+}
+select.cell-select.rs-requested,
+select.cell-select.rs-progress,
+select.cell-select.rs-done {
+  font-weight: 700;
+  border-radius: 999px;
+  border: 0;
+  padding: 2px 6px;
+}
+
+/* 담당자별 남은 업무 카드 */
+.rq-load {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.rq-load-card {
+  white-space: normal;
+  font: inherit;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--c, #c9b8b3);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.rq-load-card:hover {
+  box-shadow: var(--shadow-h);
+}
+.rq-load-card.on {
+  outline: 2px solid var(--c, var(--primary));
+  outline-offset: 1px;
+}
+.rq-load-card.none {
+  border-left-style: dashed;
+}
+.rq-load-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.rq-load-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rq-load-flags:empty {
+  display: none;
+}
+.rq-load-num {
+  flex: none;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.rq-load-num small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mut);
+}
+
+/* 목록 */
+.rq-toolbar {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rq-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+}
+.rq-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.rq-chips > .muted {
+  margin-right: 2px;
+}
+.rq-new {
+  margin-left: auto;
+}
+.rq-filter-note {
+  margin: 0 0 8px;
+}
+.rq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.rq-table th {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 500;
+  text-align: left;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.rq-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-2);
+  vertical-align: middle;
+}
+.rq-table .c-st {
+  width: 92px;
+}
+.rq-table .c-pr {
+  width: 104px;
+}
+.rq-table .c-wt {
+  width: 150px;
+}
+.rq-table .c-who {
+  width: 84px;
+}
+.rq-table .c-d {
+  width: 82px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rq-table td.overdue {
+  color: #c0392b;
+  font-weight: 700;
+}
+.rq-table td.due-today {
+  color: #b5651d;
+  font-weight: 700;
+}
+.rq-table tr.is-hot td {
+  background: #fff6f4;
+}
+.rq-table tr.is-cancelled td {
+  color: var(--mut);
+}
+.rq-table tr.is-cancelled .rq-title {
+  text-decoration: line-through;
+}
+.rq-title {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rq-title:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.rq-clip,
+.rq-store {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--mut);
+}
+.rq-store {
+  background: #f4efed;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.rq-person {
+  font-size: 12px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--c, #8a7a76) 80%, #000);
+}
+select.cell-select {
+  width: 100%;
+  max-width: 100%;
+  font-size: 12px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+select.cell-select:hover {
+  border-color: var(--line);
+  background: #fff;
+}
+select.cell-select.unset {
+  color: var(--mut);
+}
+
+/* 요청 창 */
+.rq-form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 14px;
+}
+.rq-f {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  min-width: 0;
+}
+.rq-f > span:first-child {
+  color: var(--mut);
+  font-size: 11px;
+}
+.rq-f.full {
+  grid-column: 1 / -1;
+}
+.rq-f input,
+.rq-f select,
+.rq-f textarea {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.rq-f textarea {
+  resize: vertical;
+}
+.rq-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.rq-actions.left {
+  justify-content: flex-start;
+}
+.rq-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  outline: none;
+}
+.rq-files:focus {
+  border-color: var(--primary);
+}
+.rq-files.view {
+  border: 0;
+  padding: 0;
+  margin: 10px 0;
+}
+.rq-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f4efed;
+  font-size: 11px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.rq-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rq-thumb a {
+  display: contents;
+}
+.rq-thumb-x {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.rq-add-file {
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 64px;
+  border-radius: 8px;
+  background: #faf6f4;
+  border: 1px solid var(--line);
+  color: var(--mut);
+  font-size: 12px;
+  cursor: pointer;
+}
+.rq-err {
+  color: #b23a3a;
+  font-size: 12px;
+}
+.rq-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+.rq-body {
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  background: #fbf8f7;
+  border-radius: 10px;
+}
+.rq-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 14px;
+  margin: 14px 0 0;
+}
+.rq-info div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rq-info dt {
+  font-size: 11px;
+  color: var(--mut);
+}
+.rq-info dd {
+  margin: 0;
+  font-size: 13px;
+}
+.rq-info select {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.rq-log {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.rq-log summary {
+  font-size: 12px;
+  color: var(--mut);
+  cursor: pointer;
+}
+.rq-log ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.rq-log li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.rq-prev {
+  flex-basis: 100%;
+}
+.rq-prev pre {
+  white-space: pre-wrap;
+  background: #faf6f4;
+  border-radius: 8px;
+  padding: 8px;
+  font: inherit;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+/* 무역사무 홈: 담당자별 업무 */
+.tw-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.tw-col {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  border-top: 4px solid var(--c, #c9b8b3);
+  padding: 10px 10px 8px;
+}
+.tw-col.none {
+  border-top-style: dashed;
+}
+.tw-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 8px;
+}
+.tw-q {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #eee;
+  color: var(--mut);
+  font-weight: 700;
+}
+.tw-count {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 15px;
+}
+.tw-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tw-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fbf8f7;
+  cursor: pointer;
+}
+.tw-item:hover {
+  background: #f5eeeb;
+}
+.tw-item-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tw-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.tw-due {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--mut);
+}
+.tw-due.overdue {
+  color: #c0392b;
+  font-weight: 700;
+}
+.tw-due.today {
+  color: #b5651d;
+  font-weight: 700;
+}
+.tw-empty {
+  padding: 4px 6px 8px;
+  margin: 0;
+}
+button.tw-card-tasks {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: auto 18px 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+button.tw-card-tasks:hover .tw-card-num {
+  text-decoration: underline;
+}
+.tw-card-num {
+  min-width: 46px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .rq-form,
+  .rq-info {
+    grid-template-columns: 1fr 1fr;
+  }
+}
