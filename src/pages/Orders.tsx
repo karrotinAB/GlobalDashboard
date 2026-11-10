@@ -346,7 +346,7 @@ export default function Orders() {
               <th className="c-date">주문일자</th>
               <th className="c-pack">패킹 완료일</th>
               <th className="c-from">출고 장소</th>
-              <th className="c-amt">원화 금액</th>
+              <th className="c-amt c-krw">원화 금액</th>
               <th className="c-amt">외화 금액</th>
               <th className="c-onote">비고</th>
               <th className="c-more" />
@@ -525,7 +525,7 @@ export default function Orders() {
         </td>
         <td className="c-pack">{txt('packing', '패킹')}</td>
         <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
-        <td className="c-amt">
+        <td className="c-amt c-krw">
           <div className="amt-wrap">
             {o.amountSource?.startsWith('api') && (
               <span
