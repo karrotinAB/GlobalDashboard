@@ -41,10 +41,13 @@ export default function Orders() {
   const [tab, setTab] = useState<Tab>('open');
   // 업체 = 시트: 고른 업체를 이 브라우저에 기억해서 다음에 열어도 그 시트로
   const [companyFilter, setCompanyFilterState] = useState<string>(() => {
+    // 홈에서 업체 카드의 '주문'을 누르고 오면 #/orders?c=업체id
+    const fromLink = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c');
     try {
-      return localStorage.getItem('gd:orders:sheet') ?? '';
+      if (fromLink) localStorage.setItem('gd:orders:sheet', fromLink);
+      return fromLink ?? localStorage.getItem('gd:orders:sheet') ?? '';
     } catch {
-      return '';
+      return fromLink ?? '';
     }
   });
   const setCompanyFilter = (id: string) => {

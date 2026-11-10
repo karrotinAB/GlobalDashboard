@@ -3101,3 +3101,72 @@ tr.bundle-head .bundle-undo {
 .toggle-line {
   padding: 6px 0;
 }
+
+/* 업체 tracking 카드: 이름 옆 주문 수, 그 밑에 남은 할일 (각각 눌러서 이동) */
+.company-card {
+  gap: 8px;
+}
+.cc-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.cc-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cc-orders {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.cc-orders:hover {
+  border-color: var(--c);
+  color: var(--ink);
+}
+.cc-orders.zero {
+  opacity: 0.55;
+}
+.cc-todo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-decoration: none;
+  border-radius: 10px;
+  margin: 0 -6px;
+  padding: 2px 6px;
+}
+.cc-todo:hover {
+  background: var(--surface-2);
+}
+.cc-todo b {
+  font-size: 26px;
+  line-height: 1.1;
+}
+.cc-todo span {
+  font-size: 12px;
+  color: var(--mut);
+}
+.cc-todo .cc-arrow {
+  margin-left: auto;
+  opacity: 0;
+}
+.cc-todo:hover .cc-arrow {
+  opacity: 1;
+}
+.company-card:hover {
+  transform: none;
+}
+.cc-todo b.cc-open {
+  color: var(--red);
+}

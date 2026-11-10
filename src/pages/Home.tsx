@@ -321,23 +321,23 @@ export default function Home({ go }: { go: (page: string) => void }) {
         </div>
         <div className="companies">
           {companyStats.map(({ c, total, done, open, orders }) => (
-            <a key={c.id} className="company-card" href={`#/todos?c=${c.id}`} style={{ '--c': c.color ?? '#999' } as CSSProperties}>
+            <div key={c.id} className="company-card" style={{ '--c': c.color ?? '#999' } as CSSProperties}>
               <div className="cc-name">
                 <span className="dot" style={{ background: c.color }} />
-                {c.name}
+                <span className="cc-title">{c.name}</span>
+                <a className={`cc-orders ${orders ? '' : 'zero'}`} href={`#/orders?c=${c.id}`} title="이 업체 주문 관리로">
+                  📦 주문 {orders}
+                </a>
               </div>
-              <div className="cc-nums">
-                <span>
-                  <b className={open > 0 ? 'cc-open' : ''}>{open}</b> 할일 남음
-                </span>
-                <span>
-                  <b>{orders}</b> 주문 진행중
-                </span>
-              </div>
+              <a className="cc-todo" href={`#/todos?c=${c.id}`} title="이 업체 주간 할일로">
+                <b className={open > 0 ? 'cc-open' : ''}>{open}</b>
+                <span>할일 남음</span>
+                <span className="cc-arrow">→</span>
+              </a>
               <span className="cc-bar" title={`이번주 할일 ${done}/${total} 완료`}>
                 <span style={{ width: total ? `${(done / total) * 100}%` : 0 }} />
               </span>
-            </a>
+            </div>
           ))}
         </div>
       </section>
