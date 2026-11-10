@@ -3546,3 +3546,70 @@ tr.bundle-head .bundle-undo {
 .order-table .c-amt {
   overflow: visible;
 }
+
+/* 예정/승인 표시 → ERP 내역 창 */
+.api-tag-box {
+  position: relative;
+  flex: none;
+}
+button.api-tag {
+  border: 0;
+  cursor: pointer;
+}
+.api-pop {
+  position: absolute;
+  right: -40px;
+  top: calc(100% + 6px);
+  z-index: 50;
+  width: 380px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-h);
+  padding: 12px 14px;
+  font-size: 12px;
+  text-align: left;
+  cursor: default;
+}
+.api-pop-head {
+  margin-bottom: 8px;
+}
+.api-pop-line {
+  display: grid;
+  grid-template-columns: 1fr 110px 90px;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.api-pop-line span:not(:first-child) {
+  text-align: right;
+}
+.api-pop-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.api-pop-table th {
+  font-size: 10px;
+  color: var(--mut);
+  font-weight: 500;
+  text-align: left;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.api-pop-table td {
+  padding: 4px;
+  border-bottom: 1px solid var(--line-2);
+}
+.api-pop-table .r {
+  text-align: right;
+}
+.api-pop-table tr.dim td {
+  color: var(--mut);
+}
+.api-pop-table tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+}

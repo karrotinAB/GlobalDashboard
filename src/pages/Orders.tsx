@@ -527,14 +527,7 @@ export default function Orders() {
         <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
         <td className="c-amt c-krw">
           <div className="amt-wrap">
-            {o.amountSource?.startsWith('api') && (
-              <span
-                className={`api-tag ${o.outStatus === 'pending' || !o.outStatus ? 'pending' : 'approved'}`}
-                title={`ERP 자동 · EXP_NO ${o.expNo ?? '-'}${o.outDate ? ` · 출고승인 ${o.outDate}` : ''} (금액을 직접 고치면 자동 갱신이 멈춰요)`}
-              >
-                {o.outStatus === 'pending' || !o.outStatus ? '예정' : '승인'}
-              </span>
-            )}
+            {o.amountSource?.startsWith('api') && <ApiTag o={o} />}
             <AmountCell
               value={o.amountKRW}
               kind="krw"
@@ -595,6 +588,73 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
         {busy ? '불러오는 중…' : '↻ 금액 새로고침'}
       </button>
       {(msg || lastAt) && <span className="sync-msg">{msg || `자동 ${lastAt}`}</span>}
+    </span>
+  );
+}
+
+/** 금액 앞 '예정/승인' 표시. 누르면 ERP 에서 받은 내역 (확인용) */
+function ApiTag({ o }: { o: Order }) {
+  const [open, setOpen] = useState(false);
+  const approved = !!o.outStatus && o.outStatus !== 'pending';
+  const rows = o.outRows ?? [];
+  const okRows = rows.filter((r) => r.status === '출고승인');
+  const sumK = okRows.reduce((a, r) => a + (r.k ?? 0), 0);
+  const sumF = okRows.reduce((a, r) => a + (r.f ?? 0), 0);
+  return (
+    <span className="api-tag-box" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setOpen(false)}>
+      <button className={`api-tag ${approved ? 'approved' : 'pending'}`} onClick={() => setOpen((v) => !v)} title="눌러서 ERP 내역 보기">
+        {approved ? '승인' : '예정'}
+      </button>
+      {open && (
+        <div className="api-pop" tabIndex={-1}>
+          <div className="api-pop-head">
+            <b>EXP_NO {o.expNo ?? '-'}</b>
+            {o.apiSyncedAt && <span className="muted small"> · {new Date(o.apiSyncedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 확인</span>}
+          </div>
+          {(o.planKRW !== undefined || o.planForeign !== undefined) && (
+            <div className="api-pop-line">
+              <span>예정 금액 (API 1)</span>
+              <span>{fmtKRW(o.planKRW)}</span>
+              <span>{fmtFX(o.planForeign)}</span>
+            </div>
+          )}
+          {rows.length > 0 ? (
+            <table className="api-pop-table">
+              <thead>
+                <tr>
+                  <th>출고일</th>
+                  <th>상태</th>
+                  <th className="r">원화</th>
+                  <th className="r">외화</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} className={r.status === '출고승인' ? '' : 'dim'}>
+                    <td>{r.date ?? '-'}</td>
+                    <td>{r.status}</td>
+                    <td className="r">{r.k === null ? '-' : fmtKRW(r.k)}</td>
+                    <td className="r">{r.f === null ? '-' : fmtFX(r.f)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {okRows.length > 0 && (
+                <tfoot>
+                  <tr>
+                    <td colSpan={2}>승인 합계 (지금 금액)</td>
+                    <td className="r">{fmtKRW(sumK)}</td>
+                    <td className="r">{fmtFX(sumF)}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          ) : (
+            <p className="muted small" style={{ margin: '6px 0 0' }}>
+              {approved ? '줄별 내역은 서버 함수를 새로 올린 뒤 다음 갱신부터 보여요.' : '아직 출고 내역이 없어요.'}
+            </p>
+          )}
+        </div>
+      )}
     </span>
   );
 }

@@ -55,13 +55,19 @@ export async function syncOne(o, apiKey, fetchImpl = fetch) {
 
   const out = await call('getoutbounddata.asp', { EXP_NO: next.expNo }, apiKey, fetchImpl);
   const approved = out.filter((r) => r.OUT_STATUS === '출고승인');
+  // API 2 가 준 줄별 내역을 그대로 남김 (대시보드에서 '승인/예정' 표시를 누르면 보임 → 금액 확인용)
+  next.outRows = out.map((r) => ({
+    date: r.OUT_DATE ?? null,
+    status: r.OUT_STATUS ?? '',
+    k: num(r.TOTAL_OUTBOUND_AMT_K) ?? null,
+    f: num(r.TOTAL_OUTBOUND_AMT_F) ?? null,
+  }));
+  next.planKRW = next.amountKRW; // API 1 예정 금액 (비교용)
+  next.planForeign = next.amountForeign;
   if (approved.length) {
-    // 출고승인이 하나라도 있으면 '승인'.
-    // 금액: 전부 승인 → 출고 금액 합계 / 일부만 승인 → 승인 안 된 줄은 금액이 비어 있어서, ERP 전체(예정) 금액을 그대로 씀
-    if (approved.length === out.length) {
-      next.amountKRW = r0(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0));
-      next.amountForeign = r2(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0));
-    }
+    // 출고승인이 하나라도 있으면 '승인', 금액 = 승인 난 줄의 출고 금액 합계
+    next.amountKRW = r0(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0));
+    next.amountForeign = r2(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0));
     next.amountSource = 'api-outbound';
     next.outStatus = 'approved';
     next.outDate = approved.map((r) => r.OUT_DATE).filter(Boolean).sort().pop()?.replace(/\./g, '-');
@@ -72,6 +78,10 @@ export async function syncOne(o, apiKey, fetchImpl = fetch) {
 /** 바뀐 칸만 골라냄 */
 export function diff(o, next) {
   const changed = {};
-  for (const [k, v] of Object.entries(next)) if (v !== undefined && o[k] !== v) changed[k] = v;
+  for (const [k, v] of Object.entries(next)) {
+    if (v === undefined) continue;
+    const same = typeof v === 'object' ? JSON.stringify(o[k]) === JSON.stringify(v) : o[k] === v;
+    if (!same) changed[k] = v;
+  }
   return changed;
 }

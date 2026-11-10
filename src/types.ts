@@ -61,6 +61,9 @@ export interface Order {
   outStatus?: 'pending' | 'partial' | 'approved'; // 출고승인 상태
   outDate?: string; // 출고일 (출고승인)
   apiSyncedAt?: string;
+  outRows?: { date: string | null; status: string; k: number | null; f: number | null }[]; // API 2 줄별 내역 (확인용)
+  planKRW?: number; // API 1 예정 금액 (확인용)
+  planForeign?: number;
   bundle?: OrderBundle; // 같이 출고되는 묶음
   sort?: number; // 직접 옮긴 순서 (클수록 위). 없으면 주문일자 순
   createdAt: string;
