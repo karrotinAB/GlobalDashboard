@@ -46,6 +46,8 @@ service cloud.firestore {
       allow write: if isTeam() && email == myEmail();
     }
 
+    // secrets/{문서} (ERP API 키 등): 규칙이 없으므로 사이트에서는 아무도 못 읽고 못 씀. 서버 함수만 읽음
+
     // 팀 공용 설정 (홈 화면 구성 등): 모두 읽고, 관리자만 바꿈
     match /config/{id} {
       allow read: if isTeam();

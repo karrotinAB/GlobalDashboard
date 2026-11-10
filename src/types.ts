@@ -54,6 +54,13 @@ export interface Order {
   closed?: boolean; // 수동 완료 처리 (출고/인보이스가 필요 없는 건 등)
   amountKRW?: number; // 원화 총 금액
   amountForeign?: number; // 외화 총 금액 ($)
+  // ↓ ERP API 자동 채우기 (서버 함수 functions/ 가 씀)
+  amountSource?: 'manual' | 'api-order' | 'api-outbound'; // 금액을 누가 채웠는지 (manual 이면 API 가 안 건드림)
+  expNo?: string; // ERP 수출 주문번호 EXP_NO
+  fxCode?: string; // 외화 통화 (USD 등)
+  outStatus?: 'pending' | 'partial' | 'approved'; // 출고승인 상태
+  outDate?: string; // 출고일 (출고승인)
+  apiSyncedAt?: string;
   bundle?: OrderBundle; // 같이 출고되는 묶음
   sort?: number; // 직접 옮긴 순서 (클수록 위). 없으면 주문일자 순
   createdAt: string;
@@ -113,6 +120,11 @@ export interface ConfigDoc {
   id: string;
   showUrgent?: boolean; // 홈: 급한 일
   showPipeline?: boolean; // 홈: 진행중 주문 단계
+  // id = 'apiSync': 서버 함수가 남기는 마지막 금액 갱신 결과
+  checked?: number;
+  updated?: number;
+  errors?: string[];
+  at?: string;
 }
 
 export interface Collections {

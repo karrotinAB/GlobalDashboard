@@ -41,6 +41,15 @@ npm run dev
 - 보안 규칙: `firestore.rules` 를 콘솔 > Firestore > 규칙 에 붙여넣고 게시 (이메일을 적지 않으므로 한 번만 하면 됨)
 - 처음 로그인하면 설정 → 백업 가져오기로 JSON 데이터를 넣음 (실제 업무 데이터는 공개 저장소에 두지 않음)
 
+## ERP 금액 자동 채우기 (서버 함수 `functions/`)
+주문의 매장코드 + 주문일자로 ERP API 를 불러서 원화/외화 금액을 채워요.
+① `getexorderdata` → EXP_NO, 예정 금액 (`TOTAL_OUT_AMT_K/F`)  ② `getoutbounddata` → '출고승인' 줄의 출고 금액 합계로 교체.
+금액을 사람이 직접 고친 주문은 건드리지 않아요 (금액 두 칸을 다 비우면 다시 자동).
+- API 키: Firestore 콘솔 > 컬렉션 `secrets` > 문서 `erp` > 필드 `apiKey` (문자열). 보안 규칙상 사이트에서는 못 읽음
+- 30분마다 자동 + 주문 관리의 '↻ 금액 새로고침' 버튼
+- 배포 (PC 에서 한 번, Node.js 22 필요):
+  `npx firebase-tools login` → `cd functions && npm install && cd ..` → `npx firebase-tools deploy --only functions`
+
 ## 클레임 파일 올리기
 Firebase Storage 를 켜야 해요 (Blaze 요금제 필요, 무료 사용량 안에서는 0원). 켠 뒤 `storage.rules` 내용을 콘솔 > Storage > 규칙 에 붙여넣고 게시. Storage 없이도 🔗 링크 붙이기는 됨.
 

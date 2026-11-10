@@ -3489,3 +3489,52 @@ tr.bundle-head .bundle-undo {
   color: var(--red);
   margin-top: 2px;
 }
+
+/* ERP 자동 금액 표시 */
+.amt-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.amt-wrap .cell-view,
+.amt-wrap .cell-input {
+  flex: 1;
+  min-width: 0;
+}
+.api-tag {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 4px;
+  line-height: 15px;
+  background: #ececec;
+  color: var(--mut);
+}
+.api-tag.partial {
+  background: var(--amber-soft);
+  color: #8a4f17;
+}
+.api-tag.approved {
+  background: var(--olive-soft);
+  color: var(--olive);
+}
+.sync-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.sync-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+.sync-msg {
+  font-size: 11px;
+  color: var(--mut);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

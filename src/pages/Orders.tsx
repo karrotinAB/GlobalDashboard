@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useLookups, useStore } from '../data/store';
-import { isOrderDone, ORDER_STEPS, type Order, type OrderBundle, type OrderStepKey } from '../types';
+import { DATA_MODE, useLookups, useStore } from '../data/store';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
+import { isOrderDone, ORDER_STEPS, type ConfigDoc, type Order, type OrderBundle, type OrderStepKey } from '../types';
 import { uid } from '../lib/date';
 import { EditableText, MoreMenu } from '../components/SheetCells';
 import { AddOrderRow, AmountCell, CompanyCell, DateCell, fmtFX, fmtKRW } from '../components/OrderCells';
@@ -274,6 +276,7 @@ export default function Orders() {
           )}
         </button>
         <input className="search" placeholder="주문명 / 매장코드 / 비고 검색 (완료건 포함)" value={q} onChange={(e) => setQ(e.target.value)} />
+        {sheet && DATA_MODE === 'firestore' && <SyncButton companyId={sheet.id} last={data.config.find((c) => c.id === 'apiSync')} />}
         {missingStep && (
           <button className="link" onClick={() => setMissingStep(null)}>
             '{ORDER_STEPS.find((s) => s.key === missingStep)?.label} 안 된 건' 필터 해제 ✕
@@ -523,10 +526,28 @@ export default function Orders() {
         <td className="c-pack">{txt('packing', '패킹')}</td>
         <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
         <td className="c-amt">
-          <AmountCell value={o.amountKRW} kind="krw" onSave={(v) => patch({ amountKRW: v })} />
+          <div className="amt-wrap">
+            {o.amountSource?.startsWith('api') && (
+              <span
+                className={`api-tag ${o.outStatus ?? 'pending'}`}
+                title={`ERP 자동 · EXP_NO ${o.expNo ?? '-'}${o.outDate ? ` · 출고 ${o.outDate}` : ''} (금액을 직접 고치면 자동 갱신이 멈춰요)`}
+              >
+                {o.outStatus === 'approved' ? '출고' : o.outStatus === 'partial' ? '일부' : '예정'}
+              </span>
+            )}
+            <AmountCell
+              value={o.amountKRW}
+              kind="krw"
+              onSave={(v) => patch({ amountKRW: v, amountSource: v === undefined && o.amountForeign === undefined ? undefined : 'manual' })}
+            />
+          </div>
         </td>
         <td className="c-amt">
-          <AmountCell value={o.amountForeign} kind="fx" onSave={(v) => patch({ amountForeign: v })} />
+          <AmountCell
+            value={o.amountForeign}
+            kind="fx"
+            onSave={(v) => patch({ amountForeign: v, amountSource: v === undefined && o.amountKRW === undefined ? undefined : 'manual' })}
+          />
         </td>
         <td className="c-onote">
           <EditableText value={o.note ?? ''} oneLine expand placeholder="비고" onSave={(v) => patch({ note: v || undefined })} />
@@ -548,4 +569,32 @@ export default function Orders() {
       </tr>
     );
   }
+}
+
+/** ERP 에서 금액 다시 불러오기 (서버 함수 syncOrderAmountsNow). 30분마다 자동으로도 돌아감 */
+function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const run = async () => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = (await httpsCallable(functions, 'syncOrderAmountsNow')({ companyId })).data as { checked: number; updated: number; errors: string[] };
+      setMsg(r.errors?.length ? `${r.updated}건 갱신 · 오류 ${r.errors.length}건: ${r.errors[0]}` : `${r.checked}건 확인 · ${r.updated}건 갱신`);
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? '';
+      setMsg(code.includes('not-found') || code.includes('internal') ? `금액 불러오기 실패 (${(e as Error).message})` : `금액 불러오기 실패 (${code})`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const lastAt = last?.at ? new Date(last.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <span className="sync-box" title={msg || (lastAt ? `마지막 자동 갱신 ${lastAt}` : 'ERP 에서 원화·외화 금액 불러오기')}>
+      <button className="sync-btn" onClick={run} disabled={busy}>
+        {busy ? '불러오는 중…' : '↻ 금액 새로고침'}
+      </button>
+      {(msg || lastAt) && <span className="sync-msg">{msg || `자동 ${lastAt}`}</span>}
+    </span>
+  );
 }
