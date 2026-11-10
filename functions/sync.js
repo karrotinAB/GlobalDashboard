@@ -85,3 +85,28 @@ export function diff(o, next) {
   }
   return changed;
 }
+
+/**
+ * 관리자 확인용: API 1·2 가 준 응답을 가공하지 않고 그대로 돌려줌 (금액 계산·저장 안 함)
+ * 매장코드/주문일자를 따로 주면 그걸로 조회 (다른 날짜로 시험해 볼 때)
+ */
+export async function inspect({ orderDate, storeCode, expNo }, apiKey, fetchImpl = fetch) {
+  const raw = async (path, params) => {
+    const url = `${BASE}/${path}?${new URLSearchParams(params)}`;
+    const res = await fetchImpl(url, { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } });
+    const text = await res.text();
+    let body = null;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      /* JSON 아님 */
+    }
+    return { query: `${path}?${new URLSearchParams(params)}`, status: res.status, body, text: body ? undefined : text.slice(0, 2000) };
+  };
+  const api1 = orderDate && storeCode ? await raw('getexorderdata.asp', { ORDER_DATE: toApiDate(orderDate), STORE_ID: String(storeCode).trim() }) : null;
+  const expNos = new Set(expNo ? [String(expNo)] : []);
+  for (const r of api1?.body?.Infos ?? []) if (r.EXP_NO) expNos.add(String(r.EXP_NO));
+  const api2 = [];
+  for (const no of expNos) api2.push({ expNo: no, ...(await raw('getoutbounddata.asp', { EXP_NO: no })) });
+  return { api1, api2 };
+}

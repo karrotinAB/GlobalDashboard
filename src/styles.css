@@ -3621,3 +3621,90 @@ button.api-tag {
 .order-table td.c-date .cell-view {
   white-space: nowrap;
 }
+
+/* 관리자: ERP 원본 확인 */
+.api-inspect-btn {
+  margin-top: 10px;
+  padding: 0;
+}
+.insp-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 14px;
+  font-size: 12px;
+}
+.insp-form label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.insp-form .cell-input {
+  width: 120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.insp-err {
+  color: #b23a3a;
+  font-size: 13px;
+}
+.insp-sum,
+.insp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.insp-sum th,
+.insp-table th {
+  font-size: 10.5px;
+  color: var(--mut);
+  font-weight: 500;
+  text-align: left;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.insp-sum td,
+.insp-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+.insp-sum .r,
+.insp-table .r {
+  text-align: right;
+}
+.insp-sum tr.me td {
+  font-weight: 700;
+  background: var(--accent-soft, #f7ece9);
+}
+.insp-table tr.dim td {
+  color: var(--mut);
+}
+.insp-block {
+  margin-top: 18px;
+}
+.insp-block h4 {
+  margin: 0 0 2px;
+  font-size: 13px;
+}
+.insp-query {
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+.insp-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.insp-json {
+  max-height: 260px;
+  overflow: auto;
+  background: #faf6f4;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 11px;
+}

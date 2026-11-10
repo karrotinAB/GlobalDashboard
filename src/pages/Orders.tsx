@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
+import { useAccess } from '../components/AuthGate';
+import { Modal } from '../components/ui';
 import { isOrderDone, ORDER_STEPS, type ConfigDoc, type Order, type OrderBundle, type OrderStepKey } from '../types';
 import { uid } from '../lib/date';
 import { EditableText, MoreMenu } from '../components/SheetCells';
@@ -41,6 +43,9 @@ export default function Orders() {
   const { data, save, saveMany, remove } = useStore();
   const { companies, companyById } = useLookups();
   const [tab, setTab] = useState<Tab>('open');
+  // 관리자 확인 도구 (ERP 원본 보기): 사이트 연결(firestore) 모드 + 관리자만
+  const canInspect = DATA_MODE === 'firestore' && useAccess().role === 'admin';
+  const [inspecting, setInspecting] = useState<Order | null>(null);
   // 업체 = 시트: 고른 업체를 이 브라우저에 기억해서 다음에 열어도 그 시트로
   const [companyFilter, setCompanyFilterState] = useState<string>(() => {
     // 홈에서 업체 카드의 '주문'을 누르고 오면 #/orders?c=업체id
@@ -409,6 +414,7 @@ export default function Orders() {
           </button>
         </div>
       )}
+      {inspecting && <ErpInspector o={data.orders.find((x) => x.id === inspecting.id) ?? inspecting} onClose={() => setInspecting(null)} />}
     </div>
   );
 
@@ -527,7 +533,7 @@ export default function Orders() {
         <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
         <td className="c-amt c-krw">
           <div className="amt-wrap">
-            {o.amountSource?.startsWith('api') && <ApiTag o={o} />}
+            {o.amountSource?.startsWith('api') && <ApiTag o={o} onInspect={canInspect ? () => setInspecting(o) : undefined} />}
             <AmountCell
               value={o.amountKRW}
               kind="krw"
@@ -554,6 +560,7 @@ export default function Orders() {
                 o.closed
                   ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
                   : { label: '✓ 수동 완료 처리 (출고 없이 끝난 건)', onClick: () => patch({ closed: true }) },
+                ...(canInspect ? [{ label: '🔍 ERP 원본 확인 (관리자)', onClick: () => setInspecting(o) }] : []),
                 { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
               ]}
             />
@@ -593,7 +600,7 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
 }
 
 /** 금액 앞 '예정/승인' 표시. 누르면 ERP 에서 받은 내역 (확인용) */
-function ApiTag({ o }: { o: Order }) {
+function ApiTag({ o, onInspect }: { o: Order; onInspect?: () => void }) {
   const [open, setOpen] = useState(false);
   const approved = !!o.outStatus && o.outStatus !== 'pending';
   const rows = o.outRows ?? [];
@@ -653,8 +660,174 @@ function ApiTag({ o }: { o: Order }) {
               {approved ? '줄별 내역은 서버 함수를 새로 올린 뒤 다음 갱신부터 보여요.' : '아직 출고 내역이 없어요.'}
             </p>
           )}
+          {onInspect && (
+            <button className="link small api-inspect-btn" onClick={onInspect}>
+              🔍 ERP 원본 확인 (관리자)
+            </button>
+          )}
         </div>
       )}
     </span>
+  );
+}
+
+type RawCall = { query: string; status: number; body: { success?: boolean; Infos?: Record<string, unknown>[] } | null; text?: string; expNo?: string };
+type InspectResult = { api1: RawCall | null; api2: RawCall[] };
+const numOf = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number(v));
+
+/** 관리자 확인용: 이 주문으로 ERP API 를 다시 불러서 받은 그대로 보여줌 (아무것도 저장/수정 안 함) */
+function ErpInspector({ o, onClose }: { o: Order; onClose: () => void }) {
+  const [orderDate, setOrderDate] = useState(o.orderDate ?? '');
+  const [storeCode, setStoreCode] = useState(o.storeCode ?? '');
+  const [res, setRes] = useState<InspectResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const run = async () => {
+    setBusy(true);
+    setErr('');
+    try {
+      const r = await httpsCallable(functions, 'inspectOrderApi')({ orderDate, storeCode: storeCode.trim(), expNo: o.expNo });
+      setRes(r.data as InspectResult);
+    } catch (e) {
+      const m = (e as { message?: string }).message ?? String(e);
+      setErr(/not.?found|internal/i.test(m) && !/apiKey/.test(m) ? `${m} — 서버 함수를 새로 올렸는지 확인해 주세요.` : m);
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const infos1 = res?.api1?.body?.Infos ?? [];
+  const plannedK = infos1.reduce((a, r) => a + (numOf(r.TOTAL_OUT_AMT_K) ?? 0), 0);
+  const plannedF = infos1.reduce((a, r) => a + (numOf(r.TOTAL_OUT_AMT_F) ?? 0), 0);
+  const rows2 = (res?.api2 ?? []).flatMap((c) => c.body?.Infos ?? []);
+  const approved = rows2.filter((r) => r.OUT_STATUS === '출고승인');
+  const apK = approved.reduce((a, r) => a + (numOf(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0);
+  const apF = approved.reduce((a, r) => a + (numOf(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0);
+  const allK = rows2.reduce((a, r) => a + (numOf(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0);
+  const allF = rows2.reduce((a, r) => a + (numOf(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0);
+  const diffK = (a?: number, b?: number) => (a === undefined || b === undefined ? '' : a - b === 0 ? '같음' : `${a - b > 0 ? '+' : ''}${fmtKRW(a - b)}`);
+  const diffF = (a?: number, b?: number) => (a === undefined || b === undefined ? '' : Math.abs(a - b) < 0.005 ? '같음' : `${a - b > 0 ? '+' : ''}${fmtFX(Math.round((a - b) * 100) / 100)}`);
+
+  return (
+    <Modal title={`ERP 원본 확인 · ${o.name}`} onClose={onClose} wide>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        관리자만 보이는 확인 도구예요. ERP API 를 지금 다시 불러서 받은 값을 그대로 보여줘요. 대시보드 금액은 바꾸지 않아요.
+      </p>
+      <div className="insp-form">
+        <label>
+          주문일자 <input className="cell-input" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} placeholder="2026-09-29" />
+        </label>
+        <label>
+          매장코드 <input className="cell-input" value={storeCode} onChange={(e) => setStoreCode(e.target.value)} />
+        </label>
+        <button className="primary" onClick={run} disabled={busy}>
+          {busy ? '불러오는 중…' : '다시 조회'}
+        </button>
+        <span className="muted small">날짜나 매장코드를 바꿔서 시험해 볼 수 있어요.</span>
+      </div>
+      {err && <p className="insp-err">{err}</p>}
+      {res && (
+        <>
+          <table className="insp-sum">
+            <thead>
+              <tr>
+                <th />
+                <th className="r">원화</th>
+                <th className="r">외화</th>
+                <th className="r">대시보드와 차이 (원화)</th>
+                <th className="r">(외화)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="me">
+                <td>지금 대시보드에 저장된 금액</td>
+                <td className="r">{fmtKRW(o.amountKRW)}</td>
+                <td className="r">{fmtFX(o.amountForeign)}</td>
+                <td />
+                <td />
+              </tr>
+              <tr>
+                <td>API 1 예정 금액 합계 (TOTAL_OUT_AMT) · {infos1.length}줄</td>
+                <td className="r">{fmtKRW(plannedK)}</td>
+                <td className="r">{fmtFX(plannedF)}</td>
+                <td className="r">{diffK(plannedK, o.amountKRW)}</td>
+                <td className="r">{diffF(plannedF, o.amountForeign)}</td>
+              </tr>
+              <tr>
+                <td>API 2 출고승인 줄 합계 · {approved.length}줄</td>
+                <td className="r">{fmtKRW(apK)}</td>
+                <td className="r">{fmtFX(apF)}</td>
+                <td className="r">{diffK(apK, o.amountKRW)}</td>
+                <td className="r">{diffF(apF, o.amountForeign)}</td>
+              </tr>
+              <tr>
+                <td>API 2 모든 줄 합계 (승인 여부 상관없이) · {rows2.length}줄</td>
+                <td className="r">{fmtKRW(allK)}</td>
+                <td className="r">{fmtFX(allF)}</td>
+                <td className="r">{diffK(allK, o.amountKRW)}</td>
+                <td className="r">{diffF(allF, o.amountForeign)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <RawBlock title="API 1 · 주문 조회 (getexorderdata)" call={res.api1} />
+          {res.api2.length === 0 && <p className="muted small">API 1 에서 EXP_NO 를 못 받아서 API 2 는 부르지 않았어요.</p>}
+          {res.api2.map((c) => (
+            <RawBlock key={c.expNo} title={`API 2 · 출고 조회 (getoutbounddata) · EXP_NO ${c.expNo}`} call={c} />
+          ))}
+        </>
+      )}
+    </Modal>
+  );
+}
+
+/** API 응답 하나: Infos 를 모든 칸 그대로 표로 + 원본 JSON */
+function RawBlock({ title, call }: { title: string; call: RawCall | null }) {
+  if (!call) return null;
+  const infos = call.body?.Infos ?? [];
+  const keys = [...new Set(infos.flatMap((r) => Object.keys(r)))];
+  const isAmt = (k: string) => /AMT|QTY|CNT/i.test(k);
+  return (
+    <section className="insp-block">
+      <h4>{title}</h4>
+      <div className="muted small insp-query">
+        {call.query} · HTTP {call.status} · success: {String(call.body?.success ?? '-')} · {infos.length}줄
+      </div>
+      {infos.length > 0 && (
+        <div className="insp-scroll">
+          <table className="insp-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                {keys.map((k) => (
+                  <th key={k} className={isAmt(k) ? 'r' : ''}>
+                    {k}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {infos.map((r, i) => (
+                <tr key={i} className={r.OUT_STATUS && r.OUT_STATUS !== '출고승인' ? 'dim' : ''}>
+                  <td>{i + 1}</td>
+                  {keys.map((k) => (
+                    <td key={k} className={isAmt(k) ? 'r' : ''}>
+                      {r[k] === null ? <span className="muted">null</span> : String(r[k] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <details>
+        <summary className="muted small">받은 그대로 (JSON)</summary>
+        <pre className="insp-json">{call.body ? JSON.stringify(call.body, null, 2) : call.text}</pre>
+      </details>
+    </section>
   );
 }
