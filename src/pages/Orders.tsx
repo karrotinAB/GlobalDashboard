@@ -59,9 +59,22 @@ export default function Orders() {
   const [missingStep, setMissingStep] = useState<OrderStepKey | null>(null);
   const [q, setQ] = useState('');
 
+  // 기간: 주문일자 기준 연도 / 연도+월
+  const [year, setYear] = useState('');
+  const [month, setMonth] = useState('');
+  const years = useMemo(
+    () => [...new Set(data.orders.map((o) => (o.orderDate ?? o.createdAt).slice(0, 4)))].sort().reverse(),
+    [data.orders],
+  );
+  const period = year ? (month ? `${year}-${month}` : year) : '';
   const base = useMemo(
-    () => data.orders.filter((o) => !companyFilter || !companyById.has(companyFilter) || (o.companyId ?? '') === companyFilter),
-    [data.orders, companyFilter, companyById],
+    () =>
+      data.orders.filter(
+        (o) =>
+          (!companyFilter || !companyById.has(companyFilter) || (o.companyId ?? '') === companyFilter) &&
+          (!period || (o.orderDate ?? o.createdAt).startsWith(period)),
+      ),
+    [data.orders, companyFilter, companyById, period],
   );
   const openOrders = base.filter((o) => !isOrderDone(o));
   const doneCount = base.length - openOrders.length;
@@ -73,11 +86,13 @@ export default function Orders() {
 
   const query = q.trim().toLowerCase();
   const rows = useMemo(() => {
+    // 아직 안 끝난 주문이 하나라도 있는 묶음 → 그 묶음의 완료건도 진행중에 같이 보여줌
+    const openBundles = new Set(base.filter((o) => o.bundle && !isOrderDone(o)).map((o) => o.bundle!.id));
     return base
       .filter((o) => {
         // 검색어가 있으면 완료건까지 전부 검색
         if (!query) {
-          if (tab === 'open' && isOrderDone(o)) return false;
+          if (tab === 'open' && isOrderDone(o) && !(o.bundle && openBundles.has(o.bundle.id))) return false;
           if (tab === 'done' && !isOrderDone(o)) return false;
         }
         if (missingStep && (o[missingStep] || isOrderDone(o))) return false;
@@ -184,6 +199,33 @@ export default function Orders() {
       </div>
 
       <div className="toolbar">
+        <div className={`period ${period ? 'on' : ''}`}>
+          <select
+            value={year}
+            onChange={(e) => {
+              setYear(e.target.value);
+              if (!e.target.value) setMonth('');
+            }}
+            title="주문일자 연도"
+          >
+            <option value="">전체 기간</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}년
+              </option>
+            ))}
+          </select>
+          {year && (
+            <select value={month} onChange={(e) => setMonth(e.target.value)} title="주문일자 월">
+              <option value="">전체 월</option>
+              {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
+                <option key={m} value={m}>
+                  {Number(m)}월
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="seg">
           <button className={tab === 'open' ? 'on' : ''} onClick={() => setTab('open')}>
             진행중 <b>{openOrders.length}</b>
