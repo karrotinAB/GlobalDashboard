@@ -27,7 +27,7 @@ const fmt = (cur: Claim['currency'], n?: number) => (n === undefined ? '' : cur 
 const sum = (os: Order[], k: 'amountKRW' | 'amountForeign') => os.reduce((a, o) => a + (o[k] ?? 0), 0);
 
 export default function Claims() {
-  const { data, save, remove } = useStore();
+  const { data, save, saveMany, remove } = useStore();
   const { companies, companyById } = useLookups();
   // 주문 관리의 [클레임] 버튼으로 오면 #/claims?c=업체id
   const [companyFilter, setCompanyFilterState] = useState(() => {
@@ -104,8 +104,30 @@ export default function Claims() {
     return data.claims
       .filter((c) => !companyFilter || !sheet || c.companyId === companyFilter)
       .filter((c) => !query || `${c.title} ${c.note ?? ''} ${companyById.get(c.companyId ?? '')?.name ?? ''}`.toLowerCase().includes(query))
-      .sort((a, b) => (b.shipDate ?? '9999').localeCompare(a.shipDate ?? '9999') || b.createdAt.localeCompare(a.createdAt));
+      .sort((a, b) => claimKey(b) - claimKey(a) || b.createdAt.localeCompare(a.createdAt));
   }, [data.claims, companyFilter, sheet, q, companyById]);
+
+  // 끌어서 순서 바꾸기: 지금 보이는 줄들의 순서값을 그대로 다시 나눠 씀 (클수록 위)
+  const dragRef = useRef<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [over, setOver] = useState<{ id: string; after: boolean } | null>(null);
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragId(null);
+    setOver(null);
+  };
+  const dropOn = (targetId: string, after: boolean) => {
+    const fromId = dragRef.current;
+    endDrag();
+    if (!fromId || fromId === targetId) return;
+    const from = rows.find((c) => c.id === fromId);
+    if (!from) return;
+    const keys = rows.map(claimKey).sort((a, b) => b - a);
+    const list = rows.filter((c) => c.id !== fromId);
+    list.splice(list.findIndex((c) => c.id === targetId) + (after ? 1 : 0), 0, from);
+    const changed = list.map((c, i) => ({ ...c, sort: keys[i] - i * 0.001 })).filter((c) => data.claims.find((x) => x.id === c.id)?.sort !== c.sort);
+    saveMany('claims', changed);
+  };
 
   const patch = (c: Claim, p: Partial<Claim>) => save('claims', { ...c, ...p });
 
@@ -245,8 +267,40 @@ export default function Claims() {
               const rate = packing && c.claimAmount !== undefined ? (c.claimAmount / packing) * 100 : undefined;
               const company = companyById.get(c.companyId ?? '');
               return (
-                <tr key={c.id} className={c.refunded ? 'is-refunded' : c.docDone ? 'is-doc' : ''}>
+                <tr
+                  key={c.id}
+                  className={`${c.refunded ? 'is-refunded' : c.docDone ? 'is-doc' : ''} ${dragId === c.id ? 'row-dragging' : ''} ${
+                    over?.id === c.id ? (over.after ? 'drop-after' : 'drop-before') : ''
+                  }`}
+                  onDragOver={(e) => {
+                    if (!dragRef.current) return;
+                    e.preventDefault();
+                    const r = e.currentTarget.getBoundingClientRect();
+                    const after = e.clientY > r.top + r.height / 2;
+                    if (over?.id !== c.id || over.after !== after) setOver({ id: c.id, after });
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    dropOn(c.id, over?.id === c.id ? over.after : false);
+                  }}
+                >
                   <td className="k-date">
+                    <span
+                      className="row-handle k-handle"
+                      draggable
+                      title="끌어서 위치 바꾸기"
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', c.title);
+                        const tr = e.currentTarget.closest('tr');
+                        if (tr) e.dataTransfer.setDragImage(tr, 20, 14);
+                        dragRef.current = c.id;
+                        setTimeout(() => setDragId(c.id), 0);
+                      }}
+                      onDragEnd={endDrag}
+                    >
+                      ⠿
+                    </span>
                     <ClaimDate value={c.shipDate} onSave={(v) => patch(c, { shipDate: v })} />
                   </td>
                   <td className="k-title">
@@ -568,4 +622,9 @@ function ClaimDetail({ title, orders, companyName, onClose }: { title: string; o
       )}
     </Modal>
   );
+}
+
+/** 순서 기준값 (클수록 위): 직접 옮긴 순서, 없으면 출고날짜 (날짜 없는 건 맨 위) */
+function claimKey(c: Claim) {
+  return c.sort ?? (c.shipDate ? Date.parse(c.shipDate) : Date.parse('9999-01-01'));
 }

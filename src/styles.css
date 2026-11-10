@@ -4430,3 +4430,15 @@ button.tw-card-tasks:hover .tw-card-num {
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+
+/* 클레임: 줄 앞 ⠿ 로 순서 바꾸기 */
+.claim-table td.k-date {
+  position: relative;
+}
+.claim-table .k-handle {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  translate: 0 -50%;
+  margin: 0;
+}
