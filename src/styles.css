@@ -3296,3 +3296,48 @@ tr.bundle-head .bundle-undo {
 }
 .claim-table tr:hover .file-add { opacity: 1; }
 .k-title-input { margin-top: 3px; }
+
+/* 지금 이 페이지를 보고 있는 사람 */
+.presence {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.pres-dot {
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--c);
+  border: 2px solid var(--bg);
+  position: relative;
+}
+.pres-dot:first-child {
+  margin-left: 0;
+}
+.pres-dot::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5bbf6a;
+  border: 2px solid var(--bg);
+}
+.pres-dot.me {
+  opacity: 0.75;
+}
+.pres-label {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--mut);
+}

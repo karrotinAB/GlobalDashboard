@@ -40,6 +40,12 @@ service cloud.firestore {
             || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()));
     }
 
+    // 지금 보고 있는 페이지 (탭 오른쪽 위 동그라미): 모두 읽고, 자기 것만 씀
+    match /presence/{email} {
+      allow read: if isTeam();
+      allow write: if isTeam() && email == myEmail();
+    }
+
     // 팀 공용 설정 (홈 화면 구성 등): 모두 읽고, 관리자만 바꿈
     match /config/{id} {
       allow read: if isTeam();

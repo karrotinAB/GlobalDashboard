@@ -11,6 +11,7 @@ import Claims from './pages/Claims';
 import Settings from './pages/Settings';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
+import Presence from './components/Presence';
 
 const PAGES = [
   { key: 'home', label: '홈', icon: 'jelly' },
@@ -88,9 +89,13 @@ export default function App() {
               {p.label}
             </a>
           ))}
-          <span className={`mode ${mode}`} title={mode === 'firestore' ? '팀원과 실시간 공유 중' : '이 브라우저에만 저장 중'}>
-            {mode === 'firestore' ? '팀 공유 중' : '로컬 모드'}
-          </span>
+          {mode === 'firestore' ? (
+            <Presence page={page} />
+          ) : (
+            <span className="mode local" title="이 브라우저에만 저장 중">
+              로컬 모드
+            </span>
+          )}
         </nav>
         {error && <div className="error-bar">{error}</div>}
         {firstRun && (
