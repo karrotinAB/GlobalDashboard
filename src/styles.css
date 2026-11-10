@@ -2971,3 +2971,6 @@ tr.bundle-head td.bundle-amt {
   font-variant-numeric: tabular-nums;
   padding-right: 12px;
 }
+.stat-scope {
+  margin: 0 0 6px 4px;
+}

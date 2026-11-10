@@ -182,6 +182,10 @@ export default function Orders() {
         </div>
       </div>
 
+      <p className="stat-scope muted small">
+        {sheet ? `${sheet.name} 기준` : '전체 업체 기준'}
+        {period ? ` · ${year}년${month ? ` ${Number(month)}월` : ''}` : ''} · 숫자를 누르면 그 단계가 안 된 주문만 보여요
+      </p>
       <div className="stat-row">
         {ORDER_STEPS.map((s) => (
           <button
@@ -279,7 +283,7 @@ export default function Orders() {
 
       {query && <div className="banner">검색 중에는 진행중/완료 구분 없이 전체에서 찾아요. ({rows.length}건)</div>}
 
-      {!sheet && !query ? (
+      {!sheet && !query && !missingStep ? (
         <div className="pick-company">
           <p>
             <b>업체를 골라주세요</b> · 고른 업체의 주문만 보여요 (검색은 업체를 안 골라도 전체에서 찾아요)
