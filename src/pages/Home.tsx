@@ -216,6 +216,11 @@ export default function Home({ go }: { go: (page: string) => void }) {
               record={todayAtt.get(s.member.id)}
               nowMin={seoul.h * 60 + seoul.mi}
               mine={access.role === null || (!!s.member.email && s.member.email.toLowerCase() === access.email)}
+              canClaim={!!access.email && !s.member.email && !members.some((x) => x.email?.toLowerCase() === access.email)}
+              onClaim={() => {
+                if (confirm(`'${s.member.name}' 카드를 내 카드(${access.email})로 연결할까요?\n연결하면 이 카드의 말풍선·캐릭터는 나만 바꿀 수 있어요.`))
+                  save('members', { ...s.member, email: access.email });
+              }}
               onPickCharacter={() => setEditing(s.member)}
               onStatus={(status) => save('members', { ...s.member, status: status || undefined })}
             />
@@ -356,6 +361,8 @@ function TeamCard({
   record,
   nowMin,
   mine,
+  canClaim,
+  onClaim,
   onPickCharacter,
   onStatus,
 }: {
@@ -363,6 +370,8 @@ function TeamCard({
   record?: Attendance;
   nowMin: number;
   mine: boolean; // 내 카드일 때만 말풍선·캐릭터 수정
+  canClaim: boolean; // 아직 주인 없는 카드 + 나도 아직 카드 없음
+  onClaim: () => void;
   onPickCharacter: () => void;
   onStatus: (v: string) => void;
 }) {
@@ -388,6 +397,11 @@ function TeamCard({
           <div className="mc-name">
             <b>{m.name}</b>
             <span className="mc-dot" />
+            {!mine && canClaim && (
+              <button className="claim-btn" onClick={onClaim} title="내 로그인 계정과 이 카드를 연결해요 (처음 한 번만)">
+                이 카드가 나예요
+              </button>
+            )}
           </div>
           {!mine ? (
             m.status ? <div className="bubble readonly">{m.status}</div> : <div className="bubble is-empty readonly">…</div>
