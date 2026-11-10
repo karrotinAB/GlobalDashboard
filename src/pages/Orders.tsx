@@ -414,20 +414,17 @@ export default function Orders() {
                 풀기
               </button>
             </td>
-            <td colSpan={colSpan - 1}>
+            <td colSpan={colSpan - 5}>
               <div className="bundle-title">
                 <div className={`bundle-name-block ${u.bundle.name ? '' : 'unnamed'}`}>
                   <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 쓰기 ✎" onSave={(v) => renameBundle(u.bundle!, v)} />
                 </div>
-                {(hasAmt(u.orders, 'amountKRW') || hasAmt(u.orders, 'amountForeign')) && (
-                  <span className="bundle-sum">
-                    {hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}
-                    {hasAmt(u.orders, 'amountKRW') && hasAmt(u.orders, 'amountForeign') && ' · '}
-                    {hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}
-                  </span>
-                )}
               </div>
             </td>
+            {/* 묶음 합계는 원화/외화 금액 칸 바로 위에 */}
+            <td className="c-amt bundle-amt">{hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}</td>
+            <td className="c-amt bundle-amt">{hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}</td>
+            <td colSpan={2} />
           </tr>
         )}
         {u.orders.map((o, i) => (

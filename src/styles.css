@@ -2963,3 +2963,11 @@ tr.bundle-gap:first-child {
   border-radius: 999px;
   padding: 0 7px;
 }
+tr.bundle-head td.bundle-amt {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  padding-right: 12px;
+}
