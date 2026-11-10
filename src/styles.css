@@ -3176,3 +3176,123 @@ tr.bundle-head .bundle-undo {
   color: var(--red);
   font-weight: 500;
 }
+
+/* 주문 관리 → [클레임] 버튼 (환급 안 된 클레임이 있으면 빨강) */
+.claim-link {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-2);
+}
+.claim-link:hover {
+  border-color: var(--ink-2);
+}
+.claim-link.open {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+/* ---------- 클레임 표 ---------- */
+.claim-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--surface);
+  min-width: 1150px;
+}
+.claims-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+.claim-table th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 500;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.claim-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--line-2);
+  vertical-align: middle;
+}
+.claim-table .k-date { width: 132px; }
+.claim-table .k-title { width: 250px; }
+.claim-table .k-cur { width: 82px; }
+.claim-table .k-amt { width: 124px; text-align: right; }
+.claim-table .k-rate { width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+.claim-table td.k-rate { font-size: 13px; }
+.claim-table .k-chk { width: 72px; text-align: center; }
+.claim-table .k-files { width: 190px; }
+.claim-table .k-more { width: 40px; overflow: visible; }
+.claim-table td.k-note { overflow: visible; }
+.claim-table .k-note .cell-view { color: var(--red); }
+.k-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.k-title-wrap .cell-view {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+}
+.k-icon { flex: none; font-size: 13px; }
+.k-co { flex: none; font-size: 11px; color: var(--mut); }
+.k-amt-wrap { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
+.k-amt-wrap .cell-view { flex: 1; }
+.auto-tag {
+  flex: none;
+  font-size: 9px;
+  color: var(--mut);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.cur-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+.cur-pill.krw { background: #e9f0dd; border-color: #cfdcb9; color: #4d6a31; }
+.cur-pill.fx { background: #e3ecf8; border-color: #c3d4ee; color: #2f5a99; }
+.claim-table tr.is-doc td { background: #fbe9ee; }
+.claim-table tr.is-refunded td { background: #efecea; color: var(--ink-2); }
+.files { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 150px;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 2px 1px 8px;
+}
+.file-chip a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.file-chip .x { border: 0; background: none; padding: 0 4px; color: var(--mut); }
+.file-add {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px dashed #d9bcb4;
+  background: none;
+  color: var(--mut);
+  opacity: 0;
+}
+.claim-table tr:hover .file-add { opacity: 1; }
+.k-title-input { margin-top: 3px; }

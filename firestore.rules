@@ -48,7 +48,7 @@ service cloud.firestore {
 
     match /{col}/{id} {
       allow read, write: if isTeam()
-        && col in ['companies', 'tasks', 'orders', 'attendance'];
+        && col in ['companies', 'tasks', 'orders', 'attendance', 'claims'];
     }
   }
 }

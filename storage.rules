@@ -1,0 +1,14 @@
+rules_version = '2';
+// 클레임 파일 저장소: 대시보드 사용자(roles 문서가 있는 사람)만 올리고 볼 수 있음. 파일 하나 20MB 까지
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isTeam() {
+      return request.auth != null && request.auth.token.email != null
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member'];
+    }
+    match /claims/{claimId}/{file} {
+      allow read, delete: if isTeam();
+      allow create: if isTeam() && request.resource.size < 20 * 1024 * 1024;
+    }
+  }
+}

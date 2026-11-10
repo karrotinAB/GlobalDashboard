@@ -274,6 +274,15 @@ export default function Orders() {
           )}
         </button>
         <input className="search" placeholder="주문명 / 매장코드 / 비고 검색 (완료건 포함)" value={q} onChange={(e) => setQ(e.target.value)} />
+        {sheet && (() => {
+          // 이 업체 클레임: 환급 안 된 게 있으면 빨간 버튼
+          const open = data.claims.filter((c) => c.companyId === sheet.id && !c.refunded).length;
+          return (
+            <a className={`claim-link ${open ? 'open' : ''}`} href={`#/claims?c=${sheet.id}`} title={open ? `환급 안 된 클레임 ${open}건` : '클레임 보기'}>
+              클레임{open ? ` ${open}` : ''}
+            </a>
+          );
+        })()}
         {missingStep && (
           <button className="link" onClick={() => setMissingStep(null)}>
             '{ORDER_STEPS.find((s) => s.key === missingStep)?.label} 안 된 건' 필터 해제 ✕

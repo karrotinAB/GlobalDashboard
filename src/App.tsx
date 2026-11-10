@@ -7,6 +7,7 @@ import { COLLECTIONS } from './data/backend';
 import Home from './pages/Home';
 import Todos from './pages/Todos';
 import Orders from './pages/Orders';
+import Claims from './pages/Claims';
 import Settings from './pages/Settings';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
@@ -15,6 +16,7 @@ const PAGES = [
   { key: 'home', label: '홈', icon: 'jelly' },
   { key: 'todos', label: '주간 할일', icon: '📝' },
   { key: 'orders', label: '주문 관리', icon: '📦' },
+  { key: 'claims', label: '클레임', icon: '🧾' },
   { key: 'settings', label: '설정', icon: '⚙️' },
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
@@ -111,6 +113,8 @@ export default function App() {
             <Import go={go} />
           ) : page === 'orders' ? (
             <Orders />
+          ) : page === 'claims' ? (
+            <Claims />
           ) : (
             <Settings />
           )}

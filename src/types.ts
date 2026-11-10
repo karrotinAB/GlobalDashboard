@@ -83,6 +83,31 @@ export interface Attendance {
   updatedAt?: string;
 }
 
+/** 클레임: 묶음 또는 개별 주문 기준. 패킹금액은 원래 주문 금액에서 자동으로 가져옴 (직접 고칠 수도 있음) */
+export interface ClaimFile {
+  name: string;
+  url: string;
+  path?: string; // Storage 에 올린 파일이면 경로 (지울 때 씀). 링크면 없음
+}
+
+export interface Claim {
+  id: string;
+  companyId: string | null;
+  source: 'bundle' | 'order' | 'manual';
+  sourceId?: string; // 묶음 id 또는 주문 id
+  title: string; // 묶음 이름 / 주문명 (가져온 뒤 고칠 수 있음)
+  currency: 'KRW' | 'FOREIGN';
+  packingOverride?: number; // 직접 쓴 패킹금액 (없으면 주문에서 자동)
+  claimAmount?: number;
+  shipDate?: string; // 출고날짜 YYYY-MM-DD
+  docDone: boolean; // 서류작성
+  refunded: boolean; // 환급 완료
+  files?: ClaimFile[];
+  note?: string;
+  sort?: number;
+  createdAt: string;
+}
+
 /** 팀 공용 설정 (관리자만 바꿈). id = 'home' */
 export interface ConfigDoc {
   id: string;
@@ -97,6 +122,7 @@ export interface Collections {
   orders: Order[];
   attendance: Attendance[];
   config: ConfigDoc[];
+  claims: Claim[];
 }
 
 export type CollectionName = keyof Collections;
