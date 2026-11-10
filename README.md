@@ -34,8 +34,8 @@ npm run dev
 - 설정값: `src/firebase.ts` (공개용 값)
 - 데이터: Firestore 컬렉션 `members`, `companies`, `tasks`, `orders`, `attendance`
 - 로그인: Authentication > 이메일/비밀번호 (**사용자 작업 > 생성(가입) 사용 설정은 켜 둘 것**: 관리자 화면이 계정을 만들 때 필요)
-- 계정 만들기: 관리자가 대시보드 설정 > 접근 권한에서 이메일 + 임시 비밀번호로 추가 → 본인이 로그인 후 설정 > 내 비밀번호 바꾸기
-- 접근 권한: Firestore `roles/{이메일}` 문서의 `level` (`admin` / `member`). **대시보드 설정 > 접근 권한(관리자만 보임)에서 추가·삭제**
+- 계정 만들기: 관리자가 대시보드 설정 > 대시보드 사용자에서 이메일 + 임시 비밀번호로 추가 → 본인이 로그인 후 설정 > 내 비밀번호 바꾸기
+- 접근 권한: Firestore `roles/{이메일}` 문서의 `level` (`admin` / `member`). **대시보드 설정 > 대시보드 사용자(관리자만 보이는 칸)에서 추가·삭제. 추가한 사람은 기본이 조원(member)**
 - 첫 관리자 1명만 콘솔에서 직접 만들기: ① Authentication > Users > 사용자 추가 ② Firestore > 데이터 > 컬렉션 `roles` > 문서 ID = 내 이메일(소문자) > 필드 `level` = `admin`
 - 보안 규칙: `firestore.rules` 를 콘솔 > Firestore > 규칙 에 붙여넣고 게시 (이메일을 적지 않으므로 한 번만 하면 됨)
 - 처음 로그인하면 설정 → 백업 가져오기로 JSON 데이터를 넣음 (실제 업무 데이터는 공개 저장소에 두지 않음)

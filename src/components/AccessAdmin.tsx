@@ -29,7 +29,7 @@ async function createAccount(email: string, password: string): Promise<'created'
   }
 }
 
-/** 설정 > 접근 권한 (관리자만 보임). 여기 있는 이메일만 대시보드를 볼 수 있음 */
+/** 설정 > 대시보드 사용자 (관리자만 보임). 여기 있는 이메일만 대시보드를 쓸 수 있음. 각자 조원/관리자 */
 export default function AccessAdmin() {
   const me = useAccess();
   const [rows, setRows] = useState<Row[]>([]);
@@ -100,10 +100,14 @@ export default function AccessAdmin() {
 
   return (
     <section className="card">
-      <h2>접근 권한 (관리자)</h2>
+      <h2>
+        대시보드 사용자 <span className="tag gray">관리자만 보이는 칸</span>
+      </h2>
       <p className="muted small">
-        여기 있는 이메일만 대시보드를 볼 수 있어요. 새 사람은 이메일과 임시 비밀번호를 넣고 추가하면 로그인 계정까지 만들어져요. (권한을 빼도
-        로그인 계정 자체는 남지만 아무것도 볼 수 없어요)
+        여기 추가한 사람만 대시보드에 로그인해서 쓸 수 있어요. 이메일과 임시 비밀번호를 넣으면 로그인 계정까지 만들어져요.
+        <br />
+        <b>조원</b> = 대시보드 사용 · <b>관리자</b> = 조원 + 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
+        (목록에서 빼도 로그인 계정은 남지만 아무것도 볼 수 없어요)
       </p>
       <table className="settings-table">
         <thead>
@@ -139,7 +143,7 @@ export default function AccessAdmin() {
                     <button
                       className="danger small"
                       onClick={async () => {
-                        if (!confirm(`${r.email} 의 접근 권한을 뺄까요?`)) return;
+                        if (!confirm(`${r.email}  을(를) 대시보드 사용자에서 뺄까요?`)) return;
                         try {
                           await deleteDoc(doc(db, 'roles', r.email));
                         } catch (err) {
@@ -147,7 +151,7 @@ export default function AccessAdmin() {
                         }
                       }}
                     >
-                      권한 빼기
+                      목록에서 빼기
                     </button>
                   )}
                 </td>
