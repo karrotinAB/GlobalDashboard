@@ -2974,3 +2974,21 @@ tr.bundle-head td.bundle-amt {
 .stat-scope {
   margin: 0 0 6px 4px;
 }
+
+/* 주문 표 제목 줄: 스크롤해도 검색 줄 밑에 붙어 있음
+   (가로 스크롤 상자 안에서는 고정이 안 돼서, 표가 화면에 다 들어오는 넓은 화면에서는 상자를 없앰) */
+.order-table thead th {
+  position: sticky;
+  top: calc(var(--tabs-h, 56px) + var(--toolbar-h, 60px));
+  z-index: 20;
+  background: #fbf3ef;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+.shell {
+  max-width: 1360px;
+}
+@media (min-width: 1300px) {
+  .table-scroll:has(.order-table) {
+    overflow: visible;
+  }
+}

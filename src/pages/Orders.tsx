@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { isOrderDone, ORDER_STEPS, type Order, type OrderBundle, type OrderStepKey } from '../types';
 import { uid } from '../lib/date';
@@ -56,6 +56,17 @@ export default function Orders() {
     }
   };
   const [showCompanies, setShowCompanies] = useState(false);
+  // 검색 줄 높이를 재서, 표 제목 줄이 그 밑에 붙게 (--toolbar-h)
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty('--toolbar-h', `${Math.round(el.getBoundingClientRect().height)}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [missingStep, setMissingStep] = useState<OrderStepKey | null>(null);
   const [q, setQ] = useState('');
 
@@ -202,7 +213,7 @@ export default function Orders() {
         ))}
       </div>
 
-      <div className="toolbar">
+      <div className="toolbar" ref={toolbarRef}>
         <div className={`period ${period ? 'on' : ''}`}>
           <select
             value={year}
