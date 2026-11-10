@@ -3,10 +3,9 @@
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
 import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
-import { useTrade, isOpen, sortRequests, workload } from '../lib/trade';
-import { NewRequest, PriorityTag, RequestDetail, StatusTag, WorkTypePicker } from '../components/RequestParts';
+import { useTrade, isOpen, sortRequests } from '../lib/trade';
+import { NewRequest, PriorityTag, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
-import { Avatar } from '../components/ui';
 import { today } from '../lib/date';
 
 type Tab = 'open' | 'done';
@@ -61,7 +60,6 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
     );
   }, [all, tab, year, month, assignee, requester, workType, status, query]);
 
-  const load = workload(all, trade, todayIso);
   const openCount = (f: (r: TradeRequest) => boolean) => all.filter((r) => isOpen(r) && f(r)).length;
   const detail = all.find((r) => r.id === openId);
   const isTeamSide = side === 'team';
@@ -86,47 +84,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         </button>
       </div>
 
-      {/* 무역사무 담당자별 남은 업무 */}
-      <div className="rq-load">
-        {load.rows.map((w) => (
-          <button
-            key={w.id}
-            className={`rq-load-card ${assignee === w.id ? 'on' : ''}`}
-            style={{ '--c': w.member?.color } as CSSProperties}
-            onClick={() => pickAssignee(w.id)}
-            title="눌러서 이 사람의 업무 보기"
-          >
-            <Avatar member={w.member} size={34} />
-            <span className="rq-load-main">
-              <b>{w.member?.name}</b>
-              <span className="muted small">
-                요청됨 {w.requested} · 진행중 {w.progress}
-              </span>
-              <span className="muted small">이번 달 완료 {w.doneThisMonth}</span>
-              <span className="rq-load-flags">
-                {w.hot > 0 && <span className="flag hot">초긴급 {w.hot}</span>}
-                {w.overdue > 0 && <span className="flag warn">마감 지남 {w.overdue}</span>}
-                {w.dueToday > 0 && <span className="flag">오늘 마감 {w.dueToday}</span>}
-              </span>
-            </span>
-            <span className="rq-load-num">
-              {w.open}
-              <small>남음</small>
-            </span>
-          </button>
-        ))}
-        <button className={`rq-load-card none ${assignee === '-' ? 'on' : ''}`} onClick={() => pickAssignee('-')} title="처리자가 아직 안 정해진 요청">
-          <span className="rq-load-main">
-            <b>처리자 미정</b>
-            <span className="muted small">무역사무가 정하기 전</span>
-          </span>
-          <span className="rq-load-num">
-            {load.unassigned}
-            <small>건</small>
-          </span>
-        </button>
-        {trade.length === 0 && <p className="muted small">무역사무 담당자가 아직 없어요. 설정 → 무역사무 담당자에서 추가해 주세요.</p>}
-      </div>
+      {/* 무역사무 담당자별 남은 업무 (누르면 그 사람 업무만) */}
+      <TradeSummaryCards requests={all} trade={trade} selected={assignee} onSelect={pickAssignee} />
+      {trade.length === 0 && <p className="muted small">무역사무 담당자가 아직 없어요. 설정 → 무역사무 담당자에서 추가해 주세요.</p>}
 
       <div className="toolbar rq-toolbar">
         <div className="seg">

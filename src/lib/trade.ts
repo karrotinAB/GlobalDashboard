@@ -6,6 +6,7 @@ import { DATA_MODE, useStore } from '../data/store';
 import { useAccess } from '../components/AuthGate';
 import { PRIORITIES, REQUEST_STATUS, type Member, type RequestFile, type TradeRequest } from '../types';
 import { today, uid } from './date';
+import { CHARACTERS } from '../components/ui';
 
 export const isOpen = (r: TradeRequest) => r.status === 'requested' || r.status === 'progress';
 
@@ -153,4 +154,18 @@ export function useTrade() {
   const names = { assignee: (id?: string) => nameOf(trade, id), requester: (id?: string) => nameOf(team, id) };
   const update = (r: TradeRequest, patch: Partial<TradeRequest>) => save('requests', applyChange(r, patch, by, names));
   return { data, save, access, team, trade, me, by, update };
+}
+
+/** 무역사무 담당자 캐릭터: 고른 게 없으면 순서대로 기본 캐릭터 */
+export const tradeChar = (m: Member, list: Member[]) => m.character ?? CHARACTERS[(Math.max(0, list.indexOf(m)) * 5 + 3) % CHARACTERS.length];
+
+/** '3분 전', '2시간 전', '어제' … */
+export function ago(iso: string, now = Date.now()) {
+  const min = Math.floor((now - Date.parse(iso)) / 60000);
+  if (min < 1) return '방금';
+  if (min < 60) return `${min}분 전`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}시간 전`;
+  const d = Math.floor(h / 24);
+  return d === 1 ? '어제' : `${d}일 전`;
 }

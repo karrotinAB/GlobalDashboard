@@ -4648,3 +4648,76 @@ button.tw-card-tasks:hover .tw-card-num {
   grid-column: 1 / -1;
   margin-top: 6px;
 }
+
+/* 무역사무 요약 카드 (주간 할일 카드 모양) */
+.trade-sum .member-card.unassigned {
+  border-style: dashed;
+}
+.tw-q.big {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+.un-num {
+  margin-left: auto;
+  font-size: 26px;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.un-num small {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 500;
+}
+/* 새로 들어온 업무 */
+.tw-new {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.tw-new-card {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--c, #c9b8b3);
+  cursor: pointer;
+}
+.tw-new-card:hover {
+  box-shadow: var(--shadow-h);
+}
+.tw-ago {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--mut);
+}
+.tw-new-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.tw-new-foot img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.tw-new-foot .tw-due {
+  margin-left: 4px;
+}
+.tw-as {
+  margin-left: auto;
+  font-weight: 600;
+}
+.tw-as.none {
+  color: var(--mut);
+  font-weight: 500;
+}

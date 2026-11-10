@@ -1,11 +1,11 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
-import { useState, type ClipboardEvent } from 'react';
+import { useState, type ClipboardEvent, type CSSProperties } from 'react';
 import { PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
-import { Modal } from './ui';
+import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
 import { today, uid } from '../lib/date';
-import { deleteRequestFile, PRIORITY_CLASS, uploadRequestFile } from '../lib/trade';
+import { deleteRequestFile, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload } from '../lib/trade';
 
 const dot = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -491,6 +491,67 @@ export function WorkTypePicker({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** 무역사무 담당자별 요약 카드 (주간 할일 카드와 같은 모양): 캐릭터 · 남은 업무 링 · 급한 표시 */
+export function TradeSummaryCards({
+  requests,
+  trade,
+  selected,
+  onSelect,
+}: {
+  requests: TradeRequest[];
+  trade: Member[];
+  selected?: string;
+  onSelect: (id: string) => void;
+}) {
+  const load = workload(requests, trade);
+  return (
+    <div className="team compact trade-sum">
+      {load.rows.map((w) => {
+        const m = w.member!;
+        const total = w.open + w.doneThisMonth;
+        return (
+          <button
+            key={m.id}
+            className={`member-card ${selected === m.id ? 'selected' : ''}`}
+            style={{ '--c': m.color } as CSSProperties}
+            onClick={() => onSelect(m.id)}
+            title="눌러서 이 사람의 업무 보기"
+          >
+            <div className="mc-top">
+              <img className="mc-mini-char" src={characterSrc(tradeChar(m, trade))} alt="" />
+              <div className="mc-name">
+                <b>{m.name}</b>
+                <span className="muted small">
+                  요청됨 {w.requested} · 진행중 {w.progress} · 이번 달 완료 {w.doneThisMonth}
+                </span>
+              </div>
+              <Ring value={w.doneThisMonth} total={total} size={56} stroke={6} color={m.color} label={w.open} sub="남음" />
+            </div>
+            <div className="mc-flags">
+              <span className={`flag ${w.hot ? 'hot' : ''}`}>초긴급 {w.hot}</span>
+              <span className={`flag ${w.overdue ? 'warn' : ''}`}>마감 지남 {w.overdue}</span>
+              <span className={`flag ${w.dueToday ? 'hot' : ''}`}>오늘 마감 {w.dueToday}</span>
+            </div>
+          </button>
+        );
+      })}
+      <button className={`member-card unassigned ${selected === '-' ? 'selected' : ''}`} onClick={() => onSelect('-')} title="처리자가 아직 안 정해진 요청">
+        <div className="mc-top">
+          <span className="tw-q big">?</span>
+          <div className="mc-name">
+            <b>처리자 미정</b>
+            <span className="muted small">무역사무가 정하기 전</span>
+          </div>
+          <span className="un-num">
+            {load.unassigned}
+            <small>건</small>
+          </span>
+        </div>
+      </button>
     </div>
   );
 }

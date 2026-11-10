@@ -1,9 +1,9 @@
 // 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 담당자별 업무 (시계 없음)
 import { useState, type CSSProperties } from 'react';
 import { CharacterPicker, Hero, LeaveBand } from './Home';
-import { Avatar, CHARACTERS, characterSrc } from '../components/ui';
+import { Avatar, characterSrc, Ring } from '../components/ui';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
-import { isOpen, sortRequests, useTrade, workload } from '../lib/trade';
+import { ago, isOpen, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
 import type { Attendance, Member, TradeRequest } from '../types';
 
@@ -21,6 +21,11 @@ export default function TradeHome() {
     { id: '-', list: open.filter((r) => !r.assigneeId) },
   ];
   const detail = data.requests.find((r) => r.id === openId);
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const fresh = data.requests
+    .filter((r) => r.status === 'requested' && r.createdAt >= weekAgo)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 8);
   const mine = (m: Member) => access.role === null || (!!m.email && m.email.toLowerCase() === access.email);
   const iHaveCard = trade.some((m) => m.email?.toLowerCase() === access.email);
   const todayAtt = new Map(data.attendance.filter((a) => a.date === todayIso).map((a) => [a.memberId, a]));
@@ -46,7 +51,7 @@ export default function TradeHome() {
                 w={w}
                 record={todayAtt.get(m.id)}
                 nowMin={nowMin}
-                fallbackChar={CHARACTERS[(trade.indexOf(m) * 5 + 3) % CHARACTERS.length]}
+                fallbackChar={tradeChar(m, trade)}
                 mine={mine(m)}
                 canClaim={!!access.email && !m.email && !iHaveCard}
                 onClaim={() =>
@@ -60,6 +65,40 @@ export default function TradeHome() {
           })}
           {trade.length === 0 && <p className="muted small">아직 무역사무 담당자가 없어요. 관리자가 설정 → 무역사무 담당자에서 추가해요.</p>}
         </div>
+      </section>
+
+      {/* 새로 들어온 업무: 아직 '요청됨' 인 것 중 최근 7일, 최신순 */}
+      <section className="section">
+        <div className="section-head">
+          <h2>🆕 새로 들어온 업무</h2>
+          <span className="muted small">아직 시작 안 한 최근 7일 요청 · 누르면 자세히</span>
+        </div>
+        {fresh.length === 0 ? (
+          <p className="muted small">새로 들어온 업무가 없어요 🍵</p>
+        ) : (
+          <div className="tw-new">
+            {fresh.map((r) => {
+              const who = team.find((m) => m.id === r.requesterId);
+              const as = trade.find((m) => m.id === r.assigneeId);
+              return (
+                <button key={r.id} className="tw-new-card" style={{ '--c': who?.color } as CSSProperties} onClick={() => setOpenId(r.id)}>
+                  <span className="tw-item-top">
+                    <PriorityTag p={r.priority} />
+                    {r.workType && <span className="tag gray small">{r.workType}</span>}
+                    <span className="tw-ago">{ago(r.createdAt)}</span>
+                  </span>
+                  <span className="tw-title">{r.title}</span>
+                  <span className="tw-new-foot">
+                    {who?.character ? <img src={characterSrc(who.character)} alt="" /> : who && <Avatar member={who} size={22} />}
+                    <span>{who?.name ?? '무역사무'}</span>
+                    {r.dueDate && <span className={`tw-due ${r.dueDate < todayIso ? 'overdue' : r.dueDate === todayIso ? 'today' : ''}`}>마감 {dot(r.dueDate)}</span>}
+                    <span className={`tw-as ${as ? '' : 'none'}`}>{as ? `→ ${as.name}` : '처리자 미정'}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="section">
@@ -210,10 +249,10 @@ function TradeCard({
         </div>
       </div>
       <button className="mc-tasks tw-card-tasks" onClick={onOpenList} title="눌러서 업무 목록 보기">
-        <span className="tw-card-num">{w.open}</span>
+        <Ring value={w.doneThisMonth} total={w.open + w.doneThisMonth} size={46} stroke={5} color={m.color} label={w.open} />
         <span className="mc-task-text">
           <span>
-            남은 업무 <span className="muted">· 요청됨 {w.requested} · 진행중 {w.progress}</span>
+            남은 업무 <b>{w.open}</b> <span className="muted">· 요청됨 {w.requested} · 진행중 {w.progress}</span>
           </span>
           <span className="mc-flags">
             {w.hot > 0 && <span className="flag hot">초긴급 {w.hot}</span>}
