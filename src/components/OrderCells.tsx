@@ -68,12 +68,14 @@ type Draft = Pick<Order, 'name' | 'companyId' | 'storeCode' | 'orderDate' | 'pac
 export function AddOrderRow({
   colSpan,
   companies,
+  lockCompany,
   defaultCompanyId,
   stepCount,
   onAdd,
 }: {
   colSpan: number;
   companies: Company[];
+  lockCompany?: boolean; // 업체 시트를 보고 있으면 그 업체로 고정 (업체 칸 없음)
   defaultCompanyId: string | null;
   stepCount: number;
   onAdd: (o: Order) => void;
@@ -140,16 +142,18 @@ export function AddOrderRow({
       <td className="c-name">
         <input ref={nameRef} className="cell-input" autoFocus placeholder="주문명 입력 후 Enter" value={d.name} onChange={(e) => set('name', e.target.value)} onKeyDown={keys} />
       </td>
-      <td>
-        <select className="cell-input" value={d.companyId ?? ''} onChange={(e) => set('companyId', e.target.value || null)}>
-          <option value="">(없음)</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </td>
+      {!lockCompany && (
+        <td>
+          <select className="cell-input" value={d.companyId ?? ''} onChange={(e) => set('companyId', e.target.value || null)}>
+            <option value="">(없음)</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </td>
+      )}
       <td colSpan={stepCount} className="muted small add-hint">
         단계 체크는 추가한 뒤에
       </td>

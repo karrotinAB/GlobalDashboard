@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { isOrderDone, ORDER_STEPS, type Order, type OrderStepKey } from '../types';
 import { EditableText, MoreMenu } from '../components/SheetCells';
@@ -10,13 +10,29 @@ export default function Orders() {
   const { data, save, remove } = useStore();
   const { companies, companyById } = useLookups();
   const [tab, setTab] = useState<Tab>('open');
-  const [companyFilter, setCompanyFilter] = useState('');
+  // 업체 = 시트: 고른 업체를 이 브라우저에 기억해서 다음에 열어도 그 시트로
+  const [companyFilter, setCompanyFilterState] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gd:orders:sheet') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const setCompanyFilter = (id: string) => {
+    setCompanyFilterState(id);
+    try {
+      localStorage.setItem('gd:orders:sheet', id);
+    } catch {
+      /* 저장 안 돼도 괜찮음 */
+    }
+  };
+  const [showCompanies, setShowCompanies] = useState(false);
   const [missingStep, setMissingStep] = useState<OrderStepKey | null>(null);
   const [q, setQ] = useState('');
 
   const base = useMemo(
-    () => data.orders.filter((o) => !companyFilter || (o.companyId ?? '') === companyFilter),
-    [data.orders, companyFilter],
+    () => data.orders.filter((o) => !companyFilter || !companyById.has(companyFilter) || (o.companyId ?? '') === companyFilter),
+    [data.orders, companyFilter, companyById],
   );
   const openOrders = base.filter((o) => !isOrderDone(o));
   const doneCount = base.length - openOrders.length;
@@ -49,6 +65,9 @@ export default function Orders() {
   }, [base, tab, query, missingStep, companyById]);
 
   const toggle = (o: Order, key: OrderStepKey) => save('orders', { ...o, [key]: !o[key] });
+
+  const sheet = companyById.get(companyFilter); // 지금 보고 있는 업체 시트 (없으면 전체)
+  const colSpan = ORDER_STEPS.length + (sheet ? 7 : 8);
 
   return (
     <div className="page">
@@ -87,19 +106,43 @@ export default function Orders() {
             전체 <b>{base.length}</b>
           </button>
         </div>
-        <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-          <option value="">모든 업체</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <button
+          className={`company-toggle ${sheet || showCompanies ? 'on' : ''}`}
+          onClick={() => (sheet ? setCompanyFilter('') : setShowCompanies((v) => !v))}
+          title={sheet ? '모든 업체 보기' : '업체(시트) 고르기'}
+        >
+          {sheet ? (
+            <>
+              <span className="dot" style={{ background: sheet.color }} />
+              {sheet.name} ✕
+            </>
+          ) : (
+            <>업체 고르기 {showCompanies ? '▴' : '▾'}</>
+          )}
+        </button>
         <input className="search" placeholder="주문명 / 매장코드 / 비고 검색 (완료건 포함)" value={q} onChange={(e) => setQ(e.target.value)} />
         {missingStep && (
           <button className="link" onClick={() => setMissingStep(null)}>
             '{ORDER_STEPS.find((s) => s.key === missingStep)?.label} 안 된 건' 필터 해제 ✕
           </button>
+        )}
+        {showCompanies && !sheet && (
+          <div className="company-chips">
+            {companies.map((c) => (
+              <button
+                key={c.id}
+                className="cchip"
+                style={{ '--c': c.color ?? '#999' } as CSSProperties}
+                onClick={() => {
+                  setCompanyFilter(c.id);
+                  setShowCompanies(false);
+                }}
+              >
+                <span className="dot" style={{ background: c.color }} />
+                {c.name}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -110,7 +153,7 @@ export default function Orders() {
           <thead>
             <tr>
               <th className="c-name">주문</th>
-              <th className="c-co">업체</th>
+              {!sheet && <th className="c-co">업체</th>}
               {ORDER_STEPS.map((s) => (
                 <th key={s.key} className="c-step">
                   {s.label}
@@ -127,9 +170,11 @@ export default function Orders() {
           <tbody>
             {tab !== 'done' && !query && (
               <AddOrderRow
-                colSpan={ORDER_STEPS.length + 8}
+                key={companyFilter}
+                colSpan={colSpan}
                 companies={companies}
-                defaultCompanyId={companyFilter || companies[0]?.id || null}
+                lockCompany={!!sheet}
+                defaultCompanyId={sheet?.id ?? companies[0]?.id ?? null}
                 stepCount={ORDER_STEPS.length}
                 onAdd={(o) => save('orders', o)}
               />
@@ -146,9 +191,11 @@ export default function Orders() {
                   <td className="c-name">
                     <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
                   </td>
-                  <td className="c-co">
-                    <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
-                  </td>
+                  {!sheet && (
+                    <td className="c-co">
+                      <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
+                    </td>
+                  )}
                   {ORDER_STEPS.map((s) => (
                     <td key={s.key} className="c-step">
                       <input type="checkbox" checked={o[s.key]} onChange={() => toggle(o, s.key)} aria-label={s.label} />
@@ -186,7 +233,7 @@ export default function Orders() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={ORDER_STEPS.length + 8} className="muted small pad">
+                <td colSpan={colSpan} className="muted small pad">
                   해당하는 주문이 없어요.
                 </td>
               </tr>
