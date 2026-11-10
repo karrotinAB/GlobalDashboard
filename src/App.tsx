@@ -34,6 +34,17 @@ export default function App() {
     for (const col of COLLECTIONS) if (col !== 'attendance') await saveMany(col, s[col] as never);
   };
 
+  // 탭 줄 높이를 재서 검색 줄이 그 밑에 붙게 (--tabs-h)
+  useEffect(() => {
+    const tabs = document.querySelector('.tabs');
+    if (!tabs) return;
+    const set = () => document.documentElement.style.setProperty('--tabs-h', `${Math.round(tabs.getBoundingClientRect().height)}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(tabs);
+    return () => ro.disconnect();
+  }, [loading]);
+
   useEffect(() => {
     const h = () => {
       setPage(readHash());

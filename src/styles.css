@@ -2849,3 +2849,10 @@ tr.bundle-head .bundle-count {
 tr.bundle-head.drop-target td {
   filter: brightness(1.1);
 }
+
+/* 검색·필터 줄: 스크롤해도 탭 바로 밑에 붙어 있음 */
+.toolbar {
+  position: sticky;
+  top: var(--tabs-h, 56px);
+  z-index: 30;
+}
