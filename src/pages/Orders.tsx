@@ -302,18 +302,19 @@ export default function Orders() {
               <th className="c-more" />
             </tr>
           </thead>
+          {/* 묶음마다 tbody 하나 → 묶음에 마우스를 올리면 '풀기'가 보임 */}
+          {units.map((u, i) => (
+            <tbody key={u.bundle?.id ?? u.orders[0].id} className={u.bundle ? 'bundle-body' : undefined}>
+              {/* 묶음 앞뒤로 살짝 띄우기 */}
+              {i > 0 && (u.bundle || units[i - 1].bundle) && (
+                <tr className="bundle-gap" aria-hidden="true">
+                  <td colSpan={colSpan} />
+                </tr>
+              )}
+              {renderUnit(u)}
+            </tbody>
+          ))}
           <tbody>
-            {units.map((u, i) => (
-              <Fragment key={u.bundle?.id ?? u.orders[0].id}>
-                {/* 묶음 앞뒤로 살짝 띄우기 */}
-                {i > 0 && (u.bundle || units[i - 1].bundle) && (
-                  <tr className="bundle-gap" aria-hidden="true">
-                    <td colSpan={colSpan} />
-                  </tr>
-                )}
-                {renderUnit(u)}
-              </Fragment>
-            ))}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={colSpan} className="muted small pad">
@@ -380,17 +381,17 @@ export default function Orders() {
           >
             <td className="c-gutter">
               <span className="bundle-bar top" />
+              <button
+                className="bundle-undo"
+                title="묶음 풀기 (주문은 그대로 남아요)"
+                onClick={() => confirm('이 묶음을 풀까요? (주문은 그대로 남아요)') && dissolve(u.bundle!)}
+              >
+                풀기
+              </button>
             </td>
             <td colSpan={colSpan - 1}>
               <div className="bundle-title">
                 <div className={`bundle-name-block ${u.bundle.name ? '' : 'unnamed'}`}>
-                  <button
-                    className="bundle-undo"
-                    title="묶음 풀기 (주문은 그대로 남아요)"
-                    onClick={() => confirm('이 묶음을 풀까요? (주문은 그대로 남아요)') && dissolve(u.bundle!)}
-                  >
-                    풀기
-                  </button>
                   <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 쓰기 ✎" onSave={(v) => renameBundle(u.bundle!, v)} />
                 </div>
                 {(hasAmt(u.orders, 'amountKRW') || hasAmt(u.orders, 'amountForeign')) && (

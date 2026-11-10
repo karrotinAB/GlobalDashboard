@@ -2870,3 +2870,61 @@ tr.bundle-gap:hover td {
 tr.bundle-gap:first-child {
   display: none;
 }
+
+/* 묶음 밖 왼쪽 여백: 마우스를 올렸을 때만 '풀기' */
+.order-table {
+  min-width: 1216px;
+}
+.order-table .c-gutter {
+  width: 82px;
+  padding-left: 46px !important;
+}
+.order-table .bundle-bar {
+  left: 36px;
+}
+tr.bundle-head td.c-gutter {
+  background: linear-gradient(to right, transparent 36px, var(--bc) 36px) !important;
+  border-radius: 0;
+}
+tr.in-bundle td.c-gutter {
+  background: linear-gradient(to right, transparent 36px, color-mix(in srgb, var(--bc) 6%, transparent) 36px);
+}
+tr.bundle-head .bundle-name-block {
+  margin-left: 0;
+}
+.bundle-undo {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  translate: 0 -50%;
+  margin: 0;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--bc);
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--bc) 45%, #fff);
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+tbody.bundle-body:hover .bundle-undo {
+  opacity: 1;
+  pointer-events: auto;
+}
+.bundle-undo:hover {
+  background: var(--bc);
+  color: #fff;
+  border-color: var(--bc);
+}
+@media (hover: none) {
+  .bundle-undo {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+/* 묶음마다 tbody 를 나눠서, 여백 줄이 항상 tbody 첫 줄 → 숨기지 않음 (맨 위 묶음은 코드에서 안 그림) */
+tr.bundle-gap:first-child {
+  display: table-row;
+}
