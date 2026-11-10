@@ -3024,3 +3024,36 @@ tr.bundle-head td.bundle-amt {
 .order-table tr.bundle-gap td {
   background: var(--surface) !important;
 }
+
+/* 표 모서리 둥글게 (제목 줄 고정 때문에 상자가 모서리를 못 잘라서 직접 둥글림) */
+.order-table thead th:first-child {
+  border-top-left-radius: var(--r);
+}
+.order-table thead th:last-child {
+  border-top-right-radius: var(--r);
+}
+.order-table tbody:last-child tr:last-child td:first-child {
+  border-bottom-left-radius: var(--r);
+}
+.order-table tbody:last-child tr:last-child td:last-child {
+  border-bottom-right-radius: var(--r);
+}
+.table-scroll:has(.order-table) {
+  background: var(--surface);
+}
+/* 묶음 헤더 왼쪽 위도 둥글게: 왼쪽 칸 색을 둥근 조각으로 칠함 */
+tr.bundle-head td.c-gutter {
+  background: transparent !important;
+}
+tr.bundle-head .bundle-bar.top {
+  display: block;
+  left: 36px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: auto;
+  border-radius: 10px 0 0 0;
+}
+tr.bundle-head .bundle-undo {
+  z-index: 1;
+}
