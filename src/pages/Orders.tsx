@@ -257,7 +257,16 @@ export default function Orders() {
             </tr>
           </thead>
           <tbody>
-            {tab !== 'done' && !query && (
+            {tab !== 'done' && !query && !sheet && (
+              <tr className="add-row">
+                <td colSpan={colSpan}>
+                  <button className="add-row-btn pick-first" onClick={() => setShowCompanies(true)}>
+                    + 주문 추가 · <b>업체를 골라주세요</b> (위 "업체 고르기"에서 업체를 고르면 그 업체로 추가돼요)
+                  </button>
+                </td>
+              </tr>
+            )}
+            {tab !== 'done' && !query && sheet && (
               <AddOrderRow
                 key={companyFilter}
                 colSpan={colSpan}

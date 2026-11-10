@@ -2498,3 +2498,6 @@ tr.bundle-head.drop-target td {
 .currency.none {
   color: #cdb8b2;
 }
+.add-row-btn.pick-first b {
+  color: var(--primary);
+}
