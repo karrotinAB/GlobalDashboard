@@ -1,11 +1,11 @@
 // 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 담당자별 업무 (시계 없음)
 import { useState, type CSSProperties } from 'react';
-import { CharacterPicker, Hero } from './Home';
-import { Avatar, characterSrc } from '../components/ui';
+import { CharacterPicker, Hero, LeaveBand } from './Home';
+import { Avatar, CHARACTERS, characterSrc } from '../components/ui';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
 import { isOpen, sortRequests, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
-import type { Member, TradeRequest } from '../types';
+import type { Attendance, Member, TradeRequest } from '../types';
 
 const dot = (iso?: string) => (iso ? iso.slice(5).replace('-', '.') : '');
 
@@ -23,6 +23,9 @@ export default function TradeHome() {
   const detail = data.requests.find((r) => r.id === openId);
   const mine = (m: Member) => access.role === null || (!!m.email && m.email.toLowerCase() === access.email);
   const iHaveCard = trade.some((m) => m.email?.toLowerCase() === access.email);
+  const todayAtt = new Map(data.attendance.filter((a) => a.date === todayIso).map((a) => [a.memberId, a]));
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
 
   return (
     <div className="page">
@@ -41,6 +44,9 @@ export default function TradeHome() {
                 key={m.id}
                 m={m}
                 w={w}
+                record={todayAtt.get(m.id)}
+                nowMin={nowMin}
+                fallbackChar={CHARACTERS[(trade.indexOf(m) * 5 + 3) % CHARACTERS.length]}
                 mine={mine(m)}
                 canClaim={!!access.email && !m.email && !iHaveCard}
                 onClaim={() =>
@@ -124,6 +130,9 @@ export default function TradeHome() {
 function TradeCard({
   m,
   w,
+  record,
+  nowMin,
+  fallbackChar,
   mine,
   canClaim,
   onClaim,
@@ -133,6 +142,9 @@ function TradeCard({
 }: {
   m: Member;
   w: ReturnType<typeof workload>['rows'][number];
+  record?: Attendance;
+  nowMin: number;
+  fallbackChar: string; // 아직 캐릭터를 안 골랐을 때 보이는 캐릭터
   mine: boolean;
   canClaim: boolean;
   onClaim: () => void;
@@ -146,9 +158,10 @@ function TradeCard({
     setEditing(false);
     if (draft.trim() !== (m.status ?? '')) onStatus(draft.trim());
   };
-  const img = m.character ? <img src={characterSrc(m.character)} alt="" /> : <Avatar member={m} size={56} />;
+  const img = <img src={characterSrc(m.character ?? fallbackChar)} alt="" />;
   return (
     <div className="member-card" style={{ '--c': m.color } as CSSProperties}>
+      {record && <LeaveBand r={record} nowMin={nowMin} />}
       <div className="mc-body">
         {mine ? (
           <button className="mc-char" onClick={onPick} title="캐릭터 바꾸기">

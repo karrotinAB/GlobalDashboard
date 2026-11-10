@@ -366,12 +366,13 @@ function TradeMembersSection() {
   return (
     <section className="card">
       <h2>무역사무 담당자</h2>
-      <p className="muted small">무역사무 홈의 팀 카드와 요청의 '처리자'로 쓰여요. 로그인 이메일은 관리자만 넣을 수 있어요 (본인은 홈에서 '이 카드가 나예요').</p>
+      <p className="muted small">무역사무 홈의 팀 카드와 요청의 '처리자'로 쓰여요. mem 출퇴근은 2조와 같은 확장 프로그램으로 같이 들어와요. 로그인 이메일은 관리자만 넣을 수 있어요 (본인은 홈에서 '이 카드가 나예요').</p>
       <table className="settings-table">
         <thead>
           <tr>
             <th>이름</th>
             <th>로그인 이메일 (본인 카드)</th>
+            <th>mem 이름</th>
             <th>색</th>
             <th>순서</th>
             <th />
@@ -391,6 +392,7 @@ function TradeMembersSection() {
 function TradeMemberRow({ m, isAdmin, onSave, onDelete }: { m: Member; isAdmin: boolean; onSave: (m: Member) => void; onDelete: () => void }) {
   const [name, setName] = useState(m.name);
   const [email, setEmail] = useState(m.email ?? '');
+  const [memName, setMemName] = useState(m.memName ?? '');
   return (
     <tr>
       <td>
@@ -404,6 +406,14 @@ function TradeMemberRow({ m, isAdmin, onSave, onDelete }: { m: Member; isAdmin: 
           placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
           onChange={(e) => setEmail(e.target.value)}
           onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
+        />
+      </td>
+      <td>
+        <input
+          value={memName}
+          placeholder={`비우면 '…${m.name}'로 찾음`}
+          onChange={(e) => setMemName(e.target.value)}
+          onBlur={() => memName.trim() !== (m.memName ?? '') && onSave({ ...m, memName: memName.trim() || undefined })}
         />
       </td>
       <td>

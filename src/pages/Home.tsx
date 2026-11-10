@@ -613,7 +613,7 @@ export function Hero({ title }: { title: string }) {
   );
 }
 
-export { CharacterPicker };
+export { CharacterPicker, LeaveBand };
 
 /** 시계 고르기: 업체 나라 시계 켜고 끄기 + 다른 도시 추가 + 순서 */
 function ClockPicker({

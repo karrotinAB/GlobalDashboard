@@ -122,15 +122,10 @@ function Fields({
           ))}
         </select>
       </label>
-      <label className="rq-f">
+      <div className="rq-f">
         <span>작업유형</span>
-        <select value={d.workType ?? ''} onChange={(e) => set({ workType: e.target.value || undefined })}>
-          <option value="">(고르기)</option>
-          {WORK_TYPES.map((w) => (
-            <option key={w}>{w}</option>
-          ))}
-        </select>
-      </label>
+        <WorkTypePicker value={d.workType} onChange={(v) => set({ workType: v })} placeholder="눌러서 고르거나 쳐서 찾기" />
+      </div>
       <label className="rq-f">
         <span>요청자</span>
         <select value={d.requesterId ?? ''} disabled={lockRequester} onChange={(e) => set({ requesterId: e.target.value || undefined })}>
@@ -365,5 +360,101 @@ export function RequestDetail({
         </ul>
       </details>
     </Modal>
+  );
+}
+
+/**
+ * 작업유형 고르기: 누르면 목록이 펼쳐지고(토글), 글자를 치면 맞는 것만 남음 (↑↓ Enter 로 고르기)
+ * allLabel 이 있으면 맨 위에 '전체' 같은 빈 값 항목
+ */
+export function WorkTypePicker({
+  value,
+  onChange,
+  allLabel,
+  placeholder = '작업유형',
+  compact,
+}: {
+  value?: string;
+  onChange: (v: string | undefined) => void;
+  allLabel?: string;
+  placeholder?: string;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [hi, setHi] = useState(0);
+  const q = text.trim().toLowerCase().replace(/\s+/g, '');
+  const list = WORK_TYPES.filter((w) => !q || w.toLowerCase().replace(/\s+/g, '').includes(q));
+  const items: { v?: string; label: string }[] = [...(allLabel && !q ? [{ v: undefined, label: allLabel }] : []), ...list.map((w) => ({ v: w, label: w }))];
+  const pick = (v?: string) => {
+    onChange(v);
+    setOpen(false);
+    setText('');
+  };
+  return (
+    <div
+      className={`wt-picker ${compact ? 'compact' : ''} ${open ? 'open' : ''}`}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setOpen(false);
+          setText('');
+        }
+      }}
+    >
+      <input
+        className="wt-input"
+        value={open ? text : value ?? ''}
+        placeholder={open ? value || '쳐서 찾기…' : value ? '' : allLabel ?? placeholder}
+        onFocus={() => {
+          setOpen(true);
+          setHi(0);
+        }}
+        onClick={() => setOpen(true)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          setHi(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHi((h) => Math.min(h + 1, items.length - 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHi((h) => Math.max(h - 1, 0));
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (items[hi]) pick(items[hi].v);
+            (e.target as HTMLInputElement).blur();
+          } else if (e.key === 'Escape') {
+            setOpen(false);
+            setText('');
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+      <button type="button" className="wt-caret" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen((v) => !v)}>
+        {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <ul className="wt-list" tabIndex={-1}>
+          {items.length === 0 && <li className="muted small wt-none">맞는 작업유형이 없어요</li>}
+          {items.map((it, i) => (
+            <li key={it.label}>
+              <button
+                type="button"
+                className={`${i === hi ? 'hi' : ''} ${it.v === value ? 'on' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setHi(i)}
+                onClick={() => pick(it.v)}
+              >
+                {it.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

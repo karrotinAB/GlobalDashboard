@@ -2,9 +2,9 @@
 //  side='team'  : 2조 '무역사무요청' 탭 — 새 요청, 무역사무 담당자별 남은 업무, 기본은 내 요청만
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
 import { useMemo, useState, type CSSProperties } from 'react';
-import { REQUEST_STATUS, WORK_TYPES, type Member, type RequestStatus, type TradeRequest } from '../types';
+import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
 import { useTrade, isOpen, sortRequests, workload } from '../lib/trade';
-import { NewRequest, PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
+import { NewRequest, PriorityTag, RequestDetail, StatusTag, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
 import { Avatar } from '../components/ui';
 import { today } from '../lib/date';
@@ -27,6 +27,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
     side === 'team' && !readParam('who') ? (me && team.some((m) => m.id === me.id) ? me.id : undefined) : undefined,
   );
   const [workType, setWorkType] = useState('');
+  const [showReq, setShowReq] = useState(false);
   const [status, setStatus] = useState<'' | RequestStatus>('');
   const [query, setQuery] = useState('');
   const [year, setYear] = useState(todayIso.slice(0, 4));
@@ -154,22 +155,38 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         )}
         <span className="rq-sep" />
         {/* 요청자 (2조): 2조 쪽은 기본 '내 요청' */}
+        {/* 요청자: 버튼을 누르면 이름들이 펼쳐짐 (토글) */}
         <div className="rq-chips" title="요청자">
-          <span className="muted small">요청자</span>
-          <button className={`cchip ${!requester ? 'on' : ''}`} onClick={() => setRequester(undefined)}>
-            전체
+          <button className={`rq-toggle ${requester ? 'on' : ''}`} onClick={() => setShowReq((v) => !v)}>
+            요청자: <b>{requester ? team.find((m) => m.id === requester)?.name ?? '?' : '전체'}</b> {showReq ? '▴' : '▾'}
           </button>
-          {team.map((m) => (
-            <button
-              key={m.id}
-              className={`cchip ${requester === m.id ? 'on' : ''}`}
-              style={{ '--c': m.color } as CSSProperties}
-              onClick={() => setRequester((cur) => (cur === m.id ? undefined : m.id))}
-            >
-              {m.name}
-              {me?.id === m.id && isTeamSide ? ' (나)' : ''}
-            </button>
-          ))}
+          {showReq && (
+            <>
+              <button
+                className={`cchip ${!requester ? 'on' : ''}`}
+                onClick={() => {
+                  setRequester(undefined);
+                  setShowReq(false);
+                }}
+              >
+                전체
+              </button>
+              {team.map((m) => (
+                <button
+                  key={m.id}
+                  className={`cchip ${requester === m.id ? 'on' : ''}`}
+                  style={{ '--c': m.color } as CSSProperties}
+                  onClick={() => {
+                    setRequester((cur) => (cur === m.id ? undefined : m.id));
+                    setShowReq(false);
+                  }}
+                >
+                  {m.name}
+                  {me?.id === m.id && isTeamSide ? ' (나)' : ''}
+                </button>
+              ))}
+            </>
+          )}
         </div>
         {!isTeamSide && (
           <div className="rq-chips" title="처리자">
@@ -192,12 +209,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
             </button>
           </div>
         )}
-        <select value={workType} onChange={(e) => setWorkType(e.target.value)} className={workType ? 'on' : ''}>
-          <option value="">작업유형 전체</option>
-          {WORK_TYPES.map((w) => (
-            <option key={w}>{w}</option>
-          ))}
-        </select>
+        <div className={`wt-filter ${workType ? 'on' : ''}`}>
+          <WorkTypePicker value={workType || undefined} onChange={(v) => setWorkType(v ?? '')} allLabel="작업유형 전체" />
+        </div>
         {tab === 'open' && (
           <select value={status} onChange={(e) => setStatus(e.target.value as RequestStatus | '')}>
             <option value="">상태 전체</option>
@@ -320,12 +334,7 @@ function Row({
       </td>
       <td className="c-wt">
         {edit ? (
-          <select className="cell-select" value={r.workType ?? ''} onChange={(e) => onPatch({ workType: e.target.value || undefined })}>
-            <option value="">-</option>
-            {WORK_TYPES.map((w) => (
-              <option key={w}>{w}</option>
-            ))}
-          </select>
+          <WorkTypePicker compact value={r.workType} onChange={(v) => onPatch({ workType: v })} allLabel="(없음)" placeholder="-" />
         ) : (
           <span className="small">{r.workType ?? '-'}</span>
         )}

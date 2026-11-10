@@ -77,9 +77,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // mem 근태: 2조·무역사무 모두 (확장 프로그램이 같은 mem 화면에서 같이 보냄)
+    match /attendance/{id} {
+      allow read, write: if isAny();
+    }
+
     match /{col}/{id} {
       allow read, write: if isTeam()
-        && col in ['companies', 'tasks', 'orders', 'attendance', 'claims'];
+        && col in ['companies', 'tasks', 'orders', 'claims'];
     }
   }
 }

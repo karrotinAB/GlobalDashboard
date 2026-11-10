@@ -5,7 +5,7 @@ export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', '
 // 보안 규칙이 아직 안 바뀌어도 대시보드는 열리게: 이 컬렉션들은 못 읽으면 빈 채로 계속
 const OPTIONAL: CollectionName[] = ['config', 'claims', 'requests', 'tradeMembers'];
 /** 무역사무 계정이 읽는 컬렉션 (나머지는 보안 규칙상 못 읽음) */
-export const TRADE_COLLECTIONS: CollectionName[] = ['members', 'requests', 'tradeMembers'];
+export const TRADE_COLLECTIONS: CollectionName[] = ['members', 'requests', 'tradeMembers', 'attendance'];
 
 export function emptyCollections(): Collections {
   return { members: [], companies: [], tasks: [], orders: [], attendance: [], config: [], claims: [], requests: [], tradeMembers: [] };

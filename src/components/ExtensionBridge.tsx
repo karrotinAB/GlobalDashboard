@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { memNames, parseImport } from '../lib/mem';
 
@@ -8,8 +8,10 @@ import { memNames, parseImport } from '../lib/mem';
  * 로그인된 이 페이지가 검증해서 저장하고, 받았다고 답함.
  */
 export default function ExtensionBridge() {
-  const { saveMany } = useStore();
-  const { members } = useLookups();
+  const { saveMany, data } = useStore();
+  const { members: team } = useLookups();
+  // 2조 + 무역사무 담당자 (같은 mem 화면에서 같이 읽음)
+  const members = useMemo(() => [...team, ...[...data.tradeMembers].sort((a, b) => a.order - b.order)], [team, data.tradeMembers]);
 
   useEffect(() => {
     if (!members.length) return;
