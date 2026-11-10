@@ -13,7 +13,7 @@ export function DateCell({ value, onSave }: { value?: string; onSave: (v?: strin
   }
   return (
     <div className="cell-view editable nowrap" onClick={() => setEditing(true)} title={value}>
-      {value ? value.slice(2).replace(/-/g, '.') : <span className="cell-ph">날짜</span>}
+      {value ? value.replace(/-/g, '.') : <span className="cell-ph">날짜</span>}
     </div>
   );
 }

@@ -3613,3 +3613,11 @@ button.api-tag {
   font-weight: 700;
   border-bottom: 0;
 }
+
+/* 주문일자 8자리 (2026.09.28) 한 줄로 */
+.order-table .c-date {
+  width: 104px;
+}
+.order-table td.c-date .cell-view {
+  white-space: nowrap;
+}
