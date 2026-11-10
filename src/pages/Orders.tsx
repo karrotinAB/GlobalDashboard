@@ -342,16 +342,6 @@ export default function Orders() {
               />
             )}
           </tbody>
-          {rows.length > 0 && (hasAmt(rows, 'amountKRW') || hasAmt(rows, 'amountForeign')) && (
-            <tfoot>
-              <tr className="sum-row">
-                <td colSpan={colSpan - 4}>합계 · 지금 보이는 주문 {rows.length}건</td>
-                <td className="c-amt">{fmtKRW(sum(rows, 'amountKRW'))}</td>
-                <td className="c-amt">{fmtFX(sum(rows, 'amountForeign'))}</td>
-                <td colSpan={2} />
-              </tr>
-            </tfoot>
-          )}
         </table>
       </div>
 
