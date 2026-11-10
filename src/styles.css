@@ -2501,3 +2501,43 @@ tr.bundle-head.drop-target td {
 .add-row-btn.pick-first b {
   color: var(--primary);
 }
+
+/* 붙여넣기 되는 날짜 칸 */
+.date-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.date-input .cell-input {
+  padding-right: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.date-input.bad .cell-input {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px var(--red-soft);
+}
+.cal-btn {
+  position: absolute;
+  right: 3px;
+  border: 0;
+  background: none;
+  padding: 2px;
+  font-size: 12px;
+  opacity: 0.55;
+  z-index: 2;
+}
+.cal-btn:hover {
+  opacity: 1;
+  background: none;
+}
+.cal-native {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+}

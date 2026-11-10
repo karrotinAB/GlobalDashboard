@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties } from 'react';
 import type { Company, Member } from '../types';
 import { shortDate } from '../lib/date';
 import { MemberChip, Modal } from './ui';
+import DateInput from './DateInput';
 
 /** 구글 시트처럼: 누르면 그 자리에서 입력, Enter = 저장, Esc = 취소, 다른 데 누르면 저장 */
 export function EditableText({
@@ -335,15 +336,7 @@ export function DueCell({
   const [editing, setEditing] = useState(false);
   if (editing) {
     return (
-      <input
-        className="cell-input"
-        type="date"
-        autoFocus
-        value={date ?? ''}
-        onChange={(e) => onSave(e.target.value || undefined)}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === 'Escape') && setEditing(false)}
-      />
+      <DateInput autoFocus value={date} onChange={onSave} onDone={() => setEditing(false)} placeholder="1110 / 11.10" />
     );
   }
   return (
@@ -451,7 +444,7 @@ export function AddTaskRow({
         />
       </td>
       <td className="c-due">
-        <input className="cell-input" type="date" value={d.dueDate ?? ''} onChange={(e) => setD({ ...d, dueDate: e.target.value || undefined })} />
+        <DateInput value={d.dueDate} onChange={(v) => setD((p) => ({ ...p, dueDate: v }))} placeholder="마감일" />
       </td>
       <td className="c-check" />
       <td className="c-note">

@@ -1,21 +1,14 @@
 import { useRef, useState } from 'react';
 import type { Company, Order } from '../types';
 import { today, uid } from '../lib/date';
+import DateInput from './DateInput';
 
 /** 날짜 칸: 누르면 달력 */
 export function DateCell({ value, onSave }: { value?: string; onSave: (v?: string) => void }) {
   const [editing, setEditing] = useState(false);
   if (editing) {
     return (
-      <input
-        className="cell-input"
-        type="date"
-        autoFocus
-        value={value ?? ''}
-        onChange={(e) => onSave(e.target.value || undefined)}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === 'Escape') && setEditing(false)}
-      />
+      <DateInput autoFocus value={value} onChange={onSave} onDone={() => setEditing(false)} />
     );
   }
   return (
@@ -161,7 +154,7 @@ export function AddOrderRow({
       </td>
       <td>{text('storeCode', '매장코드')}</td>
       <td>
-        <input className="cell-input" type="date" value={d.orderDate ?? ''} onChange={(e) => set('orderDate', e.target.value || undefined)} />
+        <DateInput value={d.orderDate} onChange={(v) => set('orderDate', v)} />
       </td>
       <td>{text('packing', '패킹')}</td>
       <td>{text('shipFrom', '출고 장소')}</td>
