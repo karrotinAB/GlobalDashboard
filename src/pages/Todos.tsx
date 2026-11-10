@@ -480,7 +480,7 @@ export default function Todos() {
                           <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />
                         </td>
                         <td className="c-note">
-                          <EditableText value={task.note ?? ''} oneLine placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
+                          <EditableText value={task.note ?? ''} oneLine expand placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
                         </td>
                         <td className="c-more">
                           {!readOnly && (

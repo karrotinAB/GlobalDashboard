@@ -2665,3 +2665,40 @@ tr.bundle-head.drop-target td {
 .bundle-sum {
   white-space: nowrap;
 }
+
+/* 긴 비고: 누르면 칸 위로 큰 메모칸 */
+.cell-expand {
+  position: relative;
+  height: 26px;
+}
+.cell-expand textarea {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  width: max(100%, 340px);
+  z-index: 35;
+  resize: vertical;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  box-shadow: 0 0 0 3px var(--primary-soft), var(--shadow-h);
+}
+.cell-expand-hint {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 60px;
+  z-index: 34;
+  display: none;
+}
+td.c-onote,
+td.c-note {
+  overflow: visible;
+}
+/* 주문 표: 패킹 완료일 넓게, 비고 좁게 */
+.order-table .c-pack {
+  width: 104px;
+}
+.order-table .c-onote {
+  width: 120px;
+  min-width: 0;
+}

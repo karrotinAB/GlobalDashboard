@@ -482,7 +482,9 @@ export default function Orders() {
         <td className="c-amt">
           <AmountCell value={o.amountForeign} kind="fx" onSave={(v) => patch({ amountForeign: v })} />
         </td>
-        <td className="c-onote">{txt('note', '비고')}</td>
+        <td className="c-onote">
+          <EditableText value={o.note ?? ''} oneLine expand placeholder="비고" onSave={(v) => patch({ note: v || undefined })} />
+        </td>
         <td className="c-more">
           <div className="status-cell">
             {done && <span className="tag green">완료</span>}

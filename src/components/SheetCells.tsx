@@ -11,6 +11,7 @@ export function EditableText({
   placeholder,
   multiline,
   oneLine,
+  expand,
   disabled,
 }: {
   value: string;
@@ -18,6 +19,7 @@ export function EditableText({
   placeholder?: string;
   multiline?: boolean;
   oneLine?: boolean; // 한 줄로 자르고(…) 마우스를 올리면 전체 보기
+  expand?: boolean; // 누르면 칸 위에 큰 메모칸이 펼쳐짐 (긴 비고용)
   disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -48,6 +50,23 @@ export function EditableText({
     }
     if (e.key === 'Escape') setEditing(false);
   };
+  if (expand) {
+    return (
+      <div className="cell-expand">
+        <textarea
+          className="cell-input"
+          autoFocus
+          rows={Math.min(8, Math.max(3, Math.ceil(v.length / 28) + 1))}
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={commit}
+          onKeyDown={keys}
+          onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+        />
+        <span className="cell-expand-hint">Enter 저장 · Shift+Enter 줄바꿈 · Esc 취소</span>
+      </div>
+    );
+  }
   return multiline ? (
     <textarea className="cell-input" autoFocus rows={2} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={keys} />
   ) : (
