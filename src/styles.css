@@ -3170,3 +3170,9 @@ tr.bundle-head .bundle-undo {
 .cc-todo b.cc-open {
   color: var(--red);
 }
+
+/* 주문 비고: 빨간 글씨 */
+.order-table td.c-onote .cell-view {
+  color: var(--red);
+  font-weight: 500;
+}
