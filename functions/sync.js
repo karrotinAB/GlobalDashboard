@@ -56,10 +56,14 @@ export async function syncOne(o, apiKey, fetchImpl = fetch) {
   const out = await call('getoutbounddata.asp', { EXP_NO: next.expNo }, apiKey, fetchImpl);
   const approved = out.filter((r) => r.OUT_STATUS === '출고승인');
   if (approved.length) {
-    next.amountKRW = r0(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0));
-    next.amountForeign = r2(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0));
+    // 출고승인이 하나라도 있으면 '승인'.
+    // 금액: 전부 승인 → 출고 금액 합계 / 일부만 승인 → 승인 안 된 줄은 금액이 비어 있어서, ERP 전체(예정) 금액을 그대로 씀
+    if (approved.length === out.length) {
+      next.amountKRW = r0(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0));
+      next.amountForeign = r2(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0));
+    }
     next.amountSource = 'api-outbound';
-    next.outStatus = 'approved'; // 출고승인이 하나라도 있으면 '승인' (일부/전체 나누지 않음)
+    next.outStatus = 'approved';
     next.outDate = approved.map((r) => r.OUT_DATE).filter(Boolean).sort().pop()?.replace(/\./g, '-');
   }
   return next;
