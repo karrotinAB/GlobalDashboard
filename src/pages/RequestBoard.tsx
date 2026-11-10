@@ -81,6 +81,11 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
             ? '무역사무에 업무를 요청하고, 진행 상황을 확인해요. 무역사무 담당자를 누르면 그 사람이 가진 업무가 보여요.'
             : '2조에서 들어온 요청이에요. 상태·작업유형·요청자·처리 예상일·처리자를 바로 바꿀 수 있어요.'}
         </p>
+        {isTeamSide && (
+          <button className="primary rq-new" onClick={() => setCreating(true)}>
+            ＋ 새 요청
+          </button>
+        )}
       </div>
 
       {/* 무역사무 담당자별 남은 업무 */}
@@ -220,11 +225,6 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           </select>
         )}
         <input className="search" placeholder="🔍 제목·내용·매장번호" value={query} onChange={(e) => setQuery(e.target.value)} />
-        {isTeamSide && (
-          <button className="primary rq-new" onClick={() => setCreating(true)}>
-            ＋ 새 요청
-          </button>
-        )}
       </div>
 
       {isTeamSide && assignee && (

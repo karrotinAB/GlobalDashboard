@@ -4551,3 +4551,13 @@ button.tw-card-tasks:hover .tw-card-num {
   color: var(--primary);
   font-weight: 600;
 }
+/* 새 요청 버튼: 제목 줄 오른쪽 위 */
+.page-head .rq-new {
+  margin-left: 0;
+  align-self: center;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+.page-head:has(.rq-new) p {
+  margin-left: auto;
+}
