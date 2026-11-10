@@ -529,10 +529,10 @@ export default function Orders() {
           <div className="amt-wrap">
             {o.amountSource?.startsWith('api') && (
               <span
-                className={`api-tag ${o.outStatus ?? 'pending'}`}
-                title={`ERP 자동 · EXP_NO ${o.expNo ?? '-'}${o.outDate ? ` · 출고 ${o.outDate}` : ''} (금액을 직접 고치면 자동 갱신이 멈춰요)`}
+                className={`api-tag ${o.outStatus === 'pending' || !o.outStatus ? 'pending' : 'approved'}`}
+                title={`ERP 자동 · EXP_NO ${o.expNo ?? '-'}${o.outDate ? ` · 출고승인 ${o.outDate}` : ''} (금액을 직접 고치면 자동 갱신이 멈춰요)`}
               >
-                {o.outStatus === 'approved' ? '출고' : o.outStatus === 'partial' ? '일부' : '예정'}
+                {o.outStatus === 'pending' || !o.outStatus ? '예정' : '승인'}
               </span>
             )}
             <AmountCell

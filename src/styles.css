@@ -3539,7 +3539,7 @@ tr.bundle-head .bundle-undo {
   white-space: nowrap;
 }
 
-/* 원화 금액 칸: 예정/일부/출고 표시가 붙어도 금액이 다 보이게 넓힘 (비고가 그만큼 줄어듦) */
+/* 원화 금액 칸: 예정/승인 표시가 붙어도 금액이 다 보이게 넓힘 (비고가 그만큼 줄어듦) */
 .order-table .c-krw {
   width: 136px;
 }

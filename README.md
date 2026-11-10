@@ -43,7 +43,7 @@ npm run dev
 
 ## ERP 금액 자동 채우기 (서버 함수 `functions/`)
 주문의 매장코드 + 주문일자로 ERP API 를 불러서 원화/외화 금액을 채워요.
-① `getexorderdata` → EXP_NO, 예정 금액 (`TOTAL_OUT_AMT_K/F`)  ② `getoutbounddata` → '출고승인' 줄의 출고 금액 합계로 교체.
+① `getexorderdata` → EXP_NO, 예정 금액 (`TOTAL_OUT_AMT_K/F`)  ② `getoutbounddata` → '출고승인' 줄이 하나라도 있으면 그 출고 금액 합계로 교체 (표시: 예정 → 승인).
 금액을 사람이 직접 고친 주문은 건드리지 않아요 (금액 두 칸을 다 비우면 다시 자동).
 - API 키: Firestore 콘솔 > 컬렉션 `secrets` > 문서 `erp` > 필드 `apiKey` (문자열). 보안 규칙상 사이트에서는 못 읽음
 - 30분마다 자동 + 주문 관리의 '↻ 금액 새로고침' 버튼

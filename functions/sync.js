@@ -59,7 +59,7 @@ export async function syncOne(o, apiKey, fetchImpl = fetch) {
     next.amountKRW = r0(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_K) ?? 0), 0));
     next.amountForeign = r2(approved.reduce((a, r) => a + (num(r.TOTAL_OUTBOUND_AMT_F) ?? 0), 0));
     next.amountSource = 'api-outbound';
-    next.outStatus = approved.length === out.length ? 'approved' : 'partial';
+    next.outStatus = 'approved'; // 출고승인이 하나라도 있으면 '승인' (일부/전체 나누지 않음)
     next.outDate = approved.map((r) => r.OUT_DATE).filter(Boolean).sort().pop()?.replace(/\./g, '-');
   }
   return next;
