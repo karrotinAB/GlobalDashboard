@@ -40,6 +40,12 @@ service cloud.firestore {
             || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()));
     }
 
+    // 팀 공용 설정 (홈 화면 구성 등): 모두 읽고, 관리자만 바꿈
+    match /config/{id} {
+      allow read: if isTeam();
+      allow write: if isAdmin();
+    }
+
     match /{col}/{id} {
       allow read, write: if isTeam()
         && col in ['companies', 'tasks', 'orders', 'attendance'];

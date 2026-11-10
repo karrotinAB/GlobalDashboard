@@ -1,10 +1,10 @@
 import { collection, deleteDoc, doc, onSnapshot, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import type { CollectionName, Collections } from '../types';
 
-export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance'];
+export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config'];
 
 export function emptyCollections(): Collections {
-  return { members: [], companies: [], tasks: [], orders: [], attendance: [] };
+  return { members: [], companies: [], tasks: [], orders: [], attendance: [], config: [] };
 }
 
 export interface Backend {
@@ -106,7 +106,15 @@ export function createFirestoreBackend(db: Firestore): Backend {
             if (seen.size === COLLECTIONS.length) resolve(latest);
             listeners.forEach((fn) => fn({ [col]: latest[col] }));
           },
-          (err) => reject(new Error(`${col}: ${err.message}`)),
+          (err) => {
+            // 공용 설정(config)은 보안 규칙이 아직 안 바뀌었어도 대시보드는 열리게: 빈 설정으로 계속
+            if (col === 'config') {
+              seen.add(col);
+              if (seen.size === COLLECTIONS.length) resolve(latest);
+              return;
+            }
+            reject(new Error(`${col}: ${err.message}`));
+          },
         ),
       );
     });

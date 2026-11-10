@@ -94,6 +94,28 @@ export default function Settings() {
       </section>
 
       {access.role === 'admin' && <AccessAdmin />}
+      {access.role !== 'member' && (
+        <section className="card">
+          <h2>
+            홈 화면 구성 <span className="tag gray">관리자만 보이는 칸</span>
+          </h2>
+          <p className="muted small">켜면 홈 화면에 모든 사람에게 보여요.</p>
+          {(
+            [
+              ['showUrgent', '🔥 급한 일 (마감 지났거나 오늘·내일인 할일)'],
+              ['showPipeline', '📦 진행중 주문 단계 (단계별 막대)'],
+            ] as const
+          ).map(([k, label]) => {
+            const cfg = data.config.find((c) => c.id === 'home') ?? { id: 'home' };
+            return (
+              <label key={k} className="check-line toggle-line">
+                <input type="checkbox" checked={!!cfg[k]} onChange={(e) => save('config', { ...cfg, [k]: e.target.checked })} />
+                {label}
+              </label>
+            );
+          })}
+        </section>
+      )}
       {access.email && <ChangePassword />}
 
       <section className="card">

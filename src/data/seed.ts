@@ -13,5 +13,6 @@ export function seedData(): Collections {
     tasks: [],
     orders: [],
     attendance: [],
+    config: [],
   };
 }

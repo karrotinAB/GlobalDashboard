@@ -3093,3 +3093,11 @@ tr.bundle-head .bundle-undo {
   padding-top: 14px !important;
   padding-bottom: 6px !important;
 }
+
+/* 업체 tracking: 남은 할일은 빨간색 */
+.cc-nums b.cc-open {
+  color: var(--red);
+}
+.toggle-line {
+  padding: 6px 0;
+}

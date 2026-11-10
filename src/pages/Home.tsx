@@ -111,6 +111,8 @@ function greeting(h: number, m: number) {
 export default function Home({ go }: { go: (page: string) => void }) {
   const { data, save } = useStore();
   const access = useAccess();
+  // 홈 화면 구성 (설정 > 홈 화면 구성, 관리자만 바꿈). 기본은 숨김
+  const homeCfg = data.config.find((c) => c.id === 'home') ?? { id: 'home' };
   const { members, companies, memberById, companyById } = useLookups();
   const now = useNow();
   const todayIso = today();
@@ -242,7 +244,9 @@ export default function Home({ go }: { go: (page: string) => void }) {
         </div>
       </section>
 
+      {(homeCfg.showUrgent || homeCfg.showPipeline) && (
       <div className="two-col">
+        {homeCfg.showUrgent && (
         <section className="card">
           <div className="section-head">
             <h2>🔥 급한 일</h2>
@@ -275,7 +279,9 @@ export default function Home({ go }: { go: (page: string) => void }) {
           )}
           <p className="muted small hint">미완료 할일 중 마감일이 지났거나 오늘·내일인 것 (마감일을 넣은 할일만)</p>
         </section>
+        )}
 
+        {homeCfg.showPipeline && (
         <section className="card">
           <div className="section-head">
             <h2>📦 진행중 주문 단계</h2>
@@ -305,7 +311,9 @@ export default function Home({ go }: { go: (page: string) => void }) {
           )}
           <p className="muted small hint">막대 = 진행중 주문 {openOrders.length}건 중 그 단계까지 끝난 비율</p>
         </section>
+        )}
       </div>
+      )}
 
       <section className="section">
         <div className="section-head">
@@ -320,7 +328,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
               </div>
               <div className="cc-nums">
                 <span>
-                  <b>{open}</b> 할일 남음
+                  <b className={open > 0 ? 'cc-open' : ''}>{open}</b> 할일 남음
                 </span>
                 <span>
                   <b>{orders}</b> 주문 진행중

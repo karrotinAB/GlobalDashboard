@@ -83,12 +83,20 @@ export interface Attendance {
   updatedAt?: string;
 }
 
+/** 팀 공용 설정 (관리자만 바꿈). id = 'home' */
+export interface ConfigDoc {
+  id: string;
+  showUrgent?: boolean; // 홈: 급한 일
+  showPipeline?: boolean; // 홈: 진행중 주문 단계
+}
+
 export interface Collections {
   members: Member[];
   companies: Company[];
   tasks: Task[];
   orders: Order[];
   attendance: Attendance[];
+  config: ConfigDoc[];
 }
 
 export type CollectionName = keyof Collections;
