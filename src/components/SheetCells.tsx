@@ -512,7 +512,14 @@ export function AddCompany({ companies, onAdd }: { companies: Company[]; onAdd: 
 }
 
 /** 줄 끝 ⋯ : 작은 메뉴 (중요 표시 · 삭제) */
-export function RowMenu({ important, onImportant, onDelete }: { important: boolean; onImportant: () => void; onDelete: () => void }) {
+export interface MenuItem {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}
+
+/** 줄 끝 ⋯ : 작은 메뉴 */
+export function MoreMenu({ items, title }: { items: MenuItem[]; title?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div
@@ -521,31 +528,39 @@ export function RowMenu({ important, onImportant, onDelete }: { important: boole
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
       }}
     >
-      <button className={`icon-btn more-btn ${open ? 'open' : ''}`} title="중요 표시 · 삭제" onClick={() => setOpen((v) => !v)}>
+      <button className={`icon-btn more-btn ${open ? 'open' : ''}`} title={title} onClick={() => setOpen((v) => !v)}>
         ⋯
       </button>
       {open && (
         <div className="row-menu-pop">
-          <button
-            onClick={() => {
-              onImportant();
-              setOpen(false);
-            }}
-          >
-            {important ? '☆ 중요 표시 빼기' : '★ 중요 표시'}
-          </button>
-          <button
-            className="danger"
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-          >
-            🗑 삭제
-          </button>
+          {items.map((it) => (
+            <button
+              key={it.label}
+              className={it.danger ? 'danger' : ''}
+              onClick={() => {
+                setOpen(false);
+                it.onClick();
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+/** 할일 줄 메뉴 (중요 표시 · 삭제) */
+export function RowMenu({ important, onImportant, onDelete }: { important: boolean; onImportant: () => void; onDelete: () => void }) {
+  return (
+    <MoreMenu
+      title="중요 표시 · 삭제"
+      items={[
+        { label: important ? '☆ 중요 표시 빼기' : '★ 중요 표시', onClick: onImportant },
+        { label: '🗑 삭제', onClick: onDelete, danger: true },
+      ]}
+    />
   );
 }
 

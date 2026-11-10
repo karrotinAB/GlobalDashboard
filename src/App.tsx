@@ -52,12 +52,22 @@ export default function App() {
     <div className="app">
       <ExtensionBridge />
       <Cover tall={page === 'home'} />
+      <div className="top-actions">
+        <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
+          ⚙️ 설정
+        </a>
+        {mode === 'firestore' && (
+          <button className="top-btn" onClick={() => confirm('로그아웃할까요?') && logout()}>
+            로그아웃
+          </button>
+        )}
+      </div>
       <div className="shell">
         <div className="page-icon" aria-hidden="true">
           <PageIcon icon={current.icon} />
         </div>
         <nav className="tabs">
-          {PAGES.map((p) => (
+          {PAGES.filter((p) => p.key !== 'settings').map((p) => (
             <a key={p.key} href={`#/${p.key}`} className={page === p.key ? 'active' : ''}>
               <span aria-hidden="true" className="tab-icon">
                 <PageIcon icon={p.icon} />
@@ -68,11 +78,6 @@ export default function App() {
           <span className={`mode ${mode}`} title={mode === 'firestore' ? '팀원과 실시간 공유 중' : '이 브라우저에만 저장 중'}>
             {mode === 'firestore' ? '팀 공유 중' : '로컬 모드'}
           </span>
-          {mode === 'firestore' && (
-            <button className="logout" onClick={() => confirm('로그아웃할까요?') && logout()}>
-              로그아웃
-            </button>
-          )}
         </nav>
         {error && <div className="error-bar">{error}</div>}
         {firstRun && (

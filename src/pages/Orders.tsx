@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useLookups, useStore } from '../data/store';
-import { today, uid } from '../lib/date';
-import { isOrderDone, ORDER_STEPS, type Company, type Order, type OrderStepKey } from '../types';
-import { CompanyDot, Empty, Field, Modal } from '../components/ui';
+import { isOrderDone, ORDER_STEPS, type Order, type OrderStepKey } from '../types';
+import { EditableText, MoreMenu } from '../components/SheetCells';
+import { AddOrderRow, CompanyCell, DateCell } from '../components/OrderCells';
 
 type Tab = 'open' | 'done' | 'all';
 
@@ -13,7 +13,6 @@ export default function Orders() {
   const [companyFilter, setCompanyFilter] = useState('');
   const [missingStep, setMissingStep] = useState<OrderStepKey | null>(null);
   const [q, setQ] = useState('');
-  const [editing, setEditing] = useState<Order | null>(null);
 
   const base = useMemo(
     () => data.orders.filter((o) => !companyFilter || (o.companyId ?? '') === companyFilter),
@@ -51,29 +50,13 @@ export default function Orders() {
 
   const toggle = (o: Order, key: OrderStepKey) => save('orders', { ...o, [key]: !o[key] });
 
-  const newOrder = (): Order => ({
-    id: uid(),
-    companyId: companyFilter || companies[0]?.id || null,
-    name: '',
-    realOrder: false,
-    erp: false,
-    inbound: false,
-    shipped: false,
-    invoice: false,
-    orderDate: today(),
-    createdAt: today(),
-  });
-
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1>주문 관리</h1>
-          <p className="muted">출고 + 인보이스까지 체크되면 자동으로 '완료'로 이동해요. 완료건도 검색하면 다 나와요.</p>
+          <p className="muted">출고 + 인보이스까지 체크되면 자동으로 '완료'로 이동해요. 칸을 누르면 바로 고칠 수 있어요 · 완료건도 검색하면 다 나와요.</p>
         </div>
-        <button className="primary" onClick={() => setEditing(newOrder())}>
-          + 주문 추가
-        </button>
       </div>
 
       <div className="stat-row">
@@ -122,54 +105,64 @@ export default function Orders() {
 
       {query && <div className="banner">검색 중에는 진행중/완료 구분 없이 전체에서 찾아요. ({rows.length}건)</div>}
 
-      {rows.length === 0 ? (
-        <Empty>해당하는 주문이 없어요.</Empty>
-      ) : (
-        <div className="table-scroll">
-          <table className="order-table">
-            <thead>
-              <tr>
-                <th className="c-name">주문</th>
-                <th>업체</th>
-                {ORDER_STEPS.map((s) => (
-                  <th key={s.key} className="c-step">
-                    {s.label}
-                  </th>
-                ))}
-                <th>매장코드</th>
-                <th>주문일자</th>
-                <th>패킹 완료일</th>
-                <th>출고 장소</th>
-                <th>비고</th>
-                <th>상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((o) => {
-                const done = isOrderDone(o);
-                const company = companyById.get(o.companyId ?? '');
-                const progress = ORDER_STEPS.filter((s) => o[s.key]).length;
-                return (
-                  <tr key={o.id} className={`clickable ${done ? 'is-done' : ''}`} onClick={() => setEditing(o)}>
-                    <td className="c-name">{o.name || <span className="muted">(이름 없음)</span>}</td>
-                    <td className="nowrap">
-                      {company && (
-                        <>
-                          <CompanyDot color={company.color} /> {company.country || company.name}
-                        </>
-                      )}
+      <div className="table-scroll">
+        <table className="order-table">
+          <thead>
+            <tr>
+              <th className="c-name">주문</th>
+              <th className="c-co">업체</th>
+              {ORDER_STEPS.map((s) => (
+                <th key={s.key} className="c-step">
+                  {s.label}
+                </th>
+              ))}
+              <th className="c-code">매장코드</th>
+              <th className="c-date">주문일자</th>
+              <th className="c-pack">패킹 완료일</th>
+              <th className="c-from">출고 장소</th>
+              <th className="c-onote">비고</th>
+              <th className="c-more">상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tab !== 'done' && !query && (
+              <AddOrderRow
+                colSpan={ORDER_STEPS.length + 8}
+                companies={companies}
+                defaultCompanyId={companyFilter || companies[0]?.id || null}
+                stepCount={ORDER_STEPS.length}
+                onAdd={(o) => save('orders', o)}
+              />
+            )}
+            {rows.map((o) => {
+              const done = isOrderDone(o);
+              const progress = ORDER_STEPS.filter((s) => o[s.key]).length;
+              const patch = (p: Partial<Order>) => save('orders', { ...o, ...p });
+              const txt = (k: 'storeCode' | 'packing' | 'shipFrom' | 'note', ph: string) => (
+                <EditableText value={o[k] ?? ''} oneLine placeholder={ph} onSave={(v) => patch({ [k]: v || undefined })} />
+              );
+              return (
+                <tr key={o.id} className={done ? 'is-done' : ''}>
+                  <td className="c-name">
+                    <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+                  </td>
+                  <td className="c-co">
+                    <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
+                  </td>
+                  {ORDER_STEPS.map((s) => (
+                    <td key={s.key} className="c-step">
+                      <input type="checkbox" checked={o[s.key]} onChange={() => toggle(o, s.key)} aria-label={s.label} />
                     </td>
-                    {ORDER_STEPS.map((s) => (
-                      <td key={s.key} className="c-step" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={o[s.key]} onChange={() => toggle(o, s.key)} aria-label={s.label} />
-                      </td>
-                    ))}
-                    <td className="nowrap">{o.storeCode}</td>
-                    <td className="nowrap">{o.orderDate}</td>
-                    <td className="nowrap">{o.packing}</td>
-                    <td className="nowrap">{o.shipFrom}</td>
-                    <td className="c-note">{o.note}</td>
-                    <td className="nowrap">
+                  ))}
+                  <td className="c-code">{txt('storeCode', '매장코드')}</td>
+                  <td className="c-date">
+                    <DateCell value={o.orderDate} onSave={(v) => patch({ orderDate: v })} />
+                  </td>
+                  <td className="c-pack">{txt('packing', '패킹')}</td>
+                  <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
+                  <td className="c-onote">{txt('note', '비고')}</td>
+                  <td className="c-more">
+                    <div className="status-cell">
                       {done ? (
                         <span className="tag green">완료</span>
                       ) : (
@@ -177,128 +170,30 @@ export default function Orders() {
                           <span style={{ width: `${(progress / 5) * 100}%` }} />
                         </span>
                       )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {editing && (
-        <OrderEditor
-          order={editing}
-          isNew={!data.orders.some((o) => o.id === editing.id)}
-          companies={companies}
-          shipFromOptions={[...new Set(data.orders.map((o) => o.shipFrom).filter(Boolean) as string[])]}
-          onClose={() => setEditing(null)}
-          onSave={(o) => {
-            save('orders', o);
-            setEditing(null);
-          }}
-          onDelete={(o) => {
-            if (confirm(`"${o.name}" 주문을 삭제할까요?`)) {
-              remove('orders', o.id);
-              setEditing(null);
-            }
-          }}
-        />
-      )}
+                      <MoreMenu
+                        title="완료 처리 · 삭제"
+                        items={[
+                          o.closed
+                            ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
+                            : { label: '✓ 수동 완료 처리 (출고/인보이스 필요 없는 건)', onClick: () => patch({ closed: true }) },
+                          { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
+                        ]}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={ORDER_STEPS.length + 8} className="muted small pad">
+                  해당하는 주문이 없어요.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
-  );
-}
-
-function OrderEditor({
-  order,
-  isNew,
-  companies,
-  shipFromOptions,
-  onClose,
-  onSave,
-  onDelete,
-}: {
-  order: Order;
-  isNew: boolean;
-  companies: Company[];
-  shipFromOptions: string[];
-  onClose: () => void;
-  onSave: (o: Order) => void;
-  onDelete: (o: Order) => void;
-}) {
-  const [o, setO] = useState<Order>(order);
-  const set = <K extends keyof Order>(k: K, v: Order[K]) => setO((p) => ({ ...p, [k]: v }));
-  return (
-    <Modal title={isNew ? '주문 추가' : '주문 수정'} onClose={onClose}>
-      <form
-        className="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!o.name.trim()) return;
-          onSave({ ...o, name: o.name.trim() });
-        }}
-      >
-        <Field label="주문명" full>
-          <input autoFocus required value={o.name} onChange={(e) => set('name', e.target.value)} placeholder="예: 10-12주문 4번" />
-        </Field>
-        <Field label="업체">
-          <select value={o.companyId ?? ''} onChange={(e) => set('companyId', e.target.value || null)}>
-            <option value="">(없음)</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="매장코드">
-          <input value={o.storeCode ?? ''} onChange={(e) => set('storeCode', e.target.value || undefined)} placeholder="826701" />
-        </Field>
-        <Field label="주문넣은 일자">
-          <input type="date" value={o.orderDate ?? ''} onChange={(e) => set('orderDate', e.target.value || undefined)} />
-        </Field>
-        <Field label="패킹 완료일">
-          <input value={o.packing ?? ''} onChange={(e) => set('packing', e.target.value || undefined)} placeholder="2026.11.02 / 완료" />
-        </Field>
-        <Field label="출고 장소">
-          <input list="shipfrom-list" value={o.shipFrom ?? ''} onChange={(e) => set('shipFrom', e.target.value || undefined)} placeholder="관리부 / 삼일출고" />
-          <datalist id="shipfrom-list">
-            {shipFromOptions.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </Field>
-        <Field label="진행 단계" full>
-          <div className="steps">
-            {ORDER_STEPS.map((s) => (
-              <label key={s.key} className={`step ${o[s.key] ? 'on' : ''}`}>
-                <input type="checkbox" checked={o[s.key]} onChange={(e) => set(s.key, e.target.checked)} />
-                {s.label}
-              </label>
-            ))}
-          </div>
-        </Field>
-        <Field label="비고" full>
-          <textarea rows={3} value={o.note ?? ''} onChange={(e) => set('note', e.target.value || undefined)} />
-        </Field>
-        <label className="check-line">
-          <input type="checkbox" checked={!!o.closed} onChange={(e) => set('closed', e.target.checked)} /> 수동 완료 처리 (출고/인보이스가 필요 없는 건)
-        </label>
-        <div className="form-actions">
-          {!isNew && (
-            <button type="button" className="danger" onClick={() => onDelete(o)}>
-              삭제
-            </button>
-          )}
-          <span className="spacer" />
-          <button type="button" onClick={onClose}>
-            취소
-          </button>
-          <button type="submit" className="primary">
-            저장
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }

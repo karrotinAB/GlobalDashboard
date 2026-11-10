@@ -2242,3 +2242,132 @@ tr.drop-after td {
 .wd-hol::before {
   content: '🎌 ';
 }
+
+/* 커버 오른쪽 위: 설정 · 로그아웃 */
+.app {
+  position: relative;
+}
+.top-actions {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 45;
+  display: flex;
+  gap: 6px;
+}
+.top-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 250, 246, 0.72);
+  backdrop-filter: blur(6px);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.top-btn:hover {
+  background: #fffaf6;
+  border-color: #fff;
+}
+.top-btn.active {
+  background: #fffaf6;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* ---------- 주문 표: 시트처럼 바로 고치기 ---------- */
+.order-table {
+  table-layout: fixed;
+  min-width: 1180px;
+}
+.order-table td {
+  padding: 2px 6px;
+  vertical-align: middle;
+}
+.order-table th {
+  padding: 6px;
+}
+.order-table .c-name {
+  width: 220px;
+  min-width: 0;
+}
+.order-table .c-co {
+  width: 110px;
+}
+.order-table .c-step {
+  width: 66px;
+}
+.order-table .c-code {
+  width: 92px;
+}
+.order-table .c-date {
+  width: 112px;
+}
+.order-table .c-pack {
+  width: 108px;
+}
+.order-table .c-from {
+  width: 88px;
+}
+.order-table .c-more {
+  width: 100px;
+  text-align: left !important;
+  overflow: visible;
+}
+.order-table .cell-view {
+  min-height: 26px;
+  padding: 3px 6px;
+  line-height: 20px;
+}
+.order-table tr:hover td {
+  background: #fdf6f2;
+}
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.add-hint {
+  text-align: center;
+}
+.order-table .add-row.editing td {
+  background: #fffdfb;
+}
+/* 주문 표 칸 너비 다시 나누기 (비고가 남는 자리를 다 씀) */
+.order-table {
+  min-width: 1150px;
+}
+.order-table .c-name {
+  width: 190px;
+}
+.order-table .c-co {
+  width: 96px;
+}
+.order-table .c-step {
+  width: 54px;
+}
+.order-table .c-code {
+  width: 80px;
+}
+.order-table .c-date {
+  width: 100px;
+}
+.order-table .c-pack {
+  width: 96px;
+}
+.order-table .c-from {
+  width: 76px;
+}
+.order-table .c-more {
+  width: 90px;
+}
+.order-table th.c-step {
+  font-size: 10px;
+  white-space: normal;
+  line-height: 1.2;
+}
