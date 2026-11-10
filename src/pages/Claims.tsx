@@ -73,7 +73,8 @@ export default function Claims() {
         detail: os.map((o) => o.name).join(', '),
       });
     }
-    for (const o of [...data.orders].sort((a, b) => (b.orderDate ?? '').localeCompare(a.orderDate ?? '')))
+    // 개별 주문은 묶이지 않은 것만 (묶인 주문은 묶음으로만 고름)
+    for (const o of data.orders.filter((x) => !x.bundle).sort((a, b) => (b.orderDate ?? '').localeCompare(a.orderDate ?? '')))
       list.push({ key: `o:${o.id}`, source: 'order', sourceId: o.id, label: o.name, companyId: o.companyId, krw: o.amountKRW ?? 0, fx: o.amountForeign ?? 0, date: o.orderDate, done: isOrderDone(o) });
     return list;
   }, [data.orders]);
@@ -489,7 +490,7 @@ function SourcePicker({ sources, onClose, onPick }: { sources: Source[]; onClose
       <div className="src-list">
         {bundles.length > 0 && <h4>🔗 묶음 ({bundles.length})</h4>}
         {bundles.map(row)}
-        {orders.length > 0 && <h4>💼 주문 ({orders.length})</h4>}
+        {orders.length > 0 && <h4>💼 묶이지 않은 주문 ({orders.length})</h4>}
         {orders.map(row)}
         {!list.length && <p className="muted small">맞는 묶음·주문이 없어요.</p>}
       </div>
