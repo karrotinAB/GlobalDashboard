@@ -16,8 +16,11 @@ const REGION = 'asia-northeast3'; // 서울 (Firestore 와 같은 곳)
 
 async function apiKey() {
   const snap = await db.doc('secrets/erp').get();
-  const key = snap.get('apiKey');
-  if (!key) throw new Error('secrets/erp 문서에 apiKey 가 없어요');
+  // 칸 이름 대소문자가 달라도 읽음 (apiKey / apikey / API_KEY …)
+  const data = snap.data() ?? {};
+  const field = Object.keys(data).find((k) => k.replace(/[_\s-]/g, '').toLowerCase() === 'apikey');
+  const key = field ? data[field] : undefined;
+  if (!key) throw new Error('secrets/erp 문서에 apiKey 칸이 없어요');
   return String(key).trim();
 }
 
