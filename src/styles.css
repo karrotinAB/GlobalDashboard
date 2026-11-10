@@ -4385,3 +4385,48 @@ button.tw-card-tasks:hover .tw-card-num {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* 시계 고르기 */
+.clock-pick {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.clock-pick li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cp-label {
+  width: 140px;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.cp-tz {
+  flex: 1;
+}
+.cp-off {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.cp-add {
+  display: flex;
+  gap: 6px;
+}
+.cp-add input {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}

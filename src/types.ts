@@ -7,6 +7,12 @@ export interface Member {
   email?: string; // 이 카드 주인의 로그인 이메일 (본인만 말풍선·캐릭터를 바꿀 수 있음)
   memName?: string; // mem 에 표시되는 이름 (비워두면 이름 끝글자로 찾음: '길동' → '홍길동')
   status?: string; // 상태메시지
+  clocks?: ClockPick[]; // 홈 화면에 보일 시계 (본인이 고름, 없으면 업체 나라들)
+}
+
+export interface ClockPick {
+  tz: string; // IANA 시간대
+  label: string; // 시계 이름 (예: 몽골)
 }
 
 export interface Company {

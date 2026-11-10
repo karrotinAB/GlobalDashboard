@@ -5,7 +5,7 @@ import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/ta
 import { holidayName } from '../lib/holidays';
 import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
-import { isOrderDone, ORDER_STEPS, type Attendance, type Member } from '../types';
+import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
 
 const HOME_TZ = 'Asia/Seoul';
@@ -134,7 +134,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
   const todayAtt = new Map(data.attendance.filter((a) => a.date === todayIso).map((a) => [a.memberId, a]));
   const [editing, setEditing] = useState<Member | null>(null);
 
-  const clocks = useMemo(() => {
+  const defaultClocks = useMemo(() => {
     const map = new Map<string, { names: string[]; codes: string[]; color?: string }>();
     for (const c of companies) {
       if (!c.timezone || !isValidTz(c.timezone) || c.timezone === HOME_TZ) continue;
@@ -146,6 +146,42 @@ export default function Home({ go }: { go: (page: string) => void }) {
     }
     return [...map.entries()].map(([tz, v]) => ({ tz, label: [...new Set(v.names)].join(' · '), codes: [...new Set(v.codes)], color: v.color }));
   }, [companies]);
+
+  // 시계는 계정마다 따로 고름: 내 카드(members.clocks)에 저장, 카드가 없으면 이 브라우저에
+  const myCard = members.find((m) => !!access.email && m.email?.toLowerCase() === access.email);
+  const [localPick, setLocalPick] = useState<ClockPick[] | undefined>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('gd:clocks') ?? 'null') ?? undefined;
+    } catch {
+      return undefined;
+    }
+  });
+  const picked = myCard ? myCard.clocks : localPick;
+  const saveClocks = (list: ClockPick[] | undefined) => {
+    if (myCard) save('members', { ...myCard, clocks: list });
+    else {
+      setLocalPick(list);
+      try {
+        if (list) localStorage.setItem('gd:clocks', JSON.stringify(list));
+        else localStorage.removeItem('gd:clocks');
+      } catch {
+        /* 무시 */
+      }
+    }
+  };
+  const [pickingClocks, setPickingClocks] = useState(false);
+  const clocks = useMemo(
+    () =>
+      picked
+        ? picked
+            .filter((c) => isValidTz(c.tz))
+            .map((c) => {
+              const code = countryCode(c.label, c.tz);
+              return { tz: c.tz, label: c.label, codes: code ? [code] : [], color: undefined as string | undefined };
+            })
+        : defaultClocks,
+    [picked, defaultClocks],
+  );
 
   const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y);
 
@@ -197,7 +233,12 @@ export default function Home({ go }: { go: (page: string) => void }) {
       <section className="section">
         <div className="section-head">
           <h2>🌍 지금 몇 시?</h2>
-          <span className="muted small">흰색 = 낮 · 검정 = 밤 (7PM–7AM)</span>
+          <span className="muted small">
+            흰색 = 낮 · 검정 = 밤 (7PM–7AM) ·{' '}
+            <button className="link small" onClick={() => setPickingClocks(true)} title="내 화면에 보일 시계 고르기 (계정마다 따로)">
+              ⚙ 시계 고르기
+            </button>
+          </span>
         </div>
         <div className="dclocks">
           <DigitalClock label="서울" tz={HOME_TZ} now={now} home holidayOf={holidayName} />
@@ -324,6 +365,19 @@ export default function Home({ go }: { go: (page: string) => void }) {
         <p className="muted small">다음 단계에서 판매·수출 데이터를 연결해서 업체별 그래프로 보여줄 예정이에요.</p>
       </section>
 
+      {pickingClocks && (
+        <ClockPicker
+          current={clocks.map((c) => ({ tz: c.tz, label: c.label }))}
+          defaults={defaultClocks.map((c) => ({ tz: c.tz, label: c.label }))}
+          custom={!!picked}
+          where={myCard ? `${myCard.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'}
+          onSave={(l) => {
+            saveClocks(l);
+            setPickingClocks(false);
+          }}
+          onClose={() => setPickingClocks(false)}
+        />
+      )}
       {editing && (
         <CharacterPicker
           member={editing}
@@ -560,3 +614,108 @@ export function Hero({ title }: { title: string }) {
 }
 
 export { CharacterPicker };
+
+/** 시계 고르기: 업체 나라 시계 켜고 끄기 + 다른 도시 추가 + 순서 */
+function ClockPicker({
+  current,
+  defaults,
+  custom,
+  where,
+  onSave,
+  onClose,
+}: {
+  current: ClockPick[];
+  defaults: ClockPick[];
+  custom: boolean;
+  where: string;
+  onSave: (l: ClockPick[] | undefined) => void;
+  onClose: () => void;
+}) {
+  const [list, setList] = useState<ClockPick[]>(current);
+  const [tz, setTz] = useState('');
+  const [label, setLabel] = useState('');
+  const allTz = useMemo(() => {
+    try {
+      return (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone');
+    } catch {
+      return [];
+    }
+  }, []);
+  const offOptions = defaults.filter((d) => !list.some((x) => x.tz === d.tz));
+  const move = (i: number, d: number) =>
+    setList((l) => {
+      const n = [...l];
+      const j = i + d;
+      if (j < 0 || j >= n.length) return l;
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
+  const add = () => {
+    if (!isValidTz(tz) || list.some((x) => x.tz === tz)) return;
+    setList((l) => [...l, { tz, label: label.trim() || tz.split('/').pop()!.replace(/_/g, ' ') }]);
+    setTz('');
+    setLabel('');
+  };
+  return (
+    <Modal title="내 화면에 보일 시계" onClose={onClose}>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        서울은 항상 보여요. 다른 사람 화면에는 영향 없어요 · {where}
+      </p>
+      <ul className="clock-pick">
+        {list.map((c, i) => (
+          <li key={c.tz}>
+            <input
+              className="cp-label"
+              value={c.label}
+              onChange={(e) => setList((l) => l.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+            />
+            <span className="muted small cp-tz">{c.tz}</span>
+            <button className="icon-btn" onClick={() => move(i, -1)} title="위로">
+              ▲
+            </button>
+            <button className="icon-btn" onClick={() => move(i, 1)} title="아래로">
+              ▼
+            </button>
+            <button className="icon-btn" onClick={() => setList((l) => l.filter((_, j) => j !== i))} title="빼기">
+              ✕
+            </button>
+          </li>
+        ))}
+        {list.length === 0 && <li className="muted small">서울 시계만 보여요.</li>}
+      </ul>
+      {offOptions.length > 0 && (
+        <div className="cp-off">
+          <span className="muted small">업체 나라 시계 다시 넣기</span>
+          {offOptions.map((d) => (
+            <button key={d.tz} className="cchip" onClick={() => setList((l) => [...l, d])}>
+              ＋ {d.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="cp-add">
+        <input list="tz-list" placeholder="시간대 (예: America/New_York)" value={tz} onChange={(e) => setTz(e.target.value)} />
+        <datalist id="tz-list">
+          {allTz.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
+        <input placeholder="이름 (예: 뉴욕)" value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button onClick={add} disabled={!isValidTz(tz)}>
+          추가
+        </button>
+      </div>
+      <div className="rq-actions">
+        {custom && (
+          <button className="link" onClick={() => onSave(undefined)} style={{ marginRight: 'auto' }}>
+            기본(업체 나라들)으로 되돌리기
+          </button>
+        )}
+        <button onClick={onClose}>닫기</button>
+        <button className="primary" onClick={() => onSave(list.filter((c) => c.label.trim()))}>
+          저장
+        </button>
+      </div>
+    </Modal>
+  );
+}

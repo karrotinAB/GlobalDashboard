@@ -31,13 +31,13 @@ service cloud.firestore {
       allow delete: if isAdmin() && email != myEmail();
     }
 
-    // 담당자 카드: 말풍선(status)·캐릭터(character)는 카드 주인(email)만 바꿈
+    // 담당자 카드: 말풍선(status)·캐릭터(character)·시계(clocks)는 카드 주인(email)만 바꿈
     // 카드 주인 이메일: 관리자는 언제나, 본인은 '주인 없는 카드'를 자기 이메일로 연결할 때만 ("이 카드가 나예요")
     match /members/{id} {
       allow read: if isAny(); // 무역사무도 요청자 이름을 봐야 해서 읽기만
       allow create, delete: if isTeam();
       allow update: if isTeam()
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character', 'clocks'])
             || resource.data.get('email', '') == myEmail())
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
             || isAdmin()
