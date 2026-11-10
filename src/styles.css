@@ -2636,3 +2636,32 @@ tr.bundle-head.drop-target td {
   font-weight: 700;
   background: var(--primary-soft);
 }
+
+/* 금액: 작게, 한 줄로 */
+.order-table .c-amt {
+  width: 112px;
+  white-space: nowrap;
+}
+.cell-view.amt,
+.cell-input.amt,
+.sum-row .c-amt {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+.order-table .c-onote {
+  min-width: 110px;
+}
+.order-table th {
+  white-space: nowrap;
+}
+.order-table th.c-step {
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: -0.3px;
+}
+.bundle-sum {
+  white-space: nowrap;
+}
