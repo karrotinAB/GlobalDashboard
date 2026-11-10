@@ -3,6 +3,7 @@ import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { useAccess } from '../components/AuthGate';
+import CompanyPicker from '../components/CompanyPicker';
 import { Modal } from '../components/ui';
 import { isOrderDone, ORDER_STEPS, type ConfigDoc, type Order, type OrderBundle, type OrderStepKey } from '../types';
 import { uid } from '../lib/date';
@@ -306,22 +307,14 @@ export default function Orders() {
           </button>
         )}
         {showCompanies && !sheet && (
-          <div className="company-chips">
-            {companies.map((c) => (
-              <button
-                key={c.id}
-                className="cchip"
-                style={{ '--c': c.color ?? '#999' } as CSSProperties}
-                onClick={() => {
-                  setCompanyFilter(c.id);
-                  setShowCompanies(false);
-                }}
-              >
-                <span className="dot" style={{ background: c.color }} />
-                {c.name}
-              </button>
-            ))}
-          </div>
+          <CompanyPicker
+            companies={companies}
+            hasData={(c) => data.orders.some((o) => o.companyId === c.id)}
+            onPick={(id) => {
+              setCompanyFilter(id);
+              setShowCompanies(false);
+            }}
+          />
         )}
       </div>
 
@@ -334,23 +327,16 @@ export default function Orders() {
           <p>
             <b>업체를 골라주세요</b> · 고른 업체의 주문을 볼 수 있어요
           </p>
-          <div className="company-chips">
-            {companies.map((c) => (
-              <button
-                key={c.id}
-                className="cchip"
-                style={{ '--c': c.color ?? '#999' } as CSSProperties}
-                onClick={() => {
-                  setCompanyFilter(c.id);
-                  setShowCompanies(false);
-                }}
-              >
-                <span className="dot" style={{ background: c.color }} />
-                {c.name}
-                <span className="cchip-n">{data.orders.filter((o) => o.companyId === c.id && !isOrderDone(o)).length}</span>
-              </button>
-            ))}
-          </div>
+          <CompanyPicker
+            companies={companies}
+            hasData={(c) => data.orders.some((o) => o.companyId === c.id)}
+            badge={(c) => <span className="cchip-n">{data.orders.filter((o) => o.companyId === c.id && !isOrderDone(o)).length}</span>}
+            onPick={(id) => {
+              setCompanyFilter(id);
+              setShowCompanies(false);
+            }}
+            emptyText="아직 주문이 있는 업체가 없어요. ＋ 업체 추가를 눌러 시작해요."
+          />
         </div>
       ) : (
       <div className="table-scroll">

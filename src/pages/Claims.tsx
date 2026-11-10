@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { today, uid } from '../lib/date';
@@ -7,6 +7,7 @@ import { EditableText, MoreMenu } from '../components/SheetCells';
 import { Modal } from '../components/ui';
 import { AmountCell, fmtFX, fmtKRW, parseAmount } from '../components/OrderCells';
 import DateInput from '../components/DateInput';
+import CompanyPicker from '../components/CompanyPicker';
 import { storage } from '../firebase';
 
 type Source = {
@@ -180,18 +181,16 @@ export default function Claims() {
           <p>
             <b>업체를 골라주세요</b> · 고른 업체의 클레임을 볼 수 있어요
           </p>
-          <div className="company-chips">
-            {companies.map((c) => {
+          <CompanyPicker
+            companies={companies}
+            hasData={(c) => data.claims.some((x) => x.companyId === c.id)}
+            badge={(c) => {
               const open = data.claims.filter((x) => x.companyId === c.id && !x.refunded).length;
-              return (
-                <button key={c.id} className="cchip" style={{ '--c': c.color ?? '#999' } as CSSProperties} onClick={() => setCompanyFilter(c.id)}>
-                  <span className="dot" style={{ background: c.color }} />
-                  {c.name}
-                  {open > 0 && <span className="cchip-n red">{open}</span>}
-                </button>
-              );
-            })}
-          </div>
+              return open > 0 && <span className="cchip-n red">{open}</span>;
+            }}
+            onPick={(id) => setCompanyFilter(id)}
+            emptyText="아직 클레임이 있는 업체가 없어요. ＋ 업체 추가를 눌러 시작해요."
+          />
         </div>
       ) : (
       <>
@@ -212,22 +211,14 @@ export default function Claims() {
         </button>
         <input className="search" placeholder="이름 / 비고 검색" value={q} onChange={(e) => setQ(e.target.value)} />
         {showCompanies && !sheet && (
-          <div className="company-chips">
-            {companies.map((c) => (
-              <button
-                key={c.id}
-                className="cchip"
-                style={{ '--c': c.color ?? '#999' } as CSSProperties}
-                onClick={() => {
-                  setCompanyFilter(c.id);
-                  setShowCompanies(false);
-                }}
-              >
-                <span className="dot" style={{ background: c.color }} />
-                {c.name}
-              </button>
-            ))}
-          </div>
+          <CompanyPicker
+            companies={companies}
+            hasData={(c) => data.claims.some((x) => x.companyId === c.id)}
+            onPick={(id) => {
+              setCompanyFilter(id);
+              setShowCompanies(false);
+            }}
+          />
         )}
       </div>
 

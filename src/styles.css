@@ -4763,3 +4763,27 @@ body {
     margin: 0 4px;
   }
 }
+
+/* 업체 고르기: 내용 있는 업체 + '＋ 업체 추가' */
+.company-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cchip.add-co {
+  border-style: dashed;
+  color: var(--primary);
+  font-weight: 600;
+}
+.cchip.add-co.on {
+  background: #fff;
+}
+.company-chips.add-list {
+  padding: 10px 12px;
+  background: #faf6f4;
+  border-radius: 12px;
+  align-items: center;
+}
+.company-chips.add-list > .muted {
+  flex-basis: 100%;
+}
