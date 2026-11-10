@@ -159,7 +159,6 @@ export function AddOrderRow({
       </td>
       <td>{text('packing', '패킹')}</td>
       <td>{text('shipFrom', '출고 장소')}</td>
-      <td className="c-step" />
       <td className="c-amt">
         <input className="cell-input amt" placeholder="₩ 원화" value={d.krw ?? ''} onChange={(e) => set('krw', e.target.value)} onKeyDown={keys} />
       </td>

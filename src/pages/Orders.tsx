@@ -7,8 +7,8 @@ import { AddOrderRow, AmountCell, CompanyCell, DateCell, fmtFX, fmtKRW } from '.
 
 type Tab = 'open' | 'done' | 'all';
 
-// 표에서 인보이스는 출고 장소 뒤로 (진행 순서 숫자 카드는 그대로)
-const MID_STEPS = ORDER_STEPS.filter((s) => s.key !== 'invoice');
+// 진행 순서: 실주문 → ERP 등록 → 입고처리 → 인보이스 → 출고 (출고 체크 = 완료)
+const MID_STEPS = ORDER_STEPS;
 const BUNDLE_COLORS = ['#c0587a', '#4f7cae', '#d08a2e', '#5f8a4e', '#8e5a8a', '#3f8f8a', '#b5543c', '#7a6a4f'];
 
 /** 순서 기준값: 직접 옮긴 순서가 있으면 그것, 없으면 주문일자 (작을수록 위 → 새 주문은 맨 아래) */
@@ -189,7 +189,7 @@ export default function Orders() {
       <div className="page-head">
         <div>
           <h1>주문 관리</h1>
-          <p className="muted">출고 + 인보이스까지 체크되면 자동으로 '완료'로 이동해요. 칸을 누르면 바로 고칠 수 있어요 · 완료건도 검색하면 다 나와요.</p>
+          <p className="muted">마지막 단계인 출고에 체크하면 자동으로 '완료'로 이동해요. 칸을 누르면 바로 고칠 수 있어요 · 완료건도 검색하면 다 나와요.</p>
         </div>
       </div>
 
@@ -334,7 +334,6 @@ export default function Orders() {
               <th className="c-date">주문일자</th>
               <th className="c-pack">패킹 완료일</th>
               <th className="c-from">출고 장소</th>
-              <th className="c-step">인보이스</th>
               <th className="c-amt">원화 금액</th>
               <th className="c-amt">외화 금액</th>
               <th className="c-onote">비고</th>
@@ -514,7 +513,6 @@ export default function Orders() {
         </td>
         <td className="c-pack">{txt('packing', '패킹')}</td>
         <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
-        {step('invoice', '인보이스')}
         <td className="c-amt">
           <AmountCell value={o.amountKRW} kind="krw" onSave={(v) => patch({ amountKRW: v })} />
         </td>
@@ -532,7 +530,7 @@ export default function Orders() {
               items={[
                 o.closed
                   ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
-                  : { label: '✓ 수동 완료 처리 (출고/인보이스 필요 없는 건)', onClick: () => patch({ closed: true }) },
+                  : { label: '✓ 수동 완료 처리 (출고 없이 끝난 건)', onClick: () => patch({ closed: true }) },
                 { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
               ]}
             />

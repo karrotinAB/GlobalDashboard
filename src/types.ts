@@ -65,9 +65,9 @@ export interface OrderBundle {
   name?: string; // 예: 4번째 컨테이너
 }
 
-/** 주문 완료 기준: 출고 + 인보이스 제작 완료, 또는 수동으로 완료 처리 */
+/** 주문 완료 기준: 출고(마지막 단계)에 체크, 또는 수동으로 완료 처리 */
 export function isOrderDone(o: Order): boolean {
-  return !!o.closed || (o.shipped && o.invoice);
+  return !!o.closed || o.shipped;
 }
 
 /** mem(근태 사이트) 부서 근태 현황에서 가져온 하루 기록. id = `${date}_${memberId}` */
@@ -98,8 +98,8 @@ export const ORDER_STEPS = [
   { key: 'realOrder', label: '실주문' },
   { key: 'erp', label: 'ERP 등록' },
   { key: 'inbound', label: '입고처리' },
-  { key: 'shipped', label: '출고' },
   { key: 'invoice', label: '인보이스' },
+  { key: 'shipped', label: '출고' },
 ] as const;
 
 export type OrderStepKey = (typeof ORDER_STEPS)[number]['key'];
