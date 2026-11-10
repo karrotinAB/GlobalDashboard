@@ -4787,3 +4787,113 @@ body {
 .company-chips.add-list > .muted {
   flex-basis: 100%;
 }
+
+/* ================================================================== */
+/* 휴대폰 (≤ 700px)                                                    */
+/* ================================================================== */
+@media (max-width: 700px) {
+  /* 주간 할일: 한 줄 = 작은 카드
+     [번호] 업무 제목 ............... [완료]
+            담당 · 마감          [⋯]
+            비고                                          */
+  .task-table thead {
+    display: none;
+  }
+  .task-table,
+  .task-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .task-table tr {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'num title title check'
+      'num who due more'
+      'num note note note';
+    align-items: center;
+    column-gap: 6px;
+    padding: 8px 10px 8px 4px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .task-table td {
+    display: block;
+    border: 0 !important;
+    padding: 2px 0 !important;
+    width: auto !important;
+    min-width: 0;
+    background: none;
+  }
+  .task-table td.c-num {
+    grid-area: num;
+    align-self: start;
+    padding-top: 4px !important;
+  }
+  .task-table td.c-company {
+    display: none;
+  }
+  .task-table td.c-title {
+    grid-area: title;
+    font-weight: 600;
+  }
+  .task-table td.c-who {
+    grid-area: who;
+  }
+  .task-table td.c-due {
+    grid-area: due;
+    justify-self: end;
+  }
+  .task-table td.c-check {
+    grid-area: check;
+    justify-self: end;
+  }
+  .task-table td.c-more {
+    grid-area: more;
+  }
+  .task-table td.c-note {
+    grid-area: note;
+    font-size: 12.5px;
+  }
+  .task-table td.c-note .cell-ph,
+  .task-table td.c-note:has(.cell-ph) {
+    display: none;
+  }
+  .task-table .c-title .cell-view,
+  .task-table .c-title .cell-view.one-line {
+    white-space: normal !important;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  /* 할일 추가 줄도 한 칸으로 */
+  .task-table tr.add-row {
+    display: block;
+  }
+  /* 업체 머리줄: 이름이 한 줄을 다 쓰고 버튼은 아래로 */
+  .group-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .group-head h3,
+  .group-head .group-name {
+    white-space: nowrap;
+  }
+  /* 주문·클레임·요청 표: 옆으로 밀어서 보기 */
+  .table-scroll,
+  .table-card {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .order-table {
+    min-width: 1100px;
+  }
+  .claim-table {
+    min-width: 1000px;
+  }
+  .rq-table {
+    min-width: 900px;
+  }
+  /* 페이지 여백 줄이기 */
+  .card {
+    padding: 14px 12px;
+  }
+}
