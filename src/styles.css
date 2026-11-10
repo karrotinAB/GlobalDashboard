@@ -2377,3 +2377,124 @@ tr.drop-after td {
 .bubble.readonly {
   cursor: default;
 }
+
+/* ---------- 주문: 묶음 · 선택 · 원화/외화 ---------- */
+.order-table {
+  min-width: 1180px;
+}
+.order-table .c-gutter {
+  width: 46px;
+  position: relative;
+  padding: 0 0 0 12px !important;
+  white-space: nowrap;
+}
+.order-table .c-more {
+  width: 132px;
+}
+.order-table .row-handle {
+  margin-left: 0;
+}
+.order-table input.sel {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  vertical-align: middle;
+  accent-color: var(--ink-2);
+}
+.order-table tr:hover input.sel,
+.order-table tr.is-selected input.sel {
+  opacity: 1;
+}
+.order-table tr.is-selected td {
+  background: #fbeee9 !important;
+}
+/* 묶음 세로줄 */
+.bundle-bar {
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--bc);
+}
+.bundle-bar.top {
+  top: 8px;
+  border-radius: 4px 4px 0 0;
+}
+.bundle-bar.bottom {
+  bottom: 6px;
+  border-radius: 0 0 4px 4px;
+}
+tr.in-bundle td {
+  background: color-mix(in srgb, var(--bc) 6%, transparent);
+}
+tr.bundle-head td {
+  padding: 6px 6px 2px;
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--bc) 6%, transparent);
+}
+tr.bundle-head.drop-target td {
+  background: color-mix(in srgb, var(--bc) 18%, transparent);
+}
+.bundle-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bundle-chip {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--bc);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.bundle-name {
+  flex: 1;
+  max-width: 360px;
+  font-size: 13px;
+  font-weight: 700;
+}
+/* 선택 막대 */
+.select-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  translate: -50% 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow-h);
+}
+.select-bar button {
+  border-radius: 999px;
+}
+/* 원화 / 외화 */
+.currency {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  white-space: nowrap;
+}
+.currency.krw {
+  background: #e9f0dd;
+  border-color: #cfdcb9;
+  color: #4d6a31;
+}
+.currency.foreign {
+  background: #e3ecf8;
+  border-color: #c3d4ee;
+  color: #2f5a99;
+}
+.currency.none {
+  color: #cdb8b2;
+}

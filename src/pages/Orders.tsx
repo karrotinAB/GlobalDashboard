@@ -1,13 +1,42 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { Fragment, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
-import { isOrderDone, ORDER_STEPS, type Order, type OrderStepKey } from '../types';
+import { isOrderDone, ORDER_STEPS, type Order, type OrderBundle, type OrderStepKey } from '../types';
+import { uid } from '../lib/date';
 import { EditableText, MoreMenu } from '../components/SheetCells';
-import { AddOrderRow, CompanyCell, DateCell } from '../components/OrderCells';
+import { AddOrderRow, CompanyCell, CurrencyToggle, DateCell } from '../components/OrderCells';
 
 type Tab = 'open' | 'done' | 'all';
 
+// 표에서 인보이스는 출고 장소 뒤로 (진행 순서 숫자 카드는 그대로)
+const MID_STEPS = ORDER_STEPS.filter((s) => s.key !== 'invoice');
+const BUNDLE_COLORS = ['#c0587a', '#4f7cae', '#d08a2e', '#5f8a4e', '#8e5a8a', '#3f8f8a', '#b5543c', '#7a6a4f'];
+
+/** 순서 기준값: 직접 옮긴 순서가 있으면 그것, 없으면 주문일자 (클수록 위) */
+const keyOf = (o: Order) => o.sort ?? Date.parse(o.orderDate ?? o.createdAt) ?? 0;
+
+type Unit = { bundle?: OrderBundle; orders: Order[] };
+/** 묶음은 한 덩어리로: 묶음 안 가장 위 주문 기준으로 자리 잡고, 안에서는 순서대로 */
+function toUnits(rows: Order[]): Unit[] {
+  const units: Unit[] = [];
+  const byBundle = new Map<string, Unit>();
+  for (const o of rows) {
+    if (o.bundle) {
+      let u = byBundle.get(o.bundle.id);
+      if (!u) {
+        u = { bundle: o.bundle, orders: [] };
+        byBundle.set(o.bundle.id, u);
+        units.push(u);
+      }
+      u.orders.push(o);
+    } else units.push({ orders: [o] });
+  }
+  const top = (u: Unit) => Math.max(...u.orders.map(keyOf));
+  for (const u of units) u.orders.sort((a, b) => keyOf(b) - keyOf(a));
+  return units.sort((a, b) => top(b) - top(a));
+}
+
 export default function Orders() {
-  const { data, save, remove } = useStore();
+  const { data, save, saveMany, remove } = useStore();
   const { companies, companyById } = useLookups();
   const [tab, setTab] = useState<Tab>('open');
   // 업체 = 시트: 고른 업체를 이 브라우저에 기억해서 다음에 열어도 그 시트로
@@ -61,13 +90,71 @@ export default function Orders() {
         }
         return true;
       })
-      .sort((a, b) => (b.orderDate ?? b.createdAt).localeCompare(a.orderDate ?? a.createdAt));
+      ;
   }, [base, tab, query, missingStep, companyById]);
+  const units = useMemo(() => toUnits(rows), [rows]);
+  const flat = useMemo(() => units.flatMap((u) => u.orders), [units]);
+
+  // 선택 → 묶기 / 묶음 빼기
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSel = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const selectedOrders = data.orders.filter((o) => selected.has(o.id));
+  const bundleSelected = () => {
+    if (!selectedOrders.length) return;
+    const existing = selectedOrders.find((o) => o.bundle)?.bundle;
+    const used = new Set(data.orders.map((o) => o.bundle?.color));
+    const target: OrderBundle = existing ?? { id: uid(), color: BUNDLE_COLORS.find((c) => !used.has(c)) ?? BUNDLE_COLORS[used.size % BUNDLE_COLORS.length] };
+    saveMany('orders', selectedOrders.map((o) => ({ ...o, bundle: target })));
+    setSelected(new Set());
+  };
+  const unbundleSelected = () => {
+    saveMany('orders', selectedOrders.filter((o) => o.bundle).map((o) => ({ ...o, bundle: undefined })));
+    setSelected(new Set());
+  };
+  const renameBundle = (b: OrderBundle, name: string) =>
+    saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: { ...b, name: name || undefined } })));
+  const dissolve = (b: OrderBundle) => saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: undefined })));
+
+  // 끌어서 위치 바꾸기: 놓은 자리의 묶음에 같이 들어감 (묶음 아닌 줄에 놓으면 묶음에서 빠짐)
+  const dragRef = useRef<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [over, setOver] = useState<{ id: string; after: boolean } | null>(null);
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragId(null);
+    setOver(null);
+  };
+  const dropOn = (targetId: string, after: boolean, bundleOverride?: OrderBundle | null) => {
+    const fromId = dragRef.current;
+    endDrag();
+    if (!fromId || fromId === targetId) return;
+    const from = flat.find((o) => o.id === fromId);
+    const target = flat.find((o) => o.id === targetId);
+    if (!from || !target) return;
+    const keys = flat.map(keyOf).sort((a, b) => b - a); // 지금 보이는 줄들의 순서값을 그대로 다시 나눠 씀
+    const list = flat.filter((o) => o.id !== fromId);
+    const at = list.findIndex((o) => o.id === targetId) + (after ? 1 : 0);
+    const bundle = bundleOverride === undefined ? target.bundle : bundleOverride ?? undefined;
+    list.splice(at, 0, { ...from, bundle });
+    const changed = list
+      .map((o, i) => ({ ...o, sort: keys[i] - i * 0.001 }))
+      .filter((o) => {
+        const before = data.orders.find((x) => x.id === o.id);
+        return before?.sort !== o.sort || before?.bundle?.id !== o.bundle?.id;
+      });
+    saveMany('orders', changed);
+  };
 
   const toggle = (o: Order, key: OrderStepKey) => save('orders', { ...o, [key]: !o[key] });
 
   const sheet = companyById.get(companyFilter); // 지금 보고 있는 업체 시트 (없으면 전체)
-  const colSpan = ORDER_STEPS.length + (sheet ? 7 : 8);
+  const colSpan = sheet ? 13 : 14;
 
   return (
     <div className="page">
@@ -152,9 +239,10 @@ export default function Orders() {
         <table className="order-table">
           <thead>
             <tr>
+              <th className="c-gutter" />
               <th className="c-name">주문</th>
               {!sheet && <th className="c-co">업체</th>}
-              {ORDER_STEPS.map((s) => (
+              {MID_STEPS.map((s) => (
                 <th key={s.key} className="c-step">
                   {s.label}
                 </th>
@@ -163,8 +251,9 @@ export default function Orders() {
               <th className="c-date">주문일자</th>
               <th className="c-pack">패킹 완료일</th>
               <th className="c-from">출고 장소</th>
+              <th className="c-step">인보이스</th>
               <th className="c-onote">비고</th>
-              <th className="c-more">상태</th>
+              <th className="c-more">원화/외화</th>
             </tr>
           </thead>
           <tbody>
@@ -175,62 +264,13 @@ export default function Orders() {
                 companies={companies}
                 lockCompany={!!sheet}
                 defaultCompanyId={sheet?.id ?? companies[0]?.id ?? null}
-                stepCount={ORDER_STEPS.length}
-                onAdd={(o) => save('orders', o)}
+                stepCount={MID_STEPS.length}
+                onAdd={(o) => save('orders', { ...o, sort: Date.now() })}
               />
             )}
-            {rows.map((o) => {
-              const done = isOrderDone(o);
-              const progress = ORDER_STEPS.filter((s) => o[s.key]).length;
-              const patch = (p: Partial<Order>) => save('orders', { ...o, ...p });
-              const txt = (k: 'storeCode' | 'packing' | 'shipFrom' | 'note', ph: string) => (
-                <EditableText value={o[k] ?? ''} oneLine placeholder={ph} onSave={(v) => patch({ [k]: v || undefined })} />
-              );
-              return (
-                <tr key={o.id} className={done ? 'is-done' : ''}>
-                  <td className="c-name">
-                    <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
-                  </td>
-                  {!sheet && (
-                    <td className="c-co">
-                      <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
-                    </td>
-                  )}
-                  {ORDER_STEPS.map((s) => (
-                    <td key={s.key} className="c-step">
-                      <input type="checkbox" checked={o[s.key]} onChange={() => toggle(o, s.key)} aria-label={s.label} />
-                    </td>
-                  ))}
-                  <td className="c-code">{txt('storeCode', '매장코드')}</td>
-                  <td className="c-date">
-                    <DateCell value={o.orderDate} onSave={(v) => patch({ orderDate: v })} />
-                  </td>
-                  <td className="c-pack">{txt('packing', '패킹')}</td>
-                  <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
-                  <td className="c-onote">{txt('note', '비고')}</td>
-                  <td className="c-more">
-                    <div className="status-cell">
-                      {done ? (
-                        <span className="tag green">완료</span>
-                      ) : (
-                        <span className="progress" title={`${progress}/5 단계`}>
-                          <span style={{ width: `${(progress / 5) * 100}%` }} />
-                        </span>
-                      )}
-                      <MoreMenu
-                        title="완료 처리 · 삭제"
-                        items={[
-                          o.closed
-                            ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
-                            : { label: '✓ 수동 완료 처리 (출고/인보이스 필요 없는 건)', onClick: () => patch({ closed: true }) },
-                          { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
-                        ]}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {units.map((u) => (
+              <Fragment key={u.bundle?.id ?? u.orders[0].id}>{renderUnit(u)}</Fragment>
+            ))}
             {rows.length === 0 && (
               <tr>
                 <td colSpan={colSpan} className="muted small pad">
@@ -241,6 +281,146 @@ export default function Orders() {
           </tbody>
         </table>
       </div>
+
+      {selected.size > 0 && (
+        <div className="select-bar">
+          <b>{selected.size}건 선택</b>
+          <button className="primary" onClick={bundleSelected}>
+            🔗 같이 출고로 묶기
+          </button>
+          {selectedOrders.some((o) => o.bundle) && <button onClick={unbundleSelected}>묶음에서 빼기</button>}
+          <button className="link" onClick={() => setSelected(new Set())}>
+            선택 해제
+          </button>
+        </div>
+      )}
     </div>
   );
+
+  // 컴포넌트가 아니라 그리기 함수로 둬서, 다시 그려도 편집 중인 칸이 닫히지 않음
+  function renderUnit(u: Unit) {
+    return (
+      <>
+        {u.bundle && (
+          <tr
+            className={`bundle-head ${over?.id === `b:${u.bundle.id}` ? 'drop-target' : ''}`}
+            style={{ '--bc': u.bundle.color } as CSSProperties}
+            onDragOver={(e) => {
+              if (!dragRef.current) return;
+              e.preventDefault();
+              if (over?.id !== `b:${u.bundle!.id}`) setOver({ id: `b:${u.bundle!.id}`, after: false });
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              dropOn(u.orders[0].id, false, u.bundle);
+            }}
+          >
+            <td className="c-gutter">
+              <span className="bundle-bar top" />
+            </td>
+            <td colSpan={colSpan - 1}>
+              <div className="bundle-title">
+                <span className="bundle-chip">🔗 같이 출고 {u.orders.length}건</span>
+                <div className="bundle-name">
+                  <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 (예: 4번째 컨테이너)" onSave={(v) => renameBundle(u.bundle!, v)} />
+                </div>
+                <button className="link small" onClick={() => confirm('이 묶음을 풀까요? (주문은 그대로 남아요)') && dissolve(u.bundle!)}>
+                  묶음 풀기
+                </button>
+              </div>
+            </td>
+          </tr>
+        )}
+        {u.orders.map((o, i) => (
+          <Fragment key={o.id}>{renderRow(o, u.bundle, i === u.orders.length - 1)}</Fragment>
+        ))}
+      </>
+    );
+  }
+
+  function renderRow(o: Order, bundle: OrderBundle | undefined, last: boolean) {
+    const done = isOrderDone(o);
+    const patch = (p: Partial<Order>) => save('orders', { ...o, ...p });
+    const txt = (k: 'storeCode' | 'packing' | 'shipFrom' | 'note', ph: string) => (
+      <EditableText value={o[k] ?? ''} oneLine placeholder={ph} onSave={(v) => patch({ [k]: v || undefined })} />
+    );
+    const sel = selected.has(o.id);
+    const step = (k: OrderStepKey, label: string) => (
+      <td key={k} className="c-step">
+        <input type="checkbox" checked={o[k]} onChange={() => toggle(o, k)} aria-label={label} />
+      </td>
+    );
+    return (
+      <tr
+        className={`${done ? 'is-done' : ''} ${sel ? 'is-selected' : ''} ${bundle ? 'in-bundle' : ''} ${dragId === o.id ? 'row-dragging' : ''} ${
+          over?.id === o.id ? (over.after ? 'drop-after' : 'drop-before') : ''
+        }`}
+        style={bundle ? ({ '--bc': bundle.color } as CSSProperties) : undefined}
+        onDragOver={(e) => {
+          if (!dragRef.current) return;
+          e.preventDefault();
+          const r = e.currentTarget.getBoundingClientRect();
+          const after = e.clientY > r.top + r.height / 2;
+          if (over?.id !== o.id || over.after !== after) setOver({ id: o.id, after });
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          dropOn(o.id, over?.id === o.id ? over.after : false);
+        }}
+      >
+        <td className="c-gutter">
+          {bundle && <span className={`bundle-bar ${last ? 'bottom' : ''}`} />}
+          <span
+            className="row-handle"
+            draggable
+            title="끌어서 위치 바꾸기 (묶음 안에 놓으면 그 묶음으로)"
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', o.name);
+              const tr = e.currentTarget.closest('tr');
+              if (tr) e.dataTransfer.setDragImage(tr, 20, 14);
+              dragRef.current = o.id;
+              setTimeout(() => setDragId(o.id), 0);
+            }}
+            onDragEnd={endDrag}
+          >
+            ⠿
+          </span>
+          <input type="checkbox" className="sel" checked={sel} onChange={() => toggleSel(o.id)} title="선택 (묶기)" />
+        </td>
+        <td className="c-name">
+          <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+        </td>
+        {!sheet && (
+          <td className="c-co">
+            <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
+          </td>
+        )}
+        {MID_STEPS.map((s) => step(s.key, s.label))}
+        <td className="c-code">{txt('storeCode', '매장코드')}</td>
+        <td className="c-date">
+          <DateCell value={o.orderDate} onSave={(v) => patch({ orderDate: v })} />
+        </td>
+        <td className="c-pack">{txt('packing', '패킹')}</td>
+        <td className="c-from">{txt('shipFrom', '출고 장소')}</td>
+        {step('invoice', '인보이스')}
+        <td className="c-onote">{txt('note', '비고')}</td>
+        <td className="c-more">
+          <div className="status-cell">
+            <CurrencyToggle value={o.currency} onChange={(v) => patch({ currency: v })} />
+            {done && <span className="tag green">완료</span>}
+            <MoreMenu
+              title="완료 처리 · 삭제"
+              items={[
+                o.closed
+                  ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
+                  : { label: '✓ 수동 완료 처리 (출고/인보이스 필요 없는 건)', onClick: () => patch({ closed: true }) },
+                { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
+              ]}
+            />
+          </div>
+        </td>
+      </tr>
+    );
+  }
 }

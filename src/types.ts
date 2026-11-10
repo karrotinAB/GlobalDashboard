@@ -52,7 +52,16 @@ export interface Order {
   shipFrom?: string; // 출고 장소
   note?: string;
   closed?: boolean; // 수동 완료 처리 (출고/인보이스가 필요 없는 건 등)
+  currency?: 'KRW' | 'FOREIGN'; // 원화 / 외화
+  bundle?: OrderBundle; // 같이 출고되는 묶음
+  sort?: number; // 직접 옮긴 순서 (클수록 위). 없으면 주문일자 순
   createdAt: string;
+}
+
+export interface OrderBundle {
+  id: string;
+  color: string;
+  name?: string; // 예: 4번째 컨테이너
 }
 
 /** 주문 완료 기준: 출고 + 인보이스 제작 완료, 또는 수동으로 완료 처리 */

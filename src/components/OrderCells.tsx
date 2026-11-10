@@ -62,7 +62,7 @@ export function CompanyCell({ company, companies, onSave }: { company?: Company;
   );
 }
 
-type Draft = Pick<Order, 'name' | 'companyId' | 'storeCode' | 'orderDate' | 'packing' | 'shipFrom' | 'note'>;
+type Draft = Pick<Order, 'name' | 'companyId' | 'storeCode' | 'orderDate' | 'packing' | 'shipFrom' | 'note' | 'currency'>;
 
 /** 표 맨 위 "+ 주문 추가" 줄: 그 자리에서 쓰고 Enter → 저장, 업체·매장코드·출고장소는 다음 줄에 그대로 */
 export function AddOrderRow({
@@ -116,6 +116,7 @@ export function AddOrderRow({
       packing: clean(d.packing),
       shipFrom: clean(d.shipFrom),
       note: clean(d.note),
+      currency: d.currency,
       realOrder: false,
       erp: false,
       inbound: false,
@@ -123,7 +124,7 @@ export function AddOrderRow({
       invoice: false,
       createdAt: today(),
     });
-    setD({ ...blank(), companyId: d.companyId, storeCode: d.storeCode, shipFrom: d.shipFrom, orderDate: d.orderDate });
+    setD({ ...blank(), companyId: d.companyId, storeCode: d.storeCode, shipFrom: d.shipFrom, orderDate: d.orderDate, currency: d.currency });
     nameRef.current?.focus();
   };
   const keys = (e: React.KeyboardEvent) => {
@@ -139,6 +140,7 @@ export function AddOrderRow({
 
   return (
     <tr className="add-row editing">
+      <td className="c-gutter" />
       <td className="c-name">
         <input ref={nameRef} className="cell-input" autoFocus placeholder="주문명 입력 후 Enter" value={d.name} onChange={(e) => set('name', e.target.value)} onKeyDown={keys} />
       </td>
@@ -163,12 +165,31 @@ export function AddOrderRow({
       </td>
       <td>{text('packing', '패킹')}</td>
       <td>{text('shipFrom', '출고 장소')}</td>
+      <td className="c-step" />
       <td>{text('note', '비고')}</td>
       <td className="c-more">
-        <button className="icon-btn" title="닫기 (Esc)" onClick={() => setOpen(false)}>
-          ✕
-        </button>
+        <div className="status-cell">
+          <CurrencyToggle value={d.currency} onChange={(v) => set('currency', v)} />
+          <button className="icon-btn" title="닫기 (Esc)" onClick={() => setOpen(false)}>
+            ✕
+          </button>
+        </div>
       </td>
     </tr>
+  );
+}
+
+/** 원화 / 외화: 누를 때마다 원화 → 외화 → 비움 */
+export function CurrencyToggle({ value, onChange }: { value?: 'KRW' | 'FOREIGN'; onChange: (v?: 'KRW' | 'FOREIGN') => void }) {
+  const next = value === 'KRW' ? 'FOREIGN' : value === 'FOREIGN' ? undefined : 'KRW';
+  return (
+    <button
+      type="button"
+      className={`currency ${value ? value.toLowerCase() : 'none'}`}
+      title="누르면 원화 → 외화 → 비움"
+      onClick={() => onChange(next)}
+    >
+      {value === 'KRW' ? '₩ 원화' : value === 'FOREIGN' ? '$ 외화' : '₩/$'}
+    </button>
   );
 }
