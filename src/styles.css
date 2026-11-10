@@ -2371,3 +2371,9 @@ tr.drop-after td {
   white-space: normal;
   line-height: 1.2;
 }
+.mc-char.static {
+  cursor: default;
+}
+.bubble.readonly {
+  cursor: default;
+}

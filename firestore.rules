@@ -28,9 +28,18 @@ service cloud.firestore {
       allow delete: if isAdmin() && email != myEmail();
     }
 
+    // 담당자 카드: 말풍선(status)·캐릭터(character)는 카드 주인(email)만, 카드 주인 이메일은 관리자만 바꿈
+    match /members/{id} {
+      allow read, create, delete: if isTeam();
+      allow update: if isTeam()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character'])
+            || resource.data.get('email', '') == myEmail())
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email']) || isAdmin());
+    }
+
     match /{col}/{id} {
       allow read, write: if isTeam()
-        && col in ['members', 'companies', 'tasks', 'orders', 'attendance'];
+        && col in ['companies', 'tasks', 'orders', 'attendance'];
     }
   }
 }

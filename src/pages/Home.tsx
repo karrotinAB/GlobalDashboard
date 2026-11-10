@@ -3,6 +3,7 @@ import { useLookups, useStore } from '../data/store';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import { holidayName } from '../lib/holidays';
+import { useAccess } from '../components/AuthGate';
 import { isOrderDone, ORDER_STEPS, type Attendance, type Member } from '../types';
 import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
 
@@ -101,6 +102,7 @@ function greeting(h: number) {
 
 export default function Home({ go }: { go: (page: string) => void }) {
   const { data, save } = useStore();
+  const access = useAccess();
   const { members, companies, memberById, companyById } = useLookups();
   const now = useNow();
   const todayIso = today();
@@ -196,7 +198,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
       <section className="section">
         <div className="section-head">
           <h2>👋 우리 팀 오늘</h2>
-          <span className="muted small">말풍선을 누르면 바로 고칠 수 있어요 · 캐릭터를 누르면 바꿀 수 있어요</span>
+          <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>
         </div>
         <div className="team">
           {summary.map((s) => (
@@ -205,6 +207,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
               s={s}
               record={todayAtt.get(s.member.id)}
               nowMin={seoul.h * 60 + seoul.mi}
+              mine={access.role === null || (!!s.member.email && s.member.email.toLowerCase() === access.email)}
               onPickCharacter={() => setEditing(s.member)}
               onStatus={(status) => save('members', { ...s.member, status: status || undefined })}
             />
@@ -344,12 +347,14 @@ function TeamCard({
   s,
   record,
   nowMin,
+  mine,
   onPickCharacter,
   onStatus,
 }: {
   s: MemberSummary;
   record?: Attendance;
   nowMin: number;
+  mine: boolean; // 내 카드일 때만 말풍선·캐릭터 수정
   onPickCharacter: () => void;
   onStatus: (v: string) => void;
 }) {
@@ -364,15 +369,21 @@ function TeamCard({
     <div className="member-card" style={{ '--c': m.color } as CSSProperties}>
       {record && <LeaveBand r={record} nowMin={nowMin} />}
       <div className="mc-body">
-        <button className="mc-char" onClick={onPickCharacter} title="캐릭터 바꾸기">
-          {m.character ? <img src={characterSrc(m.character)} alt="" /> : <Avatar member={m} size={56} />}
-        </button>
+        {mine ? (
+          <button className="mc-char" onClick={onPickCharacter} title="캐릭터 바꾸기">
+            {m.character ? <img src={characterSrc(m.character)} alt="" /> : <Avatar member={m} size={56} />}
+          </button>
+        ) : (
+          <div className="mc-char static">{m.character ? <img src={characterSrc(m.character)} alt="" /> : <Avatar member={m} size={56} />}</div>
+        )}
         <div className="mc-main">
           <div className="mc-name">
             <b>{m.name}</b>
             <span className="mc-dot" />
           </div>
-          {editing ? (
+          {!mine ? (
+            m.status ? <div className="bubble readonly">{m.status}</div> : <div className="bubble is-empty readonly">…</div>
+          ) : editing ? (
             <input
               className="bubble bubble-input"
               autoFocus

@@ -102,6 +102,7 @@ export default function Settings() {
           <thead>
             <tr>
               <th>이름</th>
+              <th>로그인 이메일 (본인 카드)</th>
               <th>mem 이름</th>
               <th>색</th>
               <th>순서</th>
@@ -191,10 +192,22 @@ export default function Settings() {
 function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => void; onDelete: () => void }) {
   const [name, setName] = useState(m.name);
   const [memName, setMemName] = useState(m.memName ?? '');
+  const [email, setEmail] = useState(m.email ?? '');
+  const isAdmin = useAccess().role !== 'member';
   return (
     <tr>
       <td>
         <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== m.name && onSave({ ...m, name: name.trim() })} />
+      </td>
+      <td>
+        <input
+          type="email"
+          value={email}
+          disabled={!isAdmin}
+          placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
+        />
       </td>
       <td>
         <input
