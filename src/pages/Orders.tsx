@@ -279,6 +279,30 @@ export default function Orders() {
 
       {query && <div className="banner">검색 중에는 진행중/완료 구분 없이 전체에서 찾아요. ({rows.length}건)</div>}
 
+      {!sheet && !query ? (
+        <div className="pick-company">
+          <p>
+            <b>업체를 골라주세요</b> · 고른 업체의 주문만 보여요 (검색은 업체를 안 골라도 전체에서 찾아요)
+          </p>
+          <div className="company-chips">
+            {companies.map((c) => (
+              <button
+                key={c.id}
+                className="cchip"
+                style={{ '--c': c.color ?? '#999' } as CSSProperties}
+                onClick={() => {
+                  setCompanyFilter(c.id);
+                  setShowCompanies(false);
+                }}
+              >
+                <span className="dot" style={{ background: c.color }} />
+                {c.name}
+                <span className="cchip-n">{data.orders.filter((o) => o.companyId === c.id && !isOrderDone(o)).length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
       <div className="table-scroll">
         <table className="order-table">
           <thead>
@@ -345,6 +369,7 @@ export default function Orders() {
           </tbody>
         </table>
       </div>
+      )}
 
       {selected.size > 0 && (
         <div className="select-bar">
@@ -401,7 +426,6 @@ export default function Orders() {
                     {hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}
                   </span>
                 )}
-                <span className="bundle-count">🔗 {u.orders.length}건 묶음</span>
               </div>
             </td>
           </tr>

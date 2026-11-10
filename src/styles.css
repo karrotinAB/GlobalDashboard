@@ -2928,3 +2928,38 @@ tbody.bundle-body:hover .bundle-undo {
 tr.bundle-gap:first-child {
   display: table-row;
 }
+
+/* 업체를 고르기 전: 업체 버튼만 */
+.pick-company {
+  background: var(--surface);
+  border: 1px dashed #d9bcb4;
+  border-radius: var(--r);
+  padding: 22px 24px;
+  text-align: center;
+}
+.pick-company p {
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.pick-company p b {
+  color: var(--primary);
+  font-size: 15px;
+}
+.pick-company .company-chips {
+  justify-content: center;
+  border-top: 0;
+  padding-top: 0;
+}
+.pick-company .cchip {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+.cchip-n {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mut);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0 7px;
+}
