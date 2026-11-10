@@ -2,13 +2,26 @@ import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { today, uid } from '../lib/date';
-import type { Claim, ClaimFile, Order } from '../types';
+import { isOrderDone, type Claim, type ClaimFile, type Order } from '../types';
 import { EditableText, MoreMenu } from '../components/SheetCells';
+import { Modal } from '../components/ui';
 import { AmountCell, fmtFX, fmtKRW, parseAmount } from '../components/OrderCells';
 import DateInput from '../components/DateInput';
 import { storage } from '../firebase';
 
-type Source = { key: string; source: Claim['source']; sourceId?: string; label: string; companyId: string | null; krw: number; fx: number };
+type Source = {
+  key: string;
+  source: Claim['source'];
+  sourceId?: string;
+  label: string;
+  companyId: string | null;
+  krw: number;
+  fx: number;
+  date?: string; // 주문일자 (묶음은 가장 최근)
+  done: boolean; // 출고 완료
+  count?: number; // 묶음 안 주문 수
+  detail?: string; // 묶음 안 주문 이름들
+};
 
 const fmt = (cur: Claim['currency'], n?: number) => (n === undefined ? '' : cur === 'KRW' ? fmtKRW(n) : fmtFX(n));
 const sum = (os: Order[], k: 'amountKRW' | 'amountForeign') => os.reduce((a, o) => a + (o[k] ?? 0), 0);
@@ -17,7 +30,23 @@ export default function Claims() {
   const { data, save, remove } = useStore();
   const { companies, companyById } = useLookups();
   // 주문 관리의 [클레임] 버튼으로 오면 #/claims?c=업체id
-  const [companyFilter, setCompanyFilter] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c') ?? '');
+  const [companyFilter, setCompanyFilterState] = useState(() => {
+    const fromLink = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c');
+    try {
+      if (fromLink) localStorage.setItem('gd:claims:sheet', fromLink);
+      return fromLink ?? localStorage.getItem('gd:claims:sheet') ?? '';
+    } catch {
+      return fromLink ?? '';
+    }
+  });
+  const setCompanyFilter = (id: string) => {
+    setCompanyFilterState(id);
+    try {
+      localStorage.setItem('gd:claims:sheet', id);
+    } catch {
+      /* 저장 안 돼도 괜찮음 */
+    }
+  };
   const [showCompanies, setShowCompanies] = useState(false);
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState('');
@@ -30,10 +59,22 @@ export default function Claims() {
     for (const o of data.orders) if (o.bundle) bundles.set(o.bundle.id, [...(bundles.get(o.bundle.id) ?? []), o]);
     for (const [id, os] of bundles) {
       const b = os[0].bundle!;
-      list.push({ key: `b:${id}`, source: 'bundle', sourceId: id, label: b.name || `이름 없는 묶음 (${os.length}건)`, companyId: os[0].companyId, krw: sum(os, 'amountKRW'), fx: sum(os, 'amountForeign') });
+      list.push({
+        key: `b:${id}`,
+        source: 'bundle',
+        sourceId: id,
+        label: b.name || `이름 없는 묶음 (${os.length}건)`,
+        companyId: os[0].companyId,
+        krw: sum(os, 'amountKRW'),
+        fx: sum(os, 'amountForeign'),
+        date: os.map((o) => o.orderDate ?? '').sort().pop(),
+        done: os.every(isOrderDone),
+        count: os.length,
+        detail: os.map((o) => o.name).join(', '),
+      });
     }
     for (const o of [...data.orders].sort((a, b) => (b.orderDate ?? '').localeCompare(a.orderDate ?? '')))
-      list.push({ key: `o:${o.id}`, source: 'order', sourceId: o.id, label: o.name, companyId: o.companyId, krw: o.amountKRW ?? 0, fx: o.amountForeign ?? 0 });
+      list.push({ key: `o:${o.id}`, source: 'order', sourceId: o.id, label: o.name, companyId: o.companyId, krw: o.amountKRW ?? 0, fx: o.amountForeign ?? 0, date: o.orderDate, done: isOrderDone(o) });
     return list;
   }, [data.orders]);
 
@@ -103,10 +144,31 @@ export default function Claims() {
         </div>
       </div>
 
+      {!sheet ? (
+        <div className="pick-company">
+          <p>
+            <b>업체를 골라주세요</b> · 고른 업체의 클레임을 볼 수 있어요
+          </p>
+          <div className="company-chips">
+            {companies.map((c) => {
+              const open = data.claims.filter((x) => x.companyId === c.id && !x.refunded).length;
+              return (
+                <button key={c.id} className="cchip" style={{ '--c': c.color ?? '#999' } as CSSProperties} onClick={() => setCompanyFilter(c.id)}>
+                  <span className="dot" style={{ background: c.color }} />
+                  {c.name}
+                  {open > 0 && <span className="cchip-n red">{open}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="toolbar">
         <button
           className={`company-toggle ${sheet || showCompanies ? 'on' : ''}`}
-          onClick={() => (sheet ? setCompanyFilter('') : setShowCompanies((v) => !v))}
+          onClick={() => setCompanyFilter('')}
+          title="다른 업체 고르기"
         >
           {sheet ? (
             <>
@@ -264,12 +326,14 @@ export default function Claims() {
               </tr>
             )}
             <AddClaimRow
-              sources={sources.filter((s) => !sheet || s.companyId === sheet.id)}
-              onAdd={(c) => save('claims', { ...c, companyId: c.companyId ?? sheet?.id ?? null })}
+              sources={sources.filter((s) => s.companyId === sheet.id)}
+              onAdd={(c) => save('claims', { ...c, companyId: sheet.id })}
             />
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -293,6 +357,7 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
   const [currency, setCurrency] = useState<Claim['currency']>('FOREIGN');
   const [shipDate, setShipDate] = useState<string | undefined>();
   const [claim, setClaim] = useState('');
+  const [picking, setPicking] = useState(false);
   const src = sources.find((s) => s.key === key);
 
   if (!open) {
@@ -336,8 +401,6 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
     setClaim('');
     setShipDate(undefined);
   };
-  const bundles = sources.filter((s) => s.source === 'bundle');
-  const orders = sources.filter((s) => s.source === 'order');
 
   return (
     <tr className="add-row editing">
@@ -345,25 +408,25 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
         <DateInput value={shipDate} onChange={setShipDate} placeholder="출고날짜" />
       </td>
       <td className="k-title">
-        <select className="cell-input" value={key} onChange={(e) => pick(e.target.value)} autoFocus>
-          <option value="">묶음 · 주문 고르기 (또는 아래에 직접 입력)</option>
-          {bundles.length > 0 && (
-            <optgroup label="🔗 묶음">
-              {bundles.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </optgroup>
+        <button className="pick-source" onClick={() => setPicking(true)} autoFocus>
+          {src ? (
+            <>
+              {src.source === 'bundle' ? '🔗' : '💼'} {src.label} <span className="muted">· 바꾸기</span>
+            </>
+          ) : (
+            '📋 묶음 · 주문 고르기'
           )}
-          <optgroup label="💼 주문">
-            {orders.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </optgroup>
-        </select>
+        </button>
+        {picking && (
+          <SourcePicker
+            sources={sources}
+            onClose={() => setPicking(false)}
+            onPick={(k) => {
+              pick(k);
+              setPicking(false);
+            }}
+          />
+        )}
         <input
           className="cell-input k-title-input"
           placeholder="이름 (고르면 자동으로 채워져요)"
@@ -397,5 +460,39 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
         </button>
       </td>
     </tr>
+  );
+}
+
+/** 묶음 · 주문 고르기 팝업: 완료된 것까지 전부, 검색 가능 */
+function SourcePicker({ sources, onClose, onPick }: { sources: Source[]; onClose: () => void; onPick: (key: string) => void }) {
+  const [q, setQ] = useState('');
+  const query = q.trim().toLowerCase();
+  const list = sources.filter((s) => !query || `${s.label} ${s.detail ?? ''}`.toLowerCase().includes(query));
+  const bundles = list.filter((s) => s.source === 'bundle');
+  const orders = list.filter((s) => s.source === 'order');
+  const row = (s: Source) => (
+    <button key={s.key} className={`src-row ${s.done ? 'done' : ''}`} onClick={() => onPick(s.key)}>
+      <span className="src-icon">{s.source === 'bundle' ? '🔗' : '💼'}</span>
+      <span className="src-main">
+        <b>{s.label}</b>
+        {s.detail && <span className="muted small"> · {s.count}건: {s.detail}</span>}
+      </span>
+      <span className="src-date">{s.date ? s.date.slice(2).replace(/-/g, '.') : ''}</span>
+      <span className="src-amt">{s.krw ? fmtKRW(s.krw) : ''}</span>
+      <span className="src-amt">{s.fx ? fmtFX(s.fx) : ''}</span>
+      <span className={`tag ${s.done ? 'green' : 'gray'}`}>{s.done ? '완료' : '진행중'}</span>
+    </button>
+  );
+  return (
+    <Modal title="묶음 · 주문 고르기" onClose={onClose} wide>
+      <input className="src-search" autoFocus placeholder="이름으로 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="src-list">
+        {bundles.length > 0 && <h4>🔗 묶음 ({bundles.length})</h4>}
+        {bundles.map(row)}
+        {orders.length > 0 && <h4>💼 주문 ({orders.length})</h4>}
+        {orders.map(row)}
+        {!list.length && <p className="muted small">맞는 묶음·주문이 없어요.</p>}
+      </div>
+    </Modal>
   );
 }

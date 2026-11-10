@@ -3341,3 +3341,73 @@ tr.bundle-head .bundle-undo {
   font-size: 11px;
   color: var(--mut);
 }
+
+/* 클레임: 묶음·주문 고르기 버튼 + 팝업 목록 */
+.pick-source {
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px dashed #d9bcb4;
+  background: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-source:hover {
+  border-color: var(--primary);
+}
+.src-search {
+  width: 100%;
+  margin-bottom: 10px;
+}
+.src-list {
+  max-height: 60vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.src-list h4 {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: var(--mut);
+}
+.src-row {
+  display: grid;
+  grid-template-columns: 22px 1fr 70px 110px 100px 54px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: none;
+  font-size: 13px;
+  font-weight: 400;
+}
+.src-row:hover {
+  background: var(--surface-2);
+}
+.src-row.done .src-main b {
+  color: var(--ink-2);
+}
+.src-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.src-date,
+.src-amt {
+  font-size: 12px;
+  color: var(--ink-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cchip-n.red {
+  background: var(--red);
+  color: #fff;
+}
