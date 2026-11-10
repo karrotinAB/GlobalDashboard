@@ -15,7 +15,19 @@ export function CompanyDot({ color }: { color?: string }) {
   return <span className="dot" style={{ background: color ?? '#999' }} />;
 }
 
-export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({
+  title,
+  onClose,
+  children,
+  wide,
+  headExtra,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+  headExtra?: ReactNode; // 제목 오른쪽에 넣을 것 (예: 필수 칸)
+}) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', h);
@@ -26,6 +38,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-label={title}>
         <div className="modal-head">
           <h3>{title}</h3>
+          {headExtra && <div className="modal-head-extra">{headExtra}</div>}
           <button className="icon-btn" onClick={onClose} aria-label="닫기">
             ✕
           </button>

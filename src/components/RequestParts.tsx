@@ -71,7 +71,33 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
   );
 }
 
-type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'dueDate' | 'priority' | 'workType' | 'requesterId' | 'assigneeId' | 'files'>;
+type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
+
+/** 필수: 마감일 · 우선순위 · 작업유형 (창 제목 오른쪽) */
+function HeadFields({ d, set, showMissing }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean }) {
+  const miss = (v: unknown) => (showMissing && !v ? 'missing' : '');
+  return (
+    <div className="rq-head-fields">
+      <div className={`rq-f req ${miss(d.dueDate)}`}>
+        <span>마감일 *</span>
+        <DateInput value={d.dueDate} placeholder="예: 20261110" onChange={(v) => set({ dueDate: v })} />
+      </div>
+      <label className={`rq-f req ${miss(d.priority)}`}>
+        <span>우선순위 *</span>
+        <select value={d.priority ?? ''} onChange={(e) => set({ priority: (e.target.value || undefined) as Priority })}>
+          <option value="">(고르기)</option>
+          {PRIORITIES.map((p) => (
+            <option key={p}>{p}</option>
+          ))}
+        </select>
+      </label>
+      <div className={`rq-f req wide ${miss(d.workType)}`}>
+        <span>작업유형 *</span>
+        <WorkTypePicker value={d.workType} onChange={(v) => set({ workType: v })} placeholder="고르거나 쳐서 찾기" />
+      </div>
+    </div>
+  );
+}
 
 function Fields({
   d,
@@ -79,20 +105,34 @@ function Fields({
   reqId,
   team,
   trade,
-  lockRequester,
+  side,
+  showMissing,
 }: {
   d: Draft;
   set: (p: Partial<Draft>) => void;
   reqId: string;
   team: Member[];
   trade: Member[];
-  lockRequester?: boolean;
+  side: 'team' | 'trade';
+  showMissing?: boolean;
 }) {
+  const reqRequester = side === 'team'; // 무역사무가 넣는 자체 업무는 요청자 없어도 됨
   return (
     <div className="rq-form">
-      <label className="rq-f full">
+      <label className={`rq-f req rq-title-f ${showMissing && !d.title.trim() ? 'missing' : ''}`}>
         <span>업무 내용 (제목) *</span>
         <input value={d.title} autoFocus placeholder="예: 몽골 10월 주문 CI/PL 작성 부탁드려요" onChange={(e) => set({ title: e.target.value })} />
+      </label>
+      <label className={`rq-f req ${showMissing && reqRequester && !d.requesterId ? 'missing' : ''}`}>
+        <span>요청자{reqRequester ? ' *' : ''}</span>
+        <select value={d.requesterId ?? ''} onChange={(e) => set({ requesterId: e.target.value || undefined })}>
+          <option value="">{reqRequester ? '(고르기)' : '(없음 · 무역사무 자체 업무)'}</option>
+          {team.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="rq-f full">
         <span>자세한 내용</span>
@@ -102,55 +142,37 @@ function Fields({
         <span>사진 · 파일</span>
         <FileBox reqId={reqId} files={d.files ?? []} onChange={(files) => set({ files })} />
       </div>
-      <label className="rq-f">
-        <span>매장번호</span>
-        <input value={d.storeCode ?? ''} onChange={(e) => set({ storeCode: e.target.value })} />
-      </label>
-      <div className="rq-f">
-        <span>주문일자</span>
-        <DateInput value={d.orderDate} placeholder="예: 20261110" onChange={(v) => set({ orderDate: v })} />
+      <div className="rq-optional full">
+        <span className="rq-opt-label">선택</span>
+        <label className="rq-f">
+          <span>매장번호</span>
+          <input value={d.storeCode ?? ''} onChange={(e) => set({ storeCode: e.target.value })} />
+        </label>
+        <div className="rq-f">
+          <span>주문일자</span>
+          <DateInput value={d.orderDate} placeholder="예: 20261110" onChange={(v) => set({ orderDate: v })} />
+        </div>
+        <label className="rq-f">
+          <span>처리자</span>
+          <select value={d.assigneeId ?? ''} onChange={(e) => set({ assigneeId: e.target.value || undefined })}>
+            <option value="">미정 (무역사무가 정함)</option>
+            {trade.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-      <div className="rq-f">
-        <span>마감일</span>
-        <DateInput value={d.dueDate} placeholder="예: 20261110" onChange={(v) => set({ dueDate: v })} />
-      </div>
-      <label className="rq-f">
-        <span>우선순위</span>
-        <select value={d.priority} onChange={(e) => set({ priority: e.target.value as Priority })}>
-          {PRIORITIES.map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </select>
-      </label>
-      <div className="rq-f">
-        <span>작업유형</span>
-        <WorkTypePicker value={d.workType} onChange={(v) => set({ workType: v })} placeholder="눌러서 고르거나 쳐서 찾기" />
-      </div>
-      <label className="rq-f">
-        <span>요청자</span>
-        <select value={d.requesterId ?? ''} disabled={lockRequester} onChange={(e) => set({ requesterId: e.target.value || undefined })}>
-          <option value="">(없음 · 무역사무 자체 업무)</option>
-          {team.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="rq-f">
-        <span>처리자</span>
-        <select value={d.assigneeId ?? ''} onChange={(e) => set({ assigneeId: e.target.value || undefined })}>
-          <option value="">미정 (무역사무가 정함)</option>
-          {trade.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      </label>
     </div>
   );
 }
+
+/** 필수 칸이 다 찼는지 */
+const missingOf = (d: Draft, side: 'team' | 'trade') =>
+  [!d.title.trim() && '업무 내용', !d.dueDate && '마감일', !d.priority && '우선순위', !d.workType && '작업유형', side === 'team' && !d.requesterId && '요청자'].filter(
+    Boolean,
+  ) as string[];
 
 /** 새 요청 */
 export function NewRequest({
@@ -174,18 +196,21 @@ export function NewRequest({
   const isTrade = side === 'trade';
   const [d, setD] = useState<Draft>({
     title: '',
-    priority: '이번주',
     requesterId: !isTrade && me && team.some((m) => m.id === me.id) ? me.id : undefined,
     assigneeId: isTrade && me && trade.some((m) => m.id === me.id) ? me.id : undefined,
     files: [],
   });
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
+  const [tried, setTried] = useState(false); // 보내기를 한 번 누르면 빈 필수 칸을 빨갛게
+  const missing = missingOf(d, side);
   const submit = () => {
-    if (!d.title.trim()) return;
+    setTried(true);
+    if (missing.length || !d.priority) return;
     const now = new Date().toISOString();
     const by = me?.name ?? myEmail ?? '';
     onCreate({
       ...d,
+      priority: d.priority,
       id,
       title: d.title.trim(),
       body: d.body?.trim() || undefined,
@@ -199,11 +224,12 @@ export function NewRequest({
     onClose();
   };
   return (
-    <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide>
-      <Fields d={d} set={set} reqId={id} team={team} trade={trade} />
+    <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide headExtra={<HeadFields d={d} set={set} showMissing={tried} />}>
+      <Fields d={d} set={set} reqId={id} team={team} trade={trade} side={side} showMissing={tried} />
       <div className="rq-actions">
+        {tried && missing.length > 0 && <span className="rq-missing-msg">필수 칸을 채워 주세요: {missing.join(', ')}</span>}
         <button onClick={onClose}>닫기</button>
-        <button className="primary" disabled={!d.title.trim()} onClick={submit}>
+        <button className="primary" onClick={submit}>
           {isTrade ? '추가' : '요청 보내기'}
         </button>
       </div>
@@ -257,7 +283,8 @@ export function RequestDetail({
 
       {editing ? (
         <>
-          <Fields d={d} set={set} reqId={r.id} team={team} trade={trade} />
+          <HeadFields d={d} set={set} />
+          <Fields d={d} set={set} reqId={r.id} team={team} trade={trade} side={side} />
           <div className="rq-actions">
             <button
               onClick={() => {

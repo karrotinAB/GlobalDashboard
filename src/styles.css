@@ -4561,3 +4561,90 @@ button.tw-card-tasks:hover .tw-card-num {
 .page-head:has(.rq-new) p {
   margin-left: auto;
 }
+
+/* 요청 창: 제목 오른쪽 필수 칸 + 업무 내용·요청자 한 줄 + 선택 칸 */
+.modal.wide:has(.rq-head-fields) {
+  width: 980px;
+}
+.modal-head-extra {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 14px 0 20px;
+  min-width: 0;
+}
+.modal-head:has(.rq-head-fields) {
+  align-items: flex-end;
+}
+.rq-head-fields {
+  display: grid;
+  grid-template-columns: 150px 140px 210px;
+  gap: 10px;
+}
+.rq-head-fields .rq-f > span:first-child,
+.rq-f.req > span:first-child {
+  color: var(--primary);
+  font-weight: 600;
+}
+.rq-title-f {
+  grid-column: span 2;
+}
+.rq-f.missing input,
+.rq-f.missing select,
+.rq-f.missing .wt-input,
+.rq-f.missing .date-input .cell-input {
+  border-color: #d0453a !important;
+  background: #fff6f5;
+}
+.rq-optional {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 14px;
+  padding: 10px 12px 12px;
+  background: #faf6f4;
+  border-radius: 12px;
+  position: relative;
+}
+.rq-opt-label {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  font-size: 10.5px;
+  color: var(--mut);
+  background: #faf6f4;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+.rq-missing-msg {
+  margin-right: auto;
+  align-self: center;
+  color: #c0392b;
+  font-size: 12.5px;
+}
+.rq-f .date-input .cell-input {
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+/* 상세 창에서 고칠 때는 필수 칸이 본문 위에 */
+.rq-head ~ .rq-head-fields {
+  margin-bottom: 14px;
+  grid-template-columns: 1fr 1fr 1.4fr;
+}
+@media (max-width: 900px) {
+  .modal-head:has(.rq-head-fields) {
+    flex-wrap: wrap;
+  }
+  .modal-head-extra {
+    order: 3;
+    flex-basis: 100%;
+    margin: 12px 0 0;
+    justify-content: flex-start;
+  }
+}
+.rq-optional {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
