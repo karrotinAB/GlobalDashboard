@@ -10,7 +10,7 @@ import { tasksForWeek, dueState } from '../lib/tasks';
 import { today, weekStart, shortDate } from '../lib/date';
 import { isOrderDone, ORDER_STEPS, type Claim, type CollectionName, type Company, type Member, type Order, type Task } from '../types';
 import { fmtFX, fmtKRW } from '../components/OrderCells';
-import { Modal, Ring } from '../components/ui';
+import { characterSrc, charOf, Modal, Ring } from '../components/ui';
 
 const COLS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'claims'];
 type View = 'todos' | 'orders' | 'claims' | 'trade';
@@ -53,16 +53,18 @@ export default function Overview() {
   const tradePeople = useMemo(() => [...data.tradeMembers].sort((a, b) => a.order - b.order), [data.tradeMembers]);
   const [only, setOnlyState] = useState(''); // '' = 모든 조
   const [co, setCo] = useState(''); // '조:업체id' — 고른 업체만
+  const [who, setWho] = useState(''); // 조를 골랐을 때 조원 한 명만
   const setOnly = (v: string | ((x: string) => string)) => {
     setOnlyState(v);
     setCo('');
+    setWho('');
   };
   const [q, setQ] = useState('');
   const todayIso = today();
   const monday = weekStart(todayIso);
   const shown = teams.filter((t) => !only || t.team === only);
   // 업체를 고르면 그 조의 그 업체 내용만
-  const picked = co
+  const byCompany = co
     ? shown
         .filter((t) => co.startsWith(`${t.team}:`))
         .map((t) => {
@@ -76,6 +78,9 @@ export default function Overview() {
           };
         })
     : shown;
+  // 조원을 고르면 그 사람 할일만
+  const picked = who ? byCompany.map((t) => ({ ...t, tasks: t.tasks.filter((x) => x.assigneeIds.includes(who)) })) : byCompany;
+  const oneTeam = only ? teams.find((t) => t.team === only) : undefined;
 
   return (
     <div className="page">
@@ -122,6 +127,20 @@ export default function Overview() {
 
       {teams.some((t) => t.error) && (
         <p className="muted small">일부 조 정보를 못 읽었어요 (보안 규칙을 올렸는지 확인해 주세요): {teams.filter((t) => t.error).map((t) => t.label).join(', ')}</p>
+      )}
+
+      {/* 조를 고르면: 조원별 업무량 (누르면 그 사람 할일만) */}
+      {oneTeam && (
+        <MemberLoad
+          t={oneTeam}
+          monday={monday}
+          todayIso={todayIso}
+          who={who}
+          onPick={(id) => {
+            setWho((v) => (v === id ? '' : id));
+            setView('todos');
+          }}
+        />
       )}
 
       {/* 업체 고르기: 지금 보기(할일·주문·클레임)에 내용이 있는 업체만 */}
@@ -714,5 +733,71 @@ export function LinkedTeamView({ company, kind, onBack }: { company: Company; ki
       {error && <p className="muted small">{teamLabel(team)} 데이터를 못 읽었어요: {error}</p>}
       {!ready ? <p className="muted small">불러오는 중…</p> : kind === 'orders' ? <OrdersView teams={[td]} q={q} /> : <ClaimsView teams={[td]} q={q} />}
     </div>
+  );
+}
+
+/** 한 조의 조원별 업무량: 이번 주 할일 남음/전체, 기한 지남·오늘·내일, 담당 업체 수 */
+function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday: string; todayIso: string; who: string; onPick: (id: string) => void }) {
+  const rows = tasksForWeek(t.tasks, monday);
+  const stats = t.members.map((m) => {
+    const mine = rows.filter((r) => r.task.assigneeIds.includes(m.id));
+    const open = mine.filter((r) => !r.doneInWeek);
+    return {
+      m,
+      total: mine.length,
+      done: mine.length - open.length,
+      open: open.length,
+      overdue: open.filter((r) => dueState(r.task, todayIso) === 'overdue').length,
+      today: open.filter((r) => dueState(r.task, todayIso) === 'today').length,
+      tomorrow: open.filter((r) => dueState(r.task, todayIso) === 'tomorrow').length,
+      companies: new Set(open.map((r) => r.task.companyId).filter(Boolean)).size,
+    };
+  });
+  const unassigned = rows.filter((r) => !r.doneInWeek && !r.task.assigneeIds.length).length;
+  const max = Math.max(1, ...stats.map((s) => s.open));
+  return (
+    <section className="ov-load">
+      <div className="section-head">
+        <h2>
+          {t.label} 조원별 업무량 <span className="muted small">이번 주 · 누르면 그 사람 할일만</span>
+        </h2>
+        {unassigned > 0 && <span className="muted small">담당 미정 {unassigned}건</span>}
+      </div>
+      {stats.length === 0 ? (
+        <p className="muted small">{t.ready ? '아직 조원이 없어요.' : '불러오는 중…'}</p>
+      ) : (
+        <div className="team compact ov-load-grid">
+          {stats.map((s) => (
+            <button
+              key={s.m.id}
+              className={`member-card ${who === s.m.id ? 'selected' : ''}`}
+              style={{ '--c': s.m.color } as CSSProperties}
+              onClick={() => onPick(s.m.id)}
+              title="눌러서 이 사람 할일만 보기"
+            >
+              <div className="mc-top">
+                <img className="mc-mini-char" src={characterSrc(charOf(s.m))} alt="" />
+                <div className="mc-name">
+                  <b>{s.m.name}</b>
+                  <span className="muted small">
+                    할일 {s.total} · 완료 {s.done} · 업체 {s.companies}곳
+                  </span>
+                </div>
+                <Ring value={s.done} total={s.total} size={56} stroke={6} color={s.m.color} label={s.open} sub="남음" />
+              </div>
+              {/* 남은 할일 막대: 조에서 가장 많은 사람 기준 */}
+              <span className="ov-load-bar">
+                <span style={{ width: `${(s.open / max) * 100}%`, background: s.m.color }} />
+              </span>
+              <div className="mc-flags">
+                <span className={`flag ${s.overdue ? 'warn' : ''}`}>기한 지남 {s.overdue}</span>
+                <span className={`flag ${s.today ? 'hot' : ''}`}>오늘 {s.today}</span>
+                <span className="flag">내일 {s.tomorrow}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

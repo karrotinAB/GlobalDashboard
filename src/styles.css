@@ -5130,9 +5130,7 @@ select.team-switch {
     width: 100%;
   }
 }
-.ov-card.ov-trade {
-  border-top: 4px solid #b9a1d6;
-}
+
 .ov-overdue {
   color: #c0392b;
   font-weight: 700;
@@ -6021,4 +6019,22 @@ select.team-switch {
   .team.team-leader {
     grid-template-columns: 1fr;
   }
+}
+
+/* 조 현황: 조원별 업무량 */
+.ov-load {
+  margin: 4px 0 16px;
+}
+.ov-load-bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: #efe7e4;
+  overflow: hidden;
+  margin: 8px 0 2px;
+}
+.ov-load-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
 }
