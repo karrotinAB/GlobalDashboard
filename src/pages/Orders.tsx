@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
@@ -68,16 +68,19 @@ export default function Orders() {
   };
   const [showCompanies, setShowCompanies] = useState(false);
   // 검색 줄 높이를 재서, 표 제목 줄이 그 밑에 붙게 (--toolbar-h)
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = toolbarRef.current;
+  // 검색 줄은 업체를 고를 때마다 새로 그려지므로, 새로 생길 때마다 다시 잼 (예전 높이가 남지 않게)
+  const toolbarRO = useRef<ResizeObserver | null>(null);
+  const toolbarRef = useCallback((el: HTMLDivElement | null) => {
+    toolbarRO.current?.disconnect();
+    toolbarRO.current = null;
     if (!el) return;
     const set = () => document.documentElement.style.setProperty('--toolbar-h', `${Math.round(el.getBoundingClientRect().height)}px`);
     set();
     const ro = new ResizeObserver(set);
     ro.observe(el);
-    return () => ro.disconnect();
+    toolbarRO.current = ro;
   }, []);
+  useEffect(() => () => toolbarRO.current?.disconnect(), []);
   const [missingStep, setMissingStep] = useState<OrderStepKey | null>(null);
   const [q, setQ] = useState('');
 
