@@ -5798,3 +5798,12 @@ select.team-switch {
 .hero-greet-row .hero-greet {
   margin: 0;
 }
+.cal-mine {
+  margin-left: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #7a4bb0;
+  background: #f1e9fa;
+  border-radius: 4px;
+  padding: 0 4px;
+}

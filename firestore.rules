@@ -96,6 +96,11 @@ service cloud.firestore {
       allow read, write: if isAny();
     }
 
+    // 내 달력 (iCal 주소): 본인만 읽고 씀 — 달력 페이지에서 본인에게만 보임
+    match /userCalendars/{email} {
+      allow read, write: if isAny() && email == myEmail();
+    }
+
     // secrets/{문서} (ERP API 키 등): 규칙이 없으므로 사이트에서는 아무도 못 읽고 못 씀. 서버 함수만 읽음
 
     // 조 데이터 (members, companies, tasks, orders, attendance, claims, config 와 t1_… t3_…)

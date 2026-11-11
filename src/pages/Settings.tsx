@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db, functions } from '../firebase';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
 import { DEFAULT_TEAM, TEAMS } from '../lib/team';
@@ -152,6 +153,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       {access.canManage && <HolidayAdmin />}
       {access.role === 'admin' && <MemAutoSection />}
       {access.role === 'admin' && <CalendarAdmin />}
+      {access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
       {access.email && <ChangePassword />}
 
       <section className="card">
@@ -700,6 +702,92 @@ function CalendarAdmin() {
             <button onClick={() => setRows((l) => [...(l ?? []), { name: '', color: pickColor((l ?? []).map((x) => x.color)), url: '' }])}>+ 달력 추가</button>
             <button className="primary" onClick={save} disabled={busy}>
               {busy ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </>
+      )}
+      {msg && <p className="small">{msg}</p>}
+    </section>
+  );
+}
+
+/** 내 달력: 각자 보고 싶은 구글 캘린더(iCal 비공개 주소)를 추가 — 본인 달력 페이지에만 보임 */
+function MyCalendars({ email }: { email: string }) {
+  type Row = { id: string; name: string; color: string; url: string };
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [msg, setMsg] = useState('');
+  const ref = doc(db, 'userCalendars', email);
+  useEffect(() => {
+    getDoc(ref)
+      .then((s) => setRows(((s.data()?.list as Row[]) ?? []).map((r) => ({ ...r }))))
+      .catch((e) => {
+        setRows([]);
+        setMsg(`못 불러왔어요: ${(e as Error).message} (보안 규칙을 올렸는지 확인해 주세요 — deploy.bat)`);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
+  const set = (i: number, p: Partial<Row>) => setRows((l) => (l ?? []).map((x, j) => (j === i ? { ...x, ...p } : x)));
+  const save = async () => {
+    if (!rows) return;
+    const list = rows
+      .map((r) => ({ ...r, name: r.name.trim() || '내 달력', url: r.url.trim().replace(/^webcal:/, 'https:') }))
+      .filter((r) => r.url);
+    if (list.some((r) => !/^https:\/\//.test(r.url))) return setMsg('주소는 https:// 로 시작하는 iCal 주소여야 해요');
+    try {
+      await setDoc(ref, { list, updatedAt: new Date().toISOString() });
+      setRows(list);
+      setMsg(`저장했어요 ✓ 내 달력 ${list.length}개 — 달력 페이지에서 나에게만 보여요`);
+    } catch (e) {
+      setMsg(`저장 실패: ${(e as Error).message}`);
+    }
+  };
+  return (
+    <section className="card">
+      <h2>내 달력</h2>
+      <p className="muted small">
+        내가 보고 싶은 구글 캘린더를 추가하면 <b>나의 달력 페이지에만</b> 보여요 (다른 사람에게는 안 보여요). 구글 캘린더 → 설정 → 해당 캘린더 → 캘린더 통합 →{' '}
+        <b>iCal 형식의 비공개 주소</b>를 붙여넣어 주세요.
+      </p>
+      {rows === null ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : (
+        <>
+          {rows.length > 0 && (
+            <table className="settings-table">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>색</th>
+                  <th>iCal 비공개 주소</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.id}>
+                    <td>
+                      <input value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="예: 내 일정" />
+                    </td>
+                    <td>
+                      <input type="color" value={r.color} onChange={(e) => set(i, { color: e.target.value })} />
+                    </td>
+                    <td>
+                      <input className="cal-url" value={r.url} onChange={(e) => set(i, { url: e.target.value })} placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" />
+                    </td>
+                    <td>
+                      <button className="danger small" onClick={() => setRows((l) => (l ?? []).filter((_, j) => j !== i))}>
+                        빼기
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="btn-row">
+            <button onClick={() => setRows((l) => [...(l ?? []), { id: uid(), name: '', color: pickColor((l ?? []).map((x) => x.color)), url: '' }])}>+ 내 달력 추가</button>
+            <button className="primary" onClick={save}>
+              저장
             </button>
           </div>
         </>

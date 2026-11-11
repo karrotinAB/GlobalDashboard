@@ -10,6 +10,7 @@ interface Cal {
   id: string;
   name: string;
   color: string;
+  mine?: boolean; // 내 달력 (나에게만 보임)
 }
 interface Ev {
   id: string;
@@ -232,6 +233,7 @@ export default function Calendar() {
                 </label>
                 <button className="cal-leg-name" onClick={() => toggle(c.id)} title="눌러서 보이기/숨기기">
                   {c.name}
+                  {c.mine && <span className="cal-mine">나만</span>}
                 </button>
                 {myColors[c.id] && (
                   <button className="cal-leg-reset" onClick={() => setMyColor(c.id)} title="원래 색으로">

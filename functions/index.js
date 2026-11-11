@@ -243,9 +243,16 @@ export const calendarEvents = onCall({ region: REGION }, async (req) => {
   const from = new Date(req.data?.from);
   const to = new Date(req.data?.to);
   if (Number.isNaN(+from) || Number.isNaN(+to) || to <= from || to - from > 70 * 86400000) throw new HttpsError('invalid-argument', '기간을 확인해 주세요');
-  const list = await calList();
+  const shared = await calList();
+  // 내 달력: userCalendars/{내 이메일} (본인만 읽고 쓰는 문서)
+  const email = req.auth.token.email.toLowerCase();
+  const mine = ((await db.doc(`userCalendars/${email}`).get()).get('list') ?? [])
+    .filter((c) => c && typeof c.url === 'string' && /^https:\/\//.test(c.url.replace(/^webcal:/, 'https:')))
+    .slice(0, 10)
+    .map((c, i) => ({ id: `u_${c.id ?? i}`, name: String(c.name || '내 달력'), color: c.color || '#7a4bb0', url: c.url.replace(/^webcal:/, 'https:'), mine: true }));
+  const list = [...shared, ...mine];
   const { events, errors } = await loadCalendars(list, from, to);
-  return { calendars: list.map(({ id, name, color }) => ({ id, name, color })), events, errors };
+  return { calendars: list.map(({ id, name, color, mine: m }) => ({ id, name, color, mine: !!m })), events, errors };
 });
 
 export const calendarConfig = onCall({ region: REGION }, async (req) => {
