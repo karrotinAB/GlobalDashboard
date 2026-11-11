@@ -124,7 +124,7 @@ export const inspectOrderApi = onCall({ region: REGION }, async (req) => {
 
 // ------------------------------------------------------------------
 // mem 근태 자동 가져오기 (노트북을 안 켜도 됨)
-//  - syncMemAttendance : 평일 8:00~19:30 (서울) 30분마다
+//  - syncMemAttendance(+Half) : 평일 9:00·10:00·10:30·18:00·18:30·19:00 (서울)
 //  - syncMemNow        : 설정 화면 '지금 가져오기' 버튼 (관리자만, 결과·오류 확인용)
 // 아이디·비밀번호: Firebase 비밀값 저장소 (MEM_ID, MEM_PASSWORD) — 이 함수만 읽음
 // 주소·칸 이름: Firestore secrets/mem 문서 (functions/mem.js 맨 위 설명)
@@ -165,12 +165,15 @@ async function runMemSync() {
   }
 }
 
-export const syncMemAttendance = onSchedule(
-  { schedule: '*/30 8-19 * * 1-5', region: REGION, timeZone: 'Asia/Seoul', secrets: [MEM_ID, MEM_PASSWORD] },
-  async () => {
-    await runMemSync();
-  },
-);
+// 평일 하루 6번만: 출근 9:00 · 10:00 · 10:30 / 퇴근 18:00 · 18:30 · 19:00 (서울)
+// (cron 하나로는 이 6번을 정확히 못 적어서 둘로 나눔)
+const memOpts = { region: REGION, timeZone: 'Asia/Seoul', secrets: [MEM_ID, MEM_PASSWORD] };
+export const syncMemAttendance = onSchedule({ ...memOpts, schedule: '0 9,10,18,19 * * 1-5' }, async () => {
+  await runMemSync();
+});
+export const syncMemAttendanceHalf = onSchedule({ ...memOpts, schedule: '30 10,18 * * 1-5' }, async () => {
+  await runMemSync();
+});
 
 export const syncMemNow = onCall({ region: REGION, secrets: [MEM_ID, MEM_PASSWORD] }, async (req) => {
   const email = req.auth?.token?.email?.toLowerCase();
