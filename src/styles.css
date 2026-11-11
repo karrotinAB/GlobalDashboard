@@ -6159,3 +6159,46 @@ select.team-switch {
 .ov-load-bar {
   margin-top: 5px;
 }
+
+/* 부서원 카드: 한 줄에 3명 (좁은 칸에 맞게 띠 안 내용을 위아래로) */
+.team.team-leader .roster-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.mini-band {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 12px;
+}
+.mini-band-side {
+  margin-left: 0;
+  text-align: left;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.mini-band-big {
+  font-size: 20px;
+}
+.mini-body {
+  padding: 8px 12px 10px;
+  gap: 8px;
+}
+.mini-body .mini-char {
+  width: 38px;
+  height: 38px;
+}
+.mini-body .mini-main b {
+  font-size: 14px;
+}
+.mini-sub {
+  flex-direction: column;
+}
+@media (max-width: 1100px) {
+  .team.team-leader .roster-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
