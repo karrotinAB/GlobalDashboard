@@ -5242,3 +5242,72 @@ select.team-switch {
   cursor: pointer;
   opacity: 0.6;
 }
+
+/* 업체 메모: 서식 도구 줄 + 서식 편집 칸 */
+.memo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  margin-bottom: 8px;
+  background: #faf6f4;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.memo-toolbar button {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.memo-toolbar button:hover {
+  background: #fff;
+  border-color: var(--line);
+}
+.memo-toolbar .memo-color {
+  min-width: 26px;
+  padding: 0 5px;
+  font-weight: 800;
+}
+.memo-mark {
+  padding: 0 3px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.memo-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+  margin: 0 4px;
+}
+.memo-area.memo-rich {
+  overflow-y: auto;
+  max-height: 60vh;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.7;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.memo-area.memo-rich:focus {
+  border-color: var(--primary);
+}
+.memo-area.memo-rich:empty::before {
+  content: attr(data-placeholder);
+  color: var(--mut);
+}
+.memo-area.memo-rich ul,
+.memo-area.memo-rich ol {
+  margin: 4px 0;
+  padding-left: 22px;
+}

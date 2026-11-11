@@ -1,3 +1,4 @@
+import { memoHtml, memoLines, sanitize } from '../lib/richtext';
 import { useRef, useState, type CSSProperties } from 'react';
 import type { Company, Member } from '../types';
 import { shortDate } from '../lib/date';
@@ -591,17 +592,28 @@ export function CompanyMemo({
   onSave: (memo: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState('');
-  const first = (memo ?? '').split('\n').find((l) => l.trim()) ?? '';
-  const lines = (memo ?? '').split('\n').filter((l) => l.trim()).length;
+  const editor = useRef<HTMLDivElement>(null);
+  const [dirty, setDirty] = useState(false);
+  const all = memoLines(memo);
+  const first = all[0] ?? '';
 
+  const current = () => sanitize(editor.current?.innerHTML ?? '');
+  const empty = (html: string) => !html.replace(/<br>|<\/?(div|p)>|&nbsp;|\s/g, '');
   const close = () => {
-    if (text !== (memo ?? '') && !confirm('저장하지 않은 메모가 있어요. 그냥 닫을까요?')) return;
+    if (dirty && !confirm('저장하지 않은 메모가 있어요. 그냥 닫을까요?')) return;
     setOpen(false);
   };
   const save = () => {
-    if (text !== (memo ?? '')) onSave(text);
+    const html = current();
+    onSave(empty(html) ? '' : html);
     setOpen(false);
+  };
+  // 도구 줄: 브라우저 기본 서식 명령 (선택한 글자에 적용)
+  const cmd = (name: string, value?: string) => {
+    editor.current?.focus();
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand(name, false, value);
+    setDirty(true);
   };
 
   return (
@@ -611,25 +623,77 @@ export function CompanyMemo({
         draggable={false}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={() => {
-          setText(memo ?? '');
+          setDirty(false);
           setOpen(true);
         }}
-        title={memo || '업체 메모 남기기'}
+        title={all.join('\n') || '업체 메모 남기기'}
       >
         <span className="memo-icon">📝</span>
         <span className="memo-text">{first || '메모 남기기'}</span>
-        {lines > 1 && <span className="memo-more">+{lines - 1}줄</span>}
+        {all.length > 1 && <span className="memo-more">+{all.length - 1}줄</span>}
       </button>
       {open && (
         <Modal title={`${name} 메모`} onClose={close} wide>
-          <textarea
-            className="memo-area"
-            autoFocus
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={'이 업체에 대해 기억해 둘 것들을 자유롭게 적어 주세요.\n첫 줄은 할일 화면 업체 이름 옆에 보여요.'}
+          <div className="memo-toolbar" onMouseDown={(e) => e.preventDefault()}>
+            <button title="굵게 (Ctrl+B)" onClick={() => cmd('bold')}>
+              <b>B</b>
+            </button>
+            <button title="기울임 (Ctrl+I)" onClick={() => cmd('italic')}>
+              <i>I</i>
+            </button>
+            <button title="밑줄 (Ctrl+U)" onClick={() => cmd('underline')}>
+              <u>U</u>
+            </button>
+            <button title="취소선" onClick={() => cmd('strikeThrough')}>
+              <s>S</s>
+            </button>
+            <span className="memo-sep" />
+            {MEMO_COLORS.map((c) => (
+              <button key={c} className="memo-color" title="글자색" onClick={() => cmd('foreColor', c)}>
+                <span style={{ color: c }}>A</span>
+              </button>
+            ))}
+            <span className="memo-sep" />
+            {MEMO_MARKS.map((c) => (
+              <button key={c} className="memo-color" title="형광펜" onClick={() => cmd('hiliteColor', c)}>
+                <span className="memo-mark" style={{ background: c }}>
+                  가
+                </span>
+              </button>
+            ))}
+            <span className="memo-sep" />
+            <button title="목록" onClick={() => cmd('insertUnorderedList')}>
+              •≡
+            </button>
+            <button title="서식 지우기" onClick={() => cmd('removeFormat')}>
+              ⌫ 서식
+            </button>
+          </div>
+          <div
+            ref={(el) => {
+              editor.current = el;
+              if (el && !el.dataset.ready) {
+                el.innerHTML = memoHtml(memo);
+                el.dataset.ready = '1';
+              }
+            }}
+            className="memo-area memo-rich"
+            contentEditable
+            suppressContentEditableWarning
+            data-placeholder={'이 업체에 대해 기억해 둘 것들을 자유롭게 적어 주세요. 첫 줄은 할일 화면 업체 이름 옆에 보여요.'}
+            onInput={() => setDirty(true)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                save();
+              }
+            }}
+            onPaste={(e) => {
+              // 다른 곳에서 붙여넣은 서식은 걸러서 (글자색·굵게 등 허용한 것만)
+              const html = e.clipboardData.getData('text/html');
+              if (!html) return;
+              e.preventDefault();
+              document.execCommand('insertHTML', false, sanitize(html));
             }}
           />
           <div className="form-actions">
@@ -649,3 +713,6 @@ export function CompanyMemo({
     </>
   );
 }
+
+const MEMO_COLORS = ['#2b1f1d', '#c0392b', '#d07a17', '#2f7d4a', '#2f63b0', '#7a4bb0'];
+const MEMO_MARKS = ['#fff3a3', '#ffd6d6', '#d6f0d9', '#d6e6ff'];
