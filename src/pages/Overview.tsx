@@ -795,11 +795,12 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
                         {b.label}
                       </span>
                       <span className="muted small">
-                        남은 {Math.round(ratio * 100)}% ({s.open}/{s.total})
+                        완료 {s.total ? Math.round((s.done / s.total) * 100) : 0}% ({s.done}/{s.total})
                       </span>
                     </span>
-                    <span className="ov-load-bar" title={`맡은 할일 ${s.total}개 중 ${s.open}개 남음`}>
-                      <span className={b.cls} style={{ width: `${ratio * 100}%` }} />
+                    {/* 막대 = 끝낸 비율 (홈 업체 tracking 막대와 같은 기준) */}
+                    <span className="ov-load-bar" title={`맡은 할일 ${s.total}개 중 ${s.done}개 완료`}>
+                      <span style={{ width: `${s.total ? (s.done / s.total) * 100 : 0}%`, background: s.m.color }} />
                     </span>
                   </>
                 );
