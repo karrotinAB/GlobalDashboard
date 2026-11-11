@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where, writeBatch, type Firestore } from 'firebase/firestore';
 import type { CollectionName, Collections } from '../types';
-import { DEFAULT_TEAM, physName, TEAMS } from '../lib/team';
+import { DEFAULT_TEAM, isPersonal, physName, TEAMS } from '../lib/team';
 
 export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims', 'requests', 'tradeMembers', 'memDirectory', 'memAttendance'];
 // 보안 규칙이 아직 안 바뀌어도 대시보드는 열리게: 이 컬렉션들은 못 읽으면 빈 채로 계속
@@ -110,7 +110,12 @@ export function createFirestoreBackend(db: Firestore): Backend {
   const phys = (col: CollectionName) => physName(col, team);
   /** 읽을 실제 컬렉션: 무역사무는 모든 조의 담당자(요청자 이름)를 같이 읽음 */
   const sources = (col: CollectionName): { path: string; tag?: string }[] =>
-    trade && col === 'members' ? TEAMS.map((t) => ({ path: physName('members', t), tag: t })) : [{ path: phys(col) }];
+    trade && col === 'members'
+      ? TEAMS.map((t) => ({ path: physName('members', t), tag: t }))
+      : // 팀장님·이사님 개인 대시보드: 1~3조 업체(매장코드 있는 것)도 같이 보여줌 (읽기만, 저장은 내 공간에)
+        isPersonal(team) && col === 'companies'
+        ? [{ path: phys(col) }, ...TEAMS.map((t) => ({ path: physName('companies', t), tag: t }))]
+        : [{ path: phys(col) }];
 
   // 컬렉션마다 실시간 구독 1개. 처음 받은 결과로 load() 를 끝내고, 이후 변경은 patch 로 전달
   const start = () =>
@@ -130,7 +135,10 @@ export function createFirestoreBackend(db: Firestore): Backend {
             (snap) => {
               parts.set(src.path, snap.docs.map((d) => ({ ...d.data(), id: d.id, ...(src.tag ? { team: src.tag } : {}) })));
               got.add(src.path);
-              (latest[col] as unknown[]) = srcs.flatMap((x) => parts.get(x.path) ?? []);
+              (latest[col] as unknown[]) =
+                col === 'companies' && srcs.length > 1
+                  ? mergeMirrored(srcs.map((x) => (parts.get(x.path) ?? []) as { id: string; team?: string; storeCodes?: string[] }[]))
+                  : srcs.flatMap((x) => parts.get(x.path) ?? []);
               if (got.size === srcs.length) seen.add(col);
               done();
               listeners.forEach((fn) => fn({ [col]: latest[col] }));
@@ -187,4 +195,11 @@ export function createFirestoreBackend(db: Firestore): Backend {
       active = trade ? TRADE_COLLECTIONS : COLLECTIONS;
     },
   };
+}
+
+/** 내 업체 + 조 업체(매장코드 있는 것만). 같은 id 면 내 것이 이김 (조 업체 순서·메모를 바꾸면 내 공간에 복사됨) */
+function mergeMirrored(parts: { id: string; team?: string; storeCodes?: string[] }[][]) {
+  const [own, ...teams] = parts;
+  const ids = new Set(own.map((c) => c.id));
+  return [...own, ...teams.flat().filter((c) => c.storeCodes?.length && !ids.has(c.id))];
 }

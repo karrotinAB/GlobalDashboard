@@ -32,6 +32,7 @@ interface Access {
   viewTeam: string; // 지금 보고 있는 조 (관리자는 골라 볼 수 있음, 팀장님·이사님은 자기 공간)
   viewLabel: string; // 화면 이름: '2조' / '팀장님' …
   canManage: boolean; // 이 공간을 관리 (업체 삭제·홈 구성 등): 관리자·팀장님·이사님·로컬
+  accountName?: string; // 설정 > 대시보드 사용자에 적힌 이름 (roles.name)
 }
 const localTeam = savedViewTeam() ?? DEFAULT_TEAM;
 const AccessContext = createContext<Access>({ email: '', role: null, team: localTeam, viewTeam: localTeam, viewLabel: spaceLabel(localTeam), canManage: true });
@@ -90,7 +91,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       : spaceLabel(viewTeam);
   const canManage = role === 'admin' || leader;
   return (
-    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage }}>{children}</AccessContext.Provider>
+    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name }}>
+      {children}
+    </AccessContext.Provider>
   );
 }
 

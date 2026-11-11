@@ -6,6 +6,8 @@ import { useAccess } from './AuthGate';
 
 interface Seen {
   email: string;
+  name?: string; // 보내는 사람이 정한 표시 이름 (어느 조·페이지에서든 같은 이름)
+  color?: string;
   page: string;
   at: number; // 마지막으로 "보는 중" 신호를 보낸 시각 (ms)
 }
@@ -32,16 +34,37 @@ export default function Presence({ page }: { page: string }) {
   const [all, setAll] = useState<Seen[]>([]);
   const [, tick] = useState(0);
 
+  // 내 표시 이름: 내 카드 이름(지금 보는 공간에 있으면 기억해 둠) → 기억해 둔 이름 → 계정 이름 → 이메일 앞
+  const myCard = members.find((x) => x.email?.toLowerCase() === me.email);
+  if (myCard) {
+    try {
+      localStorage.setItem('gd:myName', myCard.name);
+      localStorage.setItem('gd:myColor', myCard.color);
+    } catch {
+      /* 무시 */
+    }
+  }
+  let saved: string | null = null;
+  let savedColor: string | null = null;
+  try {
+    saved = localStorage.getItem('gd:myName');
+    savedColor = localStorage.getItem('gd:myColor');
+  } catch {
+    /* 무시 */
+  }
+  const myName = myCard?.name ?? saved ?? me.accountName ?? me.email.split('@')[0];
+  const myColor = myCard?.color ?? savedColor ?? undefined;
+
   // 내 "보는 중" 신호 보내기
   useEffect(() => {
     if (!me.email) return;
     const ref = doc(db, 'presence', me.email);
     const beat = () => {
-      if (document.visibilityState === 'visible') setDoc(ref, { email: me.email, page, at: Date.now() }).catch(() => {});
+      if (document.visibilityState === 'visible') setDoc(ref, { email: me.email, name: myName, ...(myColor ? { color: myColor } : {}), page, at: Date.now() }).catch(() => {});
     };
     beat();
     const id = setInterval(beat, BEAT);
-    const onVis = () => (document.visibilityState === 'visible' ? beat() : setDoc(ref, { email: me.email, page: '', at: Date.now() }).catch(() => {}));
+    const onVis = () => (document.visibilityState === 'visible' ? beat() : setDoc(ref, { email: me.email, name: myName, ...(myColor ? { color: myColor } : {}), page: '', at: Date.now() }).catch(() => {}));
     const onLeave = () => deleteDoc(ref).catch(() => {});
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('pagehide', onLeave);
@@ -50,7 +73,7 @@ export default function Presence({ page }: { page: string }) {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pagehide', onLeave);
     };
-  }, [me.email, page]);
+  }, [me.email, page, myName, myColor]);
 
   // 다른 사람 신호 듣기 (보안 규칙이 아직 없으면 조용히 아무것도 안 보여줌)
   useEffect(() => {
@@ -79,13 +102,13 @@ export default function Presence({ page }: { page: string }) {
     <div className="presence" title={`지금 ${PAGE_NAME[page.split(':').pop()!] ?? '이 페이지'}를 보고 있는 사람`}>
       {here.map((s) => {
         const m = members.find((x) => x.email?.toLowerCase() === s.email);
-        const name = m?.name ?? s.email.split('@')[0];
+        const name = (s.email === me.email ? myName : undefined) ?? s.name ?? m?.name ?? s.email.split('@')[0];
         const isMe = s.email === me.email;
         return (
           <span
             key={s.email}
             className={`pres-dot ${isMe ? 'me' : ''}`}
-            style={{ '--c': m?.color ?? '#9c8480' } as CSSProperties}
+            style={{ '--c': (s.email === me.email ? myColor : undefined) ?? s.color ?? m?.color ?? '#9c8480' } as CSSProperties}
             title={`${name}${isMe ? ' (나)' : ''} · ${PAGE_NAME[page.split(':').pop()!] ?? ''} 보는 중`}
           >
             {name.slice(0, 2)}

@@ -72,7 +72,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const save = useCallback(
-    <C extends CollectionName>(col: C, item: Item<C>) => {
+    <C extends CollectionName>(col: C, raw: Item<C>) => {
+      const item = ownCopy(col, raw);
       setData((prev) => {
         const list = prev[col] as Item<C>[];
         const idx = list.findIndex((x) => x.id === item.id);
@@ -85,7 +86,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const saveMany = useCallback(
-    async <C extends CollectionName>(col: C, items: Item<C>[]) => {
+    async <C extends CollectionName>(col: C, rawItems: Item<C>[]) => {
+      const items = rawItems.map((x) => ownCopy(col, x));
       setData((prev) => {
         const map = new Map((prev[col] as Item<C>[]).map((x) => [x.id, x]));
         for (const it of items) map.set(it.id, it);
@@ -166,4 +168,16 @@ export function useSpaceData(team: string, cols: CollectionName[]) {
   }, [team, sig]);
   const ready = (sig.split(',') as CollectionName[]).every((c) => data[c] !== undefined);
   return { data, ready, error };
+}
+
+/**
+ * 팀장님·이사님 화면의 조 업체(team 표시가 붙은 것)를 고치면 내 공간에 복사본으로 저장.
+ * 조 표시와 매장코드는 빼서 저장 (ERP 새 주문이 개인 대시보드에 겹쳐 들어오지 않게)
+ */
+function ownCopy<C extends CollectionName>(col: C, item: Item<C>): Item<C> {
+  if (col !== 'companies') return item;
+  const c = item as Item<'companies'>;
+  if (!c.team) return item;
+  const { team: _t, storeCodes: _s, ...rest } = c;
+  return rest as Item<C>;
 }

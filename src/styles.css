@@ -5325,3 +5325,7 @@ select.team-switch {
   user-select: text;
   -webkit-user-select: text;
 }
+.settings-table tr.mirror-row td {
+  color: var(--ink-2);
+  background: #faf6f4;
+}

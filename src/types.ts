@@ -23,6 +23,7 @@ export interface Company {
   country: string; // 시계 라벨용 예: 몽골
   timezone?: string; // IANA 타임존 예: Asia/Ulaanbaatar
   storeCodes?: string[]; // ERP 매장코드 앞 4자리 (STORE_CODE). 새 주문이 들어오면 이 업체 주문 관리에 자동 등록
+  team?: string; // 팀장님·이사님 화면에서 조 업체를 같이 보여줄 때 붙는 조 (저장 안 함)
   color?: string;
   order: number;
   memo?: string; // 업체 메모 (주간 할일 화면 업체 이름 옆, 첫 줄만 보임)

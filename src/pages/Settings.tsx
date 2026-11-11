@@ -186,7 +186,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
             <tbody>
               {companies.map((c) => (
                 <CompanyRow key={c.id} c={c} onSave={(x) => save('companies', x)} onDelete={
-                  access.role === 'member'
+                  access.role === 'member' || c.team
                     ? undefined
                     : () =>
                         confirm(
@@ -281,6 +281,24 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
 }
 
 function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) => void; onDelete?: () => void }) {
+  // 팀장님·이사님 화면의 조 업체: 보기만 (조에서 고치면 여기도 바로 바뀜)
+  if (c.team)
+    return (
+      <tr className="mirror-row">
+        <td>
+          {c.name} <span className="tag gray small">{c.team}조 업체</span>
+        </td>
+        <td>{c.country}</td>
+        <td>{(c.storeCodes ?? []).join(', ')}</td>
+        <td>{c.timezone ?? ''}</td>
+        <td>
+          <span className="dot" style={{ background: c.color }} />
+        </td>
+        <td colSpan={2} className="muted small">
+          {c.team}조에서 관리
+        </td>
+      </tr>
+    );
   const [name, setName] = useState(c.name);
   const [country, setCountry] = useState(c.country);
   const [codes, setCodes] = useState((c.storeCodes ?? []).join(', '));

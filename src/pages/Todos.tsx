@@ -358,6 +358,7 @@ export default function Todos() {
                 )}
                 {g.company && <CompanyDot color={g.color} />}
                 <h2>{g.title}</h2>
+                {g.company?.team && <span className="tag gray small">{g.company.team}조 업체</span>}
                 <span className="muted small">
                   {g.rows.filter((r) => !r.doneInWeek).length} 남음 / {g.rows.length}
                 </span>
@@ -401,7 +402,7 @@ export default function Todos() {
                     <button className="icon-btn" title="아래로" onClick={() => nudge(cid, 1)}>
                       ▼
                     </button>
-                    {canManage && (
+                    {canManage && !companyById.get(cid)?.team && (
                       <button className="icon-btn danger-icon" title="업체 삭제" onClick={() => deleteCompany(cid)}>
                         🗑
                       </button>
