@@ -6202,3 +6202,28 @@ select.team-switch {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+/* 부서원 카드가 칸 아래까지 꽉 차게 (줄이 여러 개면 나눠서) */
+.team.team-leader .roster-grid {
+  align-content: stretch;
+  grid-auto-rows: minmax(0, 1fr);
+}
+.team.team-leader .mini-card {
+  height: 100%;
+}
+.team.team-leader .mini-body {
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+}
+.team.team-leader .mini-body .mini-char {
+  width: 56px;
+  height: 56px;
+}
+.team.team-leader .mini-body .mini-main {
+  align-items: center;
+}
+.team.team-leader .mini-body .mini-main b {
+  font-size: 15px;
+}
