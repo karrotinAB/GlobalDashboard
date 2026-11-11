@@ -33,7 +33,7 @@ const PAGES = [
   { key: 'calendar', label: '달력', icon: '📅' },
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
-const GOP_URL = 'https://karrotinab.github.io/pog-global/';
+const GOP_URL = 'https://karrotinab.github.io/Global-Opening-Prep/';
 // 달력은 탭이 아니라 홈 제목 줄 오른쪽 버튼으로 (#/calendar)
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
 const TRADE_TABS: PageKey[] = ['thome', 'twork'];
