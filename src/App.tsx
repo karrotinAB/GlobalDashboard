@@ -15,7 +15,8 @@ import Overview from './pages/Overview';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
-import { DEFAULT_TEAM, setViewTeam, teamLabel, TEAMS } from './lib/team';
+import TeamSwitch from './components/TeamSwitch';
+import { DEFAULT_TEAM } from './lib/team';
 
 const PAGES = [
   { key: 'home', label: '홈', icon: 'jelly' },
@@ -62,7 +63,9 @@ export default function App() {
     else if (isTradePage(page)) setSide('trade');
     else if (page !== 'settings' && page !== 'import') setSide('team');
   }, [page, tradeOnly]);
-  const tabs = side === 'trade' ? TRADE_TABS : canOverview ? [...TEAM_TABS, 'overview' as PageKey] : TEAM_TABS;
+  // '조 현황': 팀장님·이사님은 자기 대시보드 탭에, 관리자는 어느 조 탭도 아니라서 오른쪽 위 버튼으로
+  const overviewTab = leader || role === null;
+  const tabs = side === 'trade' ? TRADE_TABS : overviewTab ? [...TEAM_TABS, 'overview' as PageKey] : TEAM_TABS;
   const firstRun = !loading && !tradeOnly && mode === 'firestore' && data.members.length === 0 && page !== 'import';
   const isMainTeam = viewTeam === DEFAULT_TEAM; // 기본 담당자(유정·민지·가영)는 2조에만
   const loadSample = async () => {
@@ -100,14 +103,13 @@ export default function App() {
       <ExtensionBridge />
       <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
-        {role !== 'trade' && !leader && canTrade && side === 'team' && (
-          <select className="top-btn team-switch" value={viewTeam} onChange={(e) => setViewTeam(e.target.value)} title="관리자: 다른 조 대시보드 보기">
-            {TEAMS.map((t) => (
-              <option key={t} value={t}>
-                {teamLabel(t)}
-              </option>
-            ))}
-          </select>
+        {role === 'admin' && (
+          <a href="#/overview" className={`top-btn ${page === 'overview' ? 'active' : ''}`} title="1~3조 할일·주문·클레임 한눈에 보기">
+            🔭 조 현황
+          </a>
+        )}
+        {role !== 'trade' && !leader && canTrade && side === 'team' && page !== 'overview' && (
+          <TeamSwitch />
         )}
         {!tradeOnly && canTrade && (
           <a href={side === 'trade' ? '#/home' : '#/thome'} className="top-btn" title="관리자: 조 / 무역사무 페이지 오가기">

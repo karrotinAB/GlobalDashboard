@@ -157,7 +157,7 @@ export function useTrade() {
 }
 
 /** 무역사무 담당자 캐릭터: 고른 게 없으면 순서대로 기본 캐릭터 */
-export const tradeChar = (m: Member, list: Member[]) => m.character ?? CHARACTERS[(Math.max(0, list.indexOf(m)) * 5 + 3) % CHARACTERS.length];
+export const tradeChar = (m: Member, list: Member[]) => m.character ?? CHARACTERS[(Math.max(0, list.indexOf(m)) * 5 + 3) % CHARACTERS.length]; // 무역사무는 순서대로 (예전 그대로)
 
 /** '3분 전', '2시간 전', '어제' … */
 export function ago(iso: string, now = Date.now()) {

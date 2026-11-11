@@ -3,7 +3,7 @@ import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import type { Company, Member, Task } from '../types';
-import { Avatar, characterSrc, CompanyDot, Empty, Ring } from '../components/ui';
+import { characterSrc, charOf, CompanyDot, Empty, Ring } from '../components/ui';
 import { useAccess } from '../components/AuthGate';
 import { AddCompany, AddTaskRow, AssigneeCell, CompanyMemo, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
 
@@ -562,7 +562,7 @@ function SummaryTable({
           title="클릭하면 이 담당자만 보기"
         >
           <div className="mc-top">
-            {s.member.character ? <img className="mc-mini-char" src={characterSrc(s.member.character)} alt="" /> : <Avatar member={s.member} size={40} />}
+            <img className="mc-mini-char" src={characterSrc(charOf(s.member))} alt="" />
             <div className="mc-name">
               <b>{s.member.name}</b>
               <span className="muted small">

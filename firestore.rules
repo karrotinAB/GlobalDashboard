@@ -112,13 +112,17 @@ service cloud.firestore {
       allow create, delete: if teamCol(col) && baseOf(col) != 'config'
         && (inTeam(col) || (isTrade() && col == 'attendance'));
 
-      // 담당자 카드: 말풍선(status)·캐릭터(character)·시계(clocks)는 카드 주인(email)만 바꿈
+      // 담당자 카드: 말풍선(status)·시계(clocks)는 카드 주인(email)만, 캐릭터는 주인 또는 관리자
       // 카드 주인 이메일: 관리자는 언제나, 본인은 '주인 없는 카드'를 자기 이메일로 연결할 때만 ("이 카드가 나예요")
       allow update: if teamCol(col) && baseOf(col) != 'config'
         && (inTeam(col) || (isTrade() && col == 'attendance'))
         && (baseOf(col) != 'members'
-            || ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character', 'clocks'])
+            || ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'clocks'])
                  || resource.data.get('email', '') == myEmail())
+                // 캐릭터는 카드 주인 또는 이 공간 관리자(관리자·자기 공간의 팀장님·이사님)
+                && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['character'])
+                    || resource.data.get('email', '') == myEmail()
+                    || ownsSpace(col))
                 && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
                     || ownsSpace(col)
                     || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()))));

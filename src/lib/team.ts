@@ -27,14 +27,23 @@ const VIEW_KEY = 'gd:viewTeam';
 export function savedViewTeam(): string | undefined {
   try {
     const t = localStorage.getItem(VIEW_KEY);
-    return t && (TEAMS as readonly string[]).includes(t) ? t : undefined;
+    return t && ((TEAMS as readonly string[]).includes(t) || isPersonal(t)) ? t : undefined;
   } catch {
     return undefined;
   }
 }
-export function setViewTeam(t: string) {
+/** 관리자가 개인 대시보드를 볼 때 이름 ('팀장님 (홍길동)') */
+export function savedViewLabel(): string | undefined {
+  try {
+    return localStorage.getItem(VIEW_KEY + ':label') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+export function setViewTeam(t: string, label?: string) {
   try {
     localStorage.setItem(VIEW_KEY, t);
+    if (label) localStorage.setItem(VIEW_KEY + ':label', label);
   } catch {
     /* 무시 */
   }

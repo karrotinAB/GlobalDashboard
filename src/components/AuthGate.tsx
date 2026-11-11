@@ -3,7 +3,7 @@ import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword,
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Cover } from './ui';
-import { DEFAULT_TEAM, isPersonal, savedViewTeam, spaceLabel, TEAMS } from '../lib/team';
+import { DEFAULT_TEAM, isPersonal, savedViewLabel, savedViewTeam, spaceLabel, TEAMS } from '../lib/team';
 
 export type Role = 'admin' | 'member' | 'trade' | 'lead' | 'director'; // trade = 무역사무, lead = 팀장님, director = 이사님
 export const ROLE_NAME: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무', lead: '팀장님', director: '이사님' };
@@ -83,7 +83,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const leader = isLeader(role);
   if (leader && !space.id) return <NoAccess email={user.email ?? ''} />; // 개인 공간이 아직 없음 (관리자가 권한을 다시 저장하면 생김)
   const viewTeam = leader ? space.id! : role === 'admin' ? savedViewTeam() ?? team : team;
-  const viewLabel = leader ? `${ROLE_NAME[role]}${space.name ? ` (${space.name})` : ''}` : spaceLabel(viewTeam);
+  const viewLabel = leader
+    ? `${ROLE_NAME[role]}${space.name ? ` (${space.name})` : ''}`
+    : isPersonal(viewTeam)
+      ? savedViewLabel() ?? '개인 대시보드'
+      : spaceLabel(viewTeam);
   const canManage = role === 'admin' || leader;
   return (
     <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage }}>{children}</AccessContext.Provider>

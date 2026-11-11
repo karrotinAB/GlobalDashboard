@@ -7,7 +7,7 @@ import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf } from '../lib/mem';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
-import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
+import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
 
 const HOME_TZ = 'Asia/Seoul';
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -233,7 +233,14 @@ export default function Home({ go }: { go: (page: string) => void }) {
               record={todayAtt.get(s.member.id) ?? attendanceOf(s.member, todayIso, [], data.memAttendance)}
               nowMin={seoul.h * 60 + seoul.mi}
               mine={access.role === null || (!!s.member.email && s.member.email.toLowerCase() === access.email)}
-              canClaim={!!access.email && !s.member.email && !members.some((x) => x.email?.toLowerCase() === access.email)}
+              canPickChar={access.canManage}
+              canClaim={
+                !!access.email &&
+                !s.member.email &&
+                !members.some((x) => x.email?.toLowerCase() === access.email) &&
+                // 관리자가 다른 조·다른 사람 대시보드를 보고 있을 때는 '이 카드가 나예요' 안 보임
+                (access.role !== 'admin' || access.viewTeam === access.team)
+              }
               onClaim={() => {
                 if (confirm(`'${s.member.name}' 카드를 내 카드(${access.email})로 연결할까요?\n연결하면 이 카드의 말풍선·캐릭터는 나만 바꿀 수 있어요.`))
                   save('members', { ...s.member, email: access.email });
@@ -418,6 +425,7 @@ function TeamCard({
   onClaim,
   onPickCharacter,
   onStatus,
+  canPickChar,
 }: {
   s: MemberSummary;
   record?: Attendance;
@@ -426,6 +434,7 @@ function TeamCard({
   canClaim: boolean; // 아직 주인 없는 카드 + 나도 아직 카드 없음
   onClaim: () => void;
   onPickCharacter: () => void;
+  canPickChar?: boolean; // 관리자·팀장님(자기 공간)은 남의 카드 캐릭터도 바꿀 수 있음
   onStatus: (v: string) => void;
 }) {
   const m = s.member;
@@ -439,12 +448,14 @@ function TeamCard({
     <div className="member-card" style={{ '--c': m.color } as CSSProperties}>
       {record && <LeaveBand r={record} nowMin={nowMin} />}
       <div className="mc-body">
-        {mine ? (
+        {mine || canPickChar ? (
           <button className="mc-char" onClick={onPickCharacter} title="캐릭터 바꾸기">
-            {m.character ? <img src={characterSrc(m.character)} alt="" /> : <Avatar member={m} size={56} />}
+            <img src={characterSrc(charOf(m))} alt="" />
           </button>
         ) : (
-          <div className="mc-char static">{m.character ? <img src={characterSrc(m.character)} alt="" /> : <Avatar member={m} size={56} />}</div>
+          <div className="mc-char static">
+            <img src={characterSrc(charOf(m))} alt="" />
+          </div>
         )}
         <div className="mc-main">
           <div className="mc-name">

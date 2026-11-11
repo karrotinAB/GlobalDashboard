@@ -155,3 +155,11 @@ export function Cover({ tall }: { tall?: boolean }) {
 
 export const CHARACTERS = ['c01', 'c02', 'c04', 'c05', 'c06', 'c07', 'c08', 'c09', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16'];
 export const characterSrc = (c: string) => `./characters/${c}.png`;
+
+/** 캐릭터: 고른 게 없으면 사람마다 정해진 기본 캐릭터 (id 로 골라서 늘 같음) */
+export function charOf(m: { id: string; character?: string }) {
+  if (m.character) return m.character;
+  let h = 0;
+  for (const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return CHARACTERS[h % CHARACTERS.length];
+}
