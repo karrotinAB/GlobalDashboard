@@ -59,6 +59,25 @@ export default function Calendar() {
     }
   });
   const [open, setOpen] = useState<Ev | null>(null);
+  // 내 화면에서만 바꾼 달력 색 (이 브라우저에 기억)
+  const [myColors, setMyColors] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('gd:calColors') ?? '{}');
+    } catch {
+      return {};
+    }
+  });
+  const setMyColor = (id: string, color?: string) => {
+    const next = { ...myColors };
+    if (color) next[id] = color;
+    else delete next[id];
+    setMyColors(next);
+    try {
+      localStorage.setItem('gd:calColors', JSON.stringify(next));
+    } catch {
+      /* 무시 */
+    }
+  };
   const [day, setDay] = useState<string | null>(null);
 
   // 6주 칸: 그 달 1일이 있는 주 일요일부터
@@ -90,7 +109,7 @@ export default function Calendar() {
     };
   }, [cells]);
 
-  const calById = new Map(cals.map((c) => [c.id, c]));
+  const calById = new Map(cals.map((c) => [c.id, { ...c, color: myColors[c.id] ?? c.color }]));
   const shown = events.filter((e) => !hidden.includes(e.cal));
   const byDay = useMemo(() => {
     const m = new Map<string, Ev[]>();
@@ -159,12 +178,26 @@ export default function Calendar() {
           {busy && <span className="muted small">불러오는 중…</span>}
         </div>
         <div className="cal-legend">
-          {cals.map((c) => (
-            <button key={c.id} className={`cal-leg ${hidden.includes(c.id) ? 'off' : ''}`} style={{ '--c': c.color } as CSSProperties} onClick={() => toggle(c.id)} title="눌러서 보이기/숨기기">
-              <span className="cal-leg-dot" />
-              {c.name}
-            </button>
-          ))}
+          {cals.map((c) => {
+            const color = myColors[c.id] ?? c.color;
+            return (
+              <span key={c.id} className={`cal-leg ${hidden.includes(c.id) ? 'off' : ''}`} style={{ '--c': color } as CSSProperties}>
+                {/* 색 동그라미: 내 화면에서만 색 바꾸기 */}
+                <label className="cal-leg-color" title="눌러서 내 화면 색 바꾸기 (다른 사람에게는 안 바뀜)">
+                  <span className="cal-leg-dot" />
+                  <input type="color" value={color} onChange={(e) => setMyColor(c.id, e.target.value)} />
+                </label>
+                <button className="cal-leg-name" onClick={() => toggle(c.id)} title="눌러서 보이기/숨기기">
+                  {c.name}
+                </button>
+                {myColors[c.id] && (
+                  <button className="cal-leg-reset" onClick={() => setMyColor(c.id)} title="원래 색으로">
+                    ↺
+                  </button>
+                )}
+              </span>
+            );
+          })}
         </div>
       </div>
 
