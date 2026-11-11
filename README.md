@@ -46,7 +46,7 @@ npm run dev
 ① `getexorderdata` → EXP_NO, 예정 금액 (`TOTAL_OUT_AMT_K/F`)  ② `getoutbounddata` → '출고승인' 줄이 하나라도 있으면 표시 '승인', 금액은 승인 난 줄의 출고 금액 합계. 표시를 누르면 API 2 줄별 내역과 예정 금액을 볼 수 있음 (확인용).
 금액을 사람이 직접 고친 주문은 건드리지 않아요 (금액 두 칸을 다 비우면 다시 자동).
 - API 키: Firestore 콘솔 > 컬렉션 `secrets` > 문서 `erp` > 필드 `apiKey` (문자열). 보안 규칙상 사이트에서는 못 읽음
-- 30분마다 자동 + 주문 관리의 '↻ 금액 새로고침' 버튼
+- 평일 9:00~18:30(서울) 30분마다 자동 + 주문 관리의 '↻ 금액 새로고침' 버튼
 - 배포 (PC 에서 한 번, Node.js 22 필요):
   `npx firebase-tools login` → `cd functions && npm install && cd ..` → `npx firebase-tools deploy --only functions`
 

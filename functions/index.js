@@ -1,5 +1,5 @@
 // Firebase 서버 함수 (배포: 저장소 폴더에서  npx firebase-tools deploy --only functions)
-//  - syncOrderAmounts     : 30분마다 자동으로 주문 금액 갱신
+//  - syncOrderAmounts     : 평일 9:00~18:30 (서울) 30분마다 자동으로 주문 금액 갱신
 //  - syncOrderAmountsNow  : 주문 관리의 '금액 새로고침' 버튼 (대시보드 사용자만)
 //  - inspectOrderApi      : 관리자 확인용 — ERP API 응답 원본 보기 (아무것도 저장 안 함)
 // API 키: Firestore 콘솔 > secrets 컬렉션 > erp 문서 > apiKey 필드 (보안 규칙상 사이트에서는 못 읽음)
@@ -72,7 +72,8 @@ async function runTeam(key, team, companyId) {
   return result;
 }
 
-export const syncOrderAmounts = onSchedule({ schedule: 'every 30 minutes', region: REGION, timeZone: 'Asia/Seoul' }, async () => {
+// 평일(월~금) 업무시간에만: 서울 시간 9:00 ~ 18:30, 30분마다
+export const syncOrderAmounts = onSchedule({ schedule: '*/30 9-18 * * 1-5', region: REGION, timeZone: 'Asia/Seoul' }, async () => {
   await runSync();
 });
 

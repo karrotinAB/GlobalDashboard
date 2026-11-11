@@ -591,7 +591,7 @@ export default function Orders() {
   }
 }
 
-/** ERP 에서 금액 다시 불러오기 (서버 함수 syncOrderAmountsNow). 30분마다 자동으로도 돌아감 */
+/** ERP 에서 금액 다시 불러오기 (서버 함수 syncOrderAmountsNow). 평일 업무시간 30분마다 자동으로도 돌아감 */
 function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }) {
   const { viewTeam } = useAccess();
   const [busy, setBusy] = useState(false);
