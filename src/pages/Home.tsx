@@ -215,9 +215,11 @@ export default function Home({ go }: { go: (page: string) => void }) {
     return { c, total: rows.length, done, open: rows.length - done, orders: openOrders.filter((o) => o.companyId === c.id).length };
   });
   // 조 업체(팀장님·이사님 화면)는 조별로, 내 업체는 맨 위
+  // 진행중 주문이나 남은 할일이 있는 업체만
+  const activeStats = companyStats.filter((x) => x.orders > 0 || x.open > 0);
   const companyGroups = [
-    { key: 'own', label: '내 업체', items: companyStats.filter((x) => !x.c.team) },
-    ...TEAMS.map((t) => ({ key: t, label: `${t}조`, items: companyStats.filter((x) => x.c.team === t) })),
+    { key: 'own', label: '내 업체', items: activeStats.filter((x) => !x.c.team) },
+    ...TEAMS.map((t) => ({ key: t, label: `${t}조`, items: activeStats.filter((x) => x.c.team === t) })),
   ].filter((g) => g.items.length);
 
 
@@ -363,7 +365,9 @@ export default function Home({ go }: { go: (page: string) => void }) {
       <section className="section">
         <div className="section-head">
           <h2>🗂️ 업체 tracking</h2>
+          <span className="muted small">진행중 주문이나 남은 할일이 있는 업체만</span>
         </div>
+        {companyGroups.length === 0 && <p className="muted small">지금 진행중인 주문이나 남은 할일이 있는 업체가 없어요 🍵</p>}
         {/* 팀장님·이사님 화면: 내 업체 / 1조 / 2조 / 3조 로 나눠서 */}
         {companyGroups.map((g) => (
           <div key={g.key} className="company-group">
