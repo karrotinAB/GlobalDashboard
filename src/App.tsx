@@ -16,7 +16,7 @@ import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
 import TeamSwitch from './components/TeamSwitch';
-import { DEFAULT_TEAM } from './lib/team';
+import { DEFAULT_TEAM, isPersonal } from './lib/team';
 
 const PAGES = [
   { key: 'home', label: '홈', icon: 'jelly' },
@@ -48,7 +48,8 @@ export default function App() {
   const leader = isLeader(role); // 팀장님·이사님
   const tradeOnly = role === 'trade'; // 무역사무 계정: 무역사무 페이지 + 설정만
   const canTrade = role === null || role === 'admin' || role === 'trade'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
-  const canOverview = role === null || role === 'admin' || leader; // '조 현황' 탭
+  // '조 현황' 탭: 팀장님·이사님 대시보드에만 (관리자는 팀장님·이사님 대시보드를 볼 때만)
+  const canOverview = leader || ((role === 'admin' || role === null) && isPersonal(viewTeam));
   const page: PageKey = tradeOnly
     ? isTradePage(hashPage) || hashPage === 'settings'
       ? hashPage
@@ -63,9 +64,7 @@ export default function App() {
     else if (isTradePage(page)) setSide('trade');
     else if (page !== 'settings' && page !== 'import') setSide('team');
   }, [page, tradeOnly]);
-  // '조 현황': 팀장님·이사님은 자기 대시보드 탭에, 관리자는 어느 조 탭도 아니라서 오른쪽 위 버튼으로
-  const overviewTab = leader || role === null;
-  const tabs = side === 'trade' ? TRADE_TABS : overviewTab ? [...TEAM_TABS, 'overview' as PageKey] : TEAM_TABS;
+  const tabs = side === 'trade' ? TRADE_TABS : canOverview ? [...TEAM_TABS, 'overview' as PageKey] : TEAM_TABS;
   const firstRun = !loading && !tradeOnly && mode === 'firestore' && data.members.length === 0 && page !== 'import';
   const isMainTeam = viewTeam === DEFAULT_TEAM; // 기본 담당자(유정·민지·가영)는 2조에만
   const loadSample = async () => {
@@ -103,12 +102,7 @@ export default function App() {
       <ExtensionBridge />
       <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
-        {role === 'admin' && (
-          <a href="#/overview" className={`top-btn ${page === 'overview' ? 'active' : ''}`} title="1~3조 할일·주문·클레임 한눈에 보기">
-            🔭 조 현황
-          </a>
-        )}
-        {role !== 'trade' && !leader && canTrade && side === 'team' && page !== 'overview' && (
+        {role !== 'trade' && !leader && canTrade && side === 'team' && (
           <TeamSwitch />
         )}
         {!tradeOnly && canTrade && (
