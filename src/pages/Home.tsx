@@ -6,7 +6,7 @@ import { holidayName } from '../lib/holidays';
 import { COUNTRY_OPTIONS, countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf } from '../lib/mem';
-import { isPersonal } from '../lib/team';
+import { isPersonal, TEAMS } from '../lib/team';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
 
@@ -214,6 +214,11 @@ export default function Home({ go }: { go: (page: string) => void }) {
     const done = rows.filter((r) => r.doneInWeek).length;
     return { c, total: rows.length, done, open: rows.length - done, orders: openOrders.filter((o) => o.companyId === c.id).length };
   });
+  // 조 업체(팀장님·이사님 화면)는 조별로, 내 업체는 맨 위
+  const companyGroups = [
+    { key: 'own', label: '내 업체', items: companyStats.filter((x) => !x.c.team) },
+    ...TEAMS.map((t) => ({ key: t, label: `${t}조`, items: companyStats.filter((x) => x.c.team === t) })),
+  ].filter((g) => g.items.length);
 
 
   return (
@@ -359,27 +364,37 @@ export default function Home({ go }: { go: (page: string) => void }) {
         <div className="section-head">
           <h2>🗂️ 업체 tracking</h2>
         </div>
-        <div className="companies">
-          {companyStats.map(({ c, total, done, open, orders }) => (
-            <div key={c.id} className="company-card" style={{ '--c': c.color ?? '#999' } as CSSProperties}>
-              <div className="cc-name">
-                <span className="dot" style={{ background: c.color }} />
-                <span className="cc-title">{c.name}</span>
-                <a className={`cc-orders ${orders ? '' : 'zero'}`} href={`#/orders?c=${c.id}`} title="이 업체 주문 관리로">
-                  📦 주문 {orders}
+        {/* 팀장님·이사님 화면: 내 업체 / 1조 / 2조 / 3조 로 나눠서 */}
+        {companyGroups.map((g) => (
+          <div key={g.key} className="company-group">
+            {companyGroups.length > 1 && (
+              <h3 className="company-group-title">
+                {g.label} <span className="muted small">{g.items.length}곳</span>
+              </h3>
+            )}
+            <div className="companies">
+              {g.items.map(({ c, total, done, open, orders }) => (
+              <div key={c.id} className="company-card" style={{ '--c': c.color ?? '#999' } as CSSProperties}>
+                <div className="cc-name">
+                  <span className="dot" style={{ background: c.color }} />
+                  <span className="cc-title">{c.name}</span>
+                  <a className={`cc-orders ${orders ? '' : 'zero'}`} href={`#/orders?c=${c.id}`} title="이 업체 주문 관리로">
+                    📦 주문 {orders}
+                  </a>
+                </div>
+                <a className="cc-todo" href={`#/todos?c=${c.id}`} title="이 업체 주간 할일로">
+                  <b className={open > 0 ? 'cc-open' : ''}>{open}</b>
+                  <span>할일 남음</span>
+                  <span className="cc-arrow">→</span>
                 </a>
+                <span className="cc-bar" title={`이번주 할일 ${done}/${total} 완료`}>
+                  <span style={{ width: total ? `${(done / total) * 100}%` : 0 }} />
+                </span>
               </div>
-              <a className="cc-todo" href={`#/todos?c=${c.id}`} title="이 업체 주간 할일로">
-                <b className={open > 0 ? 'cc-open' : ''}>{open}</b>
-                <span>할일 남음</span>
-                <span className="cc-arrow">→</span>
-              </a>
-              <span className="cc-bar" title={`이번주 할일 ${done}/${total} 완료`}>
-                <span style={{ width: total ? `${(done / total) * 100}%` : 0 }} />
-              </span>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </section>
 
       <section className="card soon">

@@ -5364,3 +5364,15 @@ select.team-switch {
   color: #8a5a10;
   font-weight: 600;
 }
+/* 업체 tracking: 조별로 나눔 (팀장님·이사님 화면) */
+.company-group + .company-group {
+  margin-top: 18px;
+}
+.company-group-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
