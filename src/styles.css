@@ -5161,3 +5161,18 @@ select.team-switch {
 .ov-co-chips .cchip .muted {
   margin-right: 2px;
 }
+.cp-add select {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.cp-add + .cp-or {
+  margin: 10px 0 6px;
+}
+.cp-add {
+  margin-bottom: 4px;
+}

@@ -3,7 +3,7 @@ import { useLookups, useStore } from '../data/store';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import { holidayName } from '../lib/holidays';
-import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
+import { COUNTRY_OPTIONS, countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf } from '../lib/mem';
 import { isPersonal } from '../lib/team';
@@ -192,7 +192,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
         ? picked
             .filter((c) => isValidTz(c.tz))
             .map((c) => {
-              const code = countryCode(c.label, c.tz);
+              const code = c.code ?? countryCode(c.label, c.tz);
               return { tz: c.tz, label: c.label, codes: code ? [code] : [], color: undefined as string | undefined };
             })
         : defaultClocks,
@@ -679,6 +679,14 @@ function ClockPicker({
       [n[i], n[j]] = [n[j], n[i]];
       return n;
     });
+  const [country, setCountry] = useState('');
+  // 나라로 추가: 시간대 자동, 그 나라 공휴일도 연결 (업체를 안 만들어도 됨)
+  const addCountry = () => {
+    const o = COUNTRY_OPTIONS.find((x) => x.code === country);
+    if (!o || list.some((x) => (x.code ?? countryCode(x.label, x.tz)) === o.code)) return;
+    setList((l) => [...l, { tz: o.tz, label: o.name, code: o.code }]);
+    setCountry('');
+  };
   const add = () => {
     if (!isValidTz(tz) || list.some((x) => x.tz === tz)) return;
     setList((l) => [...l, { tz, label: label.trim() || tz.split('/').pop()!.replace(/_/g, ' ') }]);
@@ -692,13 +700,16 @@ function ClockPicker({
       </p>
       <ul className="clock-pick">
         {list.map((c, i) => (
-          <li key={c.tz}>
+          <li key={c.tz + (c.code ?? '')}>
             <input
               className="cp-label"
               value={c.label}
               onChange={(e) => setList((l) => l.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
             />
-            <span className="muted small cp-tz">{c.tz}</span>
+            <span className="muted small cp-tz">
+              {c.tz}
+              {(c.code ?? countryCode(c.label, c.tz)) ? ` · 공휴일 ${c.code ?? countryCode(c.label, c.tz)}` : ' · 공휴일 없음'}
+            </span>
             <button className="icon-btn" onClick={() => move(i, -1)} title="위로">
               ▲
             </button>
@@ -722,6 +733,20 @@ function ClockPicker({
           ))}
         </div>
       )}
+      <div className="cp-add">
+        <select value={country} onChange={(e) => setCountry(e.target.value)}>
+          <option value="">나라 고르기 (업체 없이 시계만 추가)</option>
+          {COUNTRY_OPTIONS.map((o) => (
+            <option key={o.code} value={o.code}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+        <button className="primary" onClick={addCountry} disabled={!country}>
+          ＋ 나라 시계 추가
+        </button>
+      </div>
+      <p className="muted small cp-or">목록에 없는 도시는 시간대로 (이 경우 공휴일은 안 보여요)</p>
       <div className="cp-add">
         <input list="tz-list" placeholder="시간대 (예: America/New_York)" value={tz} onChange={(e) => setTz(e.target.value)} />
         <datalist id="tz-list">

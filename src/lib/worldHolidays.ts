@@ -161,3 +161,26 @@ export function useWorldHolidays(codes: string[], year: number, extra: ExtraHoli
   };
   return Object.assign(lookup, { status });
 }
+
+/** 나라 → 대표 시간대 (시계 '나라로 추가'용) */
+const EXTRA_TZ: Record<string, string> = {
+  US: 'America/New_York',
+  CA: 'America/Toronto',
+  AU: 'Australia/Sydney',
+  NZ: 'Pacific/Auckland',
+  MX: 'America/Mexico_City',
+  BR: 'America/Sao_Paulo',
+  CL: 'America/Santiago',
+  PE: 'America/Lima',
+  CO: 'America/Bogota',
+  SA: 'Asia/Riyadh',
+};
+export const COUNTRY_TZ: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(BY_TZ).reverse().map(([tz, code]) => [code, tz])),
+  ...EXTRA_TZ,
+};
+/** 시계로 추가할 수 있는 나라 (한글 이름순) */
+export const COUNTRY_OPTIONS = Object.entries(COUNTRY_NAMES)
+  .filter(([code]) => COUNTRY_TZ[code])
+  .map(([code, name]) => ({ code, name, tz: COUNTRY_TZ[code] }))
+  .sort((a, b) => a.name.localeCompare(b.name));

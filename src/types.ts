@@ -14,6 +14,7 @@ export interface Member {
 export interface ClockPick {
   tz: string; // IANA 시간대
   label: string; // 시계 이름 (예: 몽골)
+  code?: string; // 공휴일 나라 코드 (나라로 추가했을 때)
 }
 
 export interface Company {
