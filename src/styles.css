@@ -5320,3 +5320,8 @@ select.team-switch {
 .claim-table td.k-date * {
   white-space: nowrap;
 }
+.memo-area.memo-rich {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}

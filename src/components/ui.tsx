@@ -1,4 +1,5 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Member } from '../types';
 
 export function MemberChip({ member, small }: { member?: Member; small?: boolean }) {
@@ -33,7 +34,9 @@ export function Modal({
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
-  return (
+  // 창은 화면 맨 바깥(body)에 띄움: 끌어서 옮기는 줄(업체 머리줄 등) 안에서 열려도
+  // 글자 긁기·커서가 그 줄의 '끌기'로 잡히지 않게
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-label={title}>
         <div className="modal-head">
@@ -45,7 +48,8 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
