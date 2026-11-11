@@ -5201,3 +5201,44 @@ select.team-switch {
   border-radius: 4px;
   padding: 1px 5px;
 }
+/* ↻ 금액 새로고침 결과: 잘 보이게 */
+.sync-box {
+  position: relative;
+}
+.sync-result {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 300px;
+  max-width: 440px;
+  padding: 10px 30px 10px 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  box-shadow: var(--shadow-h);
+  white-space: normal;
+}
+.sync-result.ok {
+  background: #eef6e9;
+  color: #3d5f2c;
+  border: 1px solid #cfe3c2;
+}
+.sync-result.bad {
+  background: #fdecea;
+  color: #9b2d24;
+  border: 1px solid #f3c8c2;
+}
+.sync-result-x {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}

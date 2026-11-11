@@ -606,16 +606,27 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
   const { viewTeam } = useAccess();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [result, setResult] = useState<{ ok: boolean; lines: string[] } | null>(null);
   const run = async () => {
     setBusy(true);
     setMsg('');
+    setResult(null);
+    const at = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     try {
       const r = (await httpsCallable(functions, 'syncOrderAmountsNow')({ companyId, team: viewTeam })).data as { checked: number; updated: number; errors: string[]; imported?: number };
-      const neu = r.imported ? ` · 새 주문 ${r.imported}건 등록` : '';
-      setMsg(r.errors?.length ? `${r.updated}건 갱신${neu} · 오류 ${r.errors.length}건: ${r.errors[0]}` : `${r.checked}건 확인 · ${r.updated}건 갱신${neu}`);
+      const lines = [
+        `${at} 완료 · 주문 ${r.checked}건 확인 · 금액 ${r.updated}건 바뀜`,
+        // imported 가 아예 없으면 예전 서버 함수 (새 주문 자동 등록 전 버전)
+        r.imported === undefined ? '⚠ 새 주문 자동 등록은 아직 꺼져 있어요 (deploy.bat 으로 서버 함수를 새로 올려 주세요)' : `새 주문 ${r.imported}건 등록${r.imported ? ' — 표 맨 아래 NEW 표시' : ' (최근 3일 새 주문 없음 또는 업체 매장코드 미입력)'}`,
+        ...(r.errors?.length ? [`오류 ${r.errors.length}건: ${r.errors[0]}`] : []),
+      ];
+      setResult({ ok: !r.errors?.length, lines });
+      setMsg(`${at} 완료`);
     } catch (e) {
       const code = (e as { code?: string }).code ?? '';
-      setMsg(code.includes('not-found') || code.includes('internal') ? `금액 불러오기 실패 (${(e as Error).message})` : `금액 불러오기 실패 (${code})`);
+      const text = code.includes('not-found') || code.includes('internal') ? `금액 불러오기 실패 (${(e as Error).message})` : `금액 불러오기 실패 (${code})`;
+      setResult({ ok: false, lines: [`${at} ${text}`] });
+      setMsg(text);
     } finally {
       setBusy(false);
     }
@@ -627,6 +638,16 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
         {busy ? '불러오는 중…' : '↻ 금액 새로고침'}
       </button>
       {(msg || lastAt) && <span className="sync-msg">{msg || `자동 ${lastAt}`}</span>}
+      {result && (
+        <span className={`sync-result ${result.ok ? 'ok' : 'bad'}`} role="status">
+          {result.lines.map((l, i) => (
+            <span key={i}>{l}</span>
+          ))}
+          <button className="sync-result-x" onClick={() => setResult(null)} title="닫기">
+            ✕
+          </button>
+        </span>
+      )}
     </span>
   );
 }
