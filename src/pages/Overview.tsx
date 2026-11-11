@@ -674,3 +674,45 @@ function TradeView({ requests, people, only, q, todayIso }: { requests: TradeReq
     </>
   );
 }
+
+/**
+ * 팀장님·이사님 주문 관리·클레임에서 조 업체를 골랐을 때: 그 조의 실제 주문·클레임을 실시간으로 (보기만)
+ */
+export function LinkedTeamView({ company, kind, onBack }: { company: Company; kind: 'orders' | 'claims'; onBack: () => void }) {
+  const team = company.team ?? '';
+  const { data, ready, error } = useSpaceData(team, ['orders', 'claims']);
+  const [q, setQ] = useState('');
+  const td: TeamData = {
+    team,
+    label: teamLabel(team),
+    members: [],
+    companies: [company],
+    tasks: [],
+    orders: ((data.orders as Order[]) ?? []).filter((o) => o.companyId === company.id),
+    claims: ((data.claims as Claim[]) ?? []).filter((k) => k.companyId === company.id),
+    ready,
+    error,
+  };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1>{kind === 'orders' ? '주문 관리' : '클레임'}</h1>
+          <p>
+            {teamLabel(team)}에서 관리하는 업체예요. {teamLabel(team)}의 {kind === 'orders' ? '주문' : '클레임'}을 실시간으로 보여줘요 (보기만, 고치는 건 {teamLabel(team)}
+            에서).
+          </p>
+        </div>
+      </div>
+      <div className="toolbar">
+        <button className="company-toggle on" onClick={onBack} title="다른 업체 고르기">
+          <span className="dot" style={{ background: company.color }} />
+          {company.name} <span className="tag gray small">{teamLabel(team)} 연동</span> ✕
+        </button>
+        <input className="search" placeholder="🔍 이름 · 매장코드 · 비고" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {error && <p className="muted small">{teamLabel(team)} 데이터를 못 읽었어요: {error}</p>}
+      {!ready ? <p className="muted small">불러오는 중…</p> : kind === 'orders' ? <OrdersView teams={[td]} q={q} /> : <ClaimsView teams={[td]} q={q} />}
+    </div>
+  );
+}

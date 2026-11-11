@@ -139,6 +139,8 @@ export interface ConfigDoc {
   updated?: number;
   errors?: string[];
   at?: string;
+  // id = 'myCompanies': 팀장님·이사님 '내 담당' 업체 (주간 할일·주문·클레임에 보이는 업체)
+  companyIds?: string[];
   // id = 'holidays': 공휴일 서비스에 없는 나라별 휴일 (관리자가 설정에서 추가)
   holidays?: ExtraHoliday[];
 }

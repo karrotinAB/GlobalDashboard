@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { useAccess } from '../components/AuthGate';
 import CompanyPicker from '../components/CompanyPicker';
+import { LinkedTeamView } from './Overview';
 import { Modal } from '../components/ui';
 import { isOrderDone, ORDER_STEPS, type ConfigDoc, type Order, type OrderBundle, type OrderStepKey } from '../types';
 import { pickColor, uid } from '../lib/date';
@@ -42,7 +43,7 @@ function toUnits(rows: Order[]): Unit[] {
 
 export default function Orders() {
   const { data, save, saveMany, remove } = useStore();
-  const { companies, companyById } = useLookups();
+  const { myCompanies: companies, companyById } = useLookups();
   const [tab, setTab] = useState<Tab>('open');
   // 관리자 확인 도구 (ERP 원본 보기): 사이트 연결(firestore) 모드 + 관리자만
   const canInspect = DATA_MODE === 'firestore' && useAccess().role === 'admin';
@@ -217,6 +218,9 @@ export default function Orders() {
   const landing = !sheet && !query && !missingStep;
   const sum = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
   const hasAmt = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.some((o) => o[k] !== undefined);
+
+  // 팀장님·이사님: 조 업체를 고르면 그 조의 주문을 그대로 (보기만)
+  if (sheet?.team) return <LinkedTeamView company={sheet} kind="orders" onBack={() => setCompanyFilter('')} />;
 
   return (
     <div className="page">

@@ -51,7 +51,7 @@ const TIMEZONES = [
 export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' }) {
   const { data, mode, save, saveMany, remove } = useStore();
   const access = useAccess();
-  const { members, companies } = useLookups();
+  const { members, companies, isMine, hasMirror } = useLookups();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
 
@@ -190,6 +190,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           <table className="settings-table">
             <thead>
               <tr>
+                {hasMirror && <th title="체크한 업체만 주간 할일·주문 관리·클레임에 보여요">내 담당</th>}
                 <th>업체명</th>
                 <th>나라 (시계 이름)</th>
                 <th>매장코드 (4자리)</th>
@@ -201,7 +202,17 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
             </thead>
             <tbody>
               {companies.map((c) => (
-                <CompanyRow key={c.id} c={c} onSave={(x) => save('companies', x)} onDelete={
+                <CompanyRow
+                  key={c.id}
+                  c={c}
+                  mine={hasMirror ? isMine(c) : undefined}
+                  onMine={(on) => {
+                    const cur = data.config.find((x) => x.id === 'myCompanies');
+                    const base = cur?.companyIds ?? companies.filter((x) => isMine(x)).map((x) => x.id);
+                    const next = on ? [...new Set([...base, c.id])] : base.filter((id) => id !== c.id);
+                    save('config', { ...(cur ?? { id: 'myCompanies' }), companyIds: next });
+                  }}
+                  onSave={(x) => save('companies', x)} onDelete={
                   access.role === 'member' || c.team
                     ? undefined
                     : () =>
@@ -296,7 +307,25 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
   );
 }
 
-function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) => void; onDelete?: () => void }) {
+function CompanyRow({
+  c,
+  onSave,
+  onDelete,
+  mine,
+  onMine,
+}: {
+  c: Company;
+  onSave: (c: Company) => void;
+  onDelete?: () => void;
+  mine?: boolean; // 팀장님·이사님: '내 담당' (undefined 면 칸 없음)
+  onMine?: (on: boolean) => void;
+}) {
+  const mineCell =
+    mine === undefined ? null : (
+      <td className="c-mine">
+        <input type="checkbox" checked={mine} onChange={(e) => onMine?.(e.target.checked)} title="체크하면 주간 할일·주문 관리·클레임에 이 업체가 보여요" />
+      </td>
+    );
   const [moving, setMoving] = useState(false);
   // 담당 조 바꾸기: 업체와 그 업체의 할일·주문·클레임을 다른 조로 (서버에서 옮김)
   const move = async (to: string) => {
@@ -316,6 +345,7 @@ function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) 
   if (c.team)
     return (
       <tr className="mirror-row">
+        {mineCell}
         <td>
           {c.name} <span className="tag gray small">{c.team}조 업체</span>
         </td>
@@ -350,6 +380,7 @@ function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) 
   };
   return (
     <tr>
+      {mineCell}
       <td>
         <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== c.name && onSave({ ...c, name: name.trim() })} />
       </td>

@@ -5376,3 +5376,17 @@ select.team-switch {
   align-items: baseline;
   gap: 6px;
 }
+/* Global Opening Prep 바로가기: 진한 갈색으로 눈에 띄게 */
+.top-btn.gop-btn {
+  background: #6b3e2a;
+  border-color: #6b3e2a;
+  color: #fff;
+  font-weight: 600;
+}
+.top-btn.gop-btn:hover {
+  background: #57301f;
+}
+.settings-table .c-mine {
+  text-align: center;
+  width: 64px;
+}

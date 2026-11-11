@@ -8,6 +8,7 @@ import { Modal } from '../components/ui';
 import { AmountCell, fmtFX, fmtKRW, parseAmount } from '../components/OrderCells';
 import DateInput from '../components/DateInput';
 import CompanyPicker from '../components/CompanyPicker';
+import { LinkedTeamView } from './Overview';
 import { storage } from '../firebase';
 
 type Source = {
@@ -29,7 +30,7 @@ const sum = (os: Order[], k: 'amountKRW' | 'amountForeign') => os.reduce((a, o) 
 
 export default function Claims() {
   const { data, save, saveMany, remove } = useStore();
-  const { companies, companyById } = useLookups();
+  const { myCompanies: companies, companyById } = useLookups();
   // 주문 관리의 [클레임] 버튼으로 오면 #/claims?c=업체id
   const [companyFilter, setCompanyFilterState] = useState(() => {
     const fromLink = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c');
@@ -164,6 +165,9 @@ export default function Claims() {
     if (f.path) await deleteObject(storageRef(storage, f.path)).catch(() => {});
     patch(c, { files: (c.files ?? []).filter((x) => x !== f) });
   };
+
+  // 팀장님·이사님: 조 업체를 고르면 그 조의 클레임을 그대로 (보기만)
+  if (sheet?.team) return <LinkedTeamView company={sheet} kind="claims" onBack={() => setCompanyFilter('')} />;
 
   return (
     <div className="page">

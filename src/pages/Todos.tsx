@@ -14,7 +14,7 @@ type Group = { key: string; title: string; color?: string; company?: Company; me
 
 export default function Todos() {
   const { data, save, saveMany, remove } = useStore();
-  const { members, companies, memberById, companyById } = useLookups();
+  const { members, myCompanies: companies, memberById, companyById } = useLookups();
   const todayIso = today();
   const thisMonday = weekStart(todayIso);
 

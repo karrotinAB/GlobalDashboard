@@ -128,8 +128,14 @@ export function useLookups() {
     const companies = [...data.companies].sort((a, b) => a.order - b.order);
     const memberById = new Map(members.map((m) => [m.id, m]));
     const companyById = new Map(companies.map((c) => [c.id, c]));
-    return { members, companies, memberById, companyById };
-  }, [data.members, data.companies]);
+    // 팀장님·이사님(조 업체가 같이 보이는 화면): 설정에서 '내 담당'으로 체크한 업체만 주간 할일·주문·클레임에
+    // 체크한 적이 없으면 직접 등록한 업체만
+    const picked = data.config.find((c) => c.id === 'myCompanies')?.companyIds;
+    const hasMirror = companies.some((c) => c.team);
+    const isMine = (c: { id: string; team?: string }) => (!hasMirror ? true : picked ? picked.includes(c.id) : !c.team);
+    const myCompanies = companies.filter(isMine);
+    return { members, companies, myCompanies, isMine, hasMirror, memberById, companyById };
+  }, [data.members, data.companies, data.config]);
 }
 
 /**
