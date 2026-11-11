@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { bookmarklet, memNames } from '../lib/mem';
-import { useAccess } from '../components/AuthGate';
+import { ROLE_NAME, useAccess } from '../components/AuthGate';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
-import { DEFAULT_TEAM, teamLabel } from '../lib/team';
+import { DEFAULT_TEAM } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import ChangePassword from '../components/ChangePassword';
 import { useLookups, useStore } from '../data/store';
@@ -80,7 +80,7 @@ export default function Settings() {
     <div className="page">
       <div className="page-head">
         <h1>설정</h1>
-        {access.role !== 'trade' && <span className="tag gray">{teamLabel(access.viewTeam)}</span>}
+        {access.role !== 'trade' && <span className="tag gray">{access.viewLabel}</span>}
       </div>
 
       <section className="card">
@@ -91,7 +91,7 @@ export default function Settings() {
             {access.email && (
               <span className="muted small">
                 {' '}
-                · {access.email} 로그인 중 ({access.role === 'admin' ? '관리자' : access.role === 'trade' ? '무역사무' : '조원'})
+                · {access.email} 로그인 중 ({access.role ? ROLE_NAME[access.role] : ''})
               </span>
             )}
           </p>
@@ -103,12 +103,12 @@ export default function Settings() {
       </section>
 
       {access.role === 'admin' && <AccessAdmin />}
-      {access.role !== 'member' && <TradeMembersSection />}
+      {(access.role === null || access.role === 'admin' || access.role === 'trade') && <TradeMembersSection />}
       {access.role === 'trade' ? (
         access.email && <ChangePassword />
       ) : (
       <>
-      {access.role !== 'member' && (
+      {access.canManage && (
         <section className="card">
           <h2>
             홈 화면 구성 <span className="tag gray">관리자만 보이는 칸</span>
@@ -130,11 +130,11 @@ export default function Settings() {
           })}
         </section>
       )}
-      {access.role !== 'member' && <HolidayAdmin />}
+      {access.canManage && <HolidayAdmin />}
       {access.email && <ChangePassword />}
 
       <section className="card">
-        <h2>담당자 ({teamLabel(access.viewTeam)} 조원)</h2>
+        <h2>담당자 ({access.viewLabel})</h2>
         <table className="settings-table">
           <thead>
             <tr>
@@ -232,7 +232,7 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
   const [name, setName] = useState(m.name);
   const [memName, setMemName] = useState(m.memName ?? '');
   const [email, setEmail] = useState(m.email ?? '');
-  const isAdmin = useAccess().role !== 'member';
+  const isAdmin = useAccess().canManage;
   return (
     <tr>
       <td>

@@ -230,7 +230,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         </table>
       </div>
 
-      {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} side={side} teamId={access.viewTeam} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
+      {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} side={side} teamId={access.viewTeam} teamName={access.viewLabel} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
       {detail && (
         <RequestDetail
           key={detail.id + (detail.log?.length ?? 0)}
@@ -291,7 +291,7 @@ function Row({
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
           {r.title}
-          {side === 'trade' && <span className="rq-team">{teamOfRequest(r)}조</span>}
+          {side === 'trade' && <span className="rq-team">{r.teamName ?? `${teamOfRequest(r)}조`}</span>}
           {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
           {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
         </button>
@@ -317,7 +317,7 @@ function Row({
           </select>
         ) : (
           <span className="rq-person" style={{ '--c': requester?.color } as CSSProperties}>
-            {requester?.name ?? r.requesterEmail?.split('@')[0] ?? '무역사무'}
+            {requester?.name ?? r.requesterName ?? r.requesterEmail?.split('@')[0] ?? '무역사무'}
           </span>
         )}
       </td>

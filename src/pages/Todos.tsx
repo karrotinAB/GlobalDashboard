@@ -44,7 +44,7 @@ export default function Todos() {
     );
   };
   const access = useAccess();
-  const canManage = access.role !== 'member'; // 관리자 (로컬 모드는 모두)
+  const canManage = access.canManage; // 관리자·팀장님·이사님 (로컬 모드는 모두)
   const deleteCompany = (id: string) => {
     const c = companyById.get(id);
     if (!c) return;

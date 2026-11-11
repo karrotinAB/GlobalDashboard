@@ -182,6 +182,7 @@ export function NewRequest({
   myEmail,
   side = 'team',
   teamId,
+  teamName,
   onCreate,
   onClose,
 }: {
@@ -191,6 +192,7 @@ export function NewRequest({
   myEmail: string;
   side?: 'team' | 'trade'; // trade = 무역사무가 직접 넣는 업무 (처리자 기본 = 나, 요청자는 비워도 됨)
   teamId?: string; // 요청하는 조 (조 화면에서)
+  teamName?: string; // '1조', '팀장님 (홍길동)' …
   onCreate: (r: TradeRequest) => void;
   onClose: () => void;
 }) {
@@ -220,6 +222,8 @@ export function NewRequest({
       requestedAt: today(),
       requesterEmail: team.find((m) => m.id === d.requesterId)?.email ?? (isTrade ? undefined : myEmail || undefined),
       team: isTrade ? team.find((m) => m.id === d.requesterId)?.team : teamId,
+      teamName: isTrade ? undefined : teamName,
+      requesterName: team.find((m) => m.id === d.requesterId)?.name,
       status: 'requested',
       createdAt: now,
       log: [{ at: now, by, text: isTrade ? '무역사무에서 업무 추가' : '요청함' }],

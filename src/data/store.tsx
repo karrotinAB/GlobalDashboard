@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CollectionName, Collections, Item } from '../types';
 import { createFirestoreBackend, createLocalBackend, emptyCollections, type Backend } from './backend';
-import { DEFAULT_TEAM } from '../lib/team';
+import { DEFAULT_TEAM, physName } from '../lib/team';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { useAccess } from '../components/AuthGate';
 import { seedData } from './seed';
 import { db } from '../firebase';
@@ -127,4 +128,42 @@ export function useLookups() {
     const companyById = new Map(companies.map((c) => [c.id, c]));
     return { members, companies, memberById, companyById };
   }, [data.members, data.companies]);
+}
+
+/**
+ * 다른 조 데이터 읽기 전용 구독 (팀장님·이사님 '조 현황'). 내 저장소와는 따로.
+ * 로컬 모드는 그 조의 브라우저 저장 데이터를 읽음
+ */
+export function useSpaceData(team: string, cols: CollectionName[]) {
+  const [data, setData] = useState<Partial<Collections>>({});
+  const [error, setError] = useState<string | null>(null);
+  const sig = cols.join(',');
+  useEffect(() => {
+    setData({});
+    setError(null);
+    const list = sig.split(',') as CollectionName[];
+    if (DATA_MODE === 'local') {
+      try {
+        const key = team === DEFAULT_TEAM ? 'global-dashboard:v3' : `global-dashboard:v3:t${team}`;
+        const all = JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Collections>;
+        setData(Object.fromEntries(list.map((c) => [c, all[c] ?? []])));
+      } catch {
+        setData({});
+      }
+      return;
+    }
+    const unsubs = list.map((col) =>
+      onSnapshot(
+        collection(db, physName(col, team)),
+        (snap) => setData((prev) => ({ ...prev, [col]: snap.docs.map((d) => ({ ...d.data(), id: d.id })) })),
+        (err) => {
+          setError(`${physName(col, team)}: ${err.message}`);
+          setData((prev) => ({ ...prev, [col]: [] }));
+        },
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [team, sig]);
+  const ready = (sig.split(',') as CollectionName[]).every((c) => data[c] !== undefined);
+  return { data, ready, error };
 }

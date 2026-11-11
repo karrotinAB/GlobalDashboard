@@ -26,12 +26,21 @@ async function apiKey() {
 }
 
 // 조마다 컬렉션이 따로: 2조 = orders, 1조 = t1_orders, 3조 = t3_orders (config 도 같은 규칙)
+// 팀장님·이사님 개인 대시보드: p1a2b3c4_orders …
 const TEAMS = ['1', '2', '3'];
-const colOf = (team, name) => (team === '2' ? name : `t${team}_${name}`);
+const isPersonal = (t) => typeof t === 'string' && /^p[a-z0-9]+$/.test(t);
+const colOf = (team, name) => (team === '2' ? name : isPersonal(team) ? `${team}_${name}` : `t${team}_${name}`);
+
+/** 모든 조 + 개인 대시보드 공간 */
+async function allSpaces() {
+  const roles = await db.collection('roles').get();
+  const personal = roles.docs.map((d) => d.get('space')).filter(isPersonal);
+  return [...TEAMS, ...new Set(personal)];
+}
 
 async function runSync({ companyId, team } = {}) {
   const key = await apiKey();
-  const teams = team && TEAMS.includes(team) ? [team] : TEAMS;
+  const teams = team && (TEAMS.includes(team) || isPersonal(team)) ? [team] : await allSpaces();
   let all = { checked: 0, updated: 0, errors: [] };
   for (const t of teams) {
     const r = await runTeam(key, t, companyId);
@@ -80,12 +89,17 @@ export const syncOrderAmounts = onSchedule({ schedule: '*/30 9-18 * * 1-5', regi
 export const syncOrderAmountsNow = onCall({ region: REGION }, async (req) => {
   const email = req.auth?.token?.email?.toLowerCase();
   if (!email) throw new HttpsError('unauthenticated', '로그인이 필요해요');
-  const role = (await db.doc(`roles/${email}`).get()).get('level');
-  if (role !== 'admin' && role !== 'member') throw new HttpsError('permission-denied', '대시보드 사용자만 쓸 수 있어요');
+  const me = await db.doc(`roles/${email}`).get();
+  const role = me.get('level');
+  if (!['admin', 'member', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 쓸 수 있어요');
+  let team = typeof req.data?.team === 'string' ? req.data.team : undefined;
+  // 개인 대시보드는 그 주인(또는 관리자)만
+  if (isPersonal(team) && role !== 'admin' && me.get('space') !== team) throw new HttpsError('permission-denied', '내 대시보드만 새로고침할 수 있어요');
+  if (!team && role !== 'admin') team = role === 'member' ? String(me.get('team') ?? '2') : me.get('space');
   try {
     return await runSync({
       companyId: typeof req.data?.companyId === 'string' ? req.data.companyId : undefined,
-      team: typeof req.data?.team === 'string' ? req.data.team : undefined,
+      team,
     });
   } catch (e) {
     throw new HttpsError('internal', e.message);

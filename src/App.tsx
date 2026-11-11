@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './data/store';
 import { Cover } from './components/ui';
-import { logout, useAccess } from './components/AuthGate';
+import { isLeader, logout, useAccess } from './components/AuthGate';
 import { seedData } from './data/seed';
 import { COLLECTIONS } from './data/backend';
 import Home from './pages/Home';
@@ -11,6 +11,7 @@ import Claims from './pages/Claims';
 import Settings from './pages/Settings';
 import RequestBoard from './pages/RequestBoard';
 import TradeHome from './pages/TradeHome';
+import Overview from './pages/Overview';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
@@ -26,6 +27,7 @@ const PAGES = [
   // 무역사무 페이지 (무역사무 계정 + 관리자)
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
+  { key: 'overview', label: '조 현황', icon: '🔭' },
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
@@ -41,9 +43,11 @@ function readHash(): PageKey {
 export default function App() {
   const [hashPage, setPage] = useState<PageKey>(readHash);
   const { loading, error, mode, data, saveMany } = useStore();
-  const { role, viewTeam } = useAccess();
+  const { role, viewTeam, viewLabel } = useAccess();
+  const leader = isLeader(role); // 팀장님·이사님
   const tradeOnly = role === 'trade'; // 무역사무 계정: 무역사무 페이지 + 설정만
-  const canTrade = role !== 'member'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
+  const canTrade = role === null || role === 'admin' || role === 'trade'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
+  const canOverview = role === null || role === 'admin' || leader; // '조 현황' 탭
   const page: PageKey = tradeOnly
     ? isTradePage(hashPage) || hashPage === 'settings'
       ? hashPage
@@ -58,7 +62,7 @@ export default function App() {
     else if (isTradePage(page)) setSide('trade');
     else if (page !== 'settings' && page !== 'import') setSide('team');
   }, [page, tradeOnly]);
-  const tabs = side === 'trade' ? TRADE_TABS : TEAM_TABS;
+  const tabs = side === 'trade' ? TRADE_TABS : canOverview ? [...TEAM_TABS, 'overview' as PageKey] : TEAM_TABS;
   const firstRun = !loading && !tradeOnly && mode === 'firestore' && data.members.length === 0 && page !== 'import';
   const isMainTeam = viewTeam === DEFAULT_TEAM; // 기본 담당자(유정·민지·가영)는 2조에만
   const loadSample = async () => {
@@ -96,7 +100,7 @@ export default function App() {
       <ExtensionBridge />
       <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
-        {!tradeOnly && canTrade && side === 'team' && (
+        {role !== 'trade' && !leader && canTrade && side === 'team' && (
           <select className="top-btn team-switch" value={viewTeam} onChange={(e) => setViewTeam(e.target.value)} title="관리자: 다른 조 대시보드 보기">
             {TEAMS.map((t) => (
               <option key={t} value={t}>
@@ -107,7 +111,7 @@ export default function App() {
         )}
         {!tradeOnly && canTrade && (
           <a href={side === 'trade' ? '#/home' : '#/thome'} className="top-btn" title="관리자: 조 / 무역사무 페이지 오가기">
-            {side === 'trade' ? `← ${teamLabel(viewTeam)} 페이지` : '무역사무 페이지 →'}
+            {side === 'trade' ? `← ${viewLabel} 페이지` : '무역사무 페이지 →'}
           </a>
         )}
         <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
@@ -149,7 +153,7 @@ export default function App() {
         {firstRun && (
           <div className="card first-run">
             <span>
-              🌱 {teamLabel(viewTeam)} 데이터가 아직 없어요.{' '}
+              🌱 {viewLabel} 데이터가 아직 없어요.{' '}
               {isMainTeam ? '백업 JSON 파일이 있으면 설정 → 백업 가져오기로 넣고, 없으면 담당자만 만들어서 시작할 수 있어요.' : '설정 → 담당자에서 조원을 추가하고, 업체는 주간 할일에서 직접 등록해요.'}
             </span>
             <button onClick={() => go('settings')}>설정으로 가기</button>
@@ -175,6 +179,8 @@ export default function App() {
             <Claims />
           ) : page === 'requests' ? (
             <RequestBoard key="team" side="team" />
+          ) : page === 'overview' && canOverview ? (
+            <Overview />
           ) : page === 'thome' ? (
             <TradeHome />
           ) : page === 'twork' ? (

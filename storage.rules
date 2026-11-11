@@ -4,11 +4,11 @@ service firebase.storage {
   match /b/{bucket}/o {
     function isTeam() {
       return request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member'];
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'lead', 'director'];
     }
     function isAny() {
       return request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'trade'];
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'trade', 'lead', 'director'];
     }
     // 무역사무 요청 사진
     match /requests/{reqId}/{file} {

@@ -5,10 +5,13 @@ service cloud.firestore {
     //   level: admin  = 관리자 (모든 조·무역사무 보기, 설정 > 대시보드 사용자에서 사람 추가·삭제)
     //          member = 조원 (자기 조 대시보드 읽기·쓰기)
     //          trade  = 무역사무 (무역사무 페이지: 요청·무역사무 담당자, 각 조 담당자 이름은 읽기만)
+    //          lead / director = 팀장님 / 이사님 (자기만 쓰는 개인 대시보드 + 1~3조 데이터 읽기)
     //   team : '1' | '2' | '3' (조원·관리자의 조, 없으면 2조)
+    //   space: 'p' + 영문·숫자 (팀장님·이사님의 개인 대시보드 공간, 관리자가 권한을 줄 때 만들어짐)
     // 문서가 없는 계정은 아무것도 못 봄 (계정은 관리자가 만들어 줌)
     //
     // 조마다 데이터가 따로: 2조 = members, companies … / 1조 = t1_members, t1_companies … / 3조 = t3_…
+    // 개인 대시보드: p1a2b3c4_members, p1a2b3c4_tasks …
     function signedIn() {
       return request.auth != null && request.auth.token.email != null;
     }
@@ -20,22 +23,32 @@ service cloud.firestore {
     function myTeam() {
       return exists(roleDoc()) ? get(roleDoc()).data.get('team', '2') : 'none';
     }
+    function mySpace() {
+      return exists(roleDoc()) ? get(roleDoc()).data.get('space', '') : '';
+    }
+    function isLeader() { return signedIn() && role() in ['lead', 'director']; }
     function isTeam() { return signedIn() && role() in ['admin', 'member']; }
     function isAdmin() { return signedIn() && role() == 'admin'; }
     function isTrade() { return signedIn() && role() == 'trade'; }
-    function isAny() { return signedIn() && role() in ['admin', 'member', 'trade']; }
+    function isAny() { return signedIn() && role() in ['admin', 'member', 'trade', 'lead', 'director']; }
 
     // 컬렉션 이름 → 조 / 원래 이름
-    function prefixed(col) { return col.matches('t[0-9]+_.+'); }
+    function prefixed(col) { return col.matches('[tp][a-z0-9]+_.+'); }
     function teamTag(col) { return prefixed(col) ? col.split('_')[0] : 't2'; }
     function baseOf(col) { return prefixed(col) ? col.split('_')[1] : col; }
     function teamCol(col) {
       return baseOf(col) in ['members', 'companies', 'tasks', 'orders', 'attendance', 'claims', 'config'];
     }
-    // 이 조 데이터를 쓸 수 있나: 관리자는 모든 조, 조원은 자기 조만
+    // 이 공간 데이터를 쓸 수 있나: 관리자는 모두, 조원은 자기 조, 팀장님·이사님은 자기 개인 공간
     function inTeam(col) {
-      return isAdmin() || (signedIn() && role() == 'member' && teamTag(col) == 't' + myTeam());
+      return isAdmin()
+        || (signedIn() && role() == 'member' && teamTag(col) == 't' + myTeam())
+        || (isLeader() && mySpace() != '' && teamTag(col) == mySpace());
     }
+    // 팀장님·이사님은 1~3조 데이터를 읽을 수 있음 ('조 현황')
+    function leaderCanRead(col) { return isLeader() && teamTag(col).matches('t[0-9]+'); }
+    // 이 공간의 관리자: 관리자, 또는 자기 개인 공간의 팀장님·이사님
+    function ownsSpace(col) { return isAdmin() || (isLeader() && mySpace() != '' && teamTag(col) == mySpace()); }
 
     match /roles/{email} {
       // 내 권한은 나도 볼 수 있어야 '권한 없음' 화면을 띄움
@@ -43,9 +56,10 @@ service cloud.firestore {
       // 관리자만 추가·변경·삭제. 내 권한은 내가 못 바꿈 (실수로 관리자가 0명 되는 것 방지)
       allow create, update: if isAdmin() && email != myEmail()
         && email == email.lower()
-        && request.resource.data.level in ['admin', 'member', 'trade']
+        && request.resource.data.level in ['admin', 'member', 'trade', 'lead', 'director']
         && request.resource.data.get('team', '2') in ['1', '2', '3']
-        && request.resource.data.keys().hasOnly(['level', 'name', 'team', 'addedBy', 'addedAt']);
+        && (request.resource.data.get('space', '') == '' || request.resource.data.get('space', '').matches('p[a-z0-9]+'))
+        && request.resource.data.keys().hasOnly(['level', 'name', 'team', 'space', 'addedBy', 'addedAt']);
       allow delete: if isAdmin() && email != myEmail();
     }
 
@@ -80,11 +94,12 @@ service cloud.firestore {
     match /{col}/{id} {
       allow read: if teamCol(col)
         && (inTeam(col)
+            || leaderCanRead(col)
             // 무역사무: 각 조 담당자 이름(요청자) + 무역사무 근태(2조 쪽 attendance)
             || (isTrade() && (baseOf(col) == 'members' || col == 'attendance')));
 
-      // 공용 설정(홈 화면 구성 등)은 관리자만 바꿈
-      allow write: if teamCol(col) && baseOf(col) == 'config' && isAdmin();
+      // 공용 설정(홈 화면 구성 등)은 관리자만 (개인 대시보드는 그 주인도)
+      allow write: if teamCol(col) && baseOf(col) == 'config' && ownsSpace(col);
 
       allow create, delete: if teamCol(col) && baseOf(col) != 'config'
         && (inTeam(col) || (isTrade() && col == 'attendance'));
@@ -97,7 +112,7 @@ service cloud.firestore {
             || ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character', 'clocks'])
                  || resource.data.get('email', '') == myEmail())
                 && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
-                    || isAdmin()
+                    || ownsSpace(col)
                     || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()))));
     }
   }

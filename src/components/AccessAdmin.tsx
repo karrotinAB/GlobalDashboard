@@ -3,18 +3,20 @@ import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from 
 import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { db, firebaseConfig } from '../firebase';
-import { useAccess, type Role } from './AuthGate';
-import { DEFAULT_TEAM, teamLabel, TEAMS } from '../lib/team';
+import { isLeader, ROLE_NAME, useAccess, type Role } from './AuthGate';
+import { DEFAULT_TEAM, newPersonalSpace, teamLabel, TEAMS } from '../lib/team';
 
 interface Row {
   email: string;
   role: Role;
   name?: string;
   team?: string; // 조원·관리자의 조 (없으면 2조)
+  space?: string; // 팀장님·이사님의 개인 대시보드 공간
 }
 
-const ROLE_LABEL: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무' };
-const ROLE_ORDER: Record<Role, number> = { admin: 0, member: 1, trade: 2 };
+const ROLE_LABEL = ROLE_NAME;
+const ROLE_ORDER: Record<Role, number> = { admin: 0, director: 1, lead: 2, member: 3, trade: 4 };
+const ROLE_OPTIONS: Role[] = ['member', 'trade', 'lead', 'director', 'admin'];
 
 /** 새 로그인 계정 만들기. 보조 앱으로 만들어서 관리자 본인의 로그인은 그대로 유지됨 */
 async function createAccount(email: string, password: string): Promise<'created' | 'exists'> {
@@ -51,7 +53,7 @@ export default function AccessAdmin() {
         (snap) =>
           setRows(
             snap.docs
-              .map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined, team: d.data().team as string | undefined }))
+              .map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined, team: d.data().team as string | undefined, space: d.data().space as string | undefined }))
               .filter((r) => r.role in ROLE_ORDER)
               .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : ROLE_ORDER[a.role] - ROLE_ORDER[b.role])),
           ),
@@ -62,10 +64,13 @@ export default function AccessAdmin() {
 
   const put = async (e: string, r: Role, n?: string, t?: string) => {
     try {
+      // 팀장님·이사님: 처음이면 개인 대시보드 공간을 만들어 줌 (권한을 바꿔도 공간은 그대로)
+      const space = isLeader(r) ? rows.find((x) => x.email === e)?.space ?? newPersonalSpace() : rows.find((x) => x.email === e)?.space;
       await setDoc(doc(db, 'roles', e), {
         level: r,
         ...(n ? { name: n } : {}),
-        ...(r !== 'trade' ? { team: t ?? DEFAULT_TEAM } : {}),
+        ...(r === 'member' || r === 'admin' ? { team: t ?? DEFAULT_TEAM } : {}),
+        ...(space ? { space } : {}),
         addedBy: me.email,
         addedAt: serverTimestamp(),
       });
@@ -116,7 +121,7 @@ export default function AccessAdmin() {
       <p className="muted small">
         여기 추가한 사람만 대시보드에 로그인해서 쓸 수 있어요. 이메일과 임시 비밀번호를 넣으면 로그인 계정까지 만들어져요.
         <br />
-        <b>조원</b> = 자기 조(1조·2조·3조) 대시보드 사용 · <b>무역사무</b> = 무역사무 페이지만 · <b>관리자</b> = 조원 + 모든 조·무역사무 페이지 보기, 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
+        <b>조원</b> = 자기 조(1조·2조·3조) 대시보드 사용 · <b>무역사무</b> = 무역사무 페이지만 · <b>팀장님·이사님</b> = 각자 자기만 쓰는 대시보드 + 1~3조 현황 보기 · <b>관리자</b> = 조원 + 모든 조·무역사무 페이지 보기, 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
         (목록에서 빼도 로그인 계정은 남지만 아무것도 볼 수 없어요)
       </p>
       <table className="settings-table">
@@ -144,15 +149,17 @@ export default function AccessAdmin() {
                     ROLE_LABEL[r.role]
                   ) : (
                     <select value={r.role} onChange={(e) => put(r.email, e.target.value as Role, r.name, r.team)}>
-                      <option value="member">조원</option>
-                      <option value="trade">무역사무</option>
-                      <option value="admin">관리자</option>
+                      {ROLE_OPTIONS.map((o) => (
+                        <option key={o} value={o}>
+                          {ROLE_LABEL[o]}
+                        </option>
+                      ))}
                     </select>
                   )}
                 </td>
                 <td>
-                  {r.role === 'trade' ? (
-                    <span className="muted small">-</span>
+                  {r.role === 'trade' || isLeader(r.role) ? (
+                    <span className="muted small">{isLeader(r.role) ? '개인 대시보드' : '-'}</span>
                   ) : self ? (
                     teamLabel(r.team)
                   ) : (
@@ -192,11 +199,13 @@ export default function AccessAdmin() {
         <input placeholder="이름 (선택)" value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
         <input placeholder="임시 비밀번호 (6자 이상)" value={pw} onChange={(e) => setPw(e.target.value)} style={{ flex: 1, minWidth: 140 }} autoComplete="off" />
         <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-          <option value="member">조원</option>
-          <option value="trade">무역사무</option>
-          <option value="admin">관리자</option>
+          {ROLE_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {ROLE_LABEL[o]}
+            </option>
+          ))}
         </select>
-        {role !== 'trade' && (
+        {(role === 'member' || role === 'admin') && (
           <select value={team} onChange={(e) => setTeam(e.target.value)} title="어느 조 대시보드를 쓸지">
             {TEAMS.map((t) => (
               <option key={t} value={t}>

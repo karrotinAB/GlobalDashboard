@@ -5,7 +5,6 @@ import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/ta
 import { holidayName } from '../lib/holidays';
 import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
-import { teamLabel } from '../lib/team';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
 
@@ -217,7 +216,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
 
   return (
     <div className="page">
-      <Hero title={`${teamLabel(access.viewTeam)} Dashboard`} />
+      <Hero title={`${access.viewLabel} Dashboard`} />
 
       {/* 우리 팀 오늘 */}
       <section className="section">

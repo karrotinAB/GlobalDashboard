@@ -4910,3 +4910,202 @@ select.team-switch {
   cursor: pointer;
   appearance: auto;
 }
+
+/* ================================================================== */
+/* 조 현황 (팀장님·이사님)                                             */
+/* ================================================================== */
+.ov-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.ov-card {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.ov-card:hover {
+  box-shadow: var(--shadow-h);
+}
+.ov-card.on {
+  outline: 2px solid var(--primary);
+}
+.ov-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ov-card-head b {
+  font-family: var(--serif);
+  font-size: 22px;
+}
+.ov-people {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.ov-person {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c, #999) 18%, #fff);
+  color: color-mix(in srgb, var(--c, #666) 75%, #000);
+  white-space: nowrap;
+}
+.ov-card-body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ov-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.ov-flags {
+  display: flex;
+  gap: 4px;
+}
+.ov-toolbar {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ov-sub {
+  margin-bottom: 10px;
+}
+.ov-done-toggle {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+.ov-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.ov-col {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+.ov-col h3 {
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: 20px;
+}
+.ov-co + .ov-co {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.ov-co-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.ov-co-head .muted {
+  margin-left: auto;
+}
+.ov-co ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ov-co li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: 13px;
+}
+.ov-co li.done .ov-task {
+  color: var(--mut);
+  text-decoration: line-through;
+}
+.ov-task {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.ov-who {
+  display: flex;
+  gap: 3px;
+}
+.ov-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.ov-table th {
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 500;
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.ov-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line-2);
+  vertical-align: middle;
+}
+.ov-table .r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ov-table tfoot td {
+  font-weight: 700;
+  border-bottom: 0;
+}
+.ov-table tr.is-refunded td {
+  color: var(--mut);
+}
+.ov-bundle {
+  margin-left: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 4px;
+  color: #fff;
+  background: var(--c, #999);
+}
+.ov-steps {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+.ov-steps i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e8dfdc;
+}
+.ov-steps i.on {
+  background: var(--primary);
+}
+.ov-note {
+  color: #b23a3a;
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  .ov-table {
+    min-width: 820px;
+  }
+}

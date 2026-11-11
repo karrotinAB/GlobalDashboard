@@ -3,9 +3,12 @@ import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword,
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Cover } from './ui';
-import { DEFAULT_TEAM, savedViewTeam, TEAMS } from '../lib/team';
+import { DEFAULT_TEAM, isPersonal, savedViewTeam, spaceLabel, TEAMS } from '../lib/team';
 
-export type Role = 'admin' | 'member' | 'trade'; // trade = 무역사무
+export type Role = 'admin' | 'member' | 'trade' | 'lead' | 'director'; // trade = 무역사무, lead = 팀장님, director = 이사님
+export const ROLE_NAME: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무', lead: '팀장님', director: '이사님' };
+/** 팀장님·이사님: 자기만의 대시보드 + 모든 조 현황 보기 */
+export const isLeader = (r: Role | null) => r === 'lead' || r === 'director';
 
 const ERRORS: Record<string, string> = {
   'auth/invalid-credential': '이메일이나 비밀번호가 맞지 않아요.',
@@ -26,10 +29,12 @@ interface Access {
   email: string;
   role: Role | null;
   team: string; // 내 조 (roles.team, 없으면 2조)
-  viewTeam: string; // 지금 보고 있는 조 (관리자는 골라 볼 수 있음)
+  viewTeam: string; // 지금 보고 있는 조 (관리자는 골라 볼 수 있음, 팀장님·이사님은 자기 공간)
+  viewLabel: string; // 화면 이름: '2조' / '팀장님' …
+  canManage: boolean; // 이 공간을 관리 (업체 삭제·홈 구성 등): 관리자·팀장님·이사님·로컬
 }
 const localTeam = savedViewTeam() ?? DEFAULT_TEAM;
-const AccessContext = createContext<Access>({ email: '', role: null, team: localTeam, viewTeam: localTeam });
+const AccessContext = createContext<Access>({ email: '', role: null, team: localTeam, viewTeam: localTeam, viewLabel: spaceLabel(localTeam), canManage: true });
 /** 지금 로그인한 사람의 이메일·권한·조 (로컬 모드면 role = null) */
 export const useAccess = () => useContext(AccessContext);
 
@@ -42,6 +47,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [role, setRole] = useState<Role | 'none' | undefined>(undefined);
   const [team, setTeam] = useState<string>(DEFAULT_TEAM);
+  const [space, setSpace] = useState<{ id?: string; name?: string }>({});
 
   useEffect(
     () =>
@@ -62,7 +68,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         const r = snap.data()?.level;
         const t = String(snap.data()?.team ?? DEFAULT_TEAM);
         setTeam((TEAMS as readonly string[]).includes(t) ? t : DEFAULT_TEAM);
-        setRole(r === 'admin' || r === 'member' || r === 'trade' ? r : 'none');
+        const sp = snap.data()?.space;
+        setSpace({ id: isPersonal(sp) ? sp : undefined, name: snap.data()?.name });
+        setRole(r === 'admin' || r === 'member' || r === 'trade' || r === 'lead' || r === 'director' ? r : 'none');
       },
       () => setRole('none'),
     );
@@ -72,8 +80,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (!user) return <LoginForm />;
   if (role === undefined) return <Centered>권한 확인 중…</Centered>;
   if (role === 'none') return <NoAccess email={user.email ?? ''} />;
-  const viewTeam = role === 'admin' ? savedViewTeam() ?? team : team;
-  return <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam }}>{children}</AccessContext.Provider>;
+  const leader = isLeader(role);
+  if (leader && !space.id) return <NoAccess email={user.email ?? ''} />; // 개인 공간이 아직 없음 (관리자가 권한을 다시 저장하면 생김)
+  const viewTeam = leader ? space.id! : role === 'admin' ? savedViewTeam() ?? team : team;
+  const viewLabel = leader ? `${ROLE_NAME[role]}${space.name ? ` (${space.name})` : ''}` : spaceLabel(viewTeam);
+  const canManage = role === 'admin' || leader;
+  return (
+    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage }}>{children}</AccessContext.Provider>
+  );
 }
 
 function Centered({ children }: { children: ReactNode }) {
