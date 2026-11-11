@@ -4,7 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
-import { DEFAULT_TEAM } from '../lib/team';
+import { DEFAULT_TEAM, TEAMS } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import ChangePassword from '../components/ChangePassword';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
@@ -281,7 +281,22 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
 }
 
 function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) => void; onDelete?: () => void }) {
-  // 팀장님·이사님 화면의 조 업체: 보기만 (조에서 고치면 여기도 바로 바뀜)
+  const [moving, setMoving] = useState(false);
+  // 담당 조 바꾸기: 업체와 그 업체의 할일·주문·클레임을 다른 조로 (서버에서 옮김)
+  const move = async (to: string) => {
+    if (!c.team || to === c.team) return;
+    if (!confirm(`'${c.name}' 업체를 ${c.team}조 → ${to}조로 옮길까요?\n\n이 업체의 할일·주문·클레임도 같이 ${to}조로 옮겨지고, ${c.team}조 대시보드에서는 안 보여요.`)) return;
+    setMoving(true);
+    try {
+      const r = (await httpsCallable(functions, 'moveCompanyTeam')({ companyId: c.id, from: c.team, to })).data as { tasks: number; orders: number; claims: number };
+      alert(`${to}조로 옮겼어요 ✓ (할일 ${r.tasks} · 주문 ${r.orders} · 클레임 ${r.claims})`);
+    } catch (e) {
+      alert(`옮기지 못했어요: ${(e as Error).message}\n(서버 함수를 새로 올렸는지 확인해 주세요 — deploy.bat)`);
+    } finally {
+      setMoving(false);
+    }
+  };
+  // 팀장님·이사님 화면의 조 업체: 보기만 + 담당 조 바꾸기 (조에서 고치면 여기도 바로 바뀜)
   if (c.team)
     return (
       <tr className="mirror-row">
@@ -294,8 +309,18 @@ function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) 
         <td>
           <span className="dot" style={{ background: c.color }} />
         </td>
-        <td colSpan={2} className="muted small">
-          {c.team}조에서 관리
+        <td colSpan={2}>
+          <label className="move-team" title="담당 조를 바꾸면 그 조 대시보드로 옮겨가요 (할일·주문·클레임 포함)">
+            <span className="muted small">담당</span>
+            <select value={c.team} disabled={moving || DATA_MODE === 'local'} onChange={(e) => void move(e.target.value)}>
+              {TEAMS.map((t) => (
+                <option key={t} value={t}>
+                  {t}조
+                </option>
+              ))}
+            </select>
+            {moving && <span className="muted small">옮기는 중…</span>}
+          </label>
         </td>
       </tr>
     );

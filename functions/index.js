@@ -186,3 +186,40 @@ export const syncMemNow = onCall({ region: REGION, secrets: [MEM_ID, MEM_PASSWOR
   if (role !== 'admin') throw new HttpsError('permission-denied', '관리자만 쓸 수 있어요');
   return runMemSync();
 });
+
+// ------------------------------------------------------------------
+// 업체 담당 조 바꾸기 (팀장님·이사님·관리자): 업체와 그 업체의 할일·주문·클레임을 다른 조로 옮김
+// 조원은 다른 조 데이터를 못 고치므로 서버에서 권한 확인 후 처리
+// ------------------------------------------------------------------
+export const moveCompanyTeam = onCall({ region: REGION }, async (req) => {
+  const email = req.auth?.token?.email?.toLowerCase();
+  if (!email) throw new HttpsError('unauthenticated', '로그인이 필요해요');
+  const role = (await db.doc(`roles/${email}`).get()).get('level');
+  if (!['admin', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '팀장님·이사님·관리자만 바꿀 수 있어요');
+  const { companyId, from, to } = req.data ?? {};
+  if (typeof companyId !== 'string' || !TEAMS.includes(from) || !TEAMS.includes(to) || from === to) throw new HttpsError('invalid-argument', '업체·조를 확인해 주세요');
+
+  const src = db.doc(`${colOf(from, 'companies')}/${companyId}`);
+  const snap = await src.get();
+  if (!snap.exists) throw new HttpsError('not-found', '업체를 찾을 수 없어요');
+  const destCount = (await db.collection(colOf(to, 'companies')).count().get()).data().count;
+
+  // 옮길 것: 업체 + 그 업체의 할일·주문·클레임
+  const moves = [{ from: src, to: db.doc(`${colOf(to, 'companies')}/${companyId}`), data: { ...snap.data(), order: destCount } }];
+  const counts = {};
+  for (const name of ['tasks', 'orders', 'claims']) {
+    const docs = (await db.collection(colOf(from, name)).where('companyId', '==', companyId).get()).docs;
+    counts[name] = docs.length;
+    for (const d of docs) moves.push({ from: d.ref, to: db.doc(`${colOf(to, name)}/${d.id}`), data: d.data() });
+  }
+  for (let i = 0; i < moves.length; i += 200) {
+    const batch = db.batch();
+    for (const m of moves.slice(i, i + 200)) {
+      batch.set(m.to, m.data);
+      batch.delete(m.from);
+    }
+    await batch.commit();
+  }
+  logger.info('company moved', { companyId, from, to, by: email, ...counts });
+  return { ok: true, name: snap.get('name'), ...counts };
+});

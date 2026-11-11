@@ -5329,3 +5329,16 @@ select.team-switch {
   color: var(--ink-2);
   background: #faf6f4;
 }
+.move-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.move-team select {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
