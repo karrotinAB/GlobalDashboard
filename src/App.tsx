@@ -31,6 +31,7 @@ const PAGES = [
   { key: 'overview', label: '조 현황', icon: '🔭' },
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
+const GOP_URL = 'https://karrotinab.github.io/pog-global/';
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
 const TRADE_TABS: PageKey[] = ['thome', 'twork'];
 const isTradePage = (p: PageKey) => TRADE_TABS.includes(p);
@@ -108,6 +109,12 @@ export default function App() {
         {!tradeOnly && canTrade && (
           <a href={side === 'trade' ? '#/home' : '#/thome'} className="top-btn" title="관리자: 조 / 무역사무 페이지 오가기">
             {side === 'trade' ? `← ${viewLabel} 페이지` : '무역사무 페이지 →'}
+          </a>
+        )}
+        {/* 관리자가 아닌 사람: 같은 자리에 Global Opening Prep 바로가기 (같은 주소라 한 번 로그인하면 계속 유지) */}
+        {role !== 'admin' && role !== null && (
+          <a href={GOP_URL} target="_blank" rel="noreferrer" className="top-btn" title="Global Opening Prep 열기 (새 탭)">
+            Global Opening Prep ↗
           </a>
         )}
         <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
