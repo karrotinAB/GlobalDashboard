@@ -140,8 +140,9 @@ async function runMemSync() {
   try {
     const cfg = (await db.doc('secrets/mem').get()).data();
     if (!cfg) throw new Error('secrets/mem 문서가 없어요 (로그인 주소·근태 주소를 넣어 주세요)');
-    const id = MEM_ID.value();
-    const pw = MEM_PASSWORD.value();
+    // 입력할 때 같이 들어간 줄바꿈·앞뒤 공백 제거 (비밀번호 안쪽 글자는 그대로)
+    const id = String(MEM_ID.value() ?? '').trim();
+    const pw = String(MEM_PASSWORD.value() ?? '').replace(/^[\r\n]+|[\r\n]+$/g, '');
     if (!id || !pw) throw new Error('MEM_ID / MEM_PASSWORD 비밀값이 없어요');
     // 모든 공간(1~3조·팀장님·이사님·무역사무)이 올려 둔 mem 이름
     const dir = await db.collection('memDirectory').get();
