@@ -117,6 +117,49 @@ export default function Calendar() {
     for (const list of m.values()) list.sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start));
     return m;
   }, [shown]);
+  // 주마다: 여러 날·종일 일정은 이어진 띠(줄 배정), 하루짜리 시간 일정은 칸 안 목록
+  const MAX_LANES = 3;
+  const weeks = useMemo(() => {
+    const out: {
+      days: string[];
+      lanes: number;
+      bars: { e: Ev; c0: number; c1: number; lane: number; l: boolean; r: boolean }[];
+      singles: Map<string, Ev[]>;
+      hiddenBars: Map<string, number>;
+    }[] = [];
+    const isBar = (e: Ev) => e.allDay || daysOf(e).length > 1;
+    for (let wi = 0; wi < 6; wi++) {
+      const days = cells.slice(wi * 7, wi * 7 + 7);
+      const spans = shown
+        .filter(isBar)
+        .map((e) => ({ e, ds: daysOf(e) }))
+        .filter((x) => x.ds.some((d) => days.includes(d)))
+        .map((x) => {
+          const inWeek = x.ds.filter((d) => days.includes(d));
+          return { e: x.e, c0: days.indexOf(inWeek[0]), c1: days.indexOf(inWeek[inWeek.length - 1]), l: inWeek[0] === x.ds[0], r: inWeek[inWeek.length - 1] === x.ds[x.ds.length - 1] };
+        })
+        // 긴 것 먼저, 일찍 시작하는 것 먼저 (구글처럼)
+        .sort((a, b) => a.c0 - b.c0 || b.c1 - b.c0 - (a.c1 - a.c0) || a.e.title.localeCompare(b.e.title));
+      const laneEnd: number[] = [];
+      const bars: (typeof spans[number] & { lane: number })[] = [];
+      const hiddenBars = new Map<string, number>();
+      for (const sp of spans) {
+        let lane = laneEnd.findIndex((end) => end < sp.c0);
+        if (lane < 0) lane = laneEnd.length;
+        if (lane >= MAX_LANES) {
+          for (let c = sp.c0; c <= sp.c1; c++) hiddenBars.set(days[c], (hiddenBars.get(days[c]) ?? 0) + 1);
+          continue;
+        }
+        laneEnd[lane] = sp.c1;
+        bars.push({ ...sp, lane });
+      }
+      const singles = new Map<string, Ev[]>();
+      for (const k of days) singles.set(k, (byDay.get(k) ?? []).filter((e) => !isBar(e)));
+      out.push({ days, lanes: Math.min(laneEnd.length, MAX_LANES), bars, singles, hiddenBars });
+    }
+    return out;
+  }, [cells, shown, byDay]);
+
   const toggle = (id: string) => {
     const next = hidden.includes(id) ? hidden.filter((x) => x !== id) : [...hidden, id];
     setHidden(next);
@@ -212,30 +255,72 @@ export default function Calendar() {
       ))}
 
       <div className="cal-grid card">
-        {DOW.map((d, i) => (
-          <div key={d} className={`cal-dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>
-            {d}
+        <div className="cal-head-row">
+          {DOW.map((d, i) => (
+            <div key={d} className={`cal-dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>
+              {d}
+            </div>
+          ))}
+        </div>
+        {weeks.map((w) => (
+          <div key={w.days[0]} className="cal-week" style={{ gridTemplateRows: `30px repeat(${w.lanes}, 22px) minmax(26px, 1fr)` }}>
+            {/* 날짜 칸 (배경) */}
+            {w.days.map((k, i) => {
+              const hol = holidayName(k);
+              const out = !k.startsWith(monthKey);
+              const count = (byDay.get(k) ?? []).length;
+              return (
+                <div
+                  key={k}
+                  className={`cal-day ${out ? 'out' : ''} ${k === todayKey ? 'today' : ''} ${i === 0 || hol ? 'sun' : i === 6 ? 'sat' : ''}`}
+                  style={{ gridColumn: i + 1, gridRow: '1 / -1' }}
+                  onClick={() => count && setDay(k)}
+                >
+                  <div className="cal-day-head">
+                    <span className="cal-num">{Number(k.slice(8))}</span>
+                    {hol && <span className="cal-hol">{hol}</span>}
+                  </div>
+                </div>
+              );
+            })}
+            {/* 여러 날·종일 일정: 이어진 띠 */}
+            {w.bars.map((bar) => {
+              const c = calById.get(bar.e.cal);
+              return (
+                <button
+                  key={bar.e.id + w.days[0]}
+                  className={`cal-bar ${bar.l ? 'l' : ''} ${bar.r ? 'r' : ''}`}
+                  style={{ gridColumn: `${bar.c0 + 1} / ${bar.c1 + 2}`, gridRow: bar.lane + 2, '--c': c?.color ?? '#8c2f3c' } as CSSProperties}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setOpen(bar.e);
+                  }}
+                  title={bar.e.title}
+                >
+                  {!bar.e.allDay && bar.l && <span className="cal-time">{seoulTime(bar.e.start)}</span>}
+                  <span className="cal-title">{bar.e.title}</span>
+                </button>
+              );
+            })}
+            {/* 하루짜리 시간 일정 + 넘친 개수 */}
+            {w.days.map((k, i) => {
+              const singles = w.singles.get(k) ?? [];
+              const hiddenBars = w.hiddenBars.get(k) ?? 0;
+              const room = Math.max(0, 4 - w.lanes);
+              const more = singles.length - room + hiddenBars;
+              return (
+                <div key={`s${k}`} className="cal-singles" style={{ gridColumn: i + 1, gridRow: w.lanes + 2 }}>
+                  {singles.slice(0, room).map((e) => chip(e, k))}
+                  {more > 0 && (
+                    <span className="cal-more" onClick={() => setDay(k)}>
+                      +{more}개
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
-        {cells.map((k, i) => {
-          const list = byDay.get(k) ?? [];
-          const hol = holidayName(k);
-          const out = !k.startsWith(monthKey);
-          return (
-            <div
-              key={k}
-              className={`cal-day ${out ? 'out' : ''} ${k === todayKey ? 'today' : ''} ${i % 7 === 0 || hol ? 'sun' : i % 7 === 6 ? 'sat' : ''}`}
-              onClick={() => list.length && setDay(k)}
-            >
-              <div className="cal-day-head">
-                <span className="cal-num">{Number(k.slice(8))}</span>
-                {hol && <span className="cal-hol">{hol}</span>}
-              </div>
-              {list.slice(0, 4).map((e) => chip(e, k))}
-              {list.length > 4 && <span className="cal-more">+{list.length - 4}개</span>}
-            </div>
-          );
-        })}
       </div>
 
       {/* 휴대폰: 목록으로 */}

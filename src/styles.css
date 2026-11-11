@@ -5714,3 +5714,87 @@ select.team-switch {
   padding: 0 0 0 2px;
   font-size: 12px;
 }
+
+/* 달력: 주마다 한 줄 — 날짜 칸(배경) 위에 여러 날 일정 띠가 이어져 보임 */
+.cal-grid {
+  display: block;
+}
+.cal-head-row,
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.cal-week {
+  min-height: 112px;
+  border-bottom: 1px solid var(--line-2);
+}
+.cal-week:last-child {
+  border-bottom: 0;
+}
+.cal-week .cal-day {
+  min-height: 0;
+  border-bottom: 0;
+  z-index: 0;
+}
+.cal-week .cal-day:nth-child(7) {
+  border-right: 0;
+}
+.cal-bar {
+  all: unset;
+  box-sizing: border-box;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 20px;
+  margin: 1px 0;
+  padding: 0 8px;
+  background: var(--c);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cal-bar.l {
+  margin-left: 4px;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+}
+.cal-bar.r {
+  margin-right: 4px;
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+.cal-bar:not(.l) .cal-title {
+  opacity: 0.85;
+}
+.cal-bar:hover {
+  filter: brightness(0.95);
+}
+.cal-bar .cal-time {
+  color: rgba(255, 255, 255, 0.85);
+}
+.cal-singles {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px 6px 6px;
+  pointer-events: none;
+}
+.cal-singles > * {
+  pointer-events: auto;
+}
+/* 달력 버튼: 인사말 줄 오른쪽 (이번 주 카드 바로 위) */
+.hero-greet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 14px;
+}
+.hero-greet-row .hero-greet {
+  margin: 0;
+}
