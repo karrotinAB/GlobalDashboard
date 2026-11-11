@@ -5649,3 +5649,29 @@ select.team-switch {
     gap: 4px;
   }
 }
+/* 홈 제목 줄 오른쪽 '달력' 버튼 */
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hero-cal {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+.hero-cal:hover {
+  box-shadow: var(--shadow-h);
+}

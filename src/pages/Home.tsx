@@ -610,7 +610,12 @@ export function Hero({ title }: { title: string }) {
     <>
     {/* 제목 + 오늘 / 이번주 구역 */}
     <header className="hero">
-      <h1>{title}</h1>
+      <div className="hero-top">
+        <h1>{title}</h1>
+        <a href="#/calendar" className="hero-cal" title="부서 구글 캘린더 일정 보기">
+          📅 달력
+        </a>
+      </div>
       <p className="hero-greet">{greeting(seoul.h, seoul.mi)}</p>
       <div className="zones">
         <div className="zone zone-today">

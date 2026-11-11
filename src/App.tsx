@@ -34,9 +34,10 @@ const PAGES = [
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
 const GOP_URL = 'https://karrotinab.github.io/pog-global/';
-const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims', 'calendar'];
-const TRADE_TABS: PageKey[] = ['thome', 'twork', 'calendar'];
-const isTradePage = (p: PageKey) => p !== 'calendar' && TRADE_TABS.includes(p);
+// 달력은 탭이 아니라 홈 제목 줄 오른쪽 버튼으로 (#/calendar)
+const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
+const TRADE_TABS: PageKey[] = ['thome', 'twork'];
+const isTradePage = (p: PageKey) => TRADE_TABS.includes(p);
 
 function readHash(): PageKey {
   const h = window.location.hash.replace('#/', '').replace('#', '').split('?')[0];
