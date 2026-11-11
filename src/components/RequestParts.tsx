@@ -251,6 +251,7 @@ export function RequestDetail({
   trade,
   side,
   canEditContent,
+  onDelete,
   onSave,
   onClose,
 }: {
@@ -260,6 +261,7 @@ export function RequestDetail({
   side: 'team' | 'trade';
   canEditContent: boolean; // 제목·내용 고치기 / 취소 (요청자·관리자·무역사무)
   onSave: (patch: Partial<TradeRequest>) => void;
+  onDelete?: () => void; // 요청한 사람(또는 관리자)만: 요청을 아예 지움
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -379,6 +381,19 @@ export function RequestDetail({
               </button>
             )}
             {canEditContent && r.status === 'cancelled' && <button onClick={() => onSave({ status: 'requested' })}>취소 되돌리기</button>}
+            {onDelete && (
+              <button
+                className="danger rq-delete"
+                title="요청을 아예 지워요 (기록도 같이 사라져요). 기록을 남기려면 '요청 취소'를 써요."
+                onClick={() => {
+                  if (!confirm(`"${r.title}" 요청을 지울까요?\n지우면 기록과 사진도 같이 사라지고 되돌릴 수 없어요.\n(기록을 남기려면 '요청 취소'를 눌러 주세요)`)) return;
+                  for (const f of r.files ?? []) void deleteRequestFile(f);
+                  onDelete();
+                }}
+              >
+                🗑 요청 삭제
+              </button>
+            )}
           </div>
         </>
       )}

@@ -90,3 +90,9 @@ Vite + React + TypeScript, Firebase (Auth + Firestore)
    — 자세한 설명은 `functions/mem.js` 맨 위
 2. deploy.bat 을 실행하면 처음 한 번 `MEM_ID`, `MEM_PASSWORD` 를 물어봐요 (입력한 값은 Firebase 비밀값 저장소에만 저장)
 3. 설정 > mem 근태 자동 가져오기 > **지금 가져오기** 로 시험
+
+## ERP 새 주문 자동 등록
+
+설정 > 업체 관리의 **매장코드(4자리)** 를 넣어 두면, 금액 갱신(평일 업무시간 30분마다 / ↻ 금액 새로고침) 때
+`getexorderdata` 를 날짜만으로(최근 3일) 불러서 STORE_CODE 가 맞는 업체 주문 관리에 '새 주문'을 만들어요.
+같은 EXP_NO 나 같은 매장코드+주문일자 주문이 있으면 안 만들고, 한 번 만든 건 지워도 다시 안 만들어요 (`apiImports`).

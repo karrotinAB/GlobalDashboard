@@ -69,10 +69,10 @@ service cloud.firestore {
       allow write: if isAny() && email == myEmail();
     }
 
-    // 무역사무 요청 (모든 조 + 무역사무): 지우기는 관리자만 — 보통은 '취소'로 기록을 남김
+    // 무역사무 요청 (모든 조 + 무역사무): 지우기는 관리자와 그 요청을 한 사람만 — 보통은 '취소'로 기록을 남김
     match /requests/{id} {
       allow read, create, update: if isAny();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isAny() && resource.data.get('requesterEmail', '') == myEmail());
     }
 
     // 무역사무 담당자 카드: 모두 읽고, 무역사무·관리자가 추가/수정

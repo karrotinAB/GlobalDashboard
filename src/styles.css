@@ -5176,3 +5176,28 @@ select.team-switch {
 .cp-add {
   margin-bottom: 4px;
 }
+.settings-table input.store-codes {
+  width: 120px;
+  font-variant-numeric: tabular-nums;
+}
+/* ERP 에서 자동 등록된 '새 주문' */
+.order-table .name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.order-table .name-wrap > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+.auto-tag {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: #c0587a;
+  border-radius: 4px;
+  padding: 1px 5px;
+}

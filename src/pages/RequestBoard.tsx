@@ -4,6 +4,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
 import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest } from '../lib/trade';
+import { useStore } from '../data/store';
 import { NewRequest, PriorityTag, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
 import { today } from '../lib/date';
@@ -19,6 +20,7 @@ function readParam(k: string) {
 
 export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const { data, save, access, team, trade, me, update } = useTrade();
+  const { remove } = useStore();
   const todayIso = today();
   const [tab, setTab] = useState<Tab>('open');
   const [assignee, setAssignee] = useState<string | undefined>(() => readParam('who')); // 처리자 (무역사무). '-' = 미정
@@ -239,6 +241,14 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           trade={trade}
           side={side}
           canEditContent // 2조·무역사무 모두 고치기·취소 가능 (기록이 남음)
+          onDelete={
+            access.role === 'admin' || access.role === null || (!!access.email && detail.requesterEmail?.toLowerCase() === access.email)
+              ? () => {
+                  remove('requests', detail.id);
+                  setOpenId(null);
+                }
+              : undefined
+          }
           onSave={(p) => update(detail, p)}
           onClose={() => setOpenId(null)}
         />

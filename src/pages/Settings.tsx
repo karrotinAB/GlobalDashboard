@@ -166,13 +166,17 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
 
       <section className="card">
         <h2>업체 관리</h2>
-        <p className="muted small">타임존을 넣으면 홈 화면에 그 나라 시계가 나와요.</p>
+        <p className="muted small">
+          타임존을 넣으면 홈 화면에 그 나라 시계가 나와요. <b>매장코드</b>(ERP 매장코드 앞 4자리, 여러 개면 쉼표)를 넣으면 ERP 에 새 주문이 들어올 때 그
+          업체 주문 관리에 '새 주문'으로 자동 등록돼요.
+        </p>
         <div className="table-scroll">
           <table className="settings-table">
             <thead>
               <tr>
                 <th>업체명</th>
                 <th>나라 (시계 이름)</th>
+                <th>매장코드 (4자리)</th>
                 <th>타임존</th>
                 <th>색</th>
                 <th>순서</th>
@@ -279,6 +283,12 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
 function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) => void; onDelete?: () => void }) {
   const [name, setName] = useState(c.name);
   const [country, setCountry] = useState(c.country);
+  const [codes, setCodes] = useState((c.storeCodes ?? []).join(', '));
+  const saveCodes = () => {
+    const list = [...new Set(codes.split(/[,\s]+/).map((x) => x.trim()).filter((x) => /^\d{4}$/.test(x)))];
+    setCodes(list.join(', '));
+    if (JSON.stringify(list) !== JSON.stringify(c.storeCodes ?? [])) onSave({ ...c, storeCodes: list.length ? list : undefined });
+  };
   return (
     <tr>
       <td>
@@ -286,6 +296,18 @@ function CompanyRow({ c, onSave, onDelete }: { c: Company; onSave: (c: Company) 
       </td>
       <td>
         <input value={country} onChange={(e) => setCountry(e.target.value)} onBlur={() => country !== c.country && onSave({ ...c, country })} />
+      </td>
+      <td>
+        <input
+          className="store-codes"
+          value={codes}
+          placeholder="예: 8212"
+          inputMode="numeric"
+          onChange={(e) => setCodes(e.target.value)}
+          onBlur={saveCodes}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          title="ERP 매장코드 앞 4자리 (STORE_CODE). 여러 개면 쉼표로"
+        />
       </td>
       <td>
         <select value={c.timezone ?? ''} onChange={(e) => onSave({ ...c, timezone: e.target.value || undefined })}>

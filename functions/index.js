@@ -12,6 +12,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { diff, inspect, needsSync, syncOne } from './sync.js';
 import { fetchMemRows, toRecords } from './mem.js';
+import { importNewOrders } from './importOrders.js';
 import { defineSecret } from 'firebase-functions/params';
 
 initializeApp();
@@ -44,12 +45,15 @@ async function allSpaces() {
 async function runSync({ companyId, team } = {}) {
   const key = await apiKey();
   const teams = team && (TEAMS.includes(team) || isPersonal(team)) ? [team] : await allSpaces();
-  let all = { checked: 0, updated: 0, errors: [] };
+  // ① 새 주문 자동 등록 (매장코드가 있는 업체만) → ② 금액 갱신 (새로 만든 주문도 같이)
+  const imp = await importNewOrders(db, colOf, teams, key).catch((e) => ({ created: 0, errors: [e.message] }));
+  if (imp.created || imp.errors?.length) logger.info('order import', imp);
+  let all = { checked: 0, updated: 0, errors: [...(imp.errors ?? [])].slice(0, 5) };
   for (const t of teams) {
     const r = await runTeam(key, t, companyId);
     all = { checked: all.checked + r.checked, updated: all.updated + r.updated, errors: [...all.errors, ...r.errors].slice(0, 10) };
   }
-  return { ...all, at: new Date().toISOString() };
+  return { ...all, imported: imp.created ?? 0, at: new Date().toISOString() };
 }
 
 async function runTeam(key, team, companyId) {

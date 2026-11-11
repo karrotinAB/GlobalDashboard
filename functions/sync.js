@@ -13,7 +13,7 @@ const num = (v) => (v === null || v === undefined || v === '' ? undefined : Numb
 const r2 = (n) => (n === undefined ? undefined : Math.round(n * 100) / 100); // 외화: 소수 둘째 자리
 const r0 = (n) => (n === undefined ? undefined : Math.round(n)); // 원화: 정수
 
-async function call(path, params, apiKey, fetchImpl) {
+export async function call(path, params, apiKey, fetchImpl = fetch) {
   const url = `${BASE}/${path}?${new URLSearchParams(params)}`;
   const res = await fetchImpl(url, { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } });
   if (!res.ok) throw new Error(`${path} ${res.status}`);

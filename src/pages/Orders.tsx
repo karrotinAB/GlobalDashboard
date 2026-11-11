@@ -540,7 +540,14 @@ export default function Orders() {
           <input type="checkbox" className="sel" checked={sel} onChange={() => toggleSel(o.id)} title="선택 (묶기)" />
         </td>
         <td className="c-name">
-          <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+          <div className="name-wrap">
+            {o.autoImported && o.name === '새 주문' && (
+              <span className="auto-tag" title={`ERP 에서 자동으로 등록된 주문이에요${o.expNo ? ` (EXP_NO ${o.expNo})` : ''}. 이름을 바꾸면 표시가 사라져요.`}>
+                NEW
+              </span>
+            )}
+            <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+          </div>
         </td>
         {!sheet && (
           <td className="c-co">
@@ -603,8 +610,9 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
     setBusy(true);
     setMsg('');
     try {
-      const r = (await httpsCallable(functions, 'syncOrderAmountsNow')({ companyId, team: viewTeam })).data as { checked: number; updated: number; errors: string[] };
-      setMsg(r.errors?.length ? `${r.updated}건 갱신 · 오류 ${r.errors.length}건: ${r.errors[0]}` : `${r.checked}건 확인 · ${r.updated}건 갱신`);
+      const r = (await httpsCallable(functions, 'syncOrderAmountsNow')({ companyId, team: viewTeam })).data as { checked: number; updated: number; errors: string[]; imported?: number };
+      const neu = r.imported ? ` · 새 주문 ${r.imported}건 등록` : '';
+      setMsg(r.errors?.length ? `${r.updated}건 갱신${neu} · 오류 ${r.errors.length}건: ${r.errors[0]}` : `${r.checked}건 확인 · ${r.updated}건 갱신${neu}`);
     } catch (e) {
       const code = (e as { code?: string }).code ?? '';
       setMsg(code.includes('not-found') || code.includes('internal') ? `금액 불러오기 실패 (${(e as Error).message})` : `금액 불러오기 실패 (${code})`);

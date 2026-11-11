@@ -22,6 +22,7 @@ export interface Company {
   name: string; // 예: 몽골 (SJNET)
   country: string; // 시계 라벨용 예: 몽골
   timezone?: string; // IANA 타임존 예: Asia/Ulaanbaatar
+  storeCodes?: string[]; // ERP 매장코드 앞 4자리 (STORE_CODE). 새 주문이 들어오면 이 업체 주문 관리에 자동 등록
   color?: string;
   order: number;
   memo?: string; // 업체 메모 (주간 할일 화면 업체 이름 옆, 첫 줄만 보임)
@@ -63,6 +64,7 @@ export interface Order {
   amountKRW?: number; // 원화 총 금액
   amountForeign?: number; // 외화 총 금액 ($)
   // ↓ ERP API 자동 채우기 (서버 함수 functions/ 가 씀)
+  autoImported?: boolean; // ERP 에서 새 주문으로 자동 등록됨
   amountSource?: 'manual' | 'api-order' | 'api-outbound'; // 금액을 누가 채웠는지 (manual 이면 API 가 안 건드림)
   expNo?: string; // ERP 수출 주문번호 EXP_NO
   fxCode?: string; // 외화 통화 (USD 등)
