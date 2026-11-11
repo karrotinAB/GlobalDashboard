@@ -21,8 +21,6 @@ interface Ev {
   allDay: boolean;
   location?: string;
   desc?: string;
-  byName?: string; // 작성자 이름 (구글이 주는 경우만)
-  byEmail?: string; // 작성자 메일
 }
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -363,18 +361,7 @@ export default function Calendar() {
                 : `${seoulDay(open.start).replace(/-/g, '.')} ${seoulTime(open.start)} ~ ${seoulDay(open.end) === seoulDay(open.start) ? '' : `${seoulDay(open.end).replace(/-/g, '.')} `}${seoulTime(open.end)}`}
             </p>
             {open.location && <p className="cal-d-row">📍 {open.location}</p>}
-            {/* 3. 누가 쓴 일정인지 */}
-            <p className="cal-d-row">
-              ✍️{' '}
-              {open.byName || open.byEmail ? (
-                <>
-                  {open.byName && <b>{open.byName}</b>} {open.byEmail && <span className="muted">{open.byEmail}</span>}
-                </>
-              ) : (
-                <span className="muted">작성자 정보 없음 (구글이 이 일정의 작성자를 알려주지 않았어요)</span>
-              )}
-            </p>
-            {/* 4. 어느 달력인지 */}
+            {/* 3. 어느 달력인지 */}
             <p className="cal-d-row">
               <span className="cal-leg-dot" style={{ '--c': calById.get(open.cal)?.color } as CSSProperties} /> {calById.get(open.cal)?.name}
               {calById.get(open.cal)?.mine && <span className="cal-mine">나만</span>}
