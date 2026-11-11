@@ -83,6 +83,22 @@ export default function Orders() {
   }, []);
   useEffect(() => () => toolbarRO.current?.disconnect(), []);
   const [missingStep, setMissingStep] = useState<OrderStepKey | null>(null);
+  // 주간 할일에서 ↗ 로 오면 #/orders?c=업체&o=주문 → 그 주문으로 내려가서 반짝
+  const focusId = useMemo(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('o'), []);
+  const focusOrder = focusId ? data.orders.find((x) => x.id === focusId) : undefined;
+  useEffect(() => {
+    if (!focusOrder) return;
+    if (isOrderDone(focusOrder)) setTab('all');
+    const t = setTimeout(() => {
+      const el = document.querySelector(`tr[data-oid="${focusOrder.id}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 2600);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusOrder?.id]);
   const [q, setQ] = useState('');
 
   // 기간: 주문일자 기준 연도 / 연도+월
@@ -507,6 +523,7 @@ export default function Orders() {
     );
     return (
       <tr
+        data-oid={o.id}
         className={`${done ? 'is-done' : ''} ${sel ? 'is-selected' : ''} ${bundle ? 'in-bundle' : ''} ${dragId === o.id ? 'row-dragging' : ''} ${
           over?.id === o.id ? (over.after ? 'drop-after' : 'drop-before') : ''
         }`}
@@ -550,7 +567,7 @@ export default function Orders() {
                 NEW
               </span>
             )}
-            <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+            <EditableText value={o.name} oneLine expand onSave={(v) => v && patch({ name: v })} />
           </div>
         </td>
         {!sheet && (

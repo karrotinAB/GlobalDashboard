@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
-import type { Company, Member, Task } from '../types';
-import { characterSrc, charOf, CompanyDot, Empty, Ring } from '../components/ui';
+import { isOrderDone, type Company, type Member, type Order, type Task } from '../types';
+import { characterSrc, charOf, CompanyDot, Empty, Modal, Ring } from '../components/ui';
 import { useAccess } from '../components/AuthGate';
 import { AddCompany, AddTaskRow, AssigneeCell, CompanyMemo, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
 
@@ -135,6 +135,7 @@ export default function Todos() {
     });
   }, [weekRows, memberFilter, companyFilter, status, q, companyById]);
 
+  const [linking, setLinking] = useState<Task | null>(null); // 주문 연결하기 창
   const groups = useMemo((): Group[] => {
     const sortRows = (rows: typeof filtered) => [...rows].sort((a, b) => a.task.order - b.task.order);
     if (groupBy === 'company') {
@@ -145,6 +146,9 @@ export default function Todos() {
         company: c,
         rows: sortRows(filtered.filter((r) => r.task.companyId === c.id)),
       }));
+      // 남은 할일이 많은 업체부터 (같으면 정해 둔 순서), 남은 게 없는 업체는 뒤로
+      const left = (g: Group) => g.rows.filter((r) => !r.doneInWeek).length;
+      out.sort((a, b) => left(b) - left(a));
       const etc = filtered.filter((r) => !r.task.companyId || !companyById.has(r.task.companyId));
       if (etc.length) out.push({ key: '__etc', title: '기타 / 업체 없음', rows: sortRows(etc) });
       // 필터가 걸려 있으면 빈 업체는 숨김
@@ -430,6 +434,7 @@ export default function Todos() {
                     const ds = doneInWeek ? 'none' : dueState(task, todayIso);
                     const company = companyById.get(task.companyId ?? '');
                     const patch = (p: Partial<Task>) => save('tasks', { ...task, ...p });
+                    const linked = task.orderId ? data.orders.find((o) => o.id === task.orderId) : undefined;
                     return (
                       <tr
                         key={task.id}
@@ -485,7 +490,7 @@ export default function Todos() {
                           </td>
                         )}
                         <td className="c-title">
-                          <EditableText value={task.title} oneLine disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
+                          <EditableText value={task.title} oneLine expand disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
                         </td>
                         <td className="c-who">
                           <AssigneeCell ids={task.assigneeIds} members={members} memberById={memberById} disabled={readOnly} onSave={(ids) => patch({ assigneeIds: ids })} />
@@ -497,13 +502,28 @@ export default function Todos() {
                           <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />
                         </td>
                         <td className="c-note">
-                          <EditableText value={task.note ?? ''} oneLine expand placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
+                          <div className="note-wrap">
+                            <EditableText value={task.note ?? ''} oneLine expand placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
+                            {linked && (
+                              <a
+                                className="order-link"
+                                href={`#/orders?c=${linked.companyId ?? ''}&o=${linked.id}`}
+                                title={`연결된 주문: ${linked.name}${linked.orderDate ? ` (${linked.orderDate.replace(/-/g, '.')})` : ''} — 눌러서 주문 관리로`}
+                              >
+                                ↗
+                              </a>
+                            )}
+                          </div>
                         </td>
                         <td className="c-more">
                           {!readOnly && (
                             <RowMenu
                               important={!!task.important}
                               onImportant={() => patch({ important: !task.important })}
+                              extra={[
+                                { label: linked ? '📦 연결한 주문 바꾸기' : '📦 주문 연결하기', onClick: () => setLinking(task) },
+                                ...(linked ? [{ label: '연결 끊기', onClick: () => patch({ orderId: undefined }) }] : []),
+                              ]}
                               onDelete={() => {
                                 if (confirm(`"${task.title}" 할일을 삭제할까요?\n(완료 체크하면 그 주 기록에 남고, 삭제하면 기록에서도 사라져요)`)) remove('tasks', task.id);
                               }}
@@ -539,7 +559,77 @@ export default function Todos() {
         {groupBy === 'company' && !readOnly && !companyFilter && <AddCompany companies={companies} onAdd={(c) => save('companies', c)} />}
       </div>
 
+      {linking && (
+        <OrderLinkPicker
+          task={linking}
+          orders={data.orders}
+          companyName={(id) => companyById.get(id ?? '')?.name}
+          onPick={(orderId) => {
+            save('tasks', { ...linking, orderId });
+            setLinking(null);
+          }}
+          onClose={() => setLinking(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** 할일에 주문 연결: 같은 업체 주문 먼저 (진행중 → 최근 순), 검색, 다른 업체 주문도 */
+function OrderLinkPicker({
+  task,
+  orders,
+  companyName,
+  onPick,
+  onClose,
+}: {
+  task: Task;
+  orders: Order[];
+  companyName: (id?: string | null) => string | undefined;
+  onPick: (orderId: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState('');
+  const [all, setAll] = useState(!task.companyId);
+  const query = q.trim().toLowerCase();
+  const list = orders
+    .filter((o) => all || o.companyId === task.companyId)
+    .filter((o) => !query || `${o.name} ${o.storeCode ?? ''} ${o.bundle?.name ?? ''} ${companyName(o.companyId) ?? ''}`.toLowerCase().includes(query))
+    .sort((a, b) => Number(isOrderDone(a)) - Number(isOrderDone(b)) || (b.orderDate ?? b.createdAt).localeCompare(a.orderDate ?? a.createdAt))
+    .slice(0, 100);
+  return (
+    <Modal title="주문 연결하기" onClose={onClose}>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        「{task.title}」에 연결할 주문을 골라 주세요. 연결하면 비고 끝 ↗ 를 눌러 그 주문으로 바로 갈 수 있어요.
+      </p>
+      <div className="link-tools">
+        <input className="search" autoFocus placeholder="🔍 주문 이름 · 매장코드 · 묶음" value={q} onChange={(e) => setQ(e.target.value)} />
+        {task.companyId && (
+          <label className="check-line small">
+            <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> 다른 업체 주문도
+          </label>
+        )}
+      </div>
+      <ul className="link-list">
+        {list.length === 0 && <li className="muted small">맞는 주문이 없어요.</li>}
+        {list.map((o) => (
+          <li key={o.id}>
+            <button className={o.id === task.orderId ? 'on' : ''} onClick={() => onPick(o.id)}>
+              <b>{o.name}</b>
+              {o.bundle && (
+                <span className="link-bundle" style={{ '--c': o.bundle.color } as CSSProperties}>
+                  {o.bundle.name || '묶음'}
+                </span>
+              )}
+              <span className="muted small">
+                {[all ? companyName(o.companyId) : '', o.orderDate?.replace(/-/g, '.'), o.storeCode].filter(Boolean).join(' · ')}
+              </span>
+              <span className={`tag small ${isOrderDone(o) ? 'green' : 'gray'}`}>{isOrderDone(o) ? '완료' : '진행중'}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Modal>
   );
 }
 

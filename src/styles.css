@@ -5807,3 +5807,95 @@ select.team-switch {
   border-radius: 4px;
   padding: 0 4px;
 }
+
+/* 할일 ↔ 주문 연결 */
+.note-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.note-wrap > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.order-link {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: #f4e7e3;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.order-link:hover {
+  background: var(--primary);
+  color: #fff;
+}
+.link-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.link-tools .search {
+  flex: 1;
+}
+.link-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 55vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.link-list button {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fbf8f7;
+  cursor: pointer;
+  font-size: 13px;
+}
+.link-list button:hover {
+  background: #f5eeeb;
+}
+.link-list button.on {
+  outline: 2px solid var(--primary);
+}
+.link-list .tag {
+  margin-left: auto;
+}
+.link-bundle {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--c, #999);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+/* 주문 관리: ↗ 로 온 주문 반짝 */
+.order-table tr.flash td {
+  animation: flash-row 2.6s ease-out;
+}
+@keyframes flash-row {
+  0%,
+  40% {
+    background: #fff1b8;
+  }
+  100% {
+    background: transparent;
+  }
+}

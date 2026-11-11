@@ -43,6 +43,7 @@ export interface Task {
   note?: string;
   important?: boolean;
   num?: string; // 직접 정한 번호 (예: 1-1). 없으면 업체 안에서 자동 번호
+  orderId?: string; // 연결한 주문 (비고 끝 ↗ 로 주문 관리의 그 주문으로)
   order: number;
   createdAt: string; // YYYY-MM-DD
 }

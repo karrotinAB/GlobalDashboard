@@ -564,12 +564,23 @@ export function MoreMenu({ items, title }: { items: MenuItem[]; title?: string }
 }
 
 /** 할일 줄 메뉴 (중요 표시 · 삭제) */
-export function RowMenu({ important, onImportant, onDelete }: { important: boolean; onImportant: () => void; onDelete: () => void }) {
+export function RowMenu({
+  important,
+  onImportant,
+  onDelete,
+  extra = [],
+}: {
+  important: boolean;
+  onImportant: () => void;
+  onDelete: () => void;
+  extra?: MenuItem[];
+}) {
   return (
     <MoreMenu
-      title="중요 표시 · 삭제"
+      title="중요 표시 · 주문 연결 · 삭제"
       items={[
         { label: important ? '☆ 중요 표시 빼기' : '★ 중요 표시', onClick: onImportant },
+        ...extra,
         { label: '🗑 삭제', onClick: onDelete, danger: true },
       ]}
     />
