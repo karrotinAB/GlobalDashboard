@@ -1,7 +1,10 @@
 // 조 현황 (팀장님·이사님·관리자): 1~3조의 이번 주 할일 · 주문 · 클레임을 한눈에 (읽기 전용)
 // 조 대시보드에 '들어가는' 게 아니라, 모든 조 정보를 한 화면에서 확인하는 용도
 import { useMemo, useState, type CSSProperties } from 'react';
-import { useSpaceData } from '../data/store';
+import { useSpaceData, useStore } from '../data/store';
+import { isOpen, sortRequests, teamOfRequest, workload } from '../lib/trade';
+import { PriorityTag, StatusTag } from '../components/RequestParts';
+import type { TradeRequest } from '../types';
 import { TEAMS, teamLabel } from '../lib/team';
 import { tasksForWeek, dueState } from '../lib/tasks';
 import { today, weekStart, shortDate } from '../lib/date';
@@ -10,7 +13,7 @@ import { fmtFX, fmtKRW } from '../components/OrderCells';
 import { Ring } from '../components/ui';
 
 const COLS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'claims'];
-type View = 'todos' | 'orders' | 'claims';
+type View = 'todos' | 'orders' | 'claims' | 'trade';
 
 interface TeamData {
   team: string;
@@ -42,6 +45,9 @@ export default function Overview() {
     error: r.error,
   }));
   const [view, setView] = useState<View>('todos');
+  // 무역사무: 요청·담당자는 모두가 같이 쓰는 데이터라 내 저장소에 이미 있음
+  const { data } = useStore();
+  const tradePeople = useMemo(() => [...data.tradeMembers].sort((a, b) => a.order - b.order), [data.tradeMembers]);
   const [only, setOnly] = useState(''); // '' = 모든 조
   const [q, setQ] = useState('');
   const todayIso = today();
@@ -60,6 +66,7 @@ export default function Overview() {
         {teams.map((t) => (
           <TeamCard key={t.team} t={t} monday={monday} todayIso={todayIso} on={only === t.team} onClick={() => setOnly((v) => (v === t.team ? '' : t.team))} />
         ))}
+        <TradeCard requests={data.requests} people={tradePeople} todayIso={todayIso} on={view === 'trade'} onClick={() => setView('trade')} />
       </div>
 
       <div className="toolbar ov-toolbar">
@@ -69,6 +76,7 @@ export default function Overview() {
               ['todos', '📝 이번 주 할일'],
               ['orders', '📦 주문'],
               ['claims', '🧾 클레임'],
+              ['trade', '📨 무역사무'],
             ] as const
           ).map(([k, l]) => (
             <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>
@@ -96,6 +104,7 @@ export default function Overview() {
       {view === 'todos' && <TodosView teams={shown} monday={monday} todayIso={todayIso} q={q} />}
       {view === 'orders' && <OrdersView teams={shown} q={q} />}
       {view === 'claims' && <ClaimsView teams={shown} q={q} />}
+      {view === 'trade' && <TradeView requests={data.requests} people={tradePeople} only={only} q={q} todayIso={todayIso} />}
     </div>
   );
 }
@@ -381,6 +390,121 @@ function ClaimsView({ teams, q }: { teams: TeamData[]; q: string }) {
                     <span className={`tag ${k.refunded ? 'green' : 'gray'} small`}>환급 {k.refunded ? '✓' : '전'}</span>
                   </td>
                   <td className="ov-note">{k.note ?? ''}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** 무역사무 요약 카드: 남은 요청 · 요청됨/진행중 · 초긴급 · 마감 지남 · 처리자 미정 · 이번 달 완료 */
+function TradeCard({ requests, people, todayIso, on, onClick }: { requests: TradeRequest[]; people: Member[]; todayIso: string; on: boolean; onClick: () => void }) {
+  const open = requests.filter(isOpen);
+  const load = workload(requests, people, todayIso);
+  const doneMonth = load.rows.reduce((a, r) => a + r.doneThisMonth, 0);
+  const hot = open.filter((r) => r.priority === '초긴급').length;
+  const overdue = open.filter((r) => r.dueDate && r.dueDate < todayIso).length;
+  return (
+    <button className={`ov-card ov-trade ${on ? 'on' : ''}`} onClick={onClick} title="눌러서 무역사무 요청 보기">
+      <div className="ov-card-head">
+        <b>무역사무</b>
+        <span className="ov-people">
+          {people.map((m) => (
+            <span key={m.id} className="ov-person" style={{ '--c': m.color } as CSSProperties}>
+              {m.name} {load.rows.find((r) => r.id === m.id)?.open ?? 0}
+            </span>
+          ))}
+        </span>
+      </div>
+      <div className="ov-card-body">
+        <Ring value={doneMonth} total={doneMonth + open.length} size={58} stroke={6} color="#6b4d8a" label={open.length} sub="남음" />
+        <div className="ov-stats">
+          <span>
+            남은 요청 <b>{open.length}</b>건 <span className="muted">· 요청됨 {open.filter((r) => r.status === 'requested').length} · 진행중 {open.filter((r) => r.status === 'progress').length}</span>
+          </span>
+          <span className="ov-flags">
+            <span className={`flag ${hot ? 'hot' : ''}`}>초긴급 {hot}</span>
+            <span className={`flag ${overdue ? 'warn' : ''}`}>마감 지남 {overdue}</span>
+          </span>
+          <span>
+            처리자 미정 <b>{load.unassigned}</b>건
+          </span>
+          <span>
+            이번 달 완료 <b>{doneMonth}</b>건
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** 무역사무 요청: 남은 요청 (조 필터·검색), 급한 순 */
+function TradeView({ requests, people, only, q, todayIso }: { requests: TradeRequest[]; people: Member[]; only: string; q: string; todayIso: string }) {
+  const [tab, setTab] = useState<'open' | 'done'>('open');
+  const query = q.trim().toLowerCase();
+  const month = todayIso.slice(0, 7);
+  const rows = sortRequests(
+    requests
+      .filter((r) => (tab === 'open' ? isOpen(r) : r.status === 'done' && (r.doneAt ?? '').startsWith(month)))
+      .filter((r) => !only || teamOfRequest(r) === only)
+      .filter((r) => !query || `${r.title} ${r.workType ?? ''} ${r.requesterName ?? ''}`.toLowerCase().includes(query)),
+  );
+  return (
+    <>
+      <div className="seg ov-sub">
+        <button className={tab === 'open' ? 'on' : ''} onClick={() => setTab('open')}>
+          남은 요청
+        </button>
+        <button className={tab === 'done' ? 'on' : ''} onClick={() => setTab('done')}>
+          이번 달 완료
+        </button>
+      </div>
+      <div className="card table-card">
+        <table className="ov-table">
+          <thead>
+            <tr>
+              <th>요청 쪽</th>
+              <th>우선순위</th>
+              <th>업무 내용</th>
+              <th>작업유형</th>
+              <th>요청자</th>
+              <th>마감일</th>
+              <th>처리 예상일</th>
+              <th>처리자</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={9} className="empty-box">
+                  {tab === 'open' ? '남은 요청이 없어요.' : '이번 달에 끝난 요청이 없어요.'}
+                </td>
+              </tr>
+            )}
+            {rows.map((r) => {
+              const as = people.find((m) => m.id === r.assigneeId);
+              const overdue = isOpen(r) && r.dueDate && r.dueDate < todayIso;
+              return (
+                <tr key={r.id}>
+                  <td className="nowrap">{r.teamName ?? `${teamOfRequest(r)}조`}</td>
+                  <td>
+                    <PriorityTag p={r.priority} />
+                  </td>
+                  <td>
+                    <b>{r.title}</b>
+                  </td>
+                  <td className="nowrap">{r.workType ?? ''}</td>
+                  <td className="nowrap">{r.requesterName ?? r.requesterEmail?.split('@')[0] ?? '무역사무'}</td>
+                  <td className={`nowrap ${overdue ? 'ov-overdue' : ''}`}>{dot(r.dueDate)}</td>
+                  <td className="nowrap">{dot(r.eta)}</td>
+                  <td className="nowrap">{as?.name ?? <span className="muted">미정</span>}</td>
+                  <td>
+                    <StatusTag s={r.status} />
+                  </td>
                 </tr>
               );
             })}
