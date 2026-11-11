@@ -71,6 +71,18 @@ const BY_TZ: Record<string, string> = {
   'Asia/Tashkent': 'UZ',
   'Asia/Bishkek': 'KG',
   'Asia/Dubai': 'AE',
+  'America/New_York': 'US',
+  'America/Los_Angeles': 'US',
+  'Pacific/Honolulu': 'US',
+  'America/Toronto': 'CA',
+  'America/Vancouver': 'CA',
+  'America/Mexico_City': 'MX',
+  'America/Bogota': 'CO',
+  'America/Lima': 'PE',
+  'America/Santiago': 'CL',
+  'America/Sao_Paulo': 'BR',
+  'Australia/Sydney': 'AU',
+  'Pacific/Auckland': 'NZ',
 };
 
 /** 업체의 '나라' 칸, 없으면 시간대 → 나라 코드 (모르면 undefined) */
@@ -179,8 +191,18 @@ export const COUNTRY_TZ: Record<string, string> = {
   ...Object.fromEntries(Object.entries(BY_TZ).reverse().map(([tz, code]) => [code, tz])),
   ...EXTRA_TZ,
 };
-/** 시계로 추가할 수 있는 나라 (한글 이름순) */
-export const COUNTRY_OPTIONS = Object.entries(COUNTRY_NAMES)
-  .filter(([code]) => COUNTRY_TZ[code])
-  .map(([code, name]) => ({ code, name, tz: COUNTRY_TZ[code] }))
+/** 한 나라에 시간대가 여럿인 곳: 도시로 따로 (공휴일은 그 나라) */
+const CITY_OPTIONS = [
+  { code: 'US', name: '미국 서부 (LA)', tz: 'America/Los_Angeles' },
+  { code: 'US', name: '하와이', tz: 'Pacific/Honolulu' },
+  { code: 'CA', name: '캐나다 서부 (밴쿠버)', tz: 'America/Vancouver' },
+];
+/** 시계로 추가할 수 있는 나라·도시 (한글 이름순). key 로 구분 */
+export const COUNTRY_OPTIONS = [
+  ...Object.entries(COUNTRY_NAMES)
+    .filter(([code]) => COUNTRY_TZ[code])
+    .map(([code, name]) => ({ code, name, tz: COUNTRY_TZ[code] })),
+  ...CITY_OPTIONS,
+]
+  .map((o) => ({ ...o, key: `${o.code}|${o.tz}` }))
   .sort((a, b) => a.name.localeCompare(b.name));

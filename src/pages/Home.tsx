@@ -682,8 +682,8 @@ function ClockPicker({
   const [country, setCountry] = useState('');
   // 나라로 추가: 시간대 자동, 그 나라 공휴일도 연결 (업체를 안 만들어도 됨)
   const addCountry = () => {
-    const o = COUNTRY_OPTIONS.find((x) => x.code === country);
-    if (!o || list.some((x) => (x.code ?? countryCode(x.label, x.tz)) === o.code)) return;
+    const o = COUNTRY_OPTIONS.find((x) => x.key === country);
+    if (!o || list.some((x) => x.tz === o.tz)) return; // 같은 시간대 시계는 하나만
     setList((l) => [...l, { tz: o.tz, label: o.name, code: o.code }]);
     setCountry('');
   };
@@ -737,7 +737,7 @@ function ClockPicker({
         <select value={country} onChange={(e) => setCountry(e.target.value)}>
           <option value="">나라 고르기 (업체 없이 시계만 추가)</option>
           {COUNTRY_OPTIONS.map((o) => (
-            <option key={o.code} value={o.code}>
+            <option key={o.key} value={o.key}>
               {o.name}
             </option>
           ))}

@@ -34,10 +34,17 @@ const TIMEZONES = [
   'Europe/Moscow',
   'America/New_York',
   'America/Los_Angeles',
+  'Pacific/Honolulu',
+  'America/Toronto',
+  'America/Vancouver',
   'America/Guayaquil',
   'America/Mexico_City',
+  'America/Bogota',
+  'America/Lima',
+  'America/Santiago',
   'America/Sao_Paulo',
   'Australia/Sydney',
+  'Pacific/Auckland',
 ];
 
 /** side: 지금 보고 있던 쪽 (조 대시보드 / 무역사무 페이지) */
