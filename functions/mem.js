@@ -4,7 +4,7 @@
 //
 // 설정 (비밀번호 아님, Firestore 콘솔 > secrets > mem 문서):
 //   loginUrl        로그인 요청 주소 (F12 > 네트워크에서 로그인 버튼을 눌렀을 때 나가는 요청)
-//                   예: https://mem.artbox.kr/server/data-access/login.ab.json
+//                   예: https://(mem 주소)/…/login.json
 //   idField         아이디 칸 이름        (예: loginId)
 //   pwField         비밀번호 칸 이름      (예: loginPw)
 //   loginFormat     (선택) json 또는 form — 주소가 .json 으로 끝나면 기본 json
@@ -13,7 +13,8 @@
 //   extra           (선택) 로그인에 같이 보내는 칸들, 예: {"auto_login":"N"}
 //   attendanceUrl   부서 근태 현황 요청 주소 ({date} = 2026-11-11, {dateDot} = 2026.11.11 로 바뀜)
 //   attendanceMethod (선택) GET 또는 POST (기본 GET)
-//   attendanceBody  (선택) POST 일 때 보내는 칸들, 예: {"date":"{date}"}
+//   attendanceBody  (선택) POST 일 때 보내는 내용 (JSON 글자), 예: {"attend_date":"{dateDot}"}
+//   attendanceFormat (선택) json 또는 form — POST 는 기본 json
 // 비밀값 (cmd 에서 한 번): npx firebase-tools functions:secrets:set MEM_ID / MEM_PASSWORD
 
 import * as cheerio from 'cheerio';
@@ -125,11 +126,22 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
 
   const method = String(cfg.attendanceMethod || 'GET').toUpperCase();
   const bodyCfg = typeof cfg.attendanceBody === 'string' ? JSON.parse(cfg.attendanceBody || '{}') : cfg.attendanceBody ?? {};
-  const body = method === 'POST' ? new URLSearchParams(Object.fromEntries(Object.entries(bodyCfg).map(([k, v]) => [k, fill(v, date)]))).toString() : undefined;
+  // 글자 안의 {date}/{dateDot} 만 오늘 날짜로 (null 같은 값은 그대로)
+  const fillDeep = (v) => (typeof v === 'string' ? fill(v, date) : Array.isArray(v) ? v.map(fillDeep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fillDeep(x)])) : v);
+  const filled = fillDeep(bodyCfg);
+  const json = method === 'POST' && (cfg.attendanceFormat ?? 'json') === 'json';
+  const body = method !== 'POST' ? undefined : json ? JSON.stringify(filled) : new URLSearchParams(Object.fromEntries(Object.entries(filled).map(([k, v]) => [k, String(v ?? '')]))).toString();
   const res = await go(
     jar,
     fill(cfg.attendanceUrl, date),
-    { method, headers: method === 'POST' ? { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' } : { 'X-Requested-With': 'XMLHttpRequest' }, body },
+    {
+      method,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(method === 'POST' ? { 'Content-Type': json ? 'application/json;charset=UTF-8' : 'application/x-www-form-urlencoded' } : {}),
+      },
+      body,
+    },
     fetchImpl,
   );
   const html = await res.text();
