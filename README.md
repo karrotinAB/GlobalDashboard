@@ -72,3 +72,13 @@ mem 의 부서 근태 현황 창을 연 상태에서 누르면 우리 조 출근
 
 ## 기술 스택
 Vite + React + TypeScript, Firebase (Auth + Firestore)
+
+## 서버 함수·보안 규칙 올리기 (Windows, 더블클릭)
+
+처음 한 번:
+1. Git 설치: https://git-scm.com/download/win (기본값으로 다음 → 다음)
+2. cmd 에서 원하는 폴더로 가서 `git clone https://github.com/karrotinAB/GlobalDashboard.git`
+3. 그 폴더에서 `npx firebase-tools login` (이미 로그인했으면 생략)
+
+그다음부터는 `GlobalDashboard` 폴더의 **deploy.bat** 을 더블클릭하면
+최신 코드 받기 → 서버 함수 준비 → 서버 함수 + Firestore 규칙 + Storage 규칙 올리기를 한 번에 해요.
