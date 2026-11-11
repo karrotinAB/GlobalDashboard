@@ -85,7 +85,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (leader && !space.id) return <NoAccess email={user.email ?? ''} />; // 개인 공간이 아직 없음 (관리자가 권한을 다시 저장하면 생김)
   const viewTeam = leader ? space.id! : role === 'admin' ? savedViewTeam() ?? team : team;
   const viewLabel = leader
-    ? `${ROLE_NAME[role]}${space.name ? ` (${space.name})` : ''}`
+    ? space.name
+      ? `${space.name} (${ROLE_NAME[role]})` // 이름 먼저: '이락연 (팀장님)'
+      : ROLE_NAME[role]
     : isPersonal(viewTeam)
       ? savedViewLabel() ?? '개인 대시보드'
       : spaceLabel(viewTeam);

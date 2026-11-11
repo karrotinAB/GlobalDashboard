@@ -21,7 +21,7 @@ export default function TeamSwitch() {
             .filter((d) => (d.get('level') === 'lead' || d.get('level') === 'director') && isPersonal(d.get('space')))
             .map((d) => {
               const name = (d.get('name') as string | undefined) || d.id.split('@')[0];
-              return { id: d.get('space') as string, label: `${ROLE_NAME[d.get('level') as Role]} (${name})` };
+              return { id: d.get('space') as string, label: `${name} (${ROLE_NAME[d.get('level') as Role]})` };
             })
             .sort((a, b) => a.label.localeCompare(b.label)),
         ),
