@@ -2,6 +2,7 @@
 // 브라우저가 공개 공휴일 API(date.nager.at, 무료·키 없음)에서 받아서 브라우저에 30일 보관.
 // API 가 지원하지 않는 나라는 그냥 표시 안 됨. 한국은 lib/holidays.ts 를 씀.
 import { useEffect, useState } from 'react';
+import type { ExtraHoliday } from '../types';
 
 /** 업체의 '나라' 칸(한글/영어) → 나라 코드 */
 const BY_NAME: Record<string, string> = {
@@ -121,7 +122,19 @@ function load(code: string, year: number): Promise<HolidayMap> {
 }
 
 /** 나라 코드들의 올해·내년 공휴일. 반환: (코드, 'YYYY-MM-DD') → 공휴일 이름 */
-export function useWorldHolidays(codes: string[], year: number) {
+/** 공휴일 서비스에 빠진 휴일 (음력 등) — 확인된 것만. 설정 > 나라별 추가 공휴일에서 더 넣을 수 있음 */
+const BUILT_IN: Record<string, HolidayMap> = {
+  MN: { '2026-11-11': '칭기즈칸 탄생일' },
+};
+
+/** 나라 이름 보기 (설정 화면용) */
+export const COUNTRY_NAMES: Record<string, string> = Object.fromEntries(
+  Object.entries(BY_NAME)
+    .filter(([k]) => /[가-힣]/.test(k))
+    .map(([k, v]) => [v, k]),
+);
+
+export function useWorldHolidays(codes: string[], year: number, extra: ExtraHoliday[] = []) {
   const [maps, setMaps] = useState<Record<string, HolidayMap>>({});
   const sig = [...new Set(codes)].sort().join(',');
   useEffect(() => {
@@ -137,5 +150,14 @@ export function useWorldHolidays(codes: string[], year: number) {
       alive = false;
     };
   }, [sig, year]);
-  return (code: string, iso: string): string | undefined => maps[code]?.[iso];
+  const lookup = (code: string, iso: string): string | undefined =>
+    extra.find((h) => h.code === code && h.date === iso)?.name ?? BUILT_IN[code]?.[iso] ?? maps[code]?.[iso];
+  /** 시계에 마우스를 올리면 보이는 설명: 이 나라 공휴일을 몇 개 불러왔는지 */
+  const status = (code: string) => {
+    const n = maps[code] ? Object.keys(maps[code]).length : undefined;
+    const ex = extra.filter((h) => h.code === code).length + Object.keys(BUILT_IN[code] ?? {}).length;
+    if (n === undefined) return `${code} 공휴일 불러오는 중…`;
+    return `${code} 공휴일 ${n}일 (공휴일 서비스)${ex ? ` + 직접 넣은 ${ex}일` : ''}${n === 0 ? ' — 서비스에 이 나라 정보가 없어요' : ''}`;
+  };
+  return Object.assign(lookup, { status });
 }

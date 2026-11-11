@@ -135,6 +135,14 @@ export interface ConfigDoc {
   updated?: number;
   errors?: string[];
   at?: string;
+  // id = 'holidays': 공휴일 서비스에 없는 나라별 휴일 (관리자가 설정에서 추가)
+  holidays?: ExtraHoliday[];
+}
+
+export interface ExtraHoliday {
+  code: string; // 나라 코드 (MN, KZ …)
+  date: string; // YYYY-MM-DD
+  name: string;
 }
 
 export interface Collections {

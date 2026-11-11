@@ -71,7 +71,21 @@ const ampm = (hhmm: string) => {
 /** 그 나라 날짜 'YYYY-MM-DD' */
 const isoOf = (p: { y: number; mo: number; d: number }) => `${p.y}-${String(p.mo).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
 
-function DigitalClock({ label, tz, now, home, holidayOf }: { label: string; tz: string; now: Date; home?: boolean; holidayOf?: (iso: string) => string | undefined }) {
+function DigitalClock({
+  label,
+  tz,
+  now,
+  home,
+  holidayOf,
+  info,
+}: {
+  label: string;
+  tz: string;
+  now: Date;
+  home?: boolean;
+  holidayOf?: (iso: string) => string | undefined;
+  info?: string; // 마우스를 올리면 보이는 설명 (공휴일을 몇 개 불러왔는지)
+}) {
   const p = tzParts(now, tz);
   const holiday = holidayOf?.(isoOf(p));
   const seoul = tzParts(now, HOME_TZ);
@@ -82,7 +96,7 @@ function DigitalClock({ label, tz, now, home, holidayOf }: { label: string; tz: 
   const { t, p: ap } = ampm(`${p.h}:${p.mi}`);
   const diffLabel = home ? '우리 시간' : diffH === 0 ? '서울과 같음' : `서울 ${diffH > 0 ? '+' : ''}${Number.isInteger(diffH) ? diffH : diffH.toFixed(1)}h`;
   return (
-    <div className={`dclock ${night ? 'night' : 'day'} ${holiday ? 'holiday' : ''}`}>
+    <div className={`dclock ${night ? 'night' : 'day'} ${holiday ? 'holiday' : ''}`} title={info}>
       <div className="dc-label">
         {label}
         {holiday && (
@@ -184,7 +198,8 @@ export default function Home({ go }: { go: (page: string) => void }) {
     [picked, defaultClocks],
   );
 
-  const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y);
+  const extraHolidays = data.config.find((c) => c.id === 'holidays')?.holidays ?? [];
+  const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y, extraHolidays);
 
   const weekRows = useMemo(() => tasksForWeek(data.tasks, monday), [data.tasks, monday]);
   const summary = useMemo(() => summarize(weekRows, members, todayIso), [weekRows, members, todayIso]);
@@ -249,6 +264,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
               label={c.label}
               tz={c.tz}
               now={now}
+              info={c.codes.length ? c.codes.map((code) => worldHoliday.status(code)).join('\n') : '이 시계는 나라를 몰라서 공휴일을 표시하지 않아요 (시계 이름을 나라 이름으로)'}
               holidayOf={(iso) => {
                 // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
                 const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);

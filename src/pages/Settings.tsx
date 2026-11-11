@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { bookmarklet, memNames } from '../lib/mem';
 import { useAccess } from '../components/AuthGate';
+import { COUNTRY_NAMES } from '../lib/worldHolidays';
+import DateInput from '../components/DateInput';
 import { DEFAULT_TEAM, teamLabel } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import ChangePassword from '../components/ChangePassword';
@@ -128,6 +130,7 @@ export default function Settings() {
           })}
         </section>
       )}
+      {access.role !== 'member' && <HolidayAdmin />}
       {access.email && <ChangePassword />}
 
       <section className="card">
@@ -430,5 +433,69 @@ function TradeMemberRow({ m, isAdmin, onSave, onDelete }: { m: Member; isAdmin: 
         </button>
       </td>
     </tr>
+  );
+}
+
+/** 나라별 추가 공휴일: 공휴일 서비스에 없는 휴일(음력 등)을 관리자가 넣음 → 홈 세계 시계에 '공휴일' */
+function HolidayAdmin() {
+  const { data, save } = useStore();
+  const cfg = data.config.find((c) => c.id === 'holidays') ?? { id: 'holidays' };
+  const list = [...(cfg.holidays ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  const [code, setCode] = useState('MN');
+  const [date, setDate] = useState<string | undefined>();
+  const [name, setName] = useState('');
+  const codes = Object.entries(COUNTRY_NAMES).sort((a, b) => a[1].localeCompare(b[1]));
+  const add = () => {
+    if (!date || !name.trim()) return;
+    const next = [...(cfg.holidays ?? []).filter((h) => !(h.code === code && h.date === date)), { code, date, name: name.trim() }];
+    save('config', { ...cfg, holidays: next });
+    setName('');
+    setDate(undefined);
+  };
+  return (
+    <section className="card">
+      <h2>
+        나라별 추가 공휴일 <span className="tag gray">관리자만 보이는 칸</span>
+      </h2>
+      <p className="muted small">
+        홈 세계 시계의 공휴일은 무료 공휴일 서비스에서 불러와요. 음력 휴일처럼 서비스에 빠진 날은 여기에 넣으면 그 나라 시계에 '공휴일'로 보여요. (시계에
+        마우스를 올리면 몇 개 불러왔는지 보여요)
+      </p>
+      <div className="btn-row holiday-add">
+        <select value={code} onChange={(e) => setCode(e.target.value)}>
+          {codes.map(([c, n]) => (
+            <option key={c} value={c}>
+              {n} ({c})
+            </option>
+          ))}
+        </select>
+        <DateInput value={date} placeholder="날짜 예: 20261111" onChange={setDate} />
+        <input placeholder="휴일 이름 (예: 칭기즈칸 탄생일)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button className="primary" onClick={add} disabled={!date || !name.trim()}>
+          추가
+        </button>
+      </div>
+      {list.length > 0 && (
+        <table className="settings-table">
+          <tbody>
+            {list.map((h) => (
+              <tr key={h.code + h.date}>
+                <td>{COUNTRY_NAMES[h.code] ?? h.code}</td>
+                <td>{h.date.replace(/-/g, '.')}</td>
+                <td>{h.name}</td>
+                <td>
+                  <button
+                    className="danger small"
+                    onClick={() => save('config', { ...cfg, holidays: (cfg.holidays ?? []).filter((x) => !(x.code === h.code && x.date === h.date)) })}
+                  >
+                    삭제
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
