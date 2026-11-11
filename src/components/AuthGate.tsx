@@ -33,6 +33,27 @@ interface Access {
   viewLabel: string; // 화면 이름: '2조' / '팀장님' …
   canManage: boolean; // 이 공간을 관리 (업체 삭제·홈 구성 등): 관리자·팀장님·이사님·로컬
   accountName?: string; // 설정 > 대시보드 사용자에 적힌 이름 (roles.name)
+  realRole?: Role | null; // 실제 권한 (관리자가 '일반 유저로 보기' 중이면 role 은 member, realRole 은 admin)
+}
+
+/** 관리자의 '일반 유저로 보기' (화면만 조원처럼, 실제 권한은 그대로) */
+const AS_MEMBER_KEY = 'gd:asMember';
+export function viewingAsMember(): boolean {
+  try {
+    return localStorage.getItem(AS_MEMBER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+export function setViewAsMember(on: boolean) {
+  try {
+    if (on) localStorage.setItem(AS_MEMBER_KEY, '1');
+    else localStorage.removeItem(AS_MEMBER_KEY);
+  } catch {
+    /* 무시 */
+  }
+  window.location.hash = '/home';
+  window.location.reload();
 }
 const localTeam = savedViewTeam() ?? DEFAULT_TEAM;
 const AccessContext = createContext<Access>({ email: '', role: null, team: localTeam, viewTeam: localTeam, viewLabel: spaceLabel(localTeam), canManage: true });
@@ -83,6 +104,16 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (role === 'none') return <NoAccess email={user.email ?? ''} />;
   const leader = isLeader(role);
   if (leader && !space.id) return <NoAccess email={user.email ?? ''} />; // 개인 공간이 아직 없음 (관리자가 권한을 다시 저장하면 생김)
+  // 관리자 '일반 유저로 보기': 자기 조의 조원처럼 (다른 조·무역사무·관리자 메뉴 안 보임)
+  if (role === 'admin' && viewingAsMember()) {
+    return (
+      <AccessContext.Provider
+        value={{ email: (user.email ?? '').toLowerCase(), role: 'member', team, viewTeam: team, viewLabel: spaceLabel(team), canManage: false, accountName: space.name, realRole: 'admin' }}
+      >
+        {children}
+      </AccessContext.Provider>
+    );
+  }
   const viewTeam = leader ? space.id! : role === 'admin' ? savedViewTeam() ?? team : team;
   const viewLabel = leader
     ? space.name
@@ -93,7 +124,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       : spaceLabel(viewTeam);
   const canManage = role === 'admin' || leader;
   return (
-    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name }}>
+    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name, realRole: role }}>
       {children}
     </AccessContext.Provider>
   );

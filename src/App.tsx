@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from './data/store';
 import { Cover } from './components/ui';
-import { isLeader, logout, useAccess } from './components/AuthGate';
+import { isLeader, logout, setViewAsMember, useAccess } from './components/AuthGate';
 import { seedData } from './data/seed';
 import { COLLECTIONS } from './data/backend';
 import Home from './pages/Home';
@@ -45,7 +45,7 @@ function readHash(): PageKey {
 export default function App() {
   const [hashPage, setPage] = useState<PageKey>(readHash);
   const { loading, error, mode, data, saveMany } = useStore();
-  const { role, viewTeam, viewLabel } = useAccess();
+  const { role, viewTeam, viewLabel, realRole } = useAccess();
   const leader = isLeader(role); // 팀장님·이사님
   const tradeOnly = role === 'trade'; // 무역사무 계정: 무역사무 페이지 + 설정만
   const canTrade = role === null || role === 'admin' || role === 'trade'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
@@ -103,6 +103,11 @@ export default function App() {
       <ExtensionBridge />
       <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
+        {realRole === 'admin' && role !== 'admin' && (
+          <button className="top-btn as-member-btn" onClick={() => setViewAsMember(false)} title="지금은 일반 조원 화면으로 보는 중이에요">
+            👤 일반 유저 화면 · 🛡 관리자로
+          </button>
+        )}
         {role !== 'trade' && !leader && canTrade && side === 'team' && (
           <TeamSwitch />
         )}

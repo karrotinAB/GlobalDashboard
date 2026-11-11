@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ROLE_NAME, useAccess } from '../components/AuthGate';
+import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
@@ -90,6 +90,15 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       <div className="page-head">
         <h1>설정</h1>
         {access.role !== 'trade' && <span className="tag gray">{access.viewLabel}</span>}
+        {access.realRole === 'admin' && (
+          <button
+            className={`view-as ${access.role === 'admin' ? '' : 'on'}`}
+            onClick={() => setViewAsMember(access.role === 'admin')}
+            title={access.role === 'admin' ? '사이트 전체를 일반 조원 화면으로 봐요 (실제 권한은 그대로)' : '관리자 화면으로 돌아가요'}
+          >
+            {access.role === 'admin' ? '👤 일반 유저' : '🛡 관리자'}
+          </button>
+        )}
       </div>
 
       <section className="card">
