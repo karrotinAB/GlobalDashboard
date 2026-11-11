@@ -149,6 +149,7 @@ function Shell({ children }: { children: ReactNode }) {
         <h1>Global Dashboard</h1>
         {children}
       </div>
+      <footer className="site-footer">© 2026 Karrot in AB</footer>
     </div>
   );
 }

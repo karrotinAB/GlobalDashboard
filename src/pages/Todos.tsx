@@ -146,9 +146,9 @@ export default function Todos() {
         company: c,
         rows: sortRows(filtered.filter((r) => r.task.companyId === c.id)),
       }));
-      // 남은 할일이 많은 업체부터 (같으면 정해 둔 순서), 남은 게 없는 업체는 뒤로
-      const left = (g: Group) => g.rows.filter((r) => !r.doneInWeek).length;
-      out.sort((a, b) => left(b) - left(a));
+      // 정해 둔 업체 순서는 그대로, 남은 할일이 없는 업체만 아래로
+      const hasLeft = (g: Group) => g.rows.some((r) => !r.doneInWeek);
+      out.sort((a, b) => Number(hasLeft(b)) - Number(hasLeft(a)));
       const etc = filtered.filter((r) => !r.task.companyId || !companyById.has(r.task.companyId));
       if (etc.length) out.push({ key: '__etc', title: '기타 / 업체 없음', rows: sortRows(etc) });
       // 필터가 걸려 있으면 빈 업체는 숨김

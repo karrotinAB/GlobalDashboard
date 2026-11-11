@@ -198,6 +198,7 @@ export default function App() {
             <Settings side={side} />
           )}
         </main>
+        <footer className="site-footer">© 2026 Karrot in AB</footer>
       </div>
     </div>
   );

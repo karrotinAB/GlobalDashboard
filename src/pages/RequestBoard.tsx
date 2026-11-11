@@ -39,8 +39,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   // 조 화면: 우리 조 요청만 / 무역사무: 모든 조 (무역사무 담당자 업무량 카드는 모든 조 합계)
   const everything = data.requests;
   const all = useMemo(
-    () => (side === 'team' ? everything.filter((r) => teamOfRequest(r) === access.viewTeam) : everything),
-    [everything, side, access.viewTeam],
+    // 조 화면: 기본은 우리 조 요청만. 무역사무 담당자를 누르면 그 사람이 맡은 다른 조 요청까지
+    () => (side === 'team' && (!assignee || assignee === '-') ? everything.filter((r) => teamOfRequest(r) === access.viewTeam) : everything),
+    [everything, side, access.viewTeam, assignee],
   );
   const years = useMemo(
     () => [...new Set([todayIso.slice(0, 4), ...all.map((r) => (r.doneAt ?? r.requestedAt).slice(0, 4))])].sort().reverse(),
@@ -207,12 +208,12 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
             <tr>
               <th className="c-st">상태</th>
               <th className="c-pr">우선순위</th>
+              <th className="c-d">마감일</th>
+              <th className="c-d">처리 예상일</th>
               <th>업무 내용</th>
               <th className="c-wt">작업유형</th>
               <th className="c-who">요청자</th>
               <th className="c-d">의뢰일</th>
-              <th className="c-d">마감일</th>
-              <th className="c-d">처리 예상일</th>
               <th className="c-who">처리자</th>
               {tab === 'done' && <th className="c-d">완료일</th>}
             </tr>
@@ -226,7 +227,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
               </tr>
             )}
             {rows.map((r) => (
-              <Row key={r.id} r={r} side={side} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+              <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
             ))}
           </tbody>
         </table>
@@ -260,6 +261,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
 function Row({
   r,
   side,
+  myTeam,
   team,
   trade,
   todayIso,
@@ -269,6 +271,7 @@ function Row({
 }: {
   r: TradeRequest;
   side: 'team' | 'trade';
+  myTeam: string; // 지금 보는 조 (다른 조 요청이면 조 표시)
   team: Member[];
   trade: Member[];
   todayIso: string;
@@ -298,10 +301,12 @@ function Row({
       <td className="c-pr">
         <PriorityTag p={r.priority} />
       </td>
+      <td className={`c-d ${overdue ? 'overdue' : r.dueDate === todayIso && isOpen(r) ? 'due-today' : ''}`}>{dot(r.dueDate) || '-'}</td>
+      <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
           {r.title}
-          {side === 'trade' && <span className="rq-team">{r.teamName ?? `${teamOfRequest(r)}조`}</span>}
+          {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className="rq-team">{r.teamName ?? `${teamOfRequest(r)}조`}</span>}
           {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
           {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
         </button>
@@ -332,8 +337,6 @@ function Row({
         )}
       </td>
       <td className="c-d">{dot(r.requestedAt)}</td>
-      <td className={`c-d ${overdue ? 'overdue' : r.dueDate === todayIso && isOpen(r) ? 'due-today' : ''}`}>{dot(r.dueDate) || '-'}</td>
-      <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
       <td className="c-who">
         <select className={`cell-select ${assignee ? '' : 'unset'}`} value={r.assigneeId ?? ''} onChange={(e) => onPatch({ assigneeId: e.target.value || undefined })}>
           <option value="">미정</option>

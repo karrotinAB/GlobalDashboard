@@ -6227,3 +6227,26 @@ select.team-switch {
 .team.team-leader .mini-body .mini-main b {
   font-size: 15px;
 }
+
+/* 펼쳐지는 입력칸: 기본은 오른쪽으로 (이름 칸), 오른쪽 끝 비고 칸만 왼쪽으로 */
+.cell-expand textarea {
+  left: 0;
+  right: auto;
+}
+td.c-note .cell-expand textarea,
+td.c-onote .cell-expand textarea {
+  left: auto;
+  right: 0;
+}
+td.c-name,
+td.c-title {
+  overflow: visible;
+}
+/* 모든 페이지 맨 아래 */
+.site-footer {
+  margin: 48px 0 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--mut);
+  letter-spacing: 0.2px;
+}
