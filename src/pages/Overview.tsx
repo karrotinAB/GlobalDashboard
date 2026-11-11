@@ -754,7 +754,6 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
     };
   });
   const unassigned = rows.filter((r) => !r.doneInWeek && !r.task.assigneeIds.length).length;
-  const max = Math.max(1, ...stats.map((s) => s.open));
   return (
     <section className="ov-load">
       <div className="section-head">
@@ -785,10 +784,26 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
                 </div>
                 <Ring value={s.done} total={s.total} size={56} stroke={6} color={s.m.color} label={s.open} sub="남음" />
               </div>
-              {/* 남은 할일 막대: 조에서 가장 많은 사람 기준 */}
-              <span className="ov-load-bar">
-                <span style={{ width: `${(s.open / max) * 100}%`, background: s.m.color }} />
-              </span>
+              {/* 바쁨 정도 + 남은 비율 막대: 각자 맡은 할일 중 남은 비율 */}
+              {(() => {
+                const ratio = s.total ? s.open / s.total : 0;
+                const b = busyLevel(s.open, ratio);
+                return (
+                  <>
+                    <span className="ov-busy-row">
+                      <span className={`ov-busy ${b.cls}`} title={BUSY_HELP}>
+                        {b.label}
+                      </span>
+                      <span className="muted small">
+                        남은 {Math.round(ratio * 100)}% ({s.open}/{s.total})
+                      </span>
+                    </span>
+                    <span className="ov-load-bar" title={`맡은 할일 ${s.total}개 중 ${s.open}개 남음`}>
+                      <span className={b.cls} style={{ width: `${ratio * 100}%` }} />
+                    </span>
+                  </>
+                );
+              })()}
               <div className="mc-flags">
                 <span className={`flag ${s.overdue ? 'warn' : ''}`}>기한 지남 {s.overdue}</span>
                 <span className={`flag ${s.today ? 'hot' : ''}`}>오늘 {s.today}</span>
@@ -800,4 +815,18 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
       )}
     </section>
   );
+}
+
+const BUSY_HELP = '맡은 할일 중 남은 비율: 80% 이상 매우 바쁨 · 60% 이상 바쁨 · 30% 이상 보통 · 그 아래 여유 (남은 할일이 2개 이하면 보통까지만)';
+/** 바쁨 정도: 맡은 할일 중 남은 비율 기준 (남은 게 적으면 한 단계 낮춤) */
+function busyLevel(open: number, ratio: number): { label: string; cls: string } {
+  if (open === 0) return { label: '여유', cls: 'b-free' };
+  let lv = ratio >= 0.8 ? 3 : ratio >= 0.6 ? 2 : ratio >= 0.3 ? 1 : 0;
+  if (open <= 2) lv = Math.min(lv, 1);
+  return [
+    { label: '여유', cls: 'b-free' },
+    { label: '보통', cls: 'b-mid' },
+    { label: '바쁨', cls: 'b-busy' },
+    { label: '매우 바쁨', cls: 'b-very' },
+  ][lv];
 }

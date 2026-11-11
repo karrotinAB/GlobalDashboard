@@ -6123,3 +6123,39 @@ select.team-switch {
 .mini-body .mini-main b {
   font-size: 15px;
 }
+/* 조원별 업무량: 바쁨 정도 */
+.ov-busy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ov-busy {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.ov-busy.b-very,
+.ov-load-bar .b-very {
+  background: #c0392b;
+  color: #fff;
+}
+.ov-busy.b-busy,
+.ov-load-bar .b-busy {
+  background: #e08a2e;
+  color: #fff;
+}
+.ov-busy.b-mid,
+.ov-load-bar .b-mid {
+  background: #e9c46a;
+  color: #5b4300;
+}
+.ov-busy.b-free,
+.ov-load-bar .b-free {
+  background: #8fbf7a;
+  color: #fff;
+}
+.ov-load-bar {
+  margin-top: 5px;
+}
