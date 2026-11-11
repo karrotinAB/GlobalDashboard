@@ -135,7 +135,7 @@ export default function App() {
           <PageIcon icon={current.icon} />
         </div>
         <nav className="tabs">
-          {PAGES.filter((p) => tabs.includes(p.key)).map((p) => (
+          {tabs.map((k) => PAGES.find((p) => p.key === k)!).map((p) => (
             <a key={p.key} href={`#/${p.key}`} className={page === p.key ? 'active' : ''}>
               <span aria-hidden="true" className="tab-icon">
                 <PageIcon icon={p.icon} />

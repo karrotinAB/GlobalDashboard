@@ -1,5 +1,6 @@
 import { memoHtml, memoLines, sanitize } from '../lib/richtext';
-import { useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type { Company, Member } from '../types';
 import { pickColor, shortDate } from '../lib/date';
 import { MemberChip, Modal } from './ui';
@@ -532,33 +533,54 @@ export interface MenuItem {
 
 /** 줄 끝 ⋯ : 작은 메뉴 */
 export function MoreMenu({ items, title }: { items: MenuItem[]; title?: string }) {
-  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<CSSProperties | null>(null); // 열려 있으면 화면 위 위치
+  const btn = useRef<HTMLButtonElement>(null);
+  const close = () => setPos(null);
+  const toggle = () => {
+    if (pos) return close();
+    const r = btn.current?.getBoundingClientRect();
+    if (!r) return;
+    // 카드 밖으로 잘리지 않게 화면 맨 바깥(body)에 띄움. 아래 공간이 모자라면 위로 펼침
+    const need = items.length * 34 + 16;
+    const below = window.innerHeight - r.bottom;
+    setPos(
+      below < need && r.top > need
+        ? { position: 'fixed', bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right }
+        : { position: 'fixed', top: r.bottom + 4, right: window.innerWidth - r.right },
+    );
+  };
+  useEffect(() => {
+    if (!pos) return;
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [pos]);
   return (
-    <div
-      className="row-menu"
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
-      }}
-    >
-      <button className={`icon-btn more-btn ${open ? 'open' : ''}`} title={title} onClick={() => setOpen((v) => !v)}>
+    <div className="row-menu" onBlur={close}>
+      <button ref={btn} className={`icon-btn more-btn ${pos ? 'open' : ''}`} title={title} onClick={toggle}>
         ⋯
       </button>
-      {open && (
-        <div className="row-menu-pop">
-          {items.map((it) => (
-            <button
-              key={it.label}
-              className={it.danger ? 'danger' : ''}
-              onClick={() => {
-                setOpen(false);
-                it.onClick();
-              }}
-            >
-              {it.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {pos &&
+        createPortal(
+          <div className="row-menu-pop floating" style={pos} onMouseDown={(e) => e.preventDefault()}>
+            {items.map((it) => (
+              <button
+                key={it.label}
+                className={it.danger ? 'danger' : ''}
+                onClick={() => {
+                  close();
+                  it.onClick();
+                }}
+              >
+                {it.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

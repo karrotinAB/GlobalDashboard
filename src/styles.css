@@ -5917,3 +5917,9 @@ select.team-switch {
 .cal-detail .cal-desc {
   margin-top: 6px;
 }
+/* ⋯ 메뉴: 화면 맨 바깥에 띄워서 카드에 안 잘리게 */
+.row-menu-pop.floating {
+  position: fixed;
+  z-index: 200;
+  top: auto;
+}
