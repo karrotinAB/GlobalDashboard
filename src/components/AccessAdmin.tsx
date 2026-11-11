@@ -4,11 +4,13 @@ import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { db, firebaseConfig } from '../firebase';
 import { useAccess, type Role } from './AuthGate';
+import { DEFAULT_TEAM, teamLabel, TEAMS } from '../lib/team';
 
 interface Row {
   email: string;
   role: Role;
   name?: string;
+  team?: string; // 조원·관리자의 조 (없으면 2조)
 }
 
 const ROLE_LABEL: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무' };
@@ -37,6 +39,7 @@ export default function AccessAdmin() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('member');
+  const [team, setTeam] = useState<string>(me.viewTeam);
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -48,7 +51,7 @@ export default function AccessAdmin() {
         (snap) =>
           setRows(
             snap.docs
-              .map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined }))
+              .map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined, team: d.data().team as string | undefined }))
               .filter((r) => r.role in ROLE_ORDER)
               .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : ROLE_ORDER[a.role] - ROLE_ORDER[b.role])),
           ),
@@ -57,9 +60,15 @@ export default function AccessAdmin() {
     [],
   );
 
-  const put = async (e: string, r: Role, n?: string) => {
+  const put = async (e: string, r: Role, n?: string, t?: string) => {
     try {
-      await setDoc(doc(db, 'roles', e), { level: r, ...(n ? { name: n } : {}), addedBy: me.email, addedAt: serverTimestamp() });
+      await setDoc(doc(db, 'roles', e), {
+        level: r,
+        ...(n ? { name: n } : {}),
+        ...(r !== 'trade' ? { team: t ?? DEFAULT_TEAM } : {}),
+        addedBy: me.email,
+        addedAt: serverTimestamp(),
+      });
       setMsg('');
       return true;
     } catch (err) {
@@ -77,7 +86,7 @@ export default function AccessAdmin() {
     setBusy(true);
     try {
       const result = await createAccount(e, pw);
-      if (await put(e, role, name.trim() || undefined)) {
+      if (await put(e, role, name.trim() || undefined, team)) {
         setMsg(
           result === 'created'
             ? `${e} 계정을 만들었어요. 임시 비밀번호를 알려 주고, 로그인 후 설정에서 비밀번호를 바꾸라고 해 주세요.`
@@ -107,7 +116,7 @@ export default function AccessAdmin() {
       <p className="muted small">
         여기 추가한 사람만 대시보드에 로그인해서 쓸 수 있어요. 이메일과 임시 비밀번호를 넣으면 로그인 계정까지 만들어져요.
         <br />
-        <b>조원</b> = 2조 대시보드 사용 · <b>무역사무</b> = 무역사무 페이지만 · <b>관리자</b> = 조원 + 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
+        <b>조원</b> = 자기 조(1조·2조·3조) 대시보드 사용 · <b>무역사무</b> = 무역사무 페이지만 · <b>관리자</b> = 조원 + 모든 조·무역사무 페이지 보기, 사용자 추가/삭제, 업체 삭제, 카드 주인 이메일 연결. 새로 추가하는 사람은 기본이 조원이에요.
         (목록에서 빼도 로그인 계정은 남지만 아무것도 볼 수 없어요)
       </p>
       <table className="settings-table">
@@ -116,6 +125,7 @@ export default function AccessAdmin() {
             <th>이메일</th>
             <th>이름</th>
             <th>권한</th>
+            <th>조</th>
             <th />
           </tr>
         </thead>
@@ -133,10 +143,25 @@ export default function AccessAdmin() {
                   {self ? (
                     ROLE_LABEL[r.role]
                   ) : (
-                    <select value={r.role} onChange={(e) => put(r.email, e.target.value as Role, r.name)}>
+                    <select value={r.role} onChange={(e) => put(r.email, e.target.value as Role, r.name, r.team)}>
                       <option value="member">조원</option>
                       <option value="trade">무역사무</option>
                       <option value="admin">관리자</option>
+                    </select>
+                  )}
+                </td>
+                <td>
+                  {r.role === 'trade' ? (
+                    <span className="muted small">-</span>
+                  ) : self ? (
+                    teamLabel(r.team)
+                  ) : (
+                    <select value={r.team ?? DEFAULT_TEAM} onChange={(e) => put(r.email, r.role, r.name, e.target.value)}>
+                      {TEAMS.map((t) => (
+                        <option key={t} value={t}>
+                          {teamLabel(t)}
+                        </option>
+                      ))}
                     </select>
                   )}
                 </td>
@@ -171,6 +196,15 @@ export default function AccessAdmin() {
           <option value="trade">무역사무</option>
           <option value="admin">관리자</option>
         </select>
+        {role !== 'trade' && (
+          <select value={team} onChange={(e) => setTeam(e.target.value)} title="어느 조 대시보드를 쓸지">
+            {TEAMS.map((t) => (
+              <option key={t} value={t}>
+                {teamLabel(t)}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="primary" type="submit" disabled={busy}>
           {busy ? '만드는 중…' : '계정 만들고 추가'}
         </button>

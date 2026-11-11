@@ -8,6 +8,7 @@ export interface Member {
   memName?: string; // mem 에 표시되는 이름 (비워두면 이름 끝글자로 찾음: '길동' → '홍길동')
   status?: string; // 상태메시지
   clocks?: ClockPick[]; // 홈 화면에 보일 시계 (본인이 고름, 없으면 업체 나라들)
+  team?: string; // 무역사무 화면에서 여러 조 담당자를 같이 읽을 때 붙는 조 (저장 안 함)
 }
 
 export interface ClockPick {
@@ -198,7 +199,8 @@ export interface TradeRequest {
   storeCode?: string;
   orderDate?: string; // YYYY-MM-DD
   requestedAt: string; // 의뢰일 YYYY-MM-DD
-  requesterId?: string; // 2조 담당자(members) id
+  team?: string; // 요청한 조 (없으면 2조)
+  requesterId?: string; // 요청한 조의 담당자(members) id
   requesterEmail?: string;
   dueDate?: string;
   priority: Priority;

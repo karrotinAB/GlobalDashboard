@@ -5,7 +5,7 @@ import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
 import { today, uid } from '../lib/date';
-import { deleteRequestFile, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload } from '../lib/trade';
+import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload } from '../lib/trade';
 
 const dot = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -129,7 +129,7 @@ function Fields({
           <option value="">{reqRequester ? '(고르기)' : '(없음 · 무역사무 자체 업무)'}</option>
           {team.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.name}
+              {memberLabel(m)}
             </option>
           ))}
         </select>
@@ -181,6 +181,7 @@ export function NewRequest({
   me,
   myEmail,
   side = 'team',
+  teamId,
   onCreate,
   onClose,
 }: {
@@ -189,6 +190,7 @@ export function NewRequest({
   me?: Member;
   myEmail: string;
   side?: 'team' | 'trade'; // trade = 무역사무가 직접 넣는 업무 (처리자 기본 = 나, 요청자는 비워도 됨)
+  teamId?: string; // 요청하는 조 (조 화면에서)
   onCreate: (r: TradeRequest) => void;
   onClose: () => void;
 }) {
@@ -217,6 +219,7 @@ export function NewRequest({
       storeCode: d.storeCode?.trim() || undefined,
       requestedAt: today(),
       requesterEmail: team.find((m) => m.id === d.requesterId)?.email ?? (isTrade ? undefined : myEmail || undefined),
+      team: isTrade ? team.find((m) => m.id === d.requesterId)?.team : teamId,
       status: 'requested',
       createdAt: now,
       log: [{ at: now, by, text: isTrade ? '무역사무에서 업무 추가' : '요청함' }],
@@ -277,7 +280,7 @@ export function RequestDetail({
         <PriorityTag p={r.priority} />
         {r.workType && <span className="tag gray">{r.workType}</span>}
         <span className="muted small">
-          {requester?.name ?? r.requesterEmail ?? '무역사무 자체 업무'} · {dot(r.requestedAt)} {r.requesterId || r.requesterEmail ? '의뢰' : '등록'}
+          {requester ? memberLabel(requester) : r.requesterEmail ?? '무역사무 자체 업무'} · {dot(r.requestedAt)} {r.requesterId || r.requesterEmail ? '의뢰' : '등록'}
         </span>
       </div>
 

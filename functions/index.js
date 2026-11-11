@@ -25,9 +25,24 @@ async function apiKey() {
   return String(key).trim();
 }
 
-async function runSync({ companyId } = {}) {
+// 조마다 컬렉션이 따로: 2조 = orders, 1조 = t1_orders, 3조 = t3_orders (config 도 같은 규칙)
+const TEAMS = ['1', '2', '3'];
+const colOf = (team, name) => (team === '2' ? name : `t${team}_${name}`);
+
+async function runSync({ companyId, team } = {}) {
   const key = await apiKey();
-  const snap = companyId ? await db.collection('orders').where('companyId', '==', companyId).get() : await db.collection('orders').get();
+  const teams = team && TEAMS.includes(team) ? [team] : TEAMS;
+  let all = { checked: 0, updated: 0, errors: [] };
+  for (const t of teams) {
+    const r = await runTeam(key, t, companyId);
+    all = { checked: all.checked + r.checked, updated: all.updated + r.updated, errors: [...all.errors, ...r.errors].slice(0, 10) };
+  }
+  return { ...all, at: new Date().toISOString() };
+}
+
+async function runTeam(key, team, companyId) {
+  const orders = db.collection(colOf(team, 'orders'));
+  const snap = companyId ? await orders.where('companyId', '==', companyId).get() : await orders.get();
   const now = Date.now();
   let checked = 0;
   let updated = 0;
@@ -52,8 +67,8 @@ async function runSync({ companyId } = {}) {
     }
   }
   const result = { checked, updated, errors: errors.slice(0, 10), at: new Date().toISOString() };
-  await db.doc('config/apiSync').set({ id: 'apiSync', ...result, ranAt: FieldValue.serverTimestamp() }, { merge: true });
-  logger.info('sync done', result);
+  await db.doc(`${colOf(team, 'config')}/apiSync`).set({ id: 'apiSync', ...result, ranAt: FieldValue.serverTimestamp() }, { merge: true });
+  logger.info('sync done', team, result);
   return result;
 }
 
@@ -67,7 +82,10 @@ export const syncOrderAmountsNow = onCall({ region: REGION }, async (req) => {
   const role = (await db.doc(`roles/${email}`).get()).get('level');
   if (role !== 'admin' && role !== 'member') throw new HttpsError('permission-denied', '대시보드 사용자만 쓸 수 있어요');
   try {
-    return await runSync({ companyId: typeof req.data?.companyId === 'string' ? req.data.companyId : undefined });
+    return await runSync({
+      companyId: typeof req.data?.companyId === 'string' ? req.data.companyId : undefined,
+      team: typeof req.data?.team === 'string' ? req.data.team : undefined,
+    });
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }

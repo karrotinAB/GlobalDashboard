@@ -76,7 +76,7 @@ export default function Presence({ page }: { page: string }) {
   if (!here.length) return null;
 
   return (
-    <div className="presence" title={`지금 ${PAGE_NAME[page] ?? '이 페이지'}를 보고 있는 사람`}>
+    <div className="presence" title={`지금 ${PAGE_NAME[page.split(':').pop()!] ?? '이 페이지'}를 보고 있는 사람`}>
       {here.map((s) => {
         const m = members.find((x) => x.email?.toLowerCase() === s.email);
         const name = m?.name ?? s.email.split('@')[0];
@@ -86,7 +86,7 @@ export default function Presence({ page }: { page: string }) {
             key={s.email}
             className={`pres-dot ${isMe ? 'me' : ''}`}
             style={{ '--c': m?.color ?? '#9c8480' } as CSSProperties}
-            title={`${name}${isMe ? ' (나)' : ''} · ${PAGE_NAME[page] ?? ''} 보는 중`}
+            title={`${name}${isMe ? ' (나)' : ''} · ${PAGE_NAME[page.split(':').pop()!] ?? ''} 보는 중`}
           >
             {name.slice(0, 2)}
           </span>

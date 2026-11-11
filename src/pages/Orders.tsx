@@ -593,13 +593,14 @@ export default function Orders() {
 
 /** ERP 에서 금액 다시 불러오기 (서버 함수 syncOrderAmountsNow). 30분마다 자동으로도 돌아감 */
 function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }) {
+  const { viewTeam } = useAccess();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const run = async () => {
     setBusy(true);
     setMsg('');
     try {
-      const r = (await httpsCallable(functions, 'syncOrderAmountsNow')({ companyId })).data as { checked: number; updated: number; errors: string[] };
+      const r = (await httpsCallable(functions, 'syncOrderAmountsNow')({ companyId, team: viewTeam })).data as { checked: number; updated: number; errors: string[] };
       setMsg(r.errors?.length ? `${r.updated}건 갱신 · 오류 ${r.errors.length}건: ${r.errors[0]}` : `${r.checked}건 확인 · ${r.updated}건 갱신`);
     } catch (e) {
       const code = (e as { code?: string }).code ?? '';

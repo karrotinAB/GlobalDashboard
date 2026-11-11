@@ -3,7 +3,7 @@
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
 import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
-import { useTrade, isOpen, sortRequests } from '../lib/trade';
+import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest } from '../lib/trade';
 import { NewRequest, PriorityTag, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
 import { today } from '../lib/date';
@@ -34,7 +34,12 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const all = data.requests;
+  // 조 화면: 우리 조 요청만 / 무역사무: 모든 조 (무역사무 담당자 업무량 카드는 모든 조 합계)
+  const everything = data.requests;
+  const all = useMemo(
+    () => (side === 'team' ? everything.filter((r) => teamOfRequest(r) === access.viewTeam) : everything),
+    [everything, side, access.viewTeam],
+  );
   const years = useMemo(
     () => [...new Set([todayIso.slice(0, 4), ...all.map((r) => (r.doneAt ?? r.requestedAt).slice(0, 4))])].sort().reverse(),
     [all, todayIso],
@@ -85,7 +90,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
       </div>
 
       {/* 무역사무 담당자별 남은 업무 (누르면 그 사람 업무만) */}
-      <TradeSummaryCards requests={all} trade={trade} selected={assignee} onSelect={pickAssignee} />
+      <TradeSummaryCards requests={everything} trade={trade} selected={assignee} onSelect={pickAssignee} />
       {trade.length === 0 && <p className="muted small">무역사무 담당자가 아직 없어요. 설정 → 무역사무 담당자에서 추가해 주세요.</p>}
 
       <div className="toolbar rq-toolbar">
@@ -144,7 +149,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                     setShowReq(false);
                   }}
                 >
-                  {m.name}
+                  {memberLabel(m)}
                   {me?.id === m.id && isTeamSide ? ' (나)' : ''}
                 </button>
               ))}
@@ -225,7 +230,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         </table>
       </div>
 
-      {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} side={side} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
+      {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} side={side} teamId={access.viewTeam} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
       {detail && (
         <RequestDetail
           key={detail.id + (detail.log?.length ?? 0)}
@@ -286,6 +291,7 @@ function Row({
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
           {r.title}
+          {side === 'trade' && <span className="rq-team">{teamOfRequest(r)}조</span>}
           {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
           {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
         </button>
@@ -301,11 +307,13 @@ function Row({
         {edit ? (
           <select className="cell-select" value={r.requesterId ?? ''} onChange={(e) => onPatch({ requesterId: e.target.value || undefined })}>
             <option value="">무역사무</option>
-            {team.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
+            {team
+              .filter((m) => !m.team || m.team === teamOfRequest(r))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
           </select>
         ) : (
           <span className="rq-person" style={{ '--c': requester?.color } as CSSProperties}>

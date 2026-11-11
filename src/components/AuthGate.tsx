@@ -3,6 +3,7 @@ import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword,
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Cover } from './ui';
+import { DEFAULT_TEAM, savedViewTeam, TEAMS } from '../lib/team';
 
 export type Role = 'admin' | 'member' | 'trade'; // trade = 무역사무
 
@@ -21,8 +22,15 @@ const errMsg = (err: unknown, fallback: string) => {
   return ERRORS[code] ?? `${fallback} (${code || '알 수 없는 오류'})`;
 };
 
-const AccessContext = createContext<{ email: string; role: Role | null }>({ email: '', role: null });
-/** 지금 로그인한 사람의 이메일과 권한 (로컬 모드면 role = null) */
+interface Access {
+  email: string;
+  role: Role | null;
+  team: string; // 내 조 (roles.team, 없으면 2조)
+  viewTeam: string; // 지금 보고 있는 조 (관리자는 골라 볼 수 있음)
+}
+const localTeam = savedViewTeam() ?? DEFAULT_TEAM;
+const AccessContext = createContext<Access>({ email: '', role: null, team: localTeam, viewTeam: localTeam });
+/** 지금 로그인한 사람의 이메일·권한·조 (로컬 모드면 role = null) */
 export const useAccess = () => useContext(AccessContext);
 
 export function logout() {
@@ -33,6 +41,7 @@ export function logout() {
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [role, setRole] = useState<Role | 'none' | undefined>(undefined);
+  const [team, setTeam] = useState<string>(DEFAULT_TEAM);
 
   useEffect(
     () =>
@@ -51,6 +60,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       doc(db, 'roles', email),
       (snap) => {
         const r = snap.data()?.level;
+        const t = String(snap.data()?.team ?? DEFAULT_TEAM);
+        setTeam((TEAMS as readonly string[]).includes(t) ? t : DEFAULT_TEAM);
         setRole(r === 'admin' || r === 'member' || r === 'trade' ? r : 'none');
       },
       () => setRole('none'),
@@ -61,7 +72,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (!user) return <LoginForm />;
   if (role === undefined) return <Centered>권한 확인 중…</Centered>;
   if (role === 'none') return <NoAccess email={user.email ?? ''} />;
-  return <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role }}>{children}</AccessContext.Provider>;
+  const viewTeam = role === 'admin' ? savedViewTeam() ?? team : team;
+  return <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam }}>{children}</AccessContext.Provider>;
 }
 
 function Centered({ children }: { children: ReactNode }) {
@@ -80,7 +92,7 @@ function Shell({ children }: { children: ReactNode }) {
         <div className="login-icon">
           <img className="jelly" src="./jelly.png" alt="" />
         </div>
-        <h1>2조 Dashboard</h1>
+        <h1>Global Dashboard</h1>
         {children}
       </div>
     </div>

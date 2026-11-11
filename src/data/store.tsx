@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CollectionName, Collections, Item } from '../types';
-import { createFirestoreBackend, createLocalBackend, emptyCollections, TRADE_COLLECTIONS, type Backend } from './backend';
+import { createFirestoreBackend, createLocalBackend, emptyCollections, type Backend } from './backend';
+import { DEFAULT_TEAM } from '../lib/team';
 import { useAccess } from '../components/AuthGate';
 import { seedData } from './seed';
 import { db } from '../firebase';
@@ -23,8 +24,9 @@ interface StoreValue {
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { role } = useAccess();
-  if (role === 'trade') backend.scope(TRADE_COLLECTIONS); // 무역사무: 읽을 수 있는 것만
+  const { role, viewTeam } = useAccess();
+  // 어느 조 데이터를 볼지 (무역사무는 요청·무역사무 담당자 + 모든 조 담당자 이름만)
+  backend.configure({ team: role === 'trade' ? DEFAULT_TEAM : viewTeam, trade: role === 'trade' });
   const [data, setData] = useState<Collections>(emptyCollections);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

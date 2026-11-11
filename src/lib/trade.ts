@@ -169,3 +169,8 @@ export function ago(iso: string, now = Date.now()) {
   const d = Math.floor(h / 24);
   return d === 1 ? '어제' : `${d}일 전`;
 }
+
+/** 요청자 이름: 무역사무 화면처럼 여러 조가 섞이면 '이름 (1조)' */
+export const memberLabel = (m: Member) => (m.team ? `${m.name} (${m.team}조)` : m.name);
+/** 요청의 조 (옛 요청은 2조) */
+export const teamOfRequest = (r: TradeRequest) => r.team ?? '2';

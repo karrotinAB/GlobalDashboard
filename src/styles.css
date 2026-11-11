@@ -4897,3 +4897,16 @@ body {
     padding: 14px 12px;
   }
 }
+.rq-team {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #6b4d8a;
+  background: #efe6f6;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+select.team-switch {
+  font: inherit;
+  cursor: pointer;
+  appearance: auto;
+}

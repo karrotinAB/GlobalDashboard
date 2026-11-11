@@ -14,6 +14,7 @@ import TradeHome from './pages/TradeHome';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
+import { DEFAULT_TEAM, setViewTeam, teamLabel, TEAMS } from './lib/team';
 
 const PAGES = [
   { key: 'home', label: '홈', icon: 'jelly' },
@@ -40,7 +41,7 @@ function readHash(): PageKey {
 export default function App() {
   const [hashPage, setPage] = useState<PageKey>(readHash);
   const { loading, error, mode, data, saveMany } = useStore();
-  const { role } = useAccess();
+  const { role, viewTeam } = useAccess();
   const tradeOnly = role === 'trade'; // 무역사무 계정: 무역사무 페이지 + 설정만
   const canTrade = role !== 'member'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
   const page: PageKey = tradeOnly
@@ -59,6 +60,7 @@ export default function App() {
   }, [page, tradeOnly]);
   const tabs = side === 'trade' ? TRADE_TABS : TEAM_TABS;
   const firstRun = !loading && !tradeOnly && mode === 'firestore' && data.members.length === 0 && page !== 'import';
+  const isMainTeam = viewTeam === DEFAULT_TEAM; // 기본 담당자(유정·민지·가영)는 2조에만
   const loadSample = async () => {
     const s = seedData();
     for (const col of COLLECTIONS) if (col !== 'attendance') await saveMany(col, s[col] as never);
@@ -94,9 +96,18 @@ export default function App() {
       <ExtensionBridge />
       <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
+        {!tradeOnly && canTrade && side === 'team' && (
+          <select className="top-btn team-switch" value={viewTeam} onChange={(e) => setViewTeam(e.target.value)} title="관리자: 다른 조 대시보드 보기">
+            {TEAMS.map((t) => (
+              <option key={t} value={t}>
+                {teamLabel(t)}
+              </option>
+            ))}
+          </select>
+        )}
         {!tradeOnly && canTrade && (
-          <a href={side === 'trade' ? '#/home' : '#/thome'} className="top-btn" title="관리자: 2조 / 무역사무 페이지 오가기">
-            {side === 'trade' ? '← 2조 페이지' : '무역사무 페이지 →'}
+          <a href={side === 'trade' ? '#/home' : '#/thome'} className="top-btn" title="관리자: 조 / 무역사무 페이지 오가기">
+            {side === 'trade' ? `← ${teamLabel(viewTeam)} 페이지` : '무역사무 페이지 →'}
           </a>
         )}
         <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
@@ -127,7 +138,7 @@ export default function App() {
             </a>
           )}
           {mode === 'firestore' ? (
-            <Presence page={page} />
+            <Presence page={side === 'trade' ? page : `${viewTeam}:${page}`} />
           ) : (
             <span className="mode local" title="이 브라우저에만 저장 중">
               로컬 모드
@@ -137,11 +148,16 @@ export default function App() {
         {error && <div className="error-bar">{error}</div>}
         {firstRun && (
           <div className="card first-run">
-            <span>🌱 아직 데이터가 없어요. 백업 JSON 파일이 있으면 설정 → 백업 가져오기로 넣고, 없으면 담당자만 만들어서 시작할 수 있어요.</span>
+            <span>
+              🌱 {teamLabel(viewTeam)} 데이터가 아직 없어요.{' '}
+              {isMainTeam ? '백업 JSON 파일이 있으면 설정 → 백업 가져오기로 넣고, 없으면 담당자만 만들어서 시작할 수 있어요.' : '설정 → 담당자에서 조원을 추가하고, 업체는 주간 할일에서 직접 등록해요.'}
+            </span>
             <button onClick={() => go('settings')}>설정으로 가기</button>
-            <button className="primary" onClick={loadSample}>
-              담당자만 만들고 시작
-            </button>
+            {isMainTeam && (
+              <button className="primary" onClick={loadSample}>
+                담당자만 만들고 시작
+              </button>
+            )}
           </div>
         )}
         <main>

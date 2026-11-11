@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bookmarklet, memNames } from '../lib/mem';
 import { useAccess } from '../components/AuthGate';
+import { DEFAULT_TEAM, teamLabel } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import ChangePassword from '../components/ChangePassword';
 import { useLookups, useStore } from '../data/store';
@@ -77,6 +78,7 @@ export default function Settings() {
     <div className="page">
       <div className="page-head">
         <h1>설정</h1>
+        {access.role !== 'trade' && <span className="tag gray">{teamLabel(access.viewTeam)}</span>}
       </div>
 
       <section className="card">
@@ -129,7 +131,7 @@ export default function Settings() {
       {access.email && <ChangePassword />}
 
       <section className="card">
-        <h2>담당자 (조원)</h2>
+        <h2>담당자 ({teamLabel(access.viewTeam)} 조원)</h2>
         <table className="settings-table">
           <thead>
             <tr>
@@ -210,7 +212,7 @@ export default function Settings() {
               e.target.value = '';
             }}
           />
-          <button onClick={loadSample}>기본 담당자 넣기</button>
+          {access.viewTeam === DEFAULT_TEAM && <button onClick={loadSample}>기본 담당자 넣기</button>}
         </div>
         {msg && <p className="small">{msg}</p>}
         <p className="muted small">

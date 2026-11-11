@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { memNames, parseImport } from '../lib/mem';
+import { useAccess } from './AuthGate';
+import { DEFAULT_TEAM } from '../lib/team';
 
 /**
  * 크롬 확장 프로그램 "2조 근태 보내기" 와 대화하는 부분.
@@ -11,7 +13,12 @@ export default function ExtensionBridge() {
   const { saveMany, data } = useStore();
   const { members: team } = useLookups();
   // 2조 + 무역사무 담당자 (같은 mem 화면에서 같이 읽음)
-  const members = useMemo(() => [...team, ...[...data.tradeMembers].sort((a, b) => a.order - b.order)], [team, data.tradeMembers]);
+  const { role, viewTeam } = useAccess();
+  const withTrade = role === 'trade' || viewTeam === DEFAULT_TEAM; // 무역사무 근태는 2조 쪽 저장소에
+  const members = useMemo(
+    () => [...(role === 'trade' ? [] : team), ...(withTrade ? [...data.tradeMembers].sort((a, b) => a.order - b.order) : [])],
+    [team, data.tradeMembers, withTrade, role],
+  );
 
   useEffect(() => {
     if (!members.length) return;

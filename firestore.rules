@@ -1,24 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 접근 권한: roles/{이메일(소문자)} 문서의 level (Global Opening Prep 과 같은 구조)
-    //   admin  = 관리자 (설정 > 접근 권한에서 사람 추가·삭제)
-    //   member = 조원 (대시보드 읽기·쓰기)
-    //   trade  = 무역사무 (무역사무 페이지: 요청·무역사무 담당자만. 2조 담당자 이름은 읽기만)
-    // 문서가 없는 계정은 아무것도 못 봄 (계정은 관리자가 설정 > 접근 권한에서 만들어 줌)
-    // 이메일 목록은 여기 적지 않음 → 사람이 바뀌어도 이 규칙은 그대로
+    // 접근 권한: roles/{이메일(소문자)} 문서
+    //   level: admin  = 관리자 (모든 조·무역사무 보기, 설정 > 대시보드 사용자에서 사람 추가·삭제)
+    //          member = 조원 (자기 조 대시보드 읽기·쓰기)
+    //          trade  = 무역사무 (무역사무 페이지: 요청·무역사무 담당자, 각 조 담당자 이름은 읽기만)
+    //   team : '1' | '2' | '3' (조원·관리자의 조, 없으면 2조)
+    // 문서가 없는 계정은 아무것도 못 봄 (계정은 관리자가 만들어 줌)
+    //
+    // 조마다 데이터가 따로: 2조 = members, companies … / 1조 = t1_members, t1_companies … / 3조 = t3_…
     function signedIn() {
       return request.auth != null && request.auth.token.email != null;
     }
     function myEmail() { return request.auth.token.email.lower(); }
+    function roleDoc() { return /databases/$(database)/documents/roles/$(myEmail()); }
     function role() {
-      let p = /databases/$(database)/documents/roles/$(myEmail());
-      return exists(p) ? get(p).data.get('level', 'none') : 'none';
+      return exists(roleDoc()) ? get(roleDoc()).data.get('level', 'none') : 'none';
+    }
+    function myTeam() {
+      return exists(roleDoc()) ? get(roleDoc()).data.get('team', '2') : 'none';
     }
     function isTeam() { return signedIn() && role() in ['admin', 'member']; }
     function isAdmin() { return signedIn() && role() == 'admin'; }
     function isTrade() { return signedIn() && role() == 'trade'; }
     function isAny() { return signedIn() && role() in ['admin', 'member', 'trade']; }
+
+    // 컬렉션 이름 → 조 / 원래 이름
+    function prefixed(col) { return col.matches('t[0-9]+_.+'); }
+    function teamTag(col) { return prefixed(col) ? col.split('_')[0] : 't2'; }
+    function baseOf(col) { return prefixed(col) ? col.split('_')[1] : col; }
+    function teamCol(col) {
+      return baseOf(col) in ['members', 'companies', 'tasks', 'orders', 'attendance', 'claims', 'config'];
+    }
+    // 이 조 데이터를 쓸 수 있나: 관리자는 모든 조, 조원은 자기 조만
+    function inTeam(col) {
+      return isAdmin() || (signedIn() && role() == 'member' && teamTag(col) == 't' + myTeam());
+    }
 
     match /roles/{email} {
       // 내 권한은 나도 볼 수 있어야 '권한 없음' 화면을 띄움
@@ -27,21 +44,9 @@ service cloud.firestore {
       allow create, update: if isAdmin() && email != myEmail()
         && email == email.lower()
         && request.resource.data.level in ['admin', 'member', 'trade']
-        && request.resource.data.keys().hasOnly(['level', 'name', 'addedBy', 'addedAt']);
+        && request.resource.data.get('team', '2') in ['1', '2', '3']
+        && request.resource.data.keys().hasOnly(['level', 'name', 'team', 'addedBy', 'addedAt']);
       allow delete: if isAdmin() && email != myEmail();
-    }
-
-    // 담당자 카드: 말풍선(status)·캐릭터(character)·시계(clocks)는 카드 주인(email)만 바꿈
-    // 카드 주인 이메일: 관리자는 언제나, 본인은 '주인 없는 카드'를 자기 이메일로 연결할 때만 ("이 카드가 나예요")
-    match /members/{id} {
-      allow read: if isAny(); // 무역사무도 요청자 이름을 봐야 해서 읽기만
-      allow create, delete: if isTeam();
-      allow update: if isTeam()
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character', 'clocks'])
-            || resource.data.get('email', '') == myEmail())
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
-            || isAdmin()
-            || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()));
     }
 
     // 지금 보고 있는 페이지 (탭 오른쪽 위 동그라미): 모두 읽고, 자기 것만 씀
@@ -50,7 +55,7 @@ service cloud.firestore {
       allow write: if isAny() && email == myEmail();
     }
 
-    // 무역사무 요청: 2조·무역사무 모두 읽고 쓰기 (지우기는 관리자만 — 보통은 '취소'로 기록을 남김)
+    // 무역사무 요청 (모든 조 + 무역사무): 지우기는 관리자만 — 보통은 '취소'로 기록을 남김
     match /requests/{id} {
       allow read, create, update: if isAny();
       allow delete: if isAdmin();
@@ -71,20 +76,29 @@ service cloud.firestore {
 
     // secrets/{문서} (ERP API 키 등): 규칙이 없으므로 사이트에서는 아무도 못 읽고 못 씀. 서버 함수만 읽음
 
-    // 팀 공용 설정 (홈 화면 구성 등): 모두 읽고, 관리자만 바꿈
-    match /config/{id} {
-      allow read: if isTeam();
-      allow write: if isAdmin();
-    }
-
-    // mem 근태: 2조·무역사무 모두 (확장 프로그램이 같은 mem 화면에서 같이 보냄)
-    match /attendance/{id} {
-      allow read, write: if isAny();
-    }
-
+    // 조 데이터 (members, companies, tasks, orders, attendance, claims, config 와 t1_… t3_…)
     match /{col}/{id} {
-      allow read, write: if isTeam()
-        && col in ['companies', 'tasks', 'orders', 'claims'];
+      allow read: if teamCol(col)
+        && (inTeam(col)
+            // 무역사무: 각 조 담당자 이름(요청자) + 무역사무 근태(2조 쪽 attendance)
+            || (isTrade() && (baseOf(col) == 'members' || col == 'attendance')));
+
+      // 공용 설정(홈 화면 구성 등)은 관리자만 바꿈
+      allow write: if teamCol(col) && baseOf(col) == 'config' && isAdmin();
+
+      allow create, delete: if teamCol(col) && baseOf(col) != 'config'
+        && (inTeam(col) || (isTrade() && col == 'attendance'));
+
+      // 담당자 카드: 말풍선(status)·캐릭터(character)·시계(clocks)는 카드 주인(email)만 바꿈
+      // 카드 주인 이메일: 관리자는 언제나, 본인은 '주인 없는 카드'를 자기 이메일로 연결할 때만 ("이 카드가 나예요")
+      allow update: if teamCol(col) && baseOf(col) != 'config'
+        && (inTeam(col) || (isTrade() && col == 'attendance'))
+        && (baseOf(col) != 'members'
+            || ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'character', 'clocks'])
+                 || resource.data.get('email', '') == myEmail())
+                && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+                    || isAdmin()
+                    || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()))));
     }
   }
 }

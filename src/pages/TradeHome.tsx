@@ -3,7 +3,7 @@ import { useState, type CSSProperties } from 'react';
 import { CharacterPicker, Hero, LeaveBand } from './Home';
 import { Avatar, characterSrc, Ring } from '../components/ui';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
-import { ago, isOpen, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
+import { ago, isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
 import type { Attendance, Member, TradeRequest } from '../types';
 
@@ -90,7 +90,7 @@ export default function TradeHome() {
                   <span className="tw-title">{r.title}</span>
                   <span className="tw-new-foot">
                     {who?.character ? <img src={characterSrc(who.character)} alt="" /> : who && <Avatar member={who} size={22} />}
-                    <span>{who?.name ?? '무역사무'}</span>
+                    <span>{who ? memberLabel(who) : '무역사무'}</span>
                     {r.dueDate && <span className={`tw-due ${r.dueDate < todayIso ? 'overdue' : r.dueDate === todayIso ? 'today' : ''}`}>마감 {dot(r.dueDate)}</span>}
                     <span className={`tw-as ${as ? '' : 'none'}`}>{as ? `→ ${as.name}` : '처리자 미정'}</span>
                   </span>
@@ -128,7 +128,7 @@ export default function TradeHome() {
                         </span>
                         <span className="tw-title">{r.title}</span>
                         <span className="muted small">
-                          {team.find((m) => m.id === r.requesterId)?.name ?? ''} {r.workType ? `· ${r.workType}` : ''}
+                          {(() => { const w = team.find((m) => m.id === r.requesterId); return w ? memberLabel(w) : ''; })()} {r.workType ? `· ${r.workType}` : ''}
                         </span>
                       </button>
                     </li>
