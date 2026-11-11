@@ -5923,3 +5923,13 @@ select.team-switch {
   z-index: 200;
   top: auto;
 }
+.co-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 10px;
+}
+.co-search .search {
+  flex: 1;
+  max-width: 360px;
+}

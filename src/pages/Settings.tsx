@@ -53,6 +53,18 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
   const { data, mode, save, saveMany, remove } = useStore();
   const access = useAccess();
   const { members, companies, isMine, hasMirror } = useLookups();
+  // 팀장님·이사님 업체 관리: 검색 + 내 업체 → 1조 → 2조 → 3조 순
+  const [coQ, setCoQ] = useState('');
+  const [onlyMine, setOnlyMine] = useState(false);
+  const coList = (() => {
+    if (!hasMirror) return companies;
+    const rank = (c: Company) => (c.team ? Number(c.team) : 0);
+    const q = coQ.trim().toLowerCase();
+    return [...companies]
+      .sort((a, b) => rank(a) - rank(b) || a.order - b.order || a.name.localeCompare(b.name))
+      .filter((c) => !onlyMine || isMine(c))
+      .filter((c) => !q || `${c.name} ${c.country ?? ''} ${(c.storeCodes ?? []).join(' ')} ${c.team ? `${c.team}조` : ''}`.toLowerCase().includes(q));
+  })();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
 
@@ -189,6 +201,15 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           타임존을 넣으면 홈 화면에 그 나라 시계가 나와요. <b>매장코드</b>(ERP 매장코드 앞 4자리, 여러 개면 쉼표)를 넣으면 ERP 에 새 주문이 들어올 때 그
           업체 주문 관리에 '새 주문'으로 자동 등록돼요.
         </p>
+        {hasMirror && (
+          <div className="co-search">
+            <input className="search" placeholder="🔍 업체 이름 · 나라 · 매장코드" value={coQ} onChange={(e) => setCoQ(e.target.value)} />
+            <label className="check-line small">
+              <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} /> 내 담당만
+            </label>
+            <span className="muted small">{coList.length}곳</span>
+          </div>
+        )}
         <div className="table-scroll">
           <table className="settings-table">
             <thead>
@@ -204,7 +225,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
               </tr>
             </thead>
             <tbody>
-              {companies.map((c) => (
+              {coList.map((c) => (
                 <CompanyRow
                   key={c.id}
                   c={c}
