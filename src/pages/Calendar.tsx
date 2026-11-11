@@ -21,6 +21,8 @@ interface Ev {
   allDay: boolean;
   location?: string;
   desc?: string;
+  byName?: string; // 작성자 이름 (구글이 주는 경우만)
+  byEmail?: string; // 작성자 메일
 }
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -346,12 +348,12 @@ export default function Calendar() {
         </Modal>
       )}
       {open && (
-        <Modal title={open.title} onClose={() => setOpen(null)}>
+        <Modal title="일정" onClose={() => setOpen(null)}>
           <div className="cal-detail">
-            <p>
-              <span className="cal-leg-dot" style={{ '--c': calById.get(open.cal)?.color } as CSSProperties} /> {calById.get(open.cal)?.name}
-            </p>
-            <p>
+            {/* 1. 내용 (크게) */}
+            <h2 className="cal-d-title">{open.title}</h2>
+            {/* 2. 시간 */}
+            <p className="cal-d-time">
               🕘{' '}
               {open.allDay
                 ? (() => {
@@ -360,7 +362,23 @@ export default function Calendar() {
                   })()
                 : `${seoulDay(open.start).replace(/-/g, '.')} ${seoulTime(open.start)} ~ ${seoulDay(open.end) === seoulDay(open.start) ? '' : `${seoulDay(open.end).replace(/-/g, '.')} `}${seoulTime(open.end)}`}
             </p>
-            {open.location && <p>📍 {open.location}</p>}
+            {open.location && <p className="cal-d-row">📍 {open.location}</p>}
+            {/* 3. 누가 쓴 일정인지 */}
+            <p className="cal-d-row">
+              ✍️{' '}
+              {open.byName || open.byEmail ? (
+                <>
+                  {open.byName && <b>{open.byName}</b>} {open.byEmail && <span className="muted">{open.byEmail}</span>}
+                </>
+              ) : (
+                <span className="muted">작성자 정보 없음 (구글이 이 일정의 작성자를 알려주지 않았어요)</span>
+              )}
+            </p>
+            {/* 4. 어느 달력인지 */}
+            <p className="cal-d-row">
+              <span className="cal-leg-dot" style={{ '--c': calById.get(open.cal)?.color } as CSSProperties} /> {calById.get(open.cal)?.name}
+              {calById.get(open.cal)?.mine && <span className="cal-mine">나만</span>}
+            </p>
             {open.desc && <pre className="cal-desc">{stripHtml(open.desc)}</pre>}
           </div>
         </Modal>

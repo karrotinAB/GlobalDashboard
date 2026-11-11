@@ -5899,3 +5899,21 @@ select.team-switch {
     background: transparent;
   }
 }
+/* 달력 일정 상세: 내용 → 시간 → 작성자 → 달력 */
+.cal-d-title {
+  margin: -6px 0 12px;
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.cal-d-time {
+  font-size: 15px;
+  font-weight: 600;
+}
+.cal-detail .cal-d-row {
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.cal-detail .cal-desc {
+  margin-top: 6px;
+}

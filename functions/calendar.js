@@ -18,6 +18,18 @@ async function fetchIcs(url, fetchImpl = fetch) {
 
 const dayKey = (d) => d.toISOString().slice(0, 10);
 
+/** 작성자: ORGANIZER (이름 CN + 메일), 없으면 비움 — 구글이 안 주는 일정도 있음 */
+function whoOf(ev) {
+  const o = ev.organizer;
+  if (!o) return {};
+  const raw = typeof o === 'string' ? o : String(o.val ?? '');
+  const email = raw.replace(/^mailto:/i, '').trim();
+  const name = typeof o === 'object' ? o.params?.CN : undefined;
+  // 구글 그룹/캘린더 자체 주소(…@group.calendar.google.com)는 사람 메일이 아님
+  if (/@group\.calendar\.google\.com$|@import\.calendar\.google\.com$/i.test(email)) return name ? { byName: String(name).replace(/^"|"$/g, '') } : {};
+  return { byName: name ? String(name).replace(/^"|"$/g, '') : undefined, byEmail: email || undefined };
+}
+
 /** ICS 글자 → [from, to) 사이 일정 목록 */
 export function eventsFromIcs(text, calId, from, to) {
   const data = ical.sync.parseICS(text);
@@ -32,6 +44,7 @@ export function eventsFromIcs(text, calId, from, to) {
       end: allDay ? dayKey(new Date(end.getTime() - end.getTimezoneOffset() * 60000)) : end.toISOString(),
       allDay,
       location: ev.location ? String(ev.location?.val ?? ev.location) : undefined,
+      ...whoOf(ev),
       desc: ev.description ? String(ev.description?.val ?? ev.description).slice(0, 2000) : undefined,
     });
   };
