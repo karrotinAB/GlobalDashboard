@@ -7,6 +7,7 @@ import { COUNTRY_OPTIONS, countryCode, useWorldHolidays } from '../lib/worldHoli
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf } from '../lib/mem';
 import { isPersonal, TEAMS } from '../lib/team';
+import DeptRoster from '../components/DeptRoster';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
 
@@ -233,7 +234,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
           <h2>👋 {isPersonal(access.viewTeam) ? '오늘의 나' : '우리 팀 오늘'}</h2>
           <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>
         </div>
-        <div className="team">
+        <div className={`team ${isPersonal(access.viewTeam) ? 'team-leader' : ''}`}>
           {summary.map((s) => (
             <TeamCard
               key={s.member.id}
@@ -257,6 +258,8 @@ export default function Home({ go }: { go: (page: string) => void }) {
               onStatus={(status) => save('members', { ...s.member, status: status || undefined })}
             />
           ))}
+          {/* 팀장님·이사님: 오른쪽 절반에 부서원 출퇴근 (조·무역사무 골라 보기) */}
+          {isPersonal(access.viewTeam) && <DeptRoster todayIso={todayIso} nowMin={seoul.h * 60 + seoul.mi} />}
         </div>
       </section>
 
