@@ -53,6 +53,25 @@ async function go(jar, url, init = {}, fetchImpl = fetch, hops = 0) {
   return res;
 }
 
+/** 응답 모양만 (칸 이름·종류, 실제 값은 안 담음) — 실패 원인 확인용 */
+export function shapeOf(text, depth = 0) {
+  let v;
+  try {
+    v = typeof text === 'string' ? JSON.parse(text) : text;
+  } catch {
+    const s = String(text);
+    const tags = [...new Set((s.match(/<([a-z][a-z0-9]*)[^>]*class="([^"]+)"/gi) ?? []).slice(0, 8).map((m) => m.replace(/<([a-z0-9]+)[^>]*class="([^"]+)".*/i, '$1.$2')))];
+    return `글자 ${s.length}자${tags.length ? `, 태그: ${tags.join(' ')}` : ''}`;
+  }
+  const f = (x, d) => {
+    if (Array.isArray(x)) return `[${x.length}개${x.length && d < 3 ? ` ${f(x[0], d + 1)}` : ''}]`;
+    if (x && typeof x === 'object') return d >= 3 ? '{…}' : `{${Object.entries(x).slice(0, 15).map(([k, y]) => `${k}:${f(y, d + 1)}`).join(', ')}}`;
+    if (typeof x === 'string') return x.includes('<') ? `html${x.length}` : x.length > 24 ? `글자${x.length}` : 'str';
+    return typeof x;
+  };
+  return f(v, depth);
+}
+
 /** 부서 근태 현황 HTML → 줄 목록 (확장 프로그램 mem.js 와 같은 규칙) */
 export function parseAttendance(html) {
   // JSON 으로 감싸져 오면 그 안에서 근태 목록 HTML 이 든 글자를 찾아 꺼냄
@@ -115,6 +134,7 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
   );
   if (login.status >= 400) throw new Error(`로그인 실패 (HTTP ${login.status})`);
   const loginText = await login.text().catch(() => '');
+  const loginInfo = `로그인 응답 ${login.status} ${shapeOf(loginText)}, 쿠키: ${[...jar.c.keys()].join(',') || '없음'}`;
   // JSON 응답에 실패 표시가 있으면 그 메시지로 (비밀번호 틀림 등)
   try {
     const j = JSON.parse(loginText);
@@ -147,7 +167,12 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
   const html = await res.text();
   if (res.status >= 400) throw new Error(`근태 화면을 못 열었어요 (HTTP ${res.status})`);
   const rows = parseAttendance(html);
-  if (!rows.length) throw new Error(/password|비밀번호|login|로그인/i.test(html) ? '로그인이 안 된 것 같아요 (아이디·비밀번호·칸 이름 확인)' : '근태 목록(li.user_gubn)을 못 찾았어요 (attendanceUrl 확인)');
+  if (!rows.length) {
+    const info = `근태 응답 ${res.status} ${res.headers.get('content-type') ?? ''} ${shapeOf(html)} / ${loginInfo}`;
+    throw new Error(
+      (/password|비밀번호|login|로그인/i.test(html) ? '로그인이 안 된 것 같아요' : '근태 목록(li.user_gubn)을 못 찾았어요') + ` — ${info}`.slice(0, 600),
+    );
+  }
   return rows;
 }
 

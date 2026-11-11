@@ -5113,3 +5113,9 @@ select.team-switch {
   background: #fde3df;
   color: #b0322a;
 }
+/* mem 자동 가져오기: 긴 실패 이유도 다 보이게 */
+.card .tag.red {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.5;
+}
