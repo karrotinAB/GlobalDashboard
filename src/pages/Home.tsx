@@ -6,6 +6,7 @@ import { holidayName } from '../lib/holidays';
 import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf } from '../lib/mem';
+import { isPersonal } from '../lib/team';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
 
@@ -222,7 +223,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
       {/* 우리 팀 오늘 */}
       <section className="section">
         <div className="section-head">
-          <h2>👋 우리 팀 오늘</h2>
+          <h2>👋 {isPersonal(access.viewTeam) ? '오늘의 나' : '우리 팀 오늘'}</h2>
           <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>
         </div>
         <div className="team">
