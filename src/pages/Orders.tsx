@@ -6,7 +6,7 @@ import { useAccess } from '../components/AuthGate';
 import CompanyPicker from '../components/CompanyPicker';
 import { Modal } from '../components/ui';
 import { isOrderDone, ORDER_STEPS, type ConfigDoc, type Order, type OrderBundle, type OrderStepKey } from '../types';
-import { uid } from '../lib/date';
+import { pickColor, uid } from '../lib/date';
 import { EditableText, MoreMenu } from '../components/SheetCells';
 import { AddOrderRow, AmountCell, CompanyCell, DateCell, fmtFX, fmtKRW } from '../components/OrderCells';
 
@@ -149,7 +149,7 @@ export default function Orders() {
     if (!selectedOrders.length) return;
     const existing = selectedOrders.find((o) => o.bundle)?.bundle;
     const used = new Set(data.orders.map((o) => o.bundle?.color));
-    const target: OrderBundle = existing ?? { id: uid(), color: BUNDLE_COLORS.find((c) => !used.has(c)) ?? BUNDLE_COLORS[used.size % BUNDLE_COLORS.length] };
+    const target: OrderBundle = existing ?? { id: uid(), color: (() => { const free = BUNDLE_COLORS.filter((c) => !used.has(c)); return free.length ? free[Math.floor(Math.random() * free.length)] : pickColor([...used]); })() };
     saveMany('orders', selectedOrders.map((o) => ({ ...o, bundle: target })));
     setSelected(new Set());
   };

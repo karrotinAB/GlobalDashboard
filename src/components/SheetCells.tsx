@@ -1,7 +1,7 @@
 import { memoHtml, memoLines, sanitize } from '../lib/richtext';
 import { useRef, useState, type CSSProperties } from 'react';
 import type { Company, Member } from '../types';
-import { shortDate } from '../lib/date';
+import { pickColor, shortDate } from '../lib/date';
 import { MemberChip, Modal } from './ui';
 import DateInput from './DateInput';
 
@@ -479,7 +479,6 @@ export function AddTaskRow({
   );
 }
 
-const COMPANY_COLORS = ['#8e5a8a', '#4f7cae', '#c79a2e', '#a8414b', '#5f8a4e', '#cf7a35', '#c2553f', '#3f8f8a', '#7a6a4f'];
 
 /** 업체별 보기 맨 아래 "+ 업체 추가" */
 export function AddCompany({ companies, onAdd }: { companies: Company[]; onAdd: (c: Company) => void }) {
@@ -499,7 +498,7 @@ export function AddCompany({ companies, onAdd }: { companies: Company[]; onAdd: 
       id: `c-${Date.now().toString(36)}`,
       name: n,
       country: '',
-      color: COMPANY_COLORS[companies.length % COMPANY_COLORS.length],
+      color: pickColor(companies.map((c) => c.color)),
       order: Math.max(-1, ...companies.map((c) => c.order)) + 1,
     });
     setName('');

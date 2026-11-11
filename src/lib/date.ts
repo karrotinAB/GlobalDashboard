@@ -60,3 +60,28 @@ export function uid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
+
+/** 부드러운 색 모음 (담당자·업체·묶음 기본 색) */
+export const PALETTE = [
+  '#9c4a6e', '#3f6fb8', '#c8742a', '#5f8a4e', '#8e5a8a', '#3f8f8a', '#b5543c', '#7a6a4f',
+  '#c0587a', '#4f7cae', '#d08a2e', '#6b9e5b', '#a46bb8', '#2f8f9e', '#d0644f', '#8a7d5c',
+  '#e0839c', '#7aa3d6', '#e3a75c', '#8fbf7a', '#b98fd0', '#6fbfbf', '#e58e7a', '#a8996f',
+];
+
+/** 아직 안 쓴 색을 무작위로 (다 썼으면 비슷하지 않은 새 색을 만듦) */
+export function pickColor(used: (string | undefined)[]): string {
+  const taken = new Set(used.filter(Boolean).map((c) => c!.toLowerCase()));
+  const free = PALETTE.filter((c) => !taken.has(c.toLowerCase()));
+  if (free.length) return free[Math.floor(Math.random() * free.length)];
+  const h = Math.floor(Math.random() * 360);
+  const s = 45 + Math.floor(Math.random() * 20);
+  const l = 45 + Math.floor(Math.random() * 15);
+  // HSL → HEX (색 고르기 칸이 #rrggbb 만 받음)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+    const v = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(v * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}

@@ -10,7 +10,7 @@ import ChangePassword from '../components/ChangePassword';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
-import { today, uid } from '../lib/date';
+import { today, uid, pickColor } from '../lib/date';
 import type { Collections, Company, Member } from '../types';
 
 const TIMEZONES = [
@@ -157,7 +157,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           </tbody>
         </table>
         <button
-          onClick={() => save('members', { id: uid(), name: '새 담당자', color: '#e0f0e0', order: members.length } satisfies Member)}
+          onClick={() => save('members', { id: uid(), name: '새 담당자', color: pickColor(members.map((m) => m.color)), order: members.length } satisfies Member)}
         >
           + 담당자 추가
         </button>
@@ -199,7 +199,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         </div>
         <button
           onClick={() =>
-            save('companies', { id: uid(), name: '새 업체', country: '', color: '#888888', order: companies.length } satisfies Company)
+            save('companies', { id: uid(), name: '새 업체', country: '', color: pickColor(companies.map((c) => c.color)), order: companies.length } satisfies Company)
           }
         >
           + 업체 추가
@@ -405,7 +405,7 @@ function TradeMembersSection() {
           ))}
         </tbody>
       </table>
-      <button onClick={() => save('tradeMembers', { id: uid(), name: '새 담당자', color: '#d9c7e8', order: list.length } satisfies Member)}>+ 담당자 추가</button>
+      <button onClick={() => save('tradeMembers', { id: uid(), name: '새 담당자', color: pickColor(list.map((m) => m.color)), order: list.length } satisfies Member)}>+ 담당자 추가</button>
     </section>
   );
 }
