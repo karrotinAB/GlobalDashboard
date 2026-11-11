@@ -5119,3 +5119,14 @@ select.team-switch {
   word-break: break-all;
   line-height: 1.5;
 }
+
+/* 카드가 한 장뿐이면 (팀장님·이사님 '오늘의 나' 등) 줄 전체가 아니라 반만 */
+.team > .member-card:only-child {
+  width: calc(50% - 8px);
+  min-width: min(100%, 360px);
+}
+@media (max-width: 700px) {
+  .team > .member-card:only-child {
+    width: 100%;
+  }
+}
