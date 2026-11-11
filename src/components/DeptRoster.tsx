@@ -76,35 +76,52 @@ export default function DeptRoster({ todayIso, nowMin }: { todayIso: string; now
 function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number }) {
   const out = !!r && r.status.includes('퇴근');
   const working = !!r && (r.status === '근무' || out);
-  let line: string;
-  let left = '';
+  // 위쪽 색 띠: 작은 글씨(무엇) + 큰 글씨(시각/상태) + 옆 설명
+  let label = '오늘';
+  let big = '—';
+  let side = '';
   let tone = '';
   if (!r) {
-    line = '근태 정보 없음';
+    side = '근태 정보 없음';
     tone = 'none';
   } else if (out) {
-    line = '퇴근했어요 👋';
+    label = '퇴근';
+    big = r.end ? ampm(r.end) : '퇴근';
+    side = '퇴근했어요 👋';
     tone = 'off';
   } else if (r.end && working) {
     const min = toMin(r.end) - nowMin;
-    line = `${ampm(r.end)} 퇴근 예정`;
-    left = min > 0 ? `${dur(min)} 남음` : '퇴근 시간 지남';
+    label = '퇴근 예정';
+    big = ampm(r.end);
+    side = min > 0 ? `퇴근까지 ${dur(min)}` : '퇴근 시간 지남';
     tone = 'on';
   } else {
-    line = r.status; // 근무전 · 연차 · 출장 …
+    big = r.status; // 근무전 · 연차 · 출장 …
+    side = r.period ?? '';
     tone = r.status === '근무전' ? 'none' : 'away';
   }
+  const [t, p] = big.split(' ');
   return (
     <div className={`mini-card ${tone}`} style={{ '--c': m.color } as CSSProperties}>
-      <img className="mini-char" src={characterSrc(charOf(m))} alt="" />
-      <div className="mini-main">
-        <b>{m.name}</b>
-        <span className="mini-line">{line}</span>
-        <span className="mini-sub">
-          {left && <span>{left}</span>}
-          {r?.start && working && !out && <span>출근 {ampm(r.start)}</span>}
-          {r?.period && <span className="mini-period">⏱ {r.period}</span>}
-        </span>
+      <div className="mini-band">
+        <div className="mini-band-main">
+          <span className="mini-band-label">{label}</span>
+          <span className="mini-band-big">
+            {t}
+            {p && <small>{p}</small>}
+          </span>
+        </div>
+        {side && <span className="mini-band-side">{side}</span>}
+      </div>
+      <div className="mini-body">
+        <img className="mini-char" src={characterSrc(charOf(m))} alt="" />
+        <div className="mini-main">
+          <b>{m.name}</b>
+          <span className="mini-sub">
+            {r?.start && working && !out && <span>출근 {ampm(r.start)}</span>}
+            {r?.period && working && <span className="mini-period">⏱ {r.period}</span>}
+          </span>
+        </div>
       </div>
     </div>
   );
