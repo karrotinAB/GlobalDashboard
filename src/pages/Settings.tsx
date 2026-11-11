@@ -611,7 +611,7 @@ function MemAutoSection() {
         mem 근태 자동 가져오기 <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
       <p className="muted small">
-        서버가 평일 하루 6번(9:00 · 10:00 · 10:30 · 18:00 · 18:30 · 19:00) mem 에 로그인해서 부서 근태 현황만 읽어요. 노트북을 안 켜도 돼요. 아이디·비밀번호는 Firebase 비밀값 저장소에만 있고
+        서버가 평일 하루 8번(9시 · 10시 · 12시 · 2시 · 4시 · 5시 · 6시 · 7시) mem 에 로그인해서 부서 근태 현황만 읽어요. 노트북을 안 켜도 돼요. 아이디·비밀번호는 Firebase 비밀값 저장소에만 있고
         이 사이트에서는 볼 수 없어요.
       </p>
       <p className="small">
