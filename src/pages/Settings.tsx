@@ -151,6 +151,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       )}
       {access.canManage && <HolidayAdmin />}
       {access.role === 'admin' && <MemAutoSection />}
+      {access.role === 'admin' && <CalendarAdmin />}
       {access.email && <ChangePassword />}
 
       <section className="card">
@@ -608,6 +609,101 @@ function MemAutoSection() {
       <button className="primary" onClick={run} disabled={busy || DATA_MODE === 'local'}>
         {busy ? '가져오는 중…' : '지금 가져오기'}
       </button>
+      {msg && <p className="small">{msg}</p>}
+    </section>
+  );
+}
+
+/** 구글 캘린더 연결 (관리자): 이름·색·iCal 비공개 주소. 주소는 서버에만 저장되고 다시 보여줄 때는 가려서 */
+function CalendarAdmin() {
+  type Row = { id?: string; name: string; color: string; url: string; masked?: string };
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const load = async () => {
+    try {
+      const r = (await httpsCallable(functions, 'calendarConfig')()).data as { list: Row[] };
+      setRows(r.list.map((x) => ({ ...x, url: '' })));
+    } catch (e) {
+      setRows([]);
+      setMsg(`목록을 못 불러왔어요: ${(e as Error).message} (서버 함수를 올렸는지 확인해 주세요)`);
+    }
+  };
+  const save = async () => {
+    if (!rows) return;
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = (await httpsCallable(functions, 'saveCalendars')({ list: rows.map(({ id, name, color, url }) => ({ id, name, color, url: url || undefined })) })).data as {
+        count: number;
+      };
+      setMsg(`저장했어요 ✓ 달력 ${r.count}개 — 달력 탭에서 확인해 보세요`);
+      await load();
+    } catch (e) {
+      setMsg(`저장 실패: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const set = (i: number, p: Partial<Row>) => setRows((l) => (l ?? []).map((x, j) => (j === i ? { ...x, ...p } : x)));
+  return (
+    <section className="card">
+      <h2>
+        구글 캘린더 <span className="tag gray">관리자만 보이는 칸</span>
+      </h2>
+      <p className="muted small">
+        달력 탭에 보일 구글 캘린더예요. 구글 캘린더 → 설정 → 해당 캘린더 → <b>캘린더 통합</b> → <b>iCal 형식의 비공개 주소</b>를 복사해 붙여넣어 주세요. 주소는
+        서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요 (그 주소만 있으면 일정을 볼 수 있으니 다른 곳에 공유하지 마세요).
+      </p>
+      {DATA_MODE === 'local' ? (
+        <p className="muted small">로컬 테스트 모드에서는 쓸 수 없어요.</p>
+      ) : rows === null ? (
+        <button onClick={load}>달력 목록 불러오기</button>
+      ) : (
+        <>
+          <table className="settings-table">
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>색</th>
+                <th>iCal 비공개 주소</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.id ?? `new${i}`}>
+                  <td>
+                    <input value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="예: 부서 일정" />
+                  </td>
+                  <td>
+                    <input type="color" value={r.color} onChange={(e) => set(i, { color: e.target.value })} />
+                  </td>
+                  <td>
+                    <input
+                      className="cal-url"
+                      value={r.url}
+                      onChange={(e) => set(i, { url: e.target.value })}
+                      placeholder={r.masked ? `저장됨: ${r.masked} (바꿀 때만 입력)` : 'https://calendar.google.com/calendar/ical/…/basic.ics'}
+                    />
+                  </td>
+                  <td>
+                    <button className="danger small" onClick={() => setRows((l) => (l ?? []).filter((_, j) => j !== i))}>
+                      빼기
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="btn-row">
+            <button onClick={() => setRows((l) => [...(l ?? []), { name: '', color: pickColor((l ?? []).map((x) => x.color)), url: '' }])}>+ 달력 추가</button>
+            <button className="primary" onClick={save} disabled={busy}>
+              {busy ? '저장 중…' : '저장'}
+            </button>
+          </div>
+        </>
+      )}
       {msg && <p className="small">{msg}</p>}
     </section>
   );

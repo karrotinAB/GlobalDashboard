@@ -13,6 +13,7 @@ import { logger } from 'firebase-functions';
 import { diff, inspect, needsSync, syncOne } from './sync.js';
 import { fetchMemRows, toRecords } from './mem.js';
 import { importNewOrders } from './importOrders.js';
+import { loadCalendars } from './calendar.js';
 import { defineSecret } from 'firebase-functions/params';
 
 initializeApp();
@@ -222,4 +223,47 @@ export const moveCompanyTeam = onCall({ region: REGION }, async (req) => {
   }
   logger.info('company moved', { companyId, from, to, by: email, ...counts });
   return { ok: true, name: snap.get('name'), ...counts };
+});
+
+// ------------------------------------------------------------------
+// 구글 캘린더 (iCal 비공개 주소). 주소는 secrets/calendars 에만 — 사이트에서는 일정만 받음
+//  - calendarEvents : 기간 안 일정 (대시보드 사용자 모두)
+//  - calendarConfig / saveCalendars : 달력 목록 보기·저장 (관리자, 주소는 가려서 보여줌)
+// ------------------------------------------------------------------
+async function roleOf(req) {
+  const email = req.auth?.token?.email?.toLowerCase();
+  if (!email) throw new HttpsError('unauthenticated', '로그인이 필요해요');
+  return (await db.doc(`roles/${email}`).get()).get('level');
+}
+const calList = async () => ((await db.doc('secrets/calendars').get()).get('list') ?? []).filter((c) => c && c.url);
+
+export const calendarEvents = onCall({ region: REGION }, async (req) => {
+  const role = await roleOf(req);
+  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 볼 수 있어요');
+  const from = new Date(req.data?.from);
+  const to = new Date(req.data?.to);
+  if (Number.isNaN(+from) || Number.isNaN(+to) || to <= from || to - from > 70 * 86400000) throw new HttpsError('invalid-argument', '기간을 확인해 주세요');
+  const list = await calList();
+  const { events, errors } = await loadCalendars(list, from, to);
+  return { calendars: list.map(({ id, name, color }) => ({ id, name, color })), events, errors };
+});
+
+export const calendarConfig = onCall({ region: REGION }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
+  return { list: (await calList()).map(({ id, name, color, url }) => ({ id, name, color, masked: `${url.slice(0, 48)}…` })) };
+});
+
+export const saveCalendars = onCall({ region: REGION }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 바꿀 수 있어요');
+  const old = await calList();
+  const input = Array.isArray(req.data?.list) ? req.data.list.slice(0, 10) : [];
+  const list = [];
+  for (const c of input) {
+    const id = String(c.id || Math.random().toString(36).slice(2, 10));
+    const url = c.url ? String(c.url).trim().replace(/^webcal:/, 'https:') : old.find((o) => o.id === id)?.url;
+    if (!url || !/^https:\/\//.test(url)) throw new HttpsError('invalid-argument', `'${c.name}' 주소를 확인해 주세요 (https:// 로 시작하는 iCal 주소)`);
+    list.push({ id, name: String(c.name || '달력').slice(0, 30), color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : '#8c2f3c', url });
+  }
+  await db.doc('secrets/calendars').set({ list });
+  return { ok: true, count: list.length };
 });

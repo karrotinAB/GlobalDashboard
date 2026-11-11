@@ -96,3 +96,8 @@ Vite + React + TypeScript, Firebase (Auth + Firestore)
 설정 > 업체 관리의 **매장코드(4자리)** 를 넣어 두면, 금액 갱신(평일 업무시간 30분마다 / ↻ 금액 새로고침) 때
 `getexorderdata` 를 날짜만으로(최근 3일) 불러서 STORE_CODE 가 맞는 업체 주문 관리에 '새 주문'을 만들어요.
 같은 EXP_NO 나 같은 매장코드+주문일자 주문이 있으면 안 만들고, 한 번 만든 건 지워도 다시 안 만들어요 (`apiImports`).
+
+## 구글 캘린더 (달력 탭)
+
+관리자: 설정 > 구글 캘린더에서 달력 이름·색·**iCal 형식의 비공개 주소**(구글 캘린더 설정 > 캘린더 통합)를 넣고 저장.
+주소는 서버(secrets/calendars)에만 저장되고, 사이트는 서버 함수 calendarEvents 로 일정만 받아요.

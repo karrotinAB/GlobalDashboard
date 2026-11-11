@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import RequestBoard from './pages/RequestBoard';
 import TradeHome from './pages/TradeHome';
 import Overview from './pages/Overview';
+import Calendar from './pages/Calendar';
 import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
@@ -29,12 +30,13 @@ const PAGES = [
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
+  { key: 'calendar', label: '달력', icon: '📅' },
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
 const GOP_URL = 'https://karrotinab.github.io/pog-global/';
-const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
-const TRADE_TABS: PageKey[] = ['thome', 'twork'];
-const isTradePage = (p: PageKey) => TRADE_TABS.includes(p);
+const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims', 'calendar'];
+const TRADE_TABS: PageKey[] = ['thome', 'twork', 'calendar'];
+const isTradePage = (p: PageKey) => p !== 'calendar' && TRADE_TABS.includes(p);
 
 function readHash(): PageKey {
   const h = window.location.hash.replace('#/', '').replace('#', '').split('?')[0];
@@ -52,7 +54,7 @@ export default function App() {
   // '조 현황' 탭: 팀장님·이사님 대시보드에만 (관리자는 팀장님·이사님 대시보드를 볼 때만)
   const canOverview = leader || ((role === 'admin' || role === null) && isPersonal(viewTeam));
   const page: PageKey = tradeOnly
-    ? isTradePage(hashPage) || hashPage === 'settings'
+    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar'
       ? hashPage
       : 'thome'
     : isTradePage(hashPage) && !canTrade
@@ -63,7 +65,7 @@ export default function App() {
   useEffect(() => {
     if (tradeOnly) setSide('trade');
     else if (isTradePage(page)) setSide('trade');
-    else if (page !== 'settings' && page !== 'import') setSide('team');
+    else if (page !== 'settings' && page !== 'import' && page !== 'calendar') setSide('team'); // 달력·설정은 보던 쪽 그대로
   }, [page, tradeOnly]);
   // 조 현황은 홈 바로 옆에
   const tabs = side === 'trade' ? TRADE_TABS : canOverview ? ['home' as PageKey, 'overview' as PageKey, ...TEAM_TABS.filter((t) => t !== 'home')] : TEAM_TABS;
@@ -183,6 +185,8 @@ export default function App() {
             <Claims />
           ) : page === 'requests' ? (
             <RequestBoard key="team" side="team" />
+          ) : page === 'calendar' ? (
+            <Calendar />
           ) : page === 'overview' && canOverview ? (
             <Overview />
           ) : page === 'thome' ? (

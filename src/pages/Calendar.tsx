@@ -1,0 +1,250 @@
+// 달력: 부서 구글 캘린더(iCal 비공개 주소)를 대시보드 모양으로. 일정은 서버 함수 calendarEvents 가 읽어 줌
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
+import { DATA_MODE } from '../data/store';
+import { holidayName } from '../lib/holidays';
+import { Modal } from '../components/ui';
+
+interface Cal {
+  id: string;
+  name: string;
+  color: string;
+}
+interface Ev {
+  id: string;
+  cal: string;
+  title: string;
+  start: string; // 종일: YYYY-MM-DD, 아니면 ISO
+  end: string; // 종일: 끝 다음날(포함 안 함)
+  allDay: boolean;
+  location?: string;
+  desc?: string;
+}
+
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+const pad = (n: number) => String(n).padStart(2, '0');
+const keyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** 서울 날짜 YYYY-MM-DD */
+const seoulDay = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(iso));
+const seoulTime = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
+const addDay = (k: string, n: number) => {
+  const d = new Date(`${k}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return keyOf(d);
+};
+/** 이 일정이 걸친 날들 (서울 기준) */
+function daysOf(e: Ev): string[] {
+  const s = e.allDay ? e.start : seoulDay(e.start);
+  // 종일은 끝 날짜가 '다음날'(포함 안 함), 시간 일정은 끝 시각이 자정이면 그 전날까지
+  const last = e.allDay ? addDay(e.end, -1) : seoulDay(new Date(new Date(e.end).getTime() - 1).toISOString());
+  const out: string[] = [];
+  for (let k = s; k <= last && out.length < 62; k = addDay(k, 1)) out.push(k);
+  return out.length ? out : [s];
+}
+const stripHtml = (s?: string) => (s ?? '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+
+export default function Calendar() {
+  const now = new Date();
+  const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [cals, setCals] = useState<Cal[]>([]);
+  const [events, setEvents] = useState<Ev[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('gd:calHidden') ?? '[]');
+    } catch {
+      return [];
+    }
+  });
+  const [open, setOpen] = useState<Ev | null>(null);
+  const [day, setDay] = useState<string | null>(null);
+
+  // 6주 칸: 그 달 1일이 있는 주 일요일부터
+  const gridStart = useMemo(() => {
+    const d = new Date(month);
+    d.setDate(1 - d.getDay());
+    return d;
+  }, [month]);
+  const cells = useMemo(() => Array.from({ length: 42 }, (_, i) => keyOf(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i))), [gridStart]);
+
+  useEffect(() => {
+    if (DATA_MODE === 'local') return;
+    let alive = true;
+    setBusy(true);
+    const from = new Date(`${cells[0]}T00:00:00+09:00`).toISOString();
+    const to = new Date(`${addDay(cells[41], 1)}T00:00:00+09:00`).toISOString();
+    httpsCallable(functions, 'calendarEvents')({ from, to })
+      .then((r) => {
+        if (!alive) return;
+        const d = r.data as { calendars: Cal[]; events: Ev[]; errors: string[] };
+        setCals(d.calendars);
+        setEvents(d.events);
+        setErrors(d.errors ?? []);
+      })
+      .catch((e) => alive && setErrors([`일정을 못 불러왔어요: ${(e as Error).message} (서버 함수를 올렸는지 확인해 주세요)`]))
+      .finally(() => alive && setBusy(false));
+    return () => {
+      alive = false;
+    };
+  }, [cells]);
+
+  const calById = new Map(cals.map((c) => [c.id, c]));
+  const shown = events.filter((e) => !hidden.includes(e.cal));
+  const byDay = useMemo(() => {
+    const m = new Map<string, Ev[]>();
+    for (const e of shown) for (const k of daysOf(e)) m.set(k, [...(m.get(k) ?? []), e]);
+    for (const list of m.values()) list.sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start));
+    return m;
+  }, [shown]);
+  const toggle = (id: string) => {
+    const next = hidden.includes(id) ? hidden.filter((x) => x !== id) : [...hidden, id];
+    setHidden(next);
+    try {
+      localStorage.setItem('gd:calHidden', JSON.stringify(next));
+    } catch {
+      /* 무시 */
+    }
+  };
+  const todayKey = keyOf(now);
+  const monthKey = `${month.getFullYear()}-${pad(month.getMonth() + 1)}`;
+  const move = (n: number) => setMonth((m) => new Date(m.getFullYear(), m.getMonth() + n, 1));
+  // 휴대폰: 이번 달 일정 목록
+  const agenda = cells.filter((k) => k.startsWith(monthKey) && (byDay.get(k)?.length || holidayName(k)));
+
+  const chip = (e: Ev, k: string) => {
+    const c = calById.get(e.cal);
+    const first = daysOf(e)[0] === k;
+    return (
+      <button
+        key={e.id + k}
+        className={`cal-ev ${e.allDay ? 'all' : 'timed'} ${first ? '' : 'cont'}`}
+        style={{ '--c': c?.color ?? '#8c2f3c' } as CSSProperties}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          setOpen(e);
+        }}
+        title={e.title}
+      >
+        {!e.allDay && first && <span className="cal-time">{seoulTime(e.start)}</span>}
+        <span className="cal-title">{e.title}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1>달력</h1>
+          <p>부서 구글 캘린더 일정을 보여줘요 (보기만, 일정 추가·수정은 구글 캘린더에서)</p>
+        </div>
+      </div>
+
+      <div className="toolbar cal-toolbar">
+        <div className="cal-nav">
+          <button onClick={() => move(-1)} title="지난 달">
+            ‹
+          </button>
+          <b>
+            {month.getFullYear()}년 {month.getMonth() + 1}월
+          </b>
+          <button onClick={() => move(1)} title="다음 달">
+            ›
+          </button>
+          <button className="cal-today" onClick={() => setMonth(new Date(now.getFullYear(), now.getMonth(), 1))}>
+            오늘
+          </button>
+          {busy && <span className="muted small">불러오는 중…</span>}
+        </div>
+        <div className="cal-legend">
+          {cals.map((c) => (
+            <button key={c.id} className={`cal-leg ${hidden.includes(c.id) ? 'off' : ''}`} style={{ '--c': c.color } as CSSProperties} onClick={() => toggle(c.id)} title="눌러서 보이기/숨기기">
+              <span className="cal-leg-dot" />
+              {c.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {DATA_MODE === 'local' && <p className="muted small">로컬 테스트 모드에서는 구글 캘린더를 불러오지 않아요.</p>}
+      {DATA_MODE !== 'local' && !busy && cals.length === 0 && !errors.length && (
+        <p className="muted small">아직 연결된 달력이 없어요. 관리자가 설정 → 구글 캘린더에서 달력을 추가해 주세요.</p>
+      )}
+      {errors.map((e, i) => (
+        <p key={i} className="cal-err">
+          {e}
+        </p>
+      ))}
+
+      <div className="cal-grid card">
+        {DOW.map((d, i) => (
+          <div key={d} className={`cal-dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>
+            {d}
+          </div>
+        ))}
+        {cells.map((k, i) => {
+          const list = byDay.get(k) ?? [];
+          const hol = holidayName(k);
+          const out = !k.startsWith(monthKey);
+          return (
+            <div
+              key={k}
+              className={`cal-day ${out ? 'out' : ''} ${k === todayKey ? 'today' : ''} ${i % 7 === 0 || hol ? 'sun' : i % 7 === 6 ? 'sat' : ''}`}
+              onClick={() => list.length && setDay(k)}
+            >
+              <div className="cal-day-head">
+                <span className="cal-num">{Number(k.slice(8))}</span>
+                {hol && <span className="cal-hol">{hol}</span>}
+              </div>
+              {list.slice(0, 4).map((e) => chip(e, k))}
+              {list.length > 4 && <span className="cal-more">+{list.length - 4}개</span>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 휴대폰: 목록으로 */}
+      <div className="cal-agenda">
+        {agenda.length === 0 && <p className="muted small">이번 달 일정이 없어요.</p>}
+        {agenda.map((k) => (
+          <div key={k} className={`cal-ag-day ${k === todayKey ? 'today' : ''}`}>
+            <div className="cal-ag-date">
+              <b>{Number(k.slice(8))}</b>
+              <span>{DOW[new Date(`${k}T00:00:00`).getDay()]}</span>
+              {holidayName(k) && <span className="cal-hol">{holidayName(k)}</span>}
+            </div>
+            <div className="cal-ag-list">{(byDay.get(k) ?? []).map((e) => chip(e, k))}</div>
+          </div>
+        ))}
+      </div>
+
+      {day && (
+        <Modal title={`${Number(day.slice(5, 7))}월 ${Number(day.slice(8))}일 일정`} onClose={() => setDay(null)}>
+          <div className="cal-day-list">{(byDay.get(day) ?? []).map((e) => chip(e, day))}</div>
+        </Modal>
+      )}
+      {open && (
+        <Modal title={open.title} onClose={() => setOpen(null)}>
+          <div className="cal-detail">
+            <p>
+              <span className="cal-leg-dot" style={{ '--c': calById.get(open.cal)?.color } as CSSProperties} /> {calById.get(open.cal)?.name}
+            </p>
+            <p>
+              🕘{' '}
+              {open.allDay
+                ? (() => {
+                    const ds = daysOf(open);
+                    return ds.length > 1 ? `${ds[0].replace(/-/g, '.')} ~ ${ds[ds.length - 1].replace(/-/g, '.')} (종일)` : `${ds[0].replace(/-/g, '.')} (종일)`;
+                  })()
+                : `${seoulDay(open.start).replace(/-/g, '.')} ${seoulTime(open.start)} ~ ${seoulDay(open.end) === seoulDay(open.start) ? '' : `${seoulDay(open.end).replace(/-/g, '.')} `}${seoulTime(open.end)}`}
+            </p>
+            {open.location && <p>📍 {open.location}</p>}
+            {open.desc && <pre className="cal-desc">{stripHtml(open.desc)}</pre>}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
