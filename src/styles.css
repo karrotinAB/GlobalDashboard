@@ -5311,3 +5311,12 @@ select.team-switch {
   margin: 4px 0;
   padding-left: 22px;
 }
+
+/* 클레임: 출고날짜 한 줄로 (2025년 11월 11일 처럼 길어도) */
+.claim-table .k-date {
+  width: 152px;
+  white-space: nowrap;
+}
+.claim-table td.k-date * {
+  white-space: nowrap;
+}
