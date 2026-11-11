@@ -4,8 +4,10 @@
 //
 // 설정 (비밀번호 아님, Firestore 콘솔 > secrets > mem 문서):
 //   loginUrl        로그인 요청 주소 (F12 > 네트워크에서 로그인 버튼을 눌렀을 때 나가는 요청)
-//   idField         아이디 칸 이름        (예: user_id)
-//   pwField         비밀번호 칸 이름      (예: user_pw)
+//                   예: https://mem.artbox.kr/server/data-access/login.ab.json
+//   idField         아이디 칸 이름        (예: loginId)
+//   pwField         비밀번호 칸 이름      (예: loginPw)
+//   loginFormat     (선택) json 또는 form — 주소가 .json 으로 끝나면 기본 json
 //   loginPageUrl    (선택) 로그인 화면 주소 — 숨은 보안 값(csrf)을 먼저 받아야 할 때
 //   csrfField       (선택) 그 숨은 칸 이름
 //   extra           (선택) 로그인에 같이 보내는 칸들, 예: {"auto_login":"N"}
@@ -100,9 +102,26 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
   for (const [k, v] of Object.entries(extra)) form.set(k, String(v));
   form.set(cfg.idField, id);
   form.set(cfg.pwField, pw);
-  const login = await go(jar, cfg.loginUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() }, fetchImpl);
+  // mem 은 로그인을 JSON 으로 보냄 ({"loginId":"…","loginPw":"…"})
+  const asJson = (cfg.loginFormat ?? (/\.json(\?|$)/.test(cfg.loginUrl) ? 'json' : 'form')) === 'json';
+  const login = await go(
+    jar,
+    cfg.loginUrl,
+    asJson
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json;charset=UTF-8', Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(Object.fromEntries(form)) }
+      : { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString() },
+    fetchImpl,
+  );
   if (login.status >= 400) throw new Error(`로그인 실패 (HTTP ${login.status})`);
-  await login.text().catch(() => '');
+  const loginText = await login.text().catch(() => '');
+  // JSON 응답에 실패 표시가 있으면 그 메시지로 (비밀번호 틀림 등)
+  try {
+    const j = JSON.parse(loginText);
+    const failed = j && (j.success === false || j.result === false || j.ok === false || /fail|error|denied/i.test(String(j.status ?? j.resultCode ?? j.code ?? '')));
+    if (failed) throw new Error(`로그인 실패: ${String(j.message ?? j.msg ?? j.resultMsg ?? j.error ?? '아이디·비밀번호 확인').slice(0, 120)}`);
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('로그인 실패')) throw e;
+  }
 
   const method = String(cfg.attendanceMethod || 'GET').toUpperCase();
   const bodyCfg = typeof cfg.attendanceBody === 'string' ? JSON.parse(cfg.attendanceBody || '{}') : cfg.attendanceBody ?? {};
