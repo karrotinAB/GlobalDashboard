@@ -182,7 +182,7 @@ export default function App() {
           ) : page === 'twork' ? (
             <RequestBoard key="trade" side="trade" />
           ) : (
-            <Settings />
+            <Settings side={side} />
           )}
         </main>
       </div>

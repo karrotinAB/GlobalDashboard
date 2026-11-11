@@ -41,7 +41,8 @@ const TIMEZONES = [
   'Australia/Sydney',
 ];
 
-export default function Settings() {
+/** side: 지금 보고 있던 쪽 (조 대시보드 / 무역사무 페이지) */
+export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' }) {
   const { data, mode, save, saveMany, remove } = useStore();
   const access = useAccess();
   const { members, companies } = useLookups();
@@ -105,7 +106,8 @@ export default function Settings() {
       </section>
 
       {access.role === 'admin' && <AccessAdmin />}
-      {(access.role === null || access.role === 'admin' || access.role === 'trade') && <TradeMembersSection />}
+      {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
+      {(access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && <TradeMembersSection />}
       {access.role === 'trade' ? (
         access.email && <ChangePassword />
       ) : (
