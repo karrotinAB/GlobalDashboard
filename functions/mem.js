@@ -45,12 +45,33 @@ async function go(jar, url, init = {}, fetchImpl = fetch, hops = 0) {
   const res = await fetchImpl(url, {
     ...init,
     redirect: 'manual',
-    headers: { 'User-Agent': 'Mozilla/5.0 (GlobalDashboard attendance sync)', ...(init.headers ?? {}), Cookie: jar.header() },
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
+      Accept: 'application/json, text/javascript, */*; q=0.01',
+      'Accept-Language': 'ko-KR,ko;q=0.9',
+      Origin: new URL(url).origin,
+      Referer: init.referer ?? `${new URL(url).origin}/`,
+      ...(init.headers ?? {}),
+      Cookie: jar.header(),
+    },
   });
   jar.take(res);
   const loc = res.headers.get('location');
   if (res.status >= 300 && res.status < 400 && loc && hops < 6) return go(jar, new URL(loc, url).toString(), { method: 'GET' }, fetchImpl, hops + 1);
   return res;
+}
+
+/** JSON 응답의 짧은 시스템 문구 칸만 그대로 (예: result=fail, message=비밀번호가 틀렸습니다) */
+function short(text, keys) {
+  try {
+    const j = JSON.parse(text);
+    return keys
+      .filter((k) => j && typeof j[k] !== 'object' && j[k] !== undefined)
+      .map((k) => `${k}="${String(j[k]).slice(0, 60)}"`)
+      .join(' ');
+  } catch {
+    return '';
+  }
 }
 
 /** 응답 모양만 (칸 이름·종류, 실제 값은 안 담음) — 실패 원인 확인용 */
@@ -134,12 +155,19 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
   );
   if (login.status >= 400) throw new Error(`로그인 실패 (HTTP ${login.status})`);
   const loginText = await login.text().catch(() => '');
-  const loginInfo = `로그인 응답 ${login.status} ${shapeOf(loginText)}, 쿠키: ${[...jar.c.keys()].join(',') || '없음'}`;
+  const loginInfo = `로그인 응답 ${login.status} ${shapeOf(loginText)} ${short(loginText, ['result', 'message', 'msg', 'status'])}, 쿠키: ${[...jar.c.keys()].join(',') || '없음'}`;
   // JSON 응답에 실패 표시가 있으면 그 메시지로 (비밀번호 틀림 등)
   try {
     const j = JSON.parse(loginText);
-    const failed = j && (j.success === false || j.result === false || j.ok === false || /fail|error|denied/i.test(String(j.status ?? j.resultCode ?? j.code ?? '')));
-    if (failed) throw new Error(`로그인 실패: ${String(j.message ?? j.msg ?? j.resultMsg ?? j.error ?? '아이디·비밀번호 확인').slice(0, 120)}`);
+    const r = j && j.result !== undefined ? String(j.result).toLowerCase() : undefined;
+    const failed =
+      j &&
+      (j.success === false ||
+        j.result === false ||
+        j.ok === false ||
+        (r !== undefined && /fail|error|deny|denied|^n$|^false$|^0$/.test(r)) ||
+        /fail|error|denied/i.test(String(j.status ?? j.resultCode ?? j.code ?? '')));
+    if (failed) throw new Error(`로그인 실패: ${String(j.message ?? j.msg ?? j.resultMsg ?? j.error ?? '아이디·비밀번호 확인').slice(0, 120)} (result="${j.result}")`);
   } catch (e) {
     if (e instanceof Error && e.message.startsWith('로그인 실패')) throw e;
   }
@@ -161,6 +189,7 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
         ...(method === 'POST' ? { 'Content-Type': json ? 'application/json;charset=UTF-8' : 'application/x-www-form-urlencoded' } : {}),
       },
       body,
+      referer: cfg.attendanceReferer ?? `${new URL(cfg.attendanceUrl).origin}/`,
     },
     fetchImpl,
   );
@@ -168,7 +197,7 @@ export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
   if (res.status >= 400) throw new Error(`근태 화면을 못 열었어요 (HTTP ${res.status})`);
   const rows = parseAttendance(html);
   if (!rows.length) {
-    const info = `근태 응답 ${res.status} ${res.headers.get('content-type') ?? ''} ${shapeOf(html)} / ${loginInfo}`;
+    const info = `근태 응답 ${res.status} ${shapeOf(html)} ${short(html, ['status', 'result', 'message', 'msg'])} / ${loginInfo}`;
     throw new Error(
       (/password|비밀번호|login|로그인/i.test(html) ? '로그인이 안 된 것 같아요' : '근태 목록(li.user_gubn)을 못 찾았어요') + ` — ${info}`.slice(0, 600),
     );
