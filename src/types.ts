@@ -164,6 +164,8 @@ export interface MemDirectory {
   id: string; // '1' | '2' | '3' | 'p…' | 'trade'
   names: string[]; // mem 이름 (설정의 mem 이름, 없으면 대시보드 이름)
   updatedAt?: string;
+  // id = '_status': 서버 자동 가져오기 마지막 결과
+  lastRun?: { ok: boolean; at: string; date?: string; read?: number; saved?: number; names?: string[]; error?: string };
 }
 
 /** 공용 근태함: mem 이름 기준 (id = 날짜_이름). 각 대시보드가 자기 사람 것을 찾아서 보여줌 */

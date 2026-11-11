@@ -5109,3 +5109,7 @@ select.team-switch {
     min-width: 820px;
   }
 }
+.tag.red {
+  background: #fde3df;
+  color: #b0322a;
+}

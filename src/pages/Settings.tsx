@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { bookmarklet, memNames } from '../lib/mem';
 import { ROLE_NAME, useAccess } from '../components/AuthGate';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
 import { DEFAULT_TEAM } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import ChangePassword from '../components/ChangePassword';
-import { useLookups, useStore } from '../data/store';
+import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
 import { today, uid } from '../lib/date';
@@ -131,6 +133,7 @@ export default function Settings() {
         </section>
       )}
       {access.canManage && <HolidayAdmin />}
+      {access.role === 'admin' && <MemAutoSection />}
       {access.email && <ChangePassword />}
 
       <section className="card">
@@ -496,6 +499,56 @@ function HolidayAdmin() {
           </tbody>
         </table>
       )}
+    </section>
+  );
+}
+
+/** mem 근태 서버 자동 가져오기 (관리자): 마지막 결과 + 지금 가져오기 */
+function MemAutoSection() {
+  const { data } = useStore();
+  const last = data.memDirectory.find((d) => d.id === '_status')?.lastRun;
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const run = async () => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = (await httpsCallable(functions, 'syncMemNow')()).data as { ok: boolean; saved?: number; read?: number; error?: string };
+      setMsg(r.ok ? `가져왔어요 ✓ mem ${r.read}줄 중 대시보드 사람 ${r.saved}명` : `실패: ${r.error}`);
+    } catch (e) {
+      setMsg(`실패: ${(e as Error).message} (서버 함수를 올렸는지 확인해 주세요)`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="card">
+      <h2>
+        mem 근태 자동 가져오기 <span className="tag gray">관리자만 보이는 칸</span>
+      </h2>
+      <p className="muted small">
+        서버가 평일 8:00~19:30 사이 30분마다 mem 에 로그인해서 부서 근태 현황만 읽어요. 노트북을 안 켜도 돼요. 아이디·비밀번호는 Firebase 비밀값 저장소에만 있고
+        이 사이트에서는 볼 수 없어요.
+      </p>
+      <p className="small">
+        마지막 실행:{' '}
+        {last ? (
+          <>
+            {new Date(last.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} ·{' '}
+            {last.ok ? (
+              <span className="tag green">성공 · {last.saved}명 ({(last.names ?? []).join(', ')})</span>
+            ) : (
+              <span className="tag red">실패 · {last.error}</span>
+            )}
+          </>
+        ) : (
+          <span className="muted">아직 없음</span>
+        )}
+      </p>
+      <button className="primary" onClick={run} disabled={busy || DATA_MODE === 'local'}>
+        {busy ? '가져오는 중…' : '지금 가져오기'}
+      </button>
+      {msg && <p className="small">{msg}</p>}
     </section>
   );
 }

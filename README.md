@@ -82,3 +82,11 @@ Vite + React + TypeScript, Firebase (Auth + Firestore)
 
 그다음부터는 `GlobalDashboard` 폴더의 **deploy.bat** 을 더블클릭하면
 최신 코드 받기 → 서버 함수 준비 → 서버 함수 + Firestore 규칙 + Storage 규칙 올리기를 한 번에 해요.
+
+## mem 근태 서버 자동 가져오기 (노트북 안 켜도 됨)
+
+1. Firestore 콘솔 > `secrets` 컬렉션 > `mem` 문서를 만들고 칸을 넣어요 (값은 F12 > 네트워크에서 확인):
+   `loginUrl`, `idField`, `pwField`, `attendanceUrl` (필요하면 `loginPageUrl`, `csrfField`, `extra`, `attendanceMethod`, `attendanceBody`)
+   — 자세한 설명은 `functions/mem.js` 맨 위
+2. deploy.bat 을 실행하면 처음 한 번 `MEM_ID`, `MEM_PASSWORD` 를 물어봐요 (입력한 값은 Firebase 비밀값 저장소에만 저장)
+3. 설정 > mem 근태 자동 가져오기 > **지금 가져오기** 로 시험

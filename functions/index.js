@@ -2,6 +2,7 @@
 //  - syncOrderAmounts     : 평일 9:00~18:30 (서울) 30분마다 자동으로 주문 금액 갱신
 //  - syncOrderAmountsNow  : 주문 관리의 '금액 새로고침' 버튼 (대시보드 사용자만)
 //  - inspectOrderApi      : 관리자 확인용 — ERP API 응답 원본 보기 (아무것도 저장 안 함)
+//  - syncMemAttendance / syncMemNow : mem 근태 자동 가져오기 (맨 아래)
 // API 키: Firestore 콘솔 > secrets 컬렉션 > erp 문서 > apiKey 필드 (보안 규칙상 사이트에서는 못 읽음)
 
 import { initializeApp } from 'firebase-admin/app';
@@ -10,6 +11,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { diff, inspect, needsSync, syncOne } from './sync.js';
+import { fetchMemRows, toRecords } from './mem.js';
+import { defineSecret } from 'firebase-functions/params';
 
 initializeApp();
 const db = getFirestore();
@@ -117,4 +120,61 @@ export const inspectOrderApi = onCall({ region: REGION }, async (req) => {
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
+});
+
+// ------------------------------------------------------------------
+// mem 근태 자동 가져오기 (노트북을 안 켜도 됨)
+//  - syncMemAttendance : 평일 8:00~19:30 (서울) 30분마다
+//  - syncMemNow        : 설정 화면 '지금 가져오기' 버튼 (관리자만, 결과·오류 확인용)
+// 아이디·비밀번호: Firebase 비밀값 저장소 (MEM_ID, MEM_PASSWORD) — 이 함수만 읽음
+// 주소·칸 이름: Firestore secrets/mem 문서 (functions/mem.js 맨 위 설명)
+// ------------------------------------------------------------------
+const MEM_ID = defineSecret('MEM_ID');
+const MEM_PASSWORD = defineSecret('MEM_PASSWORD');
+
+const seoulDate = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date()); // 2026-11-11
+
+async function runMemSync() {
+  const date = seoulDate();
+  const status = db.doc('memDirectory/_status');
+  try {
+    const cfg = (await db.doc('secrets/mem').get()).data();
+    if (!cfg) throw new Error('secrets/mem 문서가 없어요 (로그인 주소·근태 주소를 넣어 주세요)');
+    const id = MEM_ID.value();
+    const pw = MEM_PASSWORD.value();
+    if (!id || !pw) throw new Error('MEM_ID / MEM_PASSWORD 비밀값이 없어요');
+    // 모든 공간(1~3조·팀장님·이사님·무역사무)이 올려 둔 mem 이름
+    const dir = await db.collection('memDirectory').get();
+    const names = [...new Set(dir.docs.flatMap((d) => (d.id === '_status' ? [] : d.get('names') ?? [])))];
+    if (!names.length) throw new Error('공용 mem 이름 목록이 비어 있어요 (대시보드를 한 번 열면 채워져요)');
+    const rows = await fetchMemRows(cfg, id, pw, date);
+    const recs = toRecords(rows, names, date);
+    const batch = db.batch();
+    for (const r of recs) batch.set(db.doc(`memAttendance/${r.id}`), JSON.parse(JSON.stringify(r)));
+    await batch.commit();
+    const result = { ok: true, at: new Date().toISOString(), date, read: rows.length, saved: recs.length, names: recs.map((r) => r.name) };
+    await status.set({ id: '_status', names: [], lastRun: result }, { merge: true });
+    logger.info('mem sync', result);
+    return result;
+  } catch (e) {
+    const result = { ok: false, at: new Date().toISOString(), date, error: e.message };
+    await status.set({ id: '_status', names: [], lastRun: result }, { merge: true });
+    logger.warn('mem sync failed', e.message);
+    return result;
+  }
+}
+
+export const syncMemAttendance = onSchedule(
+  { schedule: '*/30 8-19 * * 1-5', region: REGION, timeZone: 'Asia/Seoul', secrets: [MEM_ID, MEM_PASSWORD] },
+  async () => {
+    await runMemSync();
+  },
+);
+
+export const syncMemNow = onCall({ region: REGION, secrets: [MEM_ID, MEM_PASSWORD] }, async (req) => {
+  const email = req.auth?.token?.email?.toLowerCase();
+  if (!email) throw new HttpsError('unauthenticated', '로그인이 필요해요');
+  const role = (await db.doc(`roles/${email}`).get()).get('level');
+  if (role !== 'admin') throw new HttpsError('permission-denied', '관리자만 쓸 수 있어요');
+  return runMemSync();
 });
