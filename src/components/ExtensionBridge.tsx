@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useLookups, useStore } from '../data/store';
-import { memNames, parseImport } from '../lib/mem';
+import { memNames, parseImport, sharedRecords } from '../lib/mem';
 import { useAccess } from './AuthGate';
 import { DEFAULT_TEAM } from '../lib/team';
 
@@ -10,35 +10,59 @@ import { DEFAULT_TEAM } from '../lib/team';
  * 로그인된 이 페이지가 검증해서 저장하고, 받았다고 답함.
  */
 export default function ExtensionBridge() {
-  const { saveMany, data } = useStore();
+  const { saveMany, save, data } = useStore();
   const { members: team } = useLookups();
-  // 2조 + 무역사무 담당자 (같은 mem 화면에서 같이 읽음)
   const { role, viewTeam } = useAccess();
-  const withTrade = role === 'trade' || viewTeam === DEFAULT_TEAM; // 무역사무 근태는 2조 쪽 저장소에
-  const members = useMemo(
-    () => [...(role === 'trade' ? [] : team), ...(withTrade ? [...data.tradeMembers].sort((a, b) => a.order - b.order) : [])],
-    [team, data.tradeMembers, withTrade, role],
-  );
+  const trade = useMemo(() => [...data.tradeMembers].sort((a, b) => a.order - b.order), [data.tradeMembers]);
+  // 이 공간(조·개인 대시보드) 사람: 무역사무 계정은 조 담당자를 쓰지 않음 (여러 조 이름이 섞여 있음)
+  const own = useMemo(() => (role === 'trade' ? [] : team), [team, role]);
+  const withTrade = role === 'trade' || viewTeam === DEFAULT_TEAM; // 무역사무 근태는 2조 쪽 저장소에도 (예전 방식 유지)
+  const local = useMemo(() => [...own, ...(withTrade ? trade : [])], [own, trade, withTrade]);
+
+  // 1) 공용 mem 이름 목록에 이 공간 사람들을 올림 (바뀌었을 때만)
+  useEffect(() => {
+    const put = (id: string, list: typeof team) => {
+      const names = [...new Set(memNames(list))].sort();
+      const cur = data.memDirectory.find((d) => d.id === id);
+      if (!names.length && !cur) return;
+      if (cur && JSON.stringify(cur.names) === JSON.stringify(names)) return;
+      save('memDirectory', { id, names, updatedAt: new Date().toISOString() });
+    };
+    if (role !== 'trade' && own.length) put(viewTeam, own);
+    if (trade.length) put('trade', trade);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [own, trade, viewTeam, role, data.memDirectory.length]);
+
+  // 모든 공간의 이름 (확장 프로그램은 이 사람들 줄만 읽음)
+  const allNames = useMemo(() => {
+    const names = new Set<string>(memNames(local));
+    for (const d of data.memDirectory) for (const n of d.names ?? []) names.add(n);
+    return [...names];
+  }, [local, data.memDirectory]);
 
   useEffect(() => {
-    if (!members.length) return;
+    if (!allNames.length) return;
     const origin = window.location.origin;
-    const ready = () => window.postMessage({ type: 'gd-page-ready', names: memNames(members) }, origin);
+    const ready = () => window.postMessage({ type: 'gd-page-ready', names: allNames }, origin);
 
     const onMessage = (e: MessageEvent) => {
       if (e.source !== window || e.origin !== origin || !e.data || typeof e.data !== 'object') return;
       if (e.data.type === 'gd-ext-hello') ready();
       if (e.data.type === 'gd-ext-import') {
         const p = e.data.payload as { key?: unknown; date?: unknown; rows?: unknown };
-        const result = parseImport(JSON.stringify({ date: p?.date, rows: p?.rows }), members);
-        if (!result) return;
-        saveMany('attendance', result.records).then(() => window.postMessage({ type: 'gd-ext-ack', key: p.key }, origin));
+        const raw = JSON.stringify({ date: p?.date, rows: p?.rows });
+        const mine = parseImport(raw, local); // 이 공간 기록 (예전 방식)
+        const shared = sharedRecords(raw, allNames); // 공용 근태함: 모든 조·팀장님·이사님·무역사무
+        if (!mine && !shared.length) return;
+        Promise.all([mine?.records.length ? saveMany('attendance', mine.records) : null, shared.length ? saveMany('memAttendance', shared) : null]).then(() =>
+          window.postMessage({ type: 'gd-ext-ack', key: p.key }, origin),
+        );
       }
     };
     window.addEventListener('message', onMessage);
     ready();
     return () => window.removeEventListener('message', onMessage);
-  }, [members, saveMany]);
+  }, [allNames, local, saveMany]);
 
   return null;
 }

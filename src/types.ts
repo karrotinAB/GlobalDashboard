@@ -155,6 +155,20 @@ export interface Collections {
   claims: Claim[];
   requests: TradeRequest[];
   tradeMembers: Member[];
+  memDirectory: MemDirectory[];
+  memAttendance: MemAttendance[];
+}
+
+/** 공용 mem 이름 목록: 공간(1조·2조·3조·개인 대시보드·무역사무)마다 한 문서 → 확장 프로그램이 모두의 근태를 같이 읽음 */
+export interface MemDirectory {
+  id: string; // '1' | '2' | '3' | 'p…' | 'trade'
+  names: string[]; // mem 이름 (설정의 mem 이름, 없으면 대시보드 이름)
+  updatedAt?: string;
+}
+
+/** 공용 근태함: mem 이름 기준 (id = 날짜_이름). 각 대시보드가 자기 사람 것을 찾아서 보여줌 */
+export interface MemAttendance extends Attendance {
+  name: string;
 }
 
 export type CollectionName = keyof Collections;

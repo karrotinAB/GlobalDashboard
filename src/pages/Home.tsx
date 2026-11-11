@@ -5,6 +5,7 @@ import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/ta
 import { holidayName } from '../lib/holidays';
 import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
+import { attendanceOf } from '../lib/mem';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { Avatar, CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring } from '../components/ui';
 
@@ -229,7 +230,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
             <TeamCard
               key={s.member.id}
               s={s}
-              record={todayAtt.get(s.member.id)}
+              record={todayAtt.get(s.member.id) ?? attendanceOf(s.member, todayIso, [], data.memAttendance)}
               nowMin={seoul.h * 60 + seoul.mi}
               mine={access.role === null || (!!s.member.email && s.member.email.toLowerCase() === access.email)}
               canClaim={!!access.email && !s.member.email && !members.some((x) => x.email?.toLowerCase() === access.email)}

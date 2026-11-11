@@ -1,4 +1,4 @@
-import type { Attendance, Member } from '../types';
+import type { Attendance, MemAttendance, Member } from '../types';
 
 /**
  * mem 연동 (북마크 버튼 방식)
@@ -70,7 +70,7 @@ export function parseImport(raw: string | null, members: Member[]): { records: A
   const now = new Date().toISOString();
   const records: Attendance[] = [];
   const unmatched: string[] = [];
-  for (const r of parsed.rows.slice(0, 50) as Record<string, unknown>[]) {
+  for (const r of parsed.rows.slice(0, 200) as Record<string, unknown>[]) {
     const name = clip(r?.name, 20);
     const m = matchMember(members, name);
     if (!m) {
@@ -92,4 +92,20 @@ export function parseImport(raw: string | null, members: Member[]): { records: A
     });
   }
   return { records, unmatched };
+}
+
+/** 공용 근태함에서 찾는 이름 */
+export const memKey = (m: Member) => (m.memName || m.name).trim();
+
+/** mem 에서 받은 줄 → 공용 근태함 기록 (공용 이름 목록에 있는 사람만) */
+export function sharedRecords(raw: string, names: string[]): MemAttendance[] {
+  const pseudo = [...new Set(names)].map((n) => ({ id: n, name: n, color: '', order: 0 }) as Member);
+  const res = parseImport(raw, pseudo);
+  if (!res) return [];
+  return res.records.map((r) => ({ ...r, id: `${r.date}_${r.memberId}`, name: r.memberId, memberId: '' }));
+}
+
+/** 오늘 이 사람 근태: 내 공간 기록이 있으면 그것, 없으면 공용 근태함 */
+export function attendanceOf(m: Member, date: string, own: Attendance[], shared: MemAttendance[]): Attendance | undefined {
+  return own.find((a) => a.date === date && a.memberId === m.id) ?? shared.find((a) => a.date === date && a.name === memKey(m));
 }

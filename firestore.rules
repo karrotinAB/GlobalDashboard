@@ -88,6 +88,14 @@ service cloud.firestore {
             || (resource.data.get('email', '') == '' && request.resource.data.get('email', '') == myEmail()));
     }
 
+    // 공용 mem 이름 목록 / 공용 근태함: 한 사람이 mem 을 연동하면 모든 조·팀장님·이사님·무역사무 근태가 같이 들어옴
+    match /memDirectory/{space} {
+      allow read, write: if isAny();
+    }
+    match /memAttendance/{id} {
+      allow read, write: if isAny();
+    }
+
     // secrets/{문서} (ERP API 키 등): 규칙이 없으므로 사이트에서는 아무도 못 읽고 못 씀. 서버 함수만 읽음
 
     // 조 데이터 (members, companies, tasks, orders, attendance, claims, config 와 t1_… t3_…)

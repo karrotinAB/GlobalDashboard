@@ -1,15 +1,15 @@
-import { collection, deleteDoc, doc, onSnapshot, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where, writeBatch, type Firestore } from 'firebase/firestore';
 import type { CollectionName, Collections } from '../types';
 import { DEFAULT_TEAM, physName, TEAMS } from '../lib/team';
 
-export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims', 'requests', 'tradeMembers'];
+export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims', 'requests', 'tradeMembers', 'memDirectory', 'memAttendance'];
 // 보안 규칙이 아직 안 바뀌어도 대시보드는 열리게: 이 컬렉션들은 못 읽으면 빈 채로 계속
-const OPTIONAL: CollectionName[] = ['config', 'claims', 'requests', 'tradeMembers'];
+const OPTIONAL: CollectionName[] = ['config', 'claims', 'requests', 'tradeMembers', 'memDirectory', 'memAttendance'];
 /** 무역사무 계정이 읽는 컬렉션 (나머지는 보안 규칙상 못 읽음) */
-export const TRADE_COLLECTIONS: CollectionName[] = ['members', 'requests', 'tradeMembers', 'attendance'];
+export const TRADE_COLLECTIONS: CollectionName[] = ['members', 'requests', 'tradeMembers', 'attendance', 'memDirectory', 'memAttendance'];
 
 export function emptyCollections(): Collections {
-  return { members: [], companies: [], tasks: [], orders: [], attendance: [], config: [], claims: [], requests: [], tradeMembers: [] };
+  return { members: [], companies: [], tasks: [], orders: [], attendance: [], config: [], claims: [], requests: [], tradeMembers: [], memDirectory: [], memAttendance: [] };
 }
 
 export interface Backend {
@@ -124,7 +124,9 @@ export function createFirestoreBackend(db: Firestore): Backend {
         const got = new Set<string>();
         return srcs.map((src) =>
           onSnapshot(
-            collection(db, src.path),
+            col === 'memAttendance'
+              ? query(collection(db, src.path), where('date', '>=', new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10))) // 최근 7일만
+              : collection(db, src.path),
             (snap) => {
               parts.set(src.path, snap.docs.map((d) => ({ ...d.data(), id: d.id, ...(src.tag ? { team: src.tag } : {}) })));
               got.add(src.path);

@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       await chrome.storage.local.set({ lastDelivered: new Date().toISOString() });
       sendResponse(true);
     } else if (msg.type === 'names') {
-      if (Array.isArray(msg.names) && msg.names.length) await chrome.storage.local.set({ names: msg.names.slice(0, 20) });
+      if (Array.isArray(msg.names) && msg.names.length) await chrome.storage.local.set({ names: msg.names.slice(0, 200) });
       sendResponse(true);
     }
   })();
