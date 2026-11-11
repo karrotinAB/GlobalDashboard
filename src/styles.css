@@ -5142,3 +5142,22 @@ select.team-switch {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+.ov-unit-row {
+  cursor: pointer;
+}
+.ov-unit-row:hover td {
+  background: #faf4f2;
+}
+.ov-bundle.big {
+  margin-left: 0;
+  font-size: 12.5px;
+  padding: 2px 9px;
+  border-radius: 6px;
+}
+.ov-co-chips {
+  margin: -4px 0 12px;
+  align-items: center;
+}
+.ov-co-chips .cchip .muted {
+  margin-right: 2px;
+}

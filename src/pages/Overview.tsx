@@ -10,7 +10,7 @@ import { tasksForWeek, dueState } from '../lib/tasks';
 import { today, weekStart, shortDate } from '../lib/date';
 import { isOrderDone, ORDER_STEPS, type Claim, type CollectionName, type Company, type Member, type Order, type Task } from '../types';
 import { fmtFX, fmtKRW } from '../components/OrderCells';
-import { Ring } from '../components/ui';
+import { Modal, Ring } from '../components/ui';
 
 const COLS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'claims'];
 type View = 'todos' | 'orders' | 'claims' | 'trade';
@@ -29,6 +29,9 @@ interface TeamData {
 
 const dot = (iso?: string) => (iso ? iso.slice(2).replace(/-/g, '.') : '');
 const sumOf = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
+/** 금액이 하나라도 있으면 합계, 없으면 빈칸 */
+const amtK = (list: Order[]) => (list.some((o) => o.amountKRW !== undefined) ? fmtKRW(sumOf(list, 'amountKRW')) : '');
+const amtF = (list: Order[]) => (list.some((o) => o.amountForeign !== undefined) ? fmtFX(sumOf(list, 'amountForeign')) : '');
 
 export default function Overview() {
   // 조마다 읽기 전용 구독 (조 수는 고정이라 훅 순서가 바뀌지 않음)
@@ -48,11 +51,31 @@ export default function Overview() {
   // 무역사무: 요청·담당자는 모두가 같이 쓰는 데이터라 내 저장소에 이미 있음
   const { data } = useStore();
   const tradePeople = useMemo(() => [...data.tradeMembers].sort((a, b) => a.order - b.order), [data.tradeMembers]);
-  const [only, setOnly] = useState(''); // '' = 모든 조
+  const [only, setOnlyState] = useState(''); // '' = 모든 조
+  const [co, setCo] = useState(''); // '조:업체id' — 고른 업체만
+  const setOnly = (v: string | ((x: string) => string)) => {
+    setOnlyState(v);
+    setCo('');
+  };
   const [q, setQ] = useState('');
   const todayIso = today();
   const monday = weekStart(todayIso);
   const shown = teams.filter((t) => !only || t.team === only);
+  // 업체를 고르면 그 조의 그 업체 내용만
+  const picked = co
+    ? shown
+        .filter((t) => co.startsWith(`${t.team}:`))
+        .map((t) => {
+          const cid = co.slice(t.team.length + 1);
+          return {
+            ...t,
+            companies: t.companies.filter((c) => c.id === cid),
+            tasks: t.tasks.filter((x) => x.companyId === cid),
+            orders: t.orders.filter((o) => o.companyId === cid),
+            claims: t.claims.filter((k) => k.companyId === cid),
+          };
+        })
+    : shown;
 
   return (
     <div className="page">
@@ -101,9 +124,45 @@ export default function Overview() {
         <p className="muted small">일부 조 정보를 못 읽었어요 (보안 규칙을 올렸는지 확인해 주세요): {teams.filter((t) => t.error).map((t) => t.label).join(', ')}</p>
       )}
 
-      {view === 'todos' && <TodosView teams={shown} monday={monday} todayIso={todayIso} q={q} />}
-      {view === 'orders' && <OrdersView teams={shown} q={q} />}
-      {view === 'claims' && <ClaimsView teams={shown} q={q} />}
+      {/* 업체 고르기: 지금 보기(할일·주문·클레임)에 내용이 있는 업체만 */}
+      {view !== 'trade' && (
+        <div className="company-chips ov-co-chips">
+          <span className="muted small">업체</span>
+          <button className={`cchip ${!co ? 'on' : ''}`} onClick={() => setCo('')}>
+            전체
+          </button>
+          {shown.flatMap((t) => {
+            const used = new Set(
+              view === 'orders'
+                ? t.orders.map((o) => o.companyId)
+                : view === 'claims'
+                  ? t.claims.map((k) => k.companyId)
+                  : tasksForWeek(t.tasks, monday).map((r) => r.task.companyId),
+            );
+            return t.companies
+              .filter((c) => used.has(c.id))
+              .map((c) => {
+                const key = `${t.team}:${c.id}`;
+                return (
+                  <button
+                    key={key}
+                    className={`cchip ${co === key ? 'on' : ''}`}
+                    style={{ '--c': c.color ?? '#999' } as CSSProperties}
+                    onClick={() => setCo((v) => (v === key ? '' : key))}
+                  >
+                    <span className="dot" style={{ background: c.color }} />
+                    {!only && <span className="muted small">{t.label} </span>}
+                    {c.name}
+                  </button>
+                );
+              });
+          })}
+        </div>
+      )}
+
+      {view === 'todos' && <TodosView teams={picked} monday={monday} todayIso={todayIso} q={q} />}
+      {view === 'orders' && <OrdersView teams={picked} q={q} />}
+      {view === 'claims' && <ClaimsView teams={picked} q={q} />}
       {view === 'trade' && <TradeView requests={data.requests} people={tradePeople} only={only} q={q} todayIso={todayIso} />}
     </div>
   );
@@ -223,20 +282,46 @@ function TodosView({ teams, monday, todayIso, q }: { teams: TeamData[]; monday: 
   );
 }
 
-/** 주문: 모든 조 주문을 한 표에 (단계는 점으로) */
+/** 주문: 묶음 단위로 (묶음 아닌 주문은 한 줄씩). 누르면 안에 든 주문 상세 */
+interface Unit {
+  key: string;
+  t: TeamData;
+  c?: Company;
+  title: string;
+  bundle?: Order['bundle'];
+  orders: Order[];
+}
+const stepsDone = (o: Order) => ORDER_STEPS.filter((s) => o[s.key]).length;
+
 function OrdersView({ teams, q }: { teams: TeamData[]; q: string }) {
   const [tab, setTab] = useState<'open' | 'done'>('open');
+  const [detail, setDetail] = useState<Unit | null>(null);
   const query = q.trim().toLowerCase();
-  const rows = useMemo(
-    () =>
-      teams
-        .flatMap((t) => t.orders.map((o) => ({ t, o, c: t.companies.find((c) => c.id === o.companyId) })))
-        .filter(({ o }) => (tab === 'open' ? !isOrderDone(o) : isOrderDone(o)))
-        .filter(({ o, c }) => !query || `${o.name} ${c?.name ?? ''} ${o.bundle?.name ?? ''} ${o.storeCode ?? ''}`.toLowerCase().includes(query))
-        .sort((a, b) => a.t.team.localeCompare(b.t.team) || (a.c?.order ?? 99) - (b.c?.order ?? 99) || (b.o.orderDate ?? '').localeCompare(a.o.orderDate ?? '')),
-    [teams, tab, query],
-  );
-  const shown = tab === 'done' ? rows.slice(0, 200) : rows;
+  const units = useMemo(() => {
+    const out: Unit[] = [];
+    for (const t of teams) {
+      const byBundle = new Map<string, Unit>();
+      for (const o of t.orders) {
+        const c = t.companies.find((x) => x.id === o.companyId);
+        if (o.bundle) {
+          let u = byBundle.get(o.bundle.id);
+          if (!u) {
+            u = { key: `${t.team}:${o.bundle.id}`, t, c, title: o.bundle.name || '이름 없는 묶음', bundle: o.bundle, orders: [] };
+            byBundle.set(o.bundle.id, u);
+            out.push(u);
+          }
+          u.orders.push(o);
+        } else out.push({ key: `${t.team}:${o.id}`, t, c, title: o.name, orders: [o] });
+      }
+    }
+    const latest = (u: Unit) => u.orders.map((o) => o.orderDate ?? '').sort().pop() ?? '';
+    return out
+      .filter((u) => (tab === 'open' ? u.orders.some((o) => !isOrderDone(o)) : u.orders.every(isOrderDone)))
+      .filter((u) => !query || `${u.title} ${u.c?.name ?? ''} ${u.orders.map((o) => `${o.name} ${o.storeCode ?? ''}`).join(' ')}`.toLowerCase().includes(query))
+      .sort((a, b) => a.t.team.localeCompare(b.t.team) || (a.c?.order ?? 99) - (b.c?.order ?? 99) || latest(b).localeCompare(latest(a)));
+  }, [teams, tab, query]);
+  const shown = tab === 'done' ? units.slice(0, 200) : units;
+  const allOrders = shown.flatMap((u) => u.orders);
   return (
     <>
       <div className="seg ov-sub">
@@ -248,12 +333,13 @@ function OrdersView({ teams, q }: { teams: TeamData[]; q: string }) {
         </button>
       </div>
       <div className="card table-card">
-        <table className="ov-table">
+        <table className="ov-table ov-units">
           <thead>
             <tr>
               <th>조</th>
               <th>업체</th>
-              <th>주문</th>
+              <th>묶음 · 주문</th>
+              <th className="r">주문 수</th>
               <th>진행 단계</th>
               <th>주문일자</th>
               <th>출고 장소</th>
@@ -264,26 +350,99 @@ function OrdersView({ teams, q }: { teams: TeamData[]; q: string }) {
           <tbody>
             {shown.length === 0 && (
               <tr>
-                <td colSpan={8} className="empty-box">
+                <td colSpan={9} className="empty-box">
                   {tab === 'open' ? '진행중 주문이 없어요.' : '완료된 주문이 없어요.'}
                 </td>
               </tr>
             )}
-            {shown.map(({ t, o, c }) => {
-              const next = ORDER_STEPS.find((s) => !o[s.key]);
+            {shown.map((u) => {
+              // 묶음 안에서 가장 덜 진행된 주문 기준
+              const slow = [...u.orders].sort((a, b) => stepsDone(a) - stepsDone(b))[0];
+              const done = u.orders.every(isOrderDone);
+              const next = ORDER_STEPS.find((s) => !slow[s.key]);
+              const dates = u.orders.map((o) => o.orderDate).filter(Boolean).sort() as string[];
+              const places = [...new Set(u.orders.map((o) => o.shipFrom).filter(Boolean))];
               return (
-                <tr key={t.team + o.id}>
-                  <td className="nowrap">{t.label}</td>
+                <tr key={u.key} className="ov-unit-row" onClick={() => setDetail(u)} title="눌러서 안에 든 주문 보기">
+                  <td className="nowrap">{u.t.label}</td>
                   <td className="nowrap">
-                    {c && <span className="dot" style={{ background: c.color }} />} {c?.name ?? '-'}
+                    {u.c && <span className="dot" style={{ background: u.c.color }} />} {u.c?.name ?? '-'}
                   </td>
                   <td>
-                    <b>{o.name}</b>
-                    {o.bundle && (
-                      <span className="ov-bundle" style={{ '--c': o.bundle.color } as CSSProperties}>
-                        {o.bundle.name || '묶음'}
+                    {u.bundle ? (
+                      <span className="ov-bundle big" style={{ '--c': u.bundle.color } as CSSProperties}>
+                        {u.title}
                       </span>
+                    ) : (
+                      <b>{u.title}</b>
                     )}
+                  </td>
+                  <td className="r">{u.orders.length}</td>
+                  <td className="nowrap">
+                    <span className="ov-steps">
+                      {ORDER_STEPS.map((s) => (
+                        <i key={s.key} className={slow[s.key] ? 'on' : ''} />
+                      ))}
+                    </span>
+                    <span className="muted small"> {done ? '완료' : next ? `${next.label} 전` : ''}</span>
+                  </td>
+                  <td className="nowrap">{dates.length ? (dates[0] === dates[dates.length - 1] ? dot(dates[0]) : `${dot(dates[0])} ~ ${dot(dates[dates.length - 1])}`) : ''}</td>
+                  <td>{places.join(', ')}</td>
+                  <td className="r nowrap">{amtK(u.orders)}</td>
+                  <td className="r nowrap">{amtF(u.orders)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+          {tab === 'open' && shown.length > 0 && (
+            <tfoot>
+              <tr>
+                <td colSpan={3}>합계 {shown.length}묶음</td>
+                <td className="r">{allOrders.length}</td>
+                <td colSpan={3} />
+                <td className="r">{fmtKRW(sumOf(allOrders, 'amountKRW'))}</td>
+                <td className="r">{fmtFX(sumOf(allOrders, 'amountForeign'))}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+        {tab === 'done' && units.length > 200 && <p className="muted small">최근 200개만 보여요. 검색으로 찾아 주세요.</p>}
+      </div>
+      {detail && <UnitDetail u={detail} onClose={() => setDetail(null)} />}
+    </>
+  );
+}
+
+/** 묶음(또는 주문) 상세: 안에 든 주문들 */
+function UnitDetail({ u, onClose }: { u: Unit; onClose: () => void }) {
+  const list = [...u.orders].sort((a, b) => (a.orderDate ?? '').localeCompare(b.orderDate ?? ''));
+  return (
+    <Modal title={u.title} onClose={onClose} wide>
+      <p className="muted small detail-sub">
+        {u.t.label} · {u.c?.name ?? '업체 없음'} · 주문 {list.length}건{amtK(list) ? ` · ${amtK(list)}` : ''}{amtF(list) ? ` · ${amtF(list)}` : ''}
+      </p>
+      <div className="detail-table-wrap">
+        <table className="detail-table">
+          <thead>
+            <tr>
+              <th>주문</th>
+              <th>진행 단계</th>
+              <th>주문일자</th>
+              <th>매장코드</th>
+              <th>출고 장소</th>
+              <th>패킹 완료일</th>
+              <th className="r">원화 금액</th>
+              <th className="r">외화 금액</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((o) => {
+              const next = ORDER_STEPS.find((s) => !o[s.key]);
+              return (
+                <tr key={o.id}>
+                  <td>
+                    <b>{o.name}</b>
+                    {o.note && <div className="detail-note">{o.note}</div>}
                   </td>
                   <td className="nowrap">
                     <span className="ov-steps" title={ORDER_STEPS.map((s) => `${o[s.key] ? '✓' : '·'} ${s.label}`).join('\n')}>
@@ -293,27 +452,28 @@ function OrdersView({ teams, q }: { teams: TeamData[]; q: string }) {
                     </span>
                     <span className="muted small"> {isOrderDone(o) ? '완료' : next ? `${next.label} 전` : ''}</span>
                   </td>
-                  <td className="nowrap">{dot(o.orderDate)}</td>
+                  <td className="nowrap">{o.orderDate?.replace(/-/g, '.') ?? ''}</td>
+                  <td>{o.storeCode ?? ''}</td>
                   <td>{o.shipFrom ?? ''}</td>
+                  <td>{o.packing ?? ''}</td>
                   <td className="r nowrap">{fmtKRW(o.amountKRW)}</td>
                   <td className="r nowrap">{fmtFX(o.amountForeign)}</td>
                 </tr>
               );
             })}
           </tbody>
-          {tab === 'open' && shown.length > 0 && (
+          {list.length > 1 && (
             <tfoot>
               <tr>
-                <td colSpan={6}>합계 {shown.length}건</td>
-                <td className="r">{fmtKRW(sumOf(shown.map((x) => x.o), 'amountKRW'))}</td>
-                <td className="r">{fmtFX(sumOf(shown.map((x) => x.o), 'amountForeign'))}</td>
+                <td colSpan={6}>합계</td>
+                <td className="r">{fmtKRW(sumOf(list, 'amountKRW'))}</td>
+                <td className="r">{fmtFX(sumOf(list, 'amountForeign'))}</td>
               </tr>
             </tfoot>
           )}
         </table>
-        {tab === 'done' && rows.length > 200 && <p className="muted small">최근 200건만 보여요. 검색으로 찾아 주세요.</p>}
       </div>
-    </>
+    </Modal>
   );
 }
 
