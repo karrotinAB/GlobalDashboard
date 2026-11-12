@@ -6532,3 +6532,5 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .hz-table td:not(.hz-total) + td { border-left: 1.5px dashed #d9c4bf; }
 
 .sc-conv { font-size: 9.5px; font-weight: 500; fill: #8a7470; }
+
+.export-table .kf-fx { display: block; font-size: 10.5px; font-weight: 500; color: #8a7470; }

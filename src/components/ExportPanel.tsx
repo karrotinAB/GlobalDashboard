@@ -321,12 +321,10 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                     <th className="l">
                       <span className="dot" style={{ background: r.c.color }} /> {r.c.name}
                     </th>
-                    <td className="r" title={`${won(r.total)}${r.totalF ? ` · ${fx(r.totalF)}` : ''}`}>
-                      <b>{shortAmt(r.total)}</b>
-                    </td>
-                    <td className="r" title={won(r.shipK)}>{r.shipK ? shortAmt(r.shipK) : '—'}</td>
-                    <td className="r" title={won(r.packK)}>{r.packK ? shortAmt(r.packK) : '—'}</td>
-                    <td className="r" title={won(r.royalty)}>{r.c.royalty ? shortAmt(r.royalty) : '—'}</td>
+                    <KF k={r.total} f={r.totalF} bold />
+                    <KF k={r.shipK} f={r.shipF} />
+                    <KF k={r.packK} f={r.packF} />
+                    {r.c.royalty ? <KF k={r.royalty} f={r.royaltyF} /> : <td className="r">—</td>}
                   </tr>
                 ))}
               </tbody>
@@ -334,17 +332,17 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                 <tfoot>
                   <tr>
                     <th className="l">합계</th>
-                    <td className="r">{shortAmt(rows.reduce((a, r) => a + r.total, 0))}</td>
-                    <td className="r">{shortAmt(rows.reduce((a, r) => a + r.shipK, 0))}</td>
-                    <td className="r">{shortAmt(rows.reduce((a, r) => a + r.packK, 0))}</td>
-                    <td className="r">{shortAmt(rows.reduce((a, r) => a + r.royalty, 0))}</td>
+                    <KF k={rows.reduce((a, r) => a + r.total, 0)} f={rows.reduce((a, r) => a + r.totalF, 0)} bold />
+                    <KF k={rows.reduce((a, r) => a + r.shipK, 0)} f={rows.reduce((a, r) => a + r.shipF, 0)} />
+                    <KF k={rows.reduce((a, r) => a + r.packK, 0)} f={rows.reduce((a, r) => a + r.packF, 0)} />
+                    <KF k={rows.reduce((a, r) => a + r.royalty, 0)} f={rows.reduce((a, r) => a + r.royaltyF, 0)} />
                   </tr>
                 </tfoot>
               )}
             </table>
           </div>
           <p className="muted small">
-            표는 원화 기준 (주문은 ERP 원화·외화 금액, 로열티는 판매일마다 ECOS 매매기준율로 환산 · 주말·공휴일은 그 전 영업일 환율). ② 패킹 중은 이번 달에만 (아직 출고승인 전인 주문 전부) — 지난 달은 마감이라 빠져요.
+            표는 원화 · 아래 작게 외화($) (주문은 ERP 원화·외화 금액, 로열티는 판매일마다 ECOS 매매기준율로 환산 · 주말·공휴일은 그 전 영업일 환율). ② 패킹 중은 이번 달에만 (아직 출고승인 전인 주문 전부) — 지난 달은 마감이라 빠져요.
           </p>
         </>
       )}
@@ -557,5 +555,17 @@ function Amts({ krw, fx: f }: { krw: string; fx: string }) {
         <b className="ec-amt fx">{f}</b>
       </span>
     </span>
+  );
+}
+
+/** 표 칸: 원화 (짧게) + 아래 외화 */
+const shortUsd = (n: number) => (Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(1)}k` : `$${n.toFixed(0)}`);
+function KF({ k, f, bold }: { k: number; f: number; bold?: boolean }) {
+  if (!k && !f) return <td className="r">—</td>;
+  return (
+    <td className="r kf" title={`${won(k)}${f ? ` · ${fx(f)}` : ''}`}>
+      {bold ? <b>{shortAmt(k)}</b> : shortAmt(k)}
+      {f ? <small className="kf-fx">{shortUsd(f)}</small> : null}
+    </td>
   );
 }
