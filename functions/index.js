@@ -305,3 +305,88 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
   }
   return out;
 });
+
+// ------------------------------------------------------------------
+// 판매 데이터 (POS 계산 건 → 지점·일자별 합계) — 홈 맨 아래 '업체별 판매 데이터'
+// 매일 아침 8시(서울) 최근 3일을 다시 계산 (늦게 들어온 건·취소 반영). 주소·칸 이름은 secrets/sales
+// ------------------------------------------------------------------
+import { detectFields, fetchSales, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
+
+const salesCfg = async () => (await db.doc('secrets/sales').get()).data() ?? {};
+async function allStoreCodes() {
+  const codes = new Set();
+  for (const space of await allSpaces()) {
+    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) for (const c of d.get('storeCodes') ?? []) codes.add(String(c).trim());
+  }
+  return codes;
+}
+async function runSales({ days = 3, month } = {}) {
+  const cfg = await salesCfg();
+  if (!cfg.url) return { skipped: '판매 데이터 API 주소가 아직 없어요' };
+  const key = await apiKey();
+  const codes = await allStoreCodes();
+  if (!codes.size) return { skipped: '매장코드가 있는 업체가 없어요' };
+  const today = lastDays(1)[0];
+  const r = month
+    ? await syncSalesDates(db, cfg, key, monthDays(month, today), codes, { rangeMonth: month })
+    : await syncSalesDates(db, cfg, key, lastDays(days), codes);
+  const result = { ...r, month: month ?? null, at: new Date().toISOString() };
+  await db.doc('salesStatus/last').set(result);
+  logger.info('sales sync', result);
+  return result;
+}
+
+export const syncSales = onSchedule({ schedule: '0 8 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540 }, async () => {
+  await runSales({ days: 3 });
+});
+
+// 관리자: 지금 가져오기 (최근 n일 또는 한 달 통째로 — 지난 달 채우기)
+export const syncSalesNow = onCall({ region: REGION, timeoutSeconds: 540 }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
+  const month = typeof req.data?.month === 'string' && /^\d{4}-\d{2}$/.test(req.data.month) ? req.data.month : undefined;
+  const days = Math.min(Math.max(Number(req.data?.days) || 3, 1), 31);
+  try {
+    return await runSales(month ? { month } : { days });
+  } catch (e) {
+    throw new HttpsError('internal', e.message);
+  }
+});
+
+// 관리자: API 응답 원본 보기 (저장 안 함) — 칸 이름 확인용
+export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
+  const date = typeof req.data?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.data.date) ? req.data.date : lastDays(2)[1];
+  const cfg = await salesCfg();
+  try {
+    const { rows, body } = await fetchSales(cfg, await apiKey(), date, date);
+    const fields = detectFields(rows, cfg.fields ?? {});
+    const sums = aggregate(rows, fields, date).sort((a, b) => b.amount - a.amount).slice(0, 15);
+    return { date, total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
+  } catch (e) {
+    throw new HttpsError('internal', e.message);
+  }
+});
+
+export const salesConfig = onCall({ region: REGION }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
+  const c = await salesCfg();
+  return { hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam ?? 'SALE_DATE', endParam: c.endParam ?? '', dateFormat: c.dateFormat ?? 'dot', fields: c.fields ?? {} };
+});
+
+export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 바꿀 수 있어요');
+  const d = req.data ?? {};
+  const old = await salesCfg();
+  const url = d.url ? String(d.url).trim() : old.url;
+  if (url && !/^https?:\/\//.test(url)) throw new HttpsError('invalid-argument', 'http(s):// 로 시작하는 주소를 넣어 주세요');
+  const name = (v) => String(v ?? '').trim().replace(/[^\w가-힣]/g, '').slice(0, 40);
+  const fields = Object.fromEntries(['date', 'amount', 'store', 'storeCode', 'name'].map((k) => [k, name(d.fields?.[k])]).filter(([, v]) => v));
+  await db.doc('secrets/sales').set({
+    url: url ?? '',
+    dateParam: name(d.dateParam) || 'SALE_DATE',
+    endParam: name(d.endParam),
+    dateFormat: ['dot', 'dash', 'compact'].includes(d.dateFormat) ? d.dateFormat : 'dot',
+    fields,
+  });
+  return { ok: true };
+});

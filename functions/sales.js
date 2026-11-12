@@ -1,0 +1,174 @@
+// 판매 데이터 (POS 계산 건) → 지점(STORE_ID)·일자별 합계 → salesMonthly/{매장코드 4자리}_{YYYY-MM}
+//   { code, month, branches: { [STORE_ID]: { name, days: { '01': 금액, … }, cnt: { '01': 건수, … } } }, updatedAt }
+// 주소·칸 이름: Firestore secrets/sales 문서 (설정 > 판매 데이터 API 에서 관리자가 저장, 사이트에서는 못 읽음)
+//   url        : API 주소 (…/getsalesdata.asp 같은 전체 주소)
+//   dateParam  : 날짜를 넣는 파라미터 이름 (기본 SALE_DATE)
+//   endParam   : 기간으로 부르는 API면 끝 날짜 파라미터 이름 (없으면 하루씩 부름)
+//   dateFormat : 'dot' 2026.11.12 · 'dash' 2026-11-12 · 'compact' 20261112
+//   fields     : { date, amount, store, storeCode, name } 응답 칸 이름 (비우면 자동으로 찾음)
+// API 키는 ERP 와 같은 것 (secrets/erp apiKey → X-API-Key 헤더)
+
+const pad = (n) => String(n).padStart(2, '0');
+
+export function fmtDate(iso, format = 'dot') {
+  const [y, m, d] = iso.split('-');
+  return format === 'dash' ? iso : format === 'compact' ? `${y}${m}${d}` : `${y}.${m}.${d}`;
+}
+
+/** 응답 날짜 → YYYY-MM-DD ('2026.11.12', '20261112', '2026-11-12 13:20:00', '2026/11/12' …) */
+export function parseDate(v) {
+  const s = String(v ?? '').trim();
+  let m = s.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  m = s.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return null;
+}
+
+export const toNum = (v) => {
+  if (typeof v === 'number') return v;
+  const n = Number(String(v ?? '').replace(/[,\s원₩$]/g, ''));
+  return Number.isFinite(n) ? n : undefined;
+};
+
+/** 응답 칸 이름 자동 찾기 (설정에서 정한 이름이 먼저) */
+export function detectFields(rows, over = {}) {
+  const keys = [...new Set(rows.slice(0, 20).flatMap((r) => Object.keys(r ?? {})))];
+  const find = (...res) => {
+    for (const re of res) {
+      const k = keys.find((k) => re.test(k));
+      if (k) return k;
+    }
+    return undefined;
+  };
+  const numeric = (k) => rows.slice(0, 20).some((r) => toNum(r?.[k]) !== undefined && r?.[k] !== '' && r?.[k] !== null);
+  const amountKeys = keys.filter(numeric);
+  const pickAmt = (...res) => {
+    for (const re of res) {
+      const k = amountKeys.find((k) => re.test(k));
+      if (k) return k;
+    }
+    return undefined;
+  };
+  return {
+    date: over.date || find(/^SALE_?DATE$/i, /^SALE_?DT$/i, /SALE.*(DATE|DT)/i, /(^|_)DATE$/i, /DATE|일자|날짜/i, /_DT$/i),
+    amount:
+      over.amount ||
+      pickAmt(/^(TOTAL_)?SALE_?AMT$/i, /^(NET|REAL|PAY|TOT(AL)?)_?(SALE_?)?AMT$/i, /SALE.*AMT/i, /AMT|AMOUNT|금액/i, /PRICE|매출/i),
+    store: over.store || find(/^STORE_?ID$/i, /^SHOP_?ID$/i, /^STORE_?CD$/i, /STORE.*(ID|CD|NO)$/i, /SHOP|STORE|매장|지점/i),
+    storeCode: over.storeCode || find(/^STORE_?CODE$/i),
+    name: over.name || find(/^STORE_?(NM|NAME)$/i, /^SHOP_?(NM|NAME)$/i, /(STORE|SHOP|BRANCH).*(NM|NAME)/i, /매장명|지점명/i),
+  };
+}
+
+/** 계산 건들 → { 'STORE_ID|YYYY-MM-DD': { storeId, code, name, date, amount, count } } */
+export function aggregate(rows, f, fallbackDate) {
+  const out = new Map();
+  for (const r of rows) {
+    const storeId = String(r?.[f.store] ?? '').trim();
+    if (!storeId) continue;
+    const date = parseDate(r?.[f.date]) ?? fallbackDate;
+    const amt = toNum(r?.[f.amount]);
+    if (!date || amt === undefined) continue;
+    const code = String((f.storeCode && r?.[f.storeCode]) || storeId.slice(0, 4)).trim();
+    const k = `${storeId}|${date}`;
+    const cur = out.get(k) ?? { storeId, code, name: f.name ? String(r?.[f.name] ?? '').trim() : '', date, amount: 0, count: 0 };
+    cur.amount += amt;
+    cur.count += 1;
+    if (!cur.name && f.name) cur.name = String(r?.[f.name] ?? '').trim();
+    out.set(k, cur);
+  }
+  return [...out.values()];
+}
+
+/** API 한 번 부르기 → 계산 건 목록 */
+export async function fetchSales(cfg, apiKey, fromIso, toIso, fetchImpl = fetch) {
+  if (!cfg?.url) throw new Error('판매 데이터 API 주소가 아직 없어요 (설정 > 판매 데이터 API)');
+  const u = new URL(cfg.url);
+  u.searchParams.set(cfg.dateParam || 'SALE_DATE', fmtDate(fromIso, cfg.dateFormat));
+  if (cfg.endParam) u.searchParams.set(cfg.endParam, fmtDate(toIso ?? fromIso, cfg.dateFormat));
+  const res = await fetchImpl(u.toString(), { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`판매 API HTTP ${res.status}`);
+  const text = await res.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    throw new Error(`판매 API: JSON 이 아님 (${text.slice(0, 80)})`);
+  }
+  const rows = Array.isArray(body) ? body : body?.Infos ?? body?.data ?? body?.Data ?? body?.rows ?? body?.list ?? [];
+  if (!Array.isArray(rows)) return { rows: [], body };
+  if (body && body.success === false && !rows.length) return { rows: [], body }; // 데이터 없음
+  return { rows, body };
+}
+
+/** 서울 날짜로 오늘부터 n일 전까지 ['2026-11-12', '2026-11-11', …] */
+export function lastDays(n, now = new Date()) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(now.getTime() - i * 86400000)));
+  return out;
+}
+
+/** 한 달의 날짜들 ['2026-10-01' … '2026-10-31'] (오늘 이후는 뺌) */
+export function monthDays(month, todayIso) {
+  const [y, m] = month.split('-').map(Number);
+  const n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: n }, (_, i) => `${month}-${pad(i + 1)}`).filter((d) => !todayIso || d <= todayIso);
+}
+
+/**
+ * 날짜들을 가져와서 salesMonthly 에 씀 (그 날짜의 값은 새로 계산한 합계로 바꿈)
+ * @param codes 대시보드에 등록된 매장코드(4자리) — 이 매장들만 저장
+ */
+export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl = fetch, rangeMonth } = {}) {
+  const f0 = cfg.fields ?? {};
+  const errors = [];
+  let rows = 0;
+  const groups = []; // [{ fallbackDate, rows }]
+  if (cfg.endParam && rangeMonth) {
+    // 기간 API: 한 달을 한 번에
+    try {
+      const sorted = [...dates].sort();
+      const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl);
+      groups.push({ fallbackDate: undefined, rows: r.rows });
+    } catch (e) {
+      errors.push(`${rangeMonth}: ${e.message}`);
+    }
+  } else {
+    for (const d of dates) {
+      try {
+        const r = await fetchSales(cfg, apiKey, d, d, fetchImpl);
+        groups.push({ fallbackDate: d, rows: r.rows });
+      } catch (e) {
+        errors.push(`${d}: ${e.message}`);
+      }
+    }
+  }
+  // 문서별로 모아서 한 번씩 씀
+  const docs = new Map(); // id → { code, month, branches }
+  for (const g of groups) {
+    rows += g.rows.length;
+    if (!g.rows.length) continue;
+    const f = detectFields(g.rows, f0);
+    if (!f.store || !f.amount || (!f.date && !g.fallbackDate)) {
+      errors.push(`칸 이름을 못 찾았어요 (매장: ${f.store ?? '?'}, 금액: ${f.amount ?? '?'}, 날짜: ${f.date ?? '?'}) — 설정에서 칸 이름을 넣어 주세요`);
+      continue;
+    }
+    for (const a of aggregate(g.rows, f, g.fallbackDate)) {
+      if (codes && !codes.has(a.code)) continue;
+      const month = a.date.slice(0, 7);
+      const id = `${a.code}_${month}`;
+      const doc = docs.get(id) ?? { code: a.code, month, branches: {} };
+      const b = (doc.branches[a.storeId] ??= { days: {}, cnt: {} });
+      if (a.name) b.name = a.name;
+      const dd = a.date.slice(8, 10);
+      b.days[dd] = Math.round(((b.days[dd] ?? 0) + a.amount) * 100) / 100;
+      b.cnt[dd] = (b.cnt[dd] ?? 0) + a.count;
+      docs.set(id, doc);
+    }
+  }
+  for (const [id, doc] of docs) {
+    await db.doc(`salesMonthly/${id}`).set({ ...doc, updatedAt: new Date().toISOString() }, { merge: true });
+  }
+  return { dates: dates.length, rows, docs: docs.size, errors: errors.slice(0, 10) };
+}

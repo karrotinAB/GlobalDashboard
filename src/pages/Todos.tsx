@@ -19,9 +19,11 @@ export default function Todos() {
   const thisMonday = weekStart(todayIso);
 
   const [monday, setMonday] = useState(thisMonday);
-  const [memberFilter, setMemberFilter] = useState<string | null>(null);
+  // 홈 카드의 '이번주 할일'에서 오면 ?m=담당자 → 그 사람의 남은 할일만
+  const fromMember = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('m');
+  const [memberFilter, setMemberFilter] = useState<string | null>(fromMember);
   const [companyFilter, setCompanyFilter] = useState<string>(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c') ?? '');
-  const [status, setStatus] = useState<StatusFilter>('all');
+  const [status, setStatus] = useState<StatusFilter>(fromMember ? 'open' : 'all');
   const [q, setQ] = useState('');
   const [groupBy, setGroupBy] = useState<GroupBy>('company');
   const [showCompanies, setShowCompanies] = useState(false);
@@ -153,7 +155,8 @@ export default function Todos() {
       if (etc.length) out.push({ key: '__etc', title: '기타 / 업체 없음', rows: sortRows(etc) });
       // 필터가 걸려 있으면 빈 업체는 숨김
       const anyFilter = memberFilter || companyFilter || status !== 'all' || q;
-      return anyFilter ? out.filter((g) => g.rows.length) : out;
+      // 업체를 골랐으면 그 업체는 할일이 없어도 보여줌 (바로 할일 추가)
+      return anyFilter ? out.filter((g) => g.rows.length || g.key === companyFilter) : out;
     }
     if (groupBy === 'member') {
       const out: Group[] = members.map((m) => ({

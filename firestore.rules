@@ -96,6 +96,14 @@ service cloud.firestore {
       allow read, write: if isAny();
     }
 
+    // 판매 데이터 (서버 함수가 매일 아침 씀): 모두 읽기만
+    match /salesMonthly/{id} {
+      allow read: if isAny();
+    }
+    match /salesStatus/{id} {
+      allow read: if isAny();
+    }
+
     // 내 달력 (iCal 주소): 본인만 읽고 씀 — 달력 페이지에서 본인에게만 보임
     match /userCalendars/{email} {
       allow read, write: if isAny() && email == myEmail();

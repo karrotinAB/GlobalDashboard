@@ -7,6 +7,7 @@ import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
 import { DEFAULT_TEAM, TEAMS } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
+import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
@@ -165,6 +166,8 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       {access.canManage && <HolidayAdmin />}
       {access.role === 'admin' && <MemAutoSection />}
       {access.role === 'admin' && <CalendarAdmin />}
+      <StoreAreaSection />
+      {access.role === 'admin' && <SalesApiAdmin />}
       {access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
       {access.email && <ChangePassword />}
 

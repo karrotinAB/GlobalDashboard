@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
+import SalesPanel from '../components/SalesPanel';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import { holidayName } from '../lib/holidays';
@@ -417,13 +418,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
         ))}
       </section>
 
-      <section className="card soon">
-        <div className="section-head">
-          <h2>📈 업체별 판매 / 수출 데이터</h2>
-          <span className="pill">준비중</span>
-        </div>
-        <p className="muted small">다음 단계에서 판매·수출 데이터를 연결해서 업체별 그래프로 보여줄 예정이에요.</p>
-      </section>
+      <SalesPanel companies={companies} />
 
       {pickingClocks && (
         <ClockPicker
@@ -537,7 +532,7 @@ function TeamCard({
         </div>
       </div>
 
-      <div className="mc-tasks">
+      <a className="mc-tasks" href={`#/todos?m=${m.id}`} title={`${m.name} 할일만 주간 할일에서 보기`}>
         <Ring value={s.done} total={s.total} size={46} stroke={5} color={m.color} label={s.remaining} />
         <div className="mc-task-text">
           <span>
@@ -549,7 +544,7 @@ function TeamCard({
             {s.dueTomorrow > 0 && <span className="flag">내일 {s.dueTomorrow}</span>}
           </span>
         </div>
-      </div>
+      </a>
     </div>
   );
 }

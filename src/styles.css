@@ -6270,3 +6270,68 @@ td.c-title {
 .dclock.night .dc-holiday.obs {
   color: #c9b3e6;
 }
+/* ---------- 홈: 업체별 판매 데이터 ---------- */
+.sales .company-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+.sales-table-wrap { overflow-x: auto; border: 1px solid var(--line, #eadcd9); border-radius: 12px; background: #fff; }
+.sales-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.sales-table th, .sales-table td { padding: 6px 8px; border-bottom: 1px solid #f1e6e3; white-space: nowrap; text-align: right; }
+.sales-table .l { text-align: left; position: sticky; left: 0; background: #fff; z-index: 1; }
+.sales-table thead th { font-weight: 600; color: #8a7470; }
+.sales-table tfoot th, .sales-table tfoot td { font-weight: 700; border-bottom: 0; background: #fbf6f4; }
+.sales-table tfoot .l { background: #fbf6f4; }
+.sales-mbtn, .sales-cell { border: 0; background: none; font: inherit; color: inherit; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.sales-mbtn:hover, .sales-cell:hover { background: #f4e9e6; }
+.sales-mbtn.on { background: #8c2f3c; color: #fff; }
+.sales-table td.col-on { background: #fbf1ee; }
+.sales-table td.on { background: #f3dcd7; font-weight: 700; }
+.sales-detail { margin-top: 14px; }
+.sales-detail-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
+.sales-detail-head .ink { color: #3b2a28; }
+.sales-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 960px) { .sales-detail-grid { grid-template-columns: minmax(0, 1fr); } }
+.sales-chart { background: #fff; border: 1px solid #f1e6e3; border-radius: 12px; padding: 8px 10px 4px; }
+.sales-chart svg { width: 100%; height: auto; display: block; }
+.sc-grid { stroke: #f1e6e3; stroke-width: 1; }
+.sc-axis { font-size: 10px; fill: #a8958f; }
+.sc-area { fill: var(--c); opacity: 0.08; }
+.sc-line { fill: none; stroke: var(--c); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.sc-dot { fill: #fff; stroke: var(--c); stroke-width: 2; }
+.sc-val { font-size: 11px; font-weight: 700; fill: #3b2a28; }
+.sc-wk { font-size: 11px; font-weight: 600; fill: #6b5753; }
+.sc-range { font-size: 9.5px; fill: #a8958f; }
+.sc-pline { fill: none; stroke: #b5aeab; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.sc-pdot { fill: #b5aeab; }
+.sc-pval { font-size: 9.5px; fill: #9a9290; }
+.sc-note { margin: 2px 2px 4px; }
+.sales-week-wrap { overflow-x: auto; }
+.sales-week { border-collapse: separate; border-spacing: 3px; width: 100%; font-size: 12px; }
+.sales-week th { font-weight: 600; color: #8a7470; padding: 2px 4px; text-align: center; }
+.sales-week th.we { color: #c0392b; }
+.sales-week td { background: #fff; border: 1px solid #f1e6e3; border-radius: 8px; padding: 3px 5px; min-width: 44px; vertical-align: top; text-align: right; }
+.sales-week td.we { background: #fdecea; border-color: #f6c9c3; color: #b03a2e; }
+.sales-week td.out { background: transparent; border-color: transparent; }
+.sales-week td.sum { background: #fbf6f4; font-weight: 700; vertical-align: middle; }
+.sales-week td.sum.we { background: #f9d9d4; }
+.sw-d { display: block; text-align: left; font-size: 10px; color: #a8958f; }
+.sales-week td.we .sw-d { color: #d77a6f; }
+.sw-v { display: block; font-weight: 600; }
+.sales-avg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; }
+.sales-avg .we { color: #b03a2e; }
+/* 설정: 매장 평수 · 판매 API */
+.area-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.area-co { border: 1px solid #f1e6e3; border-radius: 12px; padding: 10px 12px; background: #fff; }
+.area-co-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.area-row { display: grid; grid-template-columns: 1fr 80px auto; align-items: center; gap: 6px; padding: 3px 0; }
+.area-row input { width: 100%; text-align: right; }
+.area-add { display: flex; gap: 6px; margin-top: 6px; }
+.area-add input { flex: 1; min-width: 0; }
+.sales-api { display: flex; flex-direction: column; gap: 8px; }
+.sales-api .row-field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #8a7470; flex: 1; min-width: 160px; }
+.sales-api .row-fields { display: flex; flex-wrap: wrap; gap: 8px; }
+.sales-api .btn-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.insp .mini-table { border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+.insp .mini-table th, .insp .mini-table td { padding: 3px 8px; border-bottom: 1px solid #f1e6e3; }
+/* 홈 카드: 이번주 할일 → 주간 할일(내 할일만) */
+a.mc-tasks { color: inherit; text-decoration: none; border-radius: 0 0 12px 12px; transition: background 0.15s; cursor: pointer; }
+a.mc-tasks:hover { background: rgba(140, 47, 60, 0.05); }
+a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; color: #8c2f3c; }
