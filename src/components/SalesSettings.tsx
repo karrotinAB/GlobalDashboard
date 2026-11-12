@@ -148,8 +148,8 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
   );
 }
 
-type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; dateFormat: string; fields: Record<string, string> };
-type Inspect = { date: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
+type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; storeParam?: string; branchParam?: string; dateFormat: string; fields: Record<string, string> };
+type Inspect = { date: string; called?: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
 const FIELD_LABEL: [string, string][] = [
   ['date', '날짜'],
   ['amount', '금액'],
@@ -194,7 +194,7 @@ export function SalesApiAdmin() {
         판매 데이터 API <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
       <p className="muted small">
-        매일 아침 8시에 최근 3일 판매(계산 건)를 가져와서 지점·일자별로 합쳐요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
+        매일 아침 8시에 최근 3일 판매(계산 건)를 <b>판매데이터 켠 업체의 지점마다</b> (매장코드 + 지점 약자 = 매장 평수의 지점 이름) 가져와서 일자별로 합쳐요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
       </p>
       {status && (
         <p className="muted small">
@@ -212,7 +212,7 @@ export function SalesApiAdmin() {
         <div className="sales-api">
           <label className="row-field">
             <span>API 주소</span>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://…/getsalesdata.asp'} />
+            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://ex.artbox.kr/api/getExportSalesUpload.asp'} />
           </label>
           <label className="row-field">
             <span>ECOS 인증키 (한국은행 환율 — 로열티를 판매일 환율로 환산)</span>
@@ -220,11 +220,19 @@ export function SalesApiAdmin() {
           </label>
           <div className="row-fields">
             <label className="row-field">
-              <span>날짜 파라미터</span>
-              <input value={cfg.dateParam} onChange={(e) => set({ dateParam: e.target.value })} placeholder="SALE_DATE" />
+              <span>매장코드 파라미터</span>
+              <input value={cfg.storeParam ?? ''} onChange={(e) => set({ storeParam: e.target.value })} placeholder="STORE_CODE" />
             </label>
             <label className="row-field">
-              <span>끝 날짜 파라미터 (기간 API만)</span>
+              <span>지점 약자 파라미터</span>
+              <input value={cfg.branchParam ?? ''} onChange={(e) => set({ branchParam: e.target.value })} placeholder="비우면 매장 단위로" />
+            </label>
+            <label className="row-field">
+              <span>시작 날짜 파라미터</span>
+              <input value={cfg.dateParam} onChange={(e) => set({ dateParam: e.target.value })} placeholder="DATE_FROM" />
+            </label>
+            <label className="row-field">
+              <span>끝 날짜 파라미터</span>
               <input value={cfg.endParam} onChange={(e) => set({ endParam: e.target.value })} placeholder="비우면 하루씩" />
             </label>
             <label className="row-field">
@@ -253,7 +261,7 @@ export function SalesApiAdmin() {
               disabled={busy}
               onClick={() =>
                 run('저장', async () => {
-                  await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
+                  await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, storeParam: cfg.storeParam, branchParam: cfg.branchParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
                   setUrl('');
                   setEcos('');
                   setCfg(await call<Cfg>('salesConfig'));
@@ -292,7 +300,7 @@ export function SalesApiAdmin() {
       {insp && (
         <div className="insp">
           <p className="small">
-            {insp.date} · 계산 {insp.total}건 · 찾은 칸: {FIELD_LABEL.map(([k, l]) => `${l.split(' ')[0]}=${insp.fields[k] ?? '없음'}`).join(' · ')}
+            {insp.date}{insp.called ? ` (${insp.called})` : ''} · 계산 {insp.total}건 · 찾은 칸: {FIELD_LABEL.map(([k, l]) => `${l.split(' ')[0]}=${insp.fields[k] ?? '없음'}`).join(' · ')}
           </p>
           {insp.keys.length > 0 && <p className="muted small">응답 칸: {insp.keys.join(', ')}</p>}
           {insp.sums.length > 0 && (

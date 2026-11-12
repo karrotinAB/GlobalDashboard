@@ -2,8 +2,12 @@
 //   { code, month, branches: { [STORE_ID]: { name, days: { '01': 금액, … }, cnt: { '01': 건수, … } } }, updatedAt }
 // 주소·칸 이름: Firestore secrets/sales 문서 (설정 > 판매 데이터 API 에서 관리자가 저장, 사이트에서는 못 읽음)
 //   url        : API 주소 (…/getsalesdata.asp 같은 전체 주소)
-//   dateParam  : 날짜를 넣는 파라미터 이름 (기본 SALE_DATE)
-//   endParam   : 기간으로 부르는 API면 끝 날짜 파라미터 이름 (없으면 하루씩 부름)
+//   dateParam  : 날짜(시작)를 넣는 파라미터 이름 (기본 DATE_FROM)
+//   endParam   : 끝 날짜 파라미터 이름 (기본 DATE_TO, 비우면 하루씩 부름)
+//   storeParam : 매장코드 4자리 파라미터 (기본 STORE_CODE, 비우면 안 넣음)
+//   branchParam: 지점 약자 파라미터 (기본 BRANCH_ABBR, 비우면 매장 단위로 한 번)
+//     예) getExportSalesUpload.asp?STORE_CODE=8254&BRANCH_ABBR=MEG&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
+//     지점 약자는 ERP 거래처 정보의 BRANCH_NAME (storeBranches/{코드})
 //   dateFormat : 'dot' 2026.11.12 · 'dash' 2026-11-12 · 'compact' 20261112
 //   fields     : { date, amount, store, storeCode, name } 응답 칸 이름 (비우면 자동으로 찾음)
 // API 키는 ERP 와 같은 것 (secrets/erp apiKey → X-API-Key 헤더)
@@ -62,10 +66,11 @@ export function detectFields(rows, over = {}) {
 }
 
 /** 계산 건들 → { 'STORE_ID|YYYY-MM-DD': { storeId, code, name, date, amount, count } } */
-export function aggregate(rows, f, fallbackDate) {
+export function aggregate(rows, f, fallbackDate, forcedStore) {
   const out = new Map();
   for (const r of rows) {
-    const storeId = String(r?.[f.store] ?? '').trim();
+    // 지점별로 불렀으면 그 지점 (응답의 매장 칸이 4자리 매장코드여도)
+    const storeId = forcedStore || String(r?.[f.store] ?? '').trim();
     if (!storeId) continue;
     const date = parseDate(r?.[f.date]) ?? fallbackDate;
     const amt = toNum(r?.[f.amount]);
@@ -82,10 +87,11 @@ export function aggregate(rows, f, fallbackDate) {
 }
 
 /** API 한 번 부르기 → 계산 건 목록 */
-export async function fetchSales(cfg, apiKey, fromIso, toIso, fetchImpl = fetch) {
+export async function fetchSales(cfg, apiKey, fromIso, toIso, fetchImpl = fetch, extra = {}) {
   if (!cfg?.url) throw new Error('판매 데이터 API 주소가 아직 없어요 (설정 > 판매 데이터 API)');
   const u = new URL(cfg.url);
-  u.searchParams.set(cfg.dateParam || 'SALE_DATE', fmtDate(fromIso, cfg.dateFormat));
+  for (const [k, v] of Object.entries(extra)) if (k && v) u.searchParams.set(k, v);
+  u.searchParams.set(cfg.dateParam || 'DATE_FROM', fmtDate(fromIso, cfg.dateFormat));
   if (cfg.endParam) u.searchParams.set(cfg.endParam, fmtDate(toIso ?? fromIso, cfg.dateFormat));
   const res = await fetchImpl(u.toString(), { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } });
   if (!res.ok) throw new Error(`판매 API HTTP ${res.status}`);
@@ -120,27 +126,43 @@ export function monthDays(month, todayIso) {
  * 날짜들을 가져와서 salesMonthly 에 씀 (그 날짜의 값은 새로 계산한 합계로 바꿈)
  * @param codes 대시보드에 등록된 매장코드(4자리) — 이 매장들만 저장
  */
-export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl = fetch, rangeMonth } = {}) {
+export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl = fetch, branchesFor } = {}) {
   const f0 = cfg.fields ?? {};
+  codes = codes ? new Set(codes) : null;
   const errors = [];
   let rows = 0;
-  const groups = []; // [{ fallbackDate, rows }]
-  if (cfg.endParam && rangeMonth) {
-    // 기간 API: 한 달을 한 번에
-    try {
-      const sorted = [...dates].sort();
-      const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl);
-      groups.push({ fallbackDate: undefined, rows: r.rows });
-    } catch (e) {
-      errors.push(`${rangeMonth}: ${e.message}`);
+  const groups = []; // [{ fallbackDate, rows, store }]
+  const sorted = [...dates].sort();
+  // 부를 단위: 지점별(매장코드+지점 약자) / 매장별 / 전체
+  const units = [];
+  if (cfg.branchParam && branchesFor) {
+    for (const code of codes ?? []) {
+      const br = await branchesFor(code); // { STORE_ID: 약자 }
+      if (!Object.keys(br).length) errors.push(`${code}: 지점 약자를 못 찾았어요 (설정 > 매장 평수 > 지점 다시 불러오기)`);
+      for (const [sid, abbr] of Object.entries(br)) if (abbr) units.push({ store: sid, extra: { [cfg.storeParam || '']: code, [cfg.branchParam]: abbr } });
     }
-  } else {
-    for (const d of dates) {
+  } else if (cfg.storeParam) {
+    for (const code of codes ?? []) units.push({ store: undefined, extra: { [cfg.storeParam]: code } });
+  } else units.push({ store: undefined, extra: {} });
+
+  for (const u of units) {
+    const label = Object.values(u.extra).filter(Boolean).join('/') || '전체';
+    if (cfg.endParam) {
+      // 기간 API: 날짜 구간 한 번에
       try {
-        const r = await fetchSales(cfg, apiKey, d, d, fetchImpl);
-        groups.push({ fallbackDate: d, rows: r.rows });
+        const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, u.extra);
+        groups.push({ fallbackDate: sorted.length === 1 ? sorted[0] : undefined, rows: r.rows, store: u.store });
       } catch (e) {
-        errors.push(`${d}: ${e.message}`);
+        errors.push(`${label}: ${e.message}`);
+      }
+    } else {
+      for (const d of sorted) {
+        try {
+          const r = await fetchSales(cfg, apiKey, d, d, fetchImpl, u.extra);
+          groups.push({ fallbackDate: d, rows: r.rows, store: u.store });
+        } catch (e) {
+          errors.push(`${label} ${d}: ${e.message}`);
+        }
       }
     }
   }
@@ -150,11 +172,11 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
     rows += g.rows.length;
     if (!g.rows.length) continue;
     const f = detectFields(g.rows, f0);
-    if (!f.store || !f.amount || (!f.date && !g.fallbackDate)) {
+    if ((!f.store && !g.store) || !f.amount || (!f.date && !g.fallbackDate)) {
       errors.push(`칸 이름을 못 찾았어요 (매장: ${f.store ?? '?'}, 금액: ${f.amount ?? '?'}, 날짜: ${f.date ?? '?'}) — 설정에서 칸 이름을 넣어 주세요`);
       continue;
     }
-    for (const a of aggregate(g.rows, f, g.fallbackDate)) {
+    for (const a of aggregate(g.rows, f, g.fallbackDate, g.store)) {
       if (codes && !codes.has(a.code)) continue;
       const month = a.date.slice(0, 7);
       const id = `${a.code}_${month}`;

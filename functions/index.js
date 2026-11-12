@@ -313,7 +313,23 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 import { detectFields, fetchSales, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
 
-const salesCfg = async () => (await db.doc('secrets/sales').get()).data() ?? {};
+// 기본값: getExportSalesUpload.asp?STORE_CODE=8254&BRANCH_ABBR=MEG&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
+const SALES_DEFAULTS = { dateParam: 'DATE_FROM', endParam: 'DATE_TO', storeParam: 'STORE_CODE', branchParam: 'BRANCH_ABBR', dateFormat: 'dot' };
+const salesCfg = async () => {
+  const d = (await db.doc('secrets/sales').get()).data() ?? {};
+  const out = { ...SALES_DEFAULTS, fields: {} };
+  for (const [k, v] of Object.entries(d)) if (v !== undefined && v !== null) out[k] = v;
+  return out;
+};
+/** 매장코드 → { STORE_ID: 지점 약자(BRANCH_NAME) } (storeBranches 에 7일 보관) */
+async function branchesFor(code) {
+  const ref = db.doc(`storeBranches/${code}`);
+  const hit = await ref.get();
+  if (hit.exists && Object.keys(hit.get('branches') ?? {}).length && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) return hit.get('branches');
+  const branches = await branchesOf(code, await apiKey(), { known: Object.keys(hit.get('branches') ?? {}) });
+  await ref.set({ code, branches, at: new Date().toISOString() });
+  return branches;
+}
 async function allStoreCodes() {
   const codes = new Set();
   for (const space of await allSpaces()) {
@@ -331,9 +347,7 @@ async function runSales({ days = 3, month } = {}) {
   const codes = await allStoreCodes();
   if (!codes.size) return { skipped: "'판매데이터 수집 중'을 켠 업체(매장코드 있는)가 없어요" };
   const today = lastDays(1)[0];
-  const r = month
-    ? await syncSalesDates(db, cfg, key, monthDays(month, today), codes, { rangeMonth: month })
-    : await syncSalesDates(db, cfg, key, lastDays(days), codes);
+  const r = await syncSalesDates(db, cfg, key, month ? monthDays(month, today) : lastDays(days), [...codes], { branchesFor });
   // 로열티 환율 (ECOS): 그 달 + 앞 달 (월초 주말은 앞 달 마지막 영업일 환율을 씀)
   const fxMonth = month ?? today.slice(0, 7);
   const fx = await runFx([prevMonth(fxMonth), fxMonth]).catch((e) => ({ errors: [e.message] }));
@@ -393,10 +407,23 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
   const date = typeof req.data?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.data.date) ? req.data.date : lastDays(2)[1];
   const cfg = await salesCfg();
   try {
-    const { rows, body } = await fetchSales(cfg, await apiKey(), date, date);
+    // 확인용: 고른 매장코드·지점 (없으면 판매데이터 켠 첫 업체의 첫 지점)
+    let code = /^\d{4}$/.test(String(req.data?.code ?? '')) ? String(req.data.code) : [...(await allStoreCodes())][0];
+    let extra = {};
+    let store;
+    if (cfg.storeParam && code) extra[cfg.storeParam] = code;
+    if (cfg.branchParam && code) {
+      const br = await branchesFor(code);
+      const pick = Object.entries(br).find(([, a]) => a === req.data?.abbr) ?? Object.entries(br)[0];
+      if (pick) {
+        extra[cfg.branchParam] = pick[1];
+        store = pick[0];
+      }
+    }
+    const { rows, body } = await fetchSales(cfg, await apiKey(), date, date, fetch, extra);
     const fields = detectFields(rows, cfg.fields ?? {});
-    const sums = aggregate(rows, fields, date).sort((a, b) => b.amount - a.amount).slice(0, 15);
-    return { date, total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
+    const sums = aggregate(rows, fields, date, store).sort((a, b) => b.amount - a.amount).slice(0, 15);
+    return { date, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
@@ -405,7 +432,7 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
 export const salesConfig = onCall({ region: REGION }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
   const c = await salesCfg();
-  return { hasEcos: !!(await ecosKey()), hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam ?? 'SALE_DATE', endParam: c.endParam ?? '', dateFormat: c.dateFormat ?? 'dot', fields: c.fields ?? {} };
+  return { hasEcos: !!(await ecosKey()), hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam, endParam: c.endParam, storeParam: c.storeParam, branchParam: c.branchParam, dateFormat: c.dateFormat, fields: c.fields ?? {} };
 });
 
 export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
@@ -419,8 +446,10 @@ export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
   if (d.ecosKey) await db.doc('secrets/ecos').set({ apiKey: String(d.ecosKey).trim() });
   await db.doc('secrets/sales').set({
     url: url ?? '',
-    dateParam: name(d.dateParam) || 'SALE_DATE',
+    dateParam: name(d.dateParam) || 'DATE_FROM',
     endParam: name(d.endParam),
+    storeParam: name(d.storeParam),
+    branchParam: name(d.branchParam),
     dateFormat: ['dot', 'dash', 'compact'].includes(d.dateFormat) ? d.dateFormat : 'dot',
     fields,
   });
