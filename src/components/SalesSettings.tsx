@@ -32,7 +32,7 @@ export function StoreAreaSection() {
     <section className="card">
       <h2>📈 매장 평수</h2>
       <p className="muted small">
-        <b>판매데이터 수집 중</b>을 켠 업체만 판매 데이터를 가져오고 홈에 보여요. 지점별 평수를 넣으면 홈 &gt; 업체별 판매 데이터에서 <b>주차별 평당 금액</b>이 회색 선으로 같이 보여요. 지점은 판매 데이터가 들어오면 자동으로 나타나요
+        <b>판매데이터</b>를 켠 업체만 판매 데이터를 가져오고 홈에 보여요. 지점별 평수를 넣으면 홈 &gt; 업체별 판매 데이터에서 <b>주차별 평당 금액</b>이 회색 선으로 같이 보여요. 지점은 판매 데이터가 들어오면 자동으로 나타나요
         지점 목록과 이름은 ERP 거래처 정보에서 매장코드 4자리로 시작하는 지점을 자동으로 불러와요 (없으면 지점 코드로 직접 추가).
         {DATA_MODE !== 'local' && (
           <>
@@ -72,11 +72,11 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
       <div className="area-co-head">
         <span className="dot" style={{ background: c.color }} />
         <b>{c.name}</b>
-        <span className="muted small">매장코드 {c.storeCodes!.join(', ')}</span>
         <label className={`sales-on ${c.salesOn ? 'on' : ''}`} title="켠 업체만 판매 데이터를 가져오고 홈에 보여요">
           <input type="checkbox" checked={!!c.salesOn} onChange={(e) => save('companies', { ...c, salesOn: e.target.checked || undefined })} />
-          판매데이터 수집 중
+          판매데이터
         </label>
+        <span className="muted small">매장코드 {c.storeCodes!.join(', ')}</span>
       </div>
       {ids.length === 0 && <p className="muted small">아직 판매 데이터에 나온 지점이 없어요.</p>}
       {ids.map((sid) => (

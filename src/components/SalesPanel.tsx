@@ -93,7 +93,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
         <span className="muted small">매일 아침 전날까지 판매가 들어와요 · 평수는 설정에서</span>
       </div>
       {withCodes.length === 0 ? (
-        <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 평수에서 업체 옆 <b>판매데이터 수집 중</b>을 켜 주세요.</p>
+        <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 평수에서 업체 이름 옆 <b>판매데이터</b>를 켜 주세요.</p>
       ) : (
         <>
         <div className="sales-search">
