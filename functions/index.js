@@ -413,19 +413,13 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
     const abbrToId = {};
     if (code) for (const [sid, a] of Object.entries(await branchesFor(code).catch(() => ({})))) if (a) abbrToId[String(a).toUpperCase()] = sid;
     const from = cfg.endParam ? lastDays(8)[7] : date;
-    let res;
-    try {
-      res = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
-    } catch (e) {
-      // 매장코드만으로 안 되면 첫 지점 약자를 붙여서 다시 (지점 약자가 꼭 필요한 API)
-      const first = Object.keys(abbrToId).find((a) => isAbbr(a));
-      if (!first || !e.status || e.status >= 500) throw e;
-      extra[cfg.branchParam || 'BRANCH_ABBR'] = first;
-      res = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
-    }
+    // 설정의 지점 약자가 있으면 첫 지점으로 (STORE_CODE=8254&BRANCH_ABBR=LDC)
+    const first = Object.entries(abbrToId).find(([a, sid]) => isAbbr(a) && (!code || sid.startsWith(code)));
+    if (first && cfg.storeParam) extra[cfg.branchParam || 'BRANCH_ABBR'] = first[0];
+    const res = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
     const { rows, body } = res;
     const fields = detectFields(rows, cfg.fields ?? {});
-    const sums = aggregate(rows, fields, from === date ? date : undefined, undefined, { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
+    const sums = aggregate(rows, fields, from === date ? date : undefined, first?.[1], { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
     return { date: from === date ? date : `${from} ~ ${date}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
   } catch (e) {
     throw new HttpsError('internal', e.message);

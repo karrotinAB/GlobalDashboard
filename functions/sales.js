@@ -146,21 +146,33 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
   const groups = []; // [{ fallbackDate, rows, store }]
   const sorted = [...dates].sort();
   // 부를 단위: 지점별(매장코드+지점 약자) / 매장별 / 전체
-  // 매장코드(4자리)마다 한 번: STORE_CODE=8254 → 그 매장 모든 지점의 계산 건 (지점은 응답 칸으로 나눔)
-  const units = [];
-  if (cfg.storeParam) for (const code of codes ?? []) units.push({ code, extra: { [cfg.storeParam]: code } });
-  else units.push({ extra: {} });
-  // 응답 지점 칸이 약자(LDC)면 지점 코드(825401)로 바꾸려고: 약자 → STORE_ID
+  // 설정 › 매장 평수의 지점 목록 (ERP 거래처 정보): 약자 → STORE_ID
   const abbrToId = {};
+  const abbrsOf = {}; // 매장코드 → [[약자, STORE_ID]]
   if (branchesFor) {
     for (const code of codes ?? []) {
       try {
-        for (const [sid, abbr] of Object.entries(await branchesFor(code))) if (abbr) abbrToId[String(abbr).trim().toUpperCase()] = sid;
+        for (const [sid, abbr] of Object.entries(await branchesFor(code))) {
+          const a = String(abbr ?? '').trim();
+          if (!a) continue;
+          abbrToId[a.toUpperCase()] = sid;
+          if (isAbbr(a)) (abbrsOf[code] ??= []).push([a, sid]);
+        }
       } catch {
         /* 지점 목록 없어도 진행 */
       }
     }
   }
+  // 부르는 단위: 지점 약자가 있으면 지점마다 (STORE_CODE=8254&BRANCH_ABBR=LDC), 없으면 매장코드로 한 번
+  const bp = cfg.branchParam || 'BRANCH_ABBR';
+  const units = [];
+  if (cfg.storeParam) {
+    for (const code of codes ?? []) {
+      const list = abbrsOf[code] ?? [];
+      if (list.length) for (const [a, sid] of list) units.push({ code, store: sid, extra: { [cfg.storeParam]: code, [bp]: a } });
+      else units.push({ code, extra: { [cfg.storeParam]: code } });
+    }
+  } else units.push({ extra: {} });
 
   for (const u of units) {
     const label = Object.values(u.extra).filter(Boolean).join('/') || '전체';
@@ -169,15 +181,18 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
       const fb = sorted.length === 1 ? sorted[0] : undefined;
       try {
         const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, u.extra);
-        groups.push({ fallbackDate: fb, rows: r.rows, code: u.code });
+        groups.push({ fallbackDate: fb, rows: r.rows, code: u.code, store: u.store });
       } catch (e) {
+        if (u.store) {
+          errors.push(`${label}: ${e.message}`);
+          continue;
+        }
         // 매장코드만으로 안 되면 (지점 약자가 꼭 필요한 API) → 지점 약자를 붙여 지점마다 다시
         const abbrs = u.code ? Object.entries(abbrToId).filter(([a, sid]) => sid.startsWith(u.code) && isAbbr(a)) : [];
         if (!abbrs.length || !e.status || e.status >= 500) {
           errors.push(`${label}: ${e.message}`);
           continue;
         }
-        const bp = cfg.branchParam || 'BRANCH_ABBR';
         const failed = [];
         for (const [abbr, sid] of abbrs) {
           try {
@@ -193,7 +208,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
       for (const d of sorted) {
         try {
           const r = await fetchSales(cfg, apiKey, d, d, fetchImpl, u.extra);
-          groups.push({ fallbackDate: d, rows: r.rows, code: u.code });
+          groups.push({ fallbackDate: d, rows: r.rows, code: u.code, store: u.store });
         } catch (e) {
           errors.push(`${label} ${d}: ${e.message}`);
         }
