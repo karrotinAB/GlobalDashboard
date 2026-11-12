@@ -4,7 +4,7 @@
 //  ③ 로열티 (로열티 매장만: 그 달 판매 합계 × 5%)
 //  ④ 총 수출 = ① + ② + ③
 import { useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { physName, DEFAULT_TEAM } from '../lib/team';
@@ -86,6 +86,8 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
   const [coId, setCoId] = useState('');
   const [open, setOpen] = useState<Pick>(null);
   const teamOrders = useTeamOrders(companies.filter((c) => c.team).map((c) => c.team!));
+  // 지난 데이터 (ERP 에서 한 번 채운 것): exportMonthly/{매장코드}_{달}
+  const erpMonth = useExportMonthly(companies.flatMap((c) => c.storeCodes ?? []), month);
   const ordersOf = (c: Company) => (c.team ? (teamOrders[c.team] ?? []) : data.orders).filter((o) => o.companyId === c.id);
 
   // 로열티: 그 달 판매 합계 × 5%
@@ -129,6 +131,28 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
         .map((c) => {
           const orders = ordersOf(c);
           const ship = orders.map((o) => ({ o, v: shippedIn(o, month) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof shippedIn>> } => !!x.v);
+          // 주문 관리에 없는 지난 출고 (ERP 직접) — 같은 EXP_NO 는 주문 관리 쪽만
+          const known = new Set(orders.map((o) => String(o.expNo ?? '')).filter(Boolean));
+          for (const code of c.storeCodes ?? []) {
+            for (const it of erpMonth[code]?.items ?? []) {
+              if (known.has(it.expNo)) continue;
+              const o: Order = {
+                id: `erp-${it.expNo}`,
+                companyId: c.id,
+                name: `ERP ${it.expNo}`,
+                realOrder: true,
+                erp: true,
+                inbound: true,
+                invoice: true,
+                shipped: true,
+                storeCode: it.storeId,
+                orderDate: it.orderDate,
+                expNo: it.expNo,
+                createdAt: it.orderDate ?? '',
+              };
+              ship.push({ o, v: { k: it.k, f: it.f, date: it.outDate } });
+            }
+          }
           // 지난 달은 이미 마감 → 패킹 중은 이번 달에만
           const pack = (month < thisMonth() ? [] : orders).map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
           const sale = c.royalty ? salesOf(c) : null;
@@ -148,7 +172,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
         })
         .filter((r) => r.ship.length || r.pack.length || r.c.royalty),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [companies, data.orders, teamOrders, sales, branchNames, month, fxTable],
+    [companies, data.orders, teamOrders, sales, branchNames, month, fxTable, erpMonth],
   );
   const scope = coId ? rows.filter((r) => r.c.id === coId) : rows;
   const sum = (k: 'shipK' | 'shipF' | 'packK' | 'packF' | 'royalty' | 'royaltyF' | 'total' | 'totalF') => scope.reduce((a, r) => a + r[k], 0);
@@ -380,7 +404,11 @@ function OrderList({
                 <tr key={o.id}>
                   {showCo && <td>{c.name}</td>}
                   <td>
-                    {c.team ? (
+                    {o.id.startsWith('erp-') ? (
+                      <span title="주문 관리에 없는 지난 출고 (ERP 에서 직접 가져온 것)">
+                        <span className="tag small gray">ERP</span> {o.expNo}
+                      </span>
+                    ) : c.team ? (
                       o.name
                     ) : (
                       <a href={`#/orders?c=${c.id}&o=${o.id}`} title="주문 관리에서 보기">
@@ -481,4 +509,31 @@ function RoyaltyCalc({ sale, live }: { sale: Sale; live: boolean }) {
       )}
     </div>
   );
+}
+
+type ErpMonth = { code: string; month: string; shipK: number; shipF: number; items: { expNo: string; storeId: string; orderDate?: string; outDate: string; k: number; f: number }[] };
+/** 매장코드들의 그 달 ERP 지난 출고 (exportMonthly) */
+function useExportMonthly(codes: string[], month: string) {
+  const sig = [...new Set(codes)].sort().join(',');
+  const [map, setMap] = useState<Record<string, ErpMonth>>({});
+  useEffect(() => {
+    setMap({});
+    const list = sig ? sig.split(',') : [];
+    if (!list.length || DATA_MODE === 'local') return;
+    const unsubs = list.map((code) =>
+      onSnapshot(
+        doc(db, 'exportMonthly', `${code}_${month}`),
+        (d) =>
+          setMap((prev) => {
+            const next = { ...prev };
+            if (d.exists()) next[code] = d.data() as ErpMonth;
+            else delete next[code];
+            return next;
+          }),
+        () => {},
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [sig, month]);
+  return map;
 }

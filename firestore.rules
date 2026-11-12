@@ -106,6 +106,12 @@ service cloud.firestore {
     match /fxRates/{id} {
       allow read: if isAny();
     }
+    match /exportMonthly/{id} {
+      allow read: if isAny();
+    }
+    match /exportSync/{id} {
+      allow read: if isAny();
+    }
     match /salesStatus/{id} {
       allow read: if isAny();
     }

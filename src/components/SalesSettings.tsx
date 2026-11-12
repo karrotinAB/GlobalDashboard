@@ -1,7 +1,8 @@
 // 설정: 판매 데이터 — 매장(지점) 평수 입력 + 관리자용 API 연결
 import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase';
+import { db, functions } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { guessCurrency, SALES_CURRENCIES, useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
 import type { Company } from '../types';
@@ -161,6 +162,7 @@ const FIELD_LABEL: [string, string][] = [
 /** 관리자: 판매 데이터 API 주소·칸 이름, 지금 가져오기, 응답 확인 */
 export function SalesApiAdmin() {
   const status = useSalesStatus();
+  const backfill = useBackfillState();
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [url, setUrl] = useState('');
   const [ecos, setEcos] = useState('');
@@ -319,6 +321,29 @@ export function SalesApiAdmin() {
           </div>
         </div>
       )}
+      {DATA_MODE !== 'local' && (
+        <div className="backfill-box">
+          <b>지난 수출 데이터 채우기 (2026년 1월 ~ 오늘)</b>
+          <span className="muted small">
+            {' '}
+            ERP 에서 매장코드별 지난 출고를 한 번 가져와요 (주문 관리에 없는 것). 오늘 밤 10시부터 10분마다 자동으로 이어서 하고, 다 채우면 멈춰요.
+          </span>
+          <div className="small">
+            {!backfill
+              ? '아직 시작 전'
+              : backfill.backfillDone
+                ? `✓ 다 채웠어요 (${backfill.last?.end ?? ''}까지 · 주문 ${backfill.last?.orders ?? 0}건)`
+                : `진행 중: ${backfill.cursor ?? '2026-01-01'} 까지 날짜 확인 · 주문 ${backfill.last?.orders ?? 0}건 · 출고 확인 남음 ${backfill.last?.waiting ?? '?'}건`}
+            {backfill?.last?.errors?.length ? ` · 문제: ${backfill.last.errors.slice(0, 3).join(' / ')}` : ''}
+          </div>
+          <button disabled={busy || !!backfill?.backfillDone} onClick={() => run('지난 수출 데이터 채우기', async () => {
+            const r = await call<{ skipped?: string; scanned?: number; found?: number; checked?: number; backfillDone?: boolean }>('exportBackfillNow');
+            return r.skipped ?? `이번에 날짜 ${r.scanned}일 확인 · 주문 ${r.found}건 · 출고 ${r.checked}건 확인${r.backfillDone ? ' · 다 채웠어요 ✓' : ' · 아직 남았어요 (한 번 더 누르거나 밤 10시 자동)'}`;
+          })}>
+            지금 채우기
+          </button>
+        </div>
+      )}
       {busyBox}
       {msg && <pre className="sync-result">{msg}</pre>}
       {insp && (
@@ -358,4 +383,18 @@ export function SalesApiAdmin() {
       )}
     </section>
   );
+}
+
+type BackfillState = { backfillDone?: boolean; cursor?: string; last?: { end?: string; orders?: number; waiting?: number; errors?: string[] } };
+function useBackfillState() {
+  const [s, setS] = useState<BackfillState | null>(null);
+  useEffect(() => {
+    if (DATA_MODE === 'local') return;
+    return onSnapshot(
+      doc(db, 'exportSync', 'state'),
+      (d) => setS((d.data() as BackfillState) ?? null),
+      () => {},
+    );
+  }, []);
+  return s;
 }
