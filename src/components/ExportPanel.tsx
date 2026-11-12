@@ -84,6 +84,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
   const { data } = useStore();
   const [month, setMonth] = useState(thisMonth);
   const [coId, setCoId] = useState('');
+  const [teamF, setTeamF] = useState(''); // '' 전체 · 'own' 내 업체 · '1'·'2'·'3'
   const [open, setOpen] = useState<Pick>(null);
   const teamOrders = useTeamOrders(companies.filter((c) => c.team).map((c) => c.team!));
   // 지난 데이터 (ERP 에서 한 번 채운 것): exportMonthly/{매장코드}_{달}
@@ -125,7 +126,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
     };
   };
 
-  const rows = useMemo(
+  const allRows = useMemo(
     () =>
       companies
         .map((c) => {
@@ -174,6 +175,11 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [companies, data.orders, teamOrders, sales, branchNames, month, fxTable, erpMonth],
   );
+  // 팀장님·이사님 화면: 조 업체가 섞여 있으면 조로 거르기 ('own' = 내 업체)
+  const hasTeams = allRows.some((r) => r.c.team);
+  const teamOf = (c: Company) => c.team ?? 'own';
+  const teamsHere = [...new Set(allRows.map((r) => teamOf(r.c)))].sort((a, b) => (a === 'own' ? -1 : b === 'own' ? 1 : a.localeCompare(b)));
+  const rows = teamF ? allRows.filter((r) => teamOf(r.c) === teamF) : allRows;
   const scope = coId ? rows.filter((r) => r.c.id === coId) : rows;
   const sum = (k: 'shipK' | 'shipF' | 'packK' | 'packF' | 'royalty' | 'royaltyF' | 'total' | 'totalF') => scope.reduce((a, r) => a + r[k], 0);
   const fxCode = scope.flatMap((r) => [...r.ship, ...r.pack]).find((x) => x.o.fxCode)?.o.fxCode;
@@ -206,6 +212,18 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
             </button>
           )}
         </div>
+        {hasTeams && (
+          <div className="seg team-seg">
+            <button className={!teamF ? 'on' : ''} onClick={() => (setTeamF(''), setCoId(''))}>
+              전체 조
+            </button>
+            {teamsHere.map((t) => (
+              <button key={t} className={teamF === t ? 'on' : ''} onClick={() => (setTeamF(teamF === t ? '' : t), setCoId(''))}>
+                {t === 'own' ? '내 업체' : `${t}조`}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="company-chips">
           <button className={`cchip ${!coId ? 'on' : ''}`} onClick={() => setCoId('')}>
             전체
@@ -213,6 +231,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
           {rows.map((r) => (
             <button key={r.c.id} className={`cchip ${coId === r.c.id ? 'on' : ''}`} onClick={() => setCoId(coId === r.c.id ? '' : r.c.id)}>
               <span className="dot" style={{ background: r.c.color }} />
+              {hasTeams && <span className="team-tag">{r.c.team ? `${r.c.team}조` : '내'}</span>}
               {r.c.name}
               {r.c.royalty && <span className="tag small royalty-tag">로열티</span>}
             </button>
@@ -319,7 +338,8 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                 {rows.map((r) => (
                   <tr key={r.c.id} className={coId === r.c.id ? 'row-on' : ''} onClick={() => setCoId(coId === r.c.id ? '' : r.c.id)}>
                     <th className="l">
-                      <span className="dot" style={{ background: r.c.color }} /> {r.c.name}
+                      <span className="dot" style={{ background: r.c.color }} /> {hasTeams && <span className="team-tag">{r.c.team ? `${r.c.team}조` : '내'}</span>}
+                      {r.c.name}
                     </th>
                     <KF k={r.total} f={r.totalF} bold />
                     <KF k={r.shipK} f={r.shipF} />
