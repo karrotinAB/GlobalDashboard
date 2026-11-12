@@ -6335,3 +6335,9 @@ td.c-title {
 a.mc-tasks { color: inherit; text-decoration: none; border-radius: 0 0 12px 12px; transition: background 0.15s; cursor: pointer; }
 a.mc-tasks:hover { background: rgba(140, 47, 60, 0.05); }
 a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; color: #8c2f3c; }
+.sales-search { position: relative; max-width: 360px; margin-top: 8px; }
+.sales-search input { width: 100%; }
+.sales-suggest { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid #eadcd9; border-radius: 10px; box-shadow: 0 8px 24px rgba(60, 30, 30, 0.12); max-height: 260px; overflow-y: auto; padding: 4px; }
+.sales-suggest button { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 7px 8px; border-radius: 8px; text-align: left; cursor: pointer; font: inherit; }
+.sales-suggest button:hover, .sales-suggest button:first-child { background: #f7eeeb; }
+.sales-suggest .pad { padding: 8px; }

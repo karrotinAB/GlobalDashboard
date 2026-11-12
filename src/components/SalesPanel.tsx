@@ -36,6 +36,30 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
     store.set('gd:salesCo', next);
   };
   const { months, ready } = useSales(co?.storeCodes ?? []);
+  // 검색: 매장코드 4자리 / 업체·매장 이름 → 맞는 업체 추천 (코드가 딱 맞으면 바로 선택)
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const norm = (x: string) => x.toLowerCase().replace(/\s+/g, '');
+  const nq = norm(q);
+  const hits = nq
+    ? withCodes.filter((c) => norm(`${c.name} ${c.country ?? ''}`).includes(nq) || (c.storeCodes ?? []).some((code) => code.startsWith(nq) || nq.startsWith(code)) || Object.keys(c.storeAreas ?? {}).some((sid) => sid.startsWith(nq)))
+    : [];
+  const choose = (id: string) => {
+    setCoId(id);
+    setSel(null);
+    store.set('gd:salesCo', id);
+    setQ('');
+    setOpen(false);
+  };
+  const onType = (v: string) => {
+    setQ(v);
+    setOpen(true);
+    const t = v.trim();
+    if (/^\d{4}$/.test(t)) {
+      const exact = withCodes.filter((c) => c.storeCodes?.includes(t));
+      if (exact.length === 1) choose(exact[0].id);
+    }
+  };
   const [sel, setSel] = useState<{ month: string; branch: string | null } | null>(null);
 
   // 월 → 지점 → 데이터 (매장코드가 여러 개여도 한데 모음)
@@ -69,6 +93,36 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
       {withCodes.length === 0 ? (
         <p className="muted small">매장코드가 있는 업체가 없어요. 설정 &gt; 업체에서 매장코드를 넣으면 판매 데이터가 보여요.</p>
       ) : (
+        <>
+        <div className="sales-search">
+          <input
+            value={q}
+            onChange={(e) => onType(e.target.value)}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && hits[0]) choose(hits[0].id);
+              if (e.key === 'Escape') setQ('');
+            }}
+            placeholder="🔍 매장코드 4자리 또는 매장 이름"
+          />
+          {open && nq && (
+            <div className="sales-suggest">
+              {hits.length === 0 ? (
+                <div className="muted small pad">맞는 매장이 없어요</div>
+              ) : (
+                hits.map((c) => (
+                  <button key={c.id} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(c.id)}>
+                    <span className="dot" style={{ background: c.color }} />
+                    <b>{c.name}</b>
+                    <span className="muted small">{c.storeCodes!.join(', ')}</span>
+                    {c.team && <span className="tag gray small">{c.team}조</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <div className="company-chips">
           {withCodes.map((c) => (
             <button key={c.id} className={`cchip ${coId === c.id ? 'on' : ''}`} onClick={() => pickCo(c.id)}>
@@ -78,6 +132,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
             </button>
           ))}
         </div>
+        </>
       )}
 
       {co && !ready && <p className="muted small">불러오는 중…</p>}
