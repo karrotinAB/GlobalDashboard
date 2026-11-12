@@ -316,7 +316,10 @@ const salesCfg = async () => (await db.doc('secrets/sales').get()).data() ?? {};
 async function allStoreCodes() {
   const codes = new Set();
   for (const space of await allSpaces()) {
-    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) for (const c of d.get('storeCodes') ?? []) codes.add(String(c).trim());
+    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) {
+      if (!d.get('salesOn')) continue; // 설정에서 '판매데이터 수집 중' 켠 업체만
+      for (const c of d.get('storeCodes') ?? []) codes.add(String(c).trim());
+    }
   }
   return codes;
 }
@@ -325,7 +328,7 @@ async function runSales({ days = 3, month } = {}) {
   if (!cfg.url) return { skipped: '판매 데이터 API 주소가 아직 없어요' };
   const key = await apiKey();
   const codes = await allStoreCodes();
-  if (!codes.size) return { skipped: '매장코드가 있는 업체가 없어요' };
+  if (!codes.size) return { skipped: "'판매데이터 수집 중'을 켠 업체(매장코드 있는)가 없어요" };
   const today = lastDays(1)[0];
   const r = month
     ? await syncSalesDates(db, cfg, key, monthDays(month, today), codes, { rangeMonth: month })

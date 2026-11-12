@@ -26,7 +26,7 @@ const store = {
 };
 
 export default function SalesPanel({ companies }: { companies: Company[] }) {
-  const withCodes = companies.filter((c) => c.storeCodes?.length);
+  const withCodes = companies.filter((c) => c.storeCodes?.length && c.salesOn);
   const [coId, setCoId] = useState(() => store.get('gd:salesCo'));
   const co = withCodes.find((c) => c.id === coId);
   const pickCo = (id: string) => {
@@ -91,7 +91,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
         <span className="muted small">매일 아침 전날까지 판매가 들어와요 · 평수는 설정에서</span>
       </div>
       {withCodes.length === 0 ? (
-        <p className="muted small">매장코드가 있는 업체가 없어요. 설정 &gt; 업체에서 매장코드를 넣으면 판매 데이터가 보여요.</p>
+        <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 평수에서 업체 옆 <b>판매데이터 수집 중</b>을 켜 주세요.</p>
       ) : (
         <>
         <div className="sales-search">
