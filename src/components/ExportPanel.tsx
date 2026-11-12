@@ -129,7 +129,8 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
         .map((c) => {
           const orders = ordersOf(c);
           const ship = orders.map((o) => ({ o, v: shippedIn(o, month) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof shippedIn>> } => !!x.v);
-          const pack = orders.map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
+          // 지난 달은 이미 마감 → 패킹 중은 이번 달에만
+          const pack = (month < thisMonth() ? [] : orders).map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
           const sale = c.royalty ? salesOf(c) : null;
           const r = {
             c,
@@ -236,9 +237,9 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
           )}
           {open === 'pack' && (
             <OrderList
-              note="주문 들어갔고 아직 출고승인 전인 주문 전부 · 달과 상관없이 지금 기준"
+              note={month < now ? '지난 달은 마감이라 패킹 중 금액은 넣지 않아요 (이번 달에만 보여요)' : '주문 들어갔고 아직 출고승인 전인 주문 전부 · 지금 기준'}
               title="② 패킹 중 금액 — 아직 출고승인 전인 주문"
-              empty="패킹 중인 주문이 없어요."
+              empty={month < now ? '지난 달은 마감 — 패킹 중 없음' : '패킹 중인 주문이 없어요.'}
               items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: x.v.partial ? '일부 출고 (남은 금액)' : x.v.k || x.v.f ? 'ERP 예정 금액' : '금액 없음' })))}
               extraHead="상태"
               showCo={!coId}
@@ -328,7 +329,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
             </table>
           </div>
           <p className="muted small">
-            표는 원화 기준 (주문은 ERP 원화·외화 금액, 로열티는 판매일마다 ECOS 매매기준율로 환산 · 주말·공휴일은 그 전 영업일 환율). ② 패킹 중은 달과 상관없이 아직 출고승인 전인 주문 전부예요.
+            표는 원화 기준 (주문은 ERP 원화·외화 금액, 로열티는 판매일마다 ECOS 매매기준율로 환산 · 주말·공휴일은 그 전 영업일 환율). ② 패킹 중은 이번 달에만 (아직 출고승인 전인 주문 전부) — 지난 달은 마감이라 빠져요.
           </p>
         </>
       )}
