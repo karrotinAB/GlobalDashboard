@@ -217,8 +217,17 @@ export function SalesApiAdmin() {
       {status && (
         <p className="muted small">
           마지막 가져오기: {status.at ? new Date(status.at).toLocaleString() : '-'} {status.skipped ? `· ${status.skipped}` : `· 계산 ${status.rows ?? 0}건`}
-          {status.errors?.length ? ` · 문제 ${status.errors.length}개` : ''}
         </p>
+      )}
+      {!!status?.errors?.length && (
+        <details className="status-errors" open>
+          <summary className="small">문제 {status.errors.length}개 보기</summary>
+          <ul className="small">
+            {status.errors.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </details>
       )}
       {DATA_MODE === 'local' ? (
         <p className="muted small">로컬 테스트 모드에서는 예시 판매 데이터만 보여요.</p>
