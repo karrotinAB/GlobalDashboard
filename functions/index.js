@@ -14,6 +14,7 @@ import { diff, inspect, needsSync, syncOne } from './sync.js';
 import { fetchMemRows, toRecords } from './mem.js';
 import { importNewOrders } from './importOrders.js';
 import { loadCalendars } from './calendar.js';
+import { countryHolidays } from './holidays.js';
 import { defineSecret } from 'firebase-functions/params';
 
 initializeApp();
@@ -273,4 +274,34 @@ export const saveCalendars = onCall({ region: REGION }, async (req) => {
   }
   await db.doc('secrets/calendars').set({ list });
   return { ok: true, count: list.length };
+});
+
+// ------------------------------------------------------------------
+// 나라별 공휴일·기념일 (음력 포함, 구글 공휴일 달력) — 홈 세계 시계용
+// 나라·해마다 holidayCache/{코드}_{해} 에 7일 보관 (사이트에서는 이 함수로만 받음)
+// ------------------------------------------------------------------
+export const worldHolidays = onCall({ region: REGION }, async (req) => {
+  const role = await roleOf(req);
+  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만');
+  const year = Number(req.data?.year);
+  const codes = (Array.isArray(req.data?.codes) ? req.data.codes : []).map((c) => String(c).toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)).slice(0, 15);
+  if (!Number.isInteger(year) || year < 2025 || year > 2100) throw new HttpsError('invalid-argument', '해를 확인해 주세요');
+  const out = {};
+  for (const cc of [...new Set(codes)]) {
+    const ref = db.doc(`holidayCache/${cc}_${year}`);
+    const hit = await ref.get();
+    if (hit.exists && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) {
+      out[cc] = hit.get('days') ?? null;
+      continue;
+    }
+    try {
+      const days = await countryHolidays(cc, year);
+      await ref.set({ at: new Date().toISOString(), days: days ?? null });
+      out[cc] = days;
+    } catch (e) {
+      logger.warn('holiday fetch failed', cc, e.message);
+      out[cc] = hit.exists ? hit.get('days') ?? null : null;
+    }
+  }
+  return out;
 });

@@ -79,6 +79,7 @@ function DigitalClock({
   now,
   home,
   holidayOf,
+  observanceOf,
   info,
 }: {
   label: string;
@@ -86,10 +87,12 @@ function DigitalClock({
   now: Date;
   home?: boolean;
   holidayOf?: (iso: string) => string | undefined;
+  observanceOf?: (iso: string) => string | undefined; // 쉬지 않는 기념일·행사
   info?: string; // 마우스를 올리면 보이는 설명 (공휴일을 몇 개 불러왔는지)
 }) {
   const p = tzParts(now, tz);
   const holiday = holidayOf?.(isoOf(p));
+  const observance = holiday ? undefined : observanceOf?.(isoOf(p));
   const seoul = tzParts(now, HOME_TZ);
   const diffH = (p.wall - seoul.wall) / 60;
   const night = p.h < 7 || p.h >= 19;
@@ -101,6 +104,11 @@ function DigitalClock({
     <div className={`dclock ${night ? 'night' : 'day'} ${holiday ? 'holiday' : ''}`} title={info}>
       <div className="dc-label">
         {label}
+        {!holiday && observance && (
+          <span className="dc-holiday obs" title={`${observance} (기념일 · 쉬는 날 아님)`}>
+            {observance}
+          </span>
+        )}
         {holiday && (
           <span className="dc-holiday" title={holiday}>
             {holiday}
@@ -283,6 +291,11 @@ export default function Home({ go }: { go: (page: string) => void }) {
               tz={c.tz}
               now={now}
               info={c.codes.length ? c.codes.map((code) => worldHoliday.status(code)).join('\n') : '이 시계는 나라를 몰라서 공휴일을 표시하지 않아요 (시계 이름을 나라 이름으로)'}
+              observanceOf={(iso) => {
+                const hits = c.codes.map((code) => [code, worldHoliday.observance(code, iso)] as const).filter(([, n]) => n);
+                if (!hits.length) return undefined;
+                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
+              }}
               holidayOf={(iso) => {
                 // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
                 const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);

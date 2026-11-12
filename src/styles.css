@@ -6262,3 +6262,11 @@ td.c-title {
 .claim-table .k-amt-wrap > :last-child {
   flex: none;
 }
+/* 세계 시계: 쉬지 않는 기념일은 연한 색으로 */
+.dc-holiday.obs {
+  color: #8a6aa8;
+  font-weight: 500;
+}
+.dclock.night .dc-holiday.obs {
+  color: #c9b3e6;
+}

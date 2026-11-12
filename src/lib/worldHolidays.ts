@@ -3,6 +3,9 @@
 // API 가 지원하지 않는 나라는 그냥 표시 안 됨. 한국은 lib/holidays.ts 를 씀.
 import { useEffect, useState } from 'react';
 import type { ExtraHoliday } from '../types';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
+import { DATA_MODE } from '../data/store';
 
 /** 업체의 '나라' 칸(한글/영어) → 나라 코드 */
 const BY_NAME: Record<string, string> = {
@@ -148,6 +151,7 @@ export const COUNTRY_NAMES: Record<string, string> = Object.fromEntries(
 
 export function useWorldHolidays(codes: string[], year: number, extra: ExtraHoliday[] = []) {
   const [maps, setMaps] = useState<Record<string, HolidayMap>>({});
+  const [google, setGoogle] = useState<GoogleDays>({});
   const sig = [...new Set(codes)].sort().join(',');
   useEffect(() => {
     let alive = true;
@@ -158,21 +162,48 @@ export function useWorldHolidays(codes: string[], year: number, extra: ExtraHoli
         return [c, { ...a, ...b }] as const;
       }),
     ).then((entries) => alive && setMaps(Object.fromEntries(entries)));
+    // 음력 공휴일·기념일까지: 구글 공휴일 달력 (서버 함수 worldHolidays, 한국어 이름)
+    if (DATA_MODE !== 'local' && list.length) {
+      Promise.all([year, year + 1].map((y) => httpsCallable(functions, 'worldHolidays')({ codes: list, year: y }).then((r) => r.data as GoogleDays)))
+        .then((parts) => {
+          if (!alive) return;
+          const merged: GoogleDays = {};
+          for (const part of parts) for (const [c, days] of Object.entries(part)) merged[c] = days ? { ...(merged[c] ?? {}), ...days } : merged[c] ?? null;
+          setGoogle(merged);
+        })
+        .catch(() => {});
+    }
     return () => {
       alive = false;
     };
   }, [sig, year]);
-  const lookup = (code: string, iso: string): string | undefined =>
-    extra.find((h) => h.code === code && h.date === iso)?.name ?? BUILT_IN[code]?.[iso] ?? maps[code]?.[iso];
+  // 쉬는 날(공휴일): 직접 넣은 것 → 기본 → 구글(음력 포함) → 공휴일 서비스
+  const lookup = (code: string, iso: string): string | undefined => {
+    const g = google[code]?.[iso];
+    return extra.find((h) => h.code === code && h.date === iso)?.name ?? BUILT_IN[code]?.[iso] ?? (g?.off ? g.name : undefined) ?? maps[code]?.[iso];
+  };
+  /** 쉬지 않는 기념일·행사 (구글 달력에서 '기념일'인 날) */
+  const observance = (code: string, iso: string): string | undefined => {
+    const g = google[code]?.[iso];
+    return g && !g.off ? g.name : undefined;
+  };
   /** 시계에 마우스를 올리면 보이는 설명: 이 나라 공휴일을 몇 개 불러왔는지 */
   const status = (code: string) => {
+    const g = google[code];
     const n = maps[code] ? Object.keys(maps[code]).length : undefined;
     const ex = extra.filter((h) => h.code === code).length + Object.keys(BUILT_IN[code] ?? {}).length;
-    if (n === undefined) return `${code} 공휴일 불러오는 중…`;
-    return `${code} 공휴일 ${n}일 (공휴일 서비스)${ex ? ` + 직접 넣은 ${ex}일` : ''}${n === 0 ? ' — 서비스에 이 나라 정보가 없어요' : ''}`;
+    const gOff = g ? Object.values(g).filter((d) => d.off).length : 0;
+    const gObs = g ? Object.values(g).filter((d) => !d.off).length : 0;
+    const parts = [
+      g ? `구글 공휴일 ${gOff}일 · 기념일 ${gObs}일 (음력 포함)` : null,
+      n !== undefined ? `공휴일 서비스 ${n}일` : null,
+      ex ? `직접 넣은 ${ex}일` : null,
+    ].filter(Boolean);
+    return `${code} ${parts.join(' + ') || '공휴일 불러오는 중…'}`;
   };
-  return Object.assign(lookup, { status });
+  return Object.assign(lookup, { status, observance });
 }
+type GoogleDays = Record<string, Record<string, { name: string; off: boolean }> | null>;
 
 /** 나라 → 대표 시간대 (시계 '나라로 추가'용) */
 const EXTRA_TZ: Record<string, string> = {
