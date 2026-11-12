@@ -79,6 +79,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
         <span className="muted small area-codes">매장코드 {c.storeCodes!.join(', ')}</span>
       </div>
       {ids.length === 0 && <p className="muted small">아직 판매 데이터에 나온 지점이 없어요.</p>}
+      <div className="area-rows">
       {ids.map((sid) => (
         <label key={sid} className="area-row">
           <span>
@@ -86,7 +87,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           </span>
           <input
             key={c.storeAreas?.[sid] ?? ''}
-            defaultValue={c.storeAreas?.[sid] ?? ''}
+            defaultValue={c.storeAreas?.[sid] || ''}
             inputMode="decimal"
             placeholder="평수"
             onBlur={(e) => setArea(sid, e.target.value)}
@@ -95,6 +96,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           <span className="muted small">평</span>
         </label>
       ))}
+      </div>
       <div className="area-add">
         <input value={adding} onChange={(e) => setAdding(e.target.value.replace(/\D/g, ''))} placeholder="지점 코드 직접 추가 (예: 821201)" inputMode="numeric" />
         <button

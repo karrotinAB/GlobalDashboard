@@ -6349,3 +6349,6 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 /* 매장 평수: 판매데이터 토글은 업체 칸 오른쪽 위, 매장코드는 업체명 아래 줄 */
 .area-co-head .sales-on { margin-left: auto; }
 .area-co-head .area-codes { flex-basis: 100%; order: 9; }
+/* 매장 평수: 지점은 10개까지 보이고 나머지는 스크롤 */
+.area-rows { max-height: calc(10 * 44px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.area-row { min-height: 44px; box-sizing: border-box; }
