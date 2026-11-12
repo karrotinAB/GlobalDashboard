@@ -6270,15 +6270,3 @@ td.c-title {
 .dclock.night .dc-holiday.obs {
   color: #c9b3e6;
 }
-/* 주문: 주문일자 기간 검색 */
-.date-range {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.date-range input[type='date'] {
-  width: auto;
-  min-width: 0;
-  padding: 4px 6px;
-}

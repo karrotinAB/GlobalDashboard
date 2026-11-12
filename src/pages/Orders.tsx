@@ -109,10 +109,6 @@ export default function Orders() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusOrder?.id]);
   const [q, setQ] = useState('');
-  // 주문일자 기간 검색 (from ~ to, 비우면 한쪽만)
-  const [dFrom, setDFrom] = useState('');
-  const [dTo, setDTo] = useState('');
-  const dateRange = !!(dFrom || dTo);
 
   // 기간: 주문일자 기준 연도 / 연도+월
   const [year, setYear] = useState('');
@@ -140,7 +136,7 @@ export default function Orders() {
   );
 
   const query = q.trim().toLowerCase();
-  const searching = !!query || dateRange;
+  const searching = !!query;
   const rows = useMemo(() => {
     // 아직 안 끝난 주문이 하나라도 있는 묶음 → 그 묶음의 완료건도 진행중에 같이 보여줌
     const openBundles = new Set(base.filter((o) => o.bundle && !isOrderDone(o)).map((o) => o.bundle!.id));
@@ -152,10 +148,6 @@ export default function Orders() {
           if (tab === 'done' && !isOrderDone(o)) return false;
         }
         if (missingStep && (o[missingStep] || isOrderDone(o))) return false;
-        if (dateRange) {
-          const d = (o.orderDate ?? '').slice(0, 10);
-          if (!d || (dFrom && d < dFrom) || (dTo && d > dTo)) return false;
-        }
         if (query) {
           const hay = [o.name, o.storeCode, ...dateForms(o.orderDate), o.packing, o.shipFrom, o.note, companyById.get(o.companyId ?? '')?.name]
             .filter(Boolean)
@@ -166,7 +158,7 @@ export default function Orders() {
         return true;
       })
       ;
-  }, [base, tab, query, searching, dateRange, dFrom, dTo, missingStep, companyById]);
+  }, [base, tab, query, searching, missingStep, companyById]);
   const units = useMemo(() => toUnits(rows), [rows]);
   const flat = useMemo(() => units.flatMap((u) => u.orders), [units]);
 
@@ -341,17 +333,6 @@ export default function Orders() {
           )}
         </button>
         <input className="search" placeholder="주문명 / 매장코드 / 주문일(9/29) / 비고 검색 (완료건 포함)" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span className="date-range" title="주문일자 기간으로 찾기 (완료건 포함)">
-          <span className="muted small">주문일</span>
-          <input type="date" className="cell-input" value={dFrom} max={dTo || undefined} onChange={(e) => setDFrom(e.target.value)} />
-          <span className="muted">~</span>
-          <input type="date" className="cell-input" value={dTo} min={dFrom || undefined} onChange={(e) => setDTo(e.target.value)} />
-          {dateRange && (
-            <button className="link" onClick={() => { setDFrom(''); setDTo(''); }} title="기간 지우기">
-              ✕
-            </button>
-          )}
-        </span>
         {sheet && DATA_MODE === 'firestore' && <SyncButton companyId={sheet.id} last={data.config.find((c) => c.id === 'apiSync')} />}
         {missingStep && (
           <button className="link" onClick={() => setMissingStep(null)}>
