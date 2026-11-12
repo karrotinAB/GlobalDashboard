@@ -15,7 +15,7 @@ popd
 if errorlevel 1 goto :fail
 echo.
 echo [3/3] Firebase 에 올리는 중 (서버 함수 + Firestore 규칙 + Storage 규칙)...
-call npx firebase-tools deploy --only functions,firestore:rules,storage
+call npx --yes firebase-tools deploy --only functions,firestore:rules,storage
 if errorlevel 1 goto :fail
 echo.
 echo 끝! 창을 닫아도 돼요.
