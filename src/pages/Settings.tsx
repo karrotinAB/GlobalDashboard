@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
 import { httpsCallable } from 'firebase/functions';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, functions } from '../firebase';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
@@ -54,6 +54,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
   const { data, mode, save, saveMany, remove } = useStore();
   const access = useAccess();
   const { members, companies, isMine, hasMirror } = useLookups();
+  const accounts = useAccounts(access.canManage);
   // 팀장님·이사님 업체 관리: 검색 + 내 업체 → 1조 → 2조 → 3조 순
   const [coQ, setCoQ] = useState('');
   const [onlyMine, setOnlyMine] = useState(false);
@@ -115,62 +116,13 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         )}
       </div>
 
-      <section className="card">
-        <h2>저장 방식</h2>
-        {mode === 'firestore' ? (
-          <p>
-            <span className="tag green">팀 공유 (Firebase)</span> 모든 팀원이 같은 데이터를 보고, 바뀐 내용이 실시간으로 반영돼요.
-            {access.email && (
-              <span className="muted small">
-                {' '}
-                · {access.email} 로그인 중 ({access.role ? ROLE_NAME[access.role] : ''})
-              </span>
-            )}
-          </p>
-        ) : (
-          <p>
-            <span className="tag gray">로컬 모드</span> 테스트용이라 이 브라우저에만 저장돼요.
-          </p>
-        )}
-      </section>
-
-      {access.role === 'admin' && <AccessAdmin />}
       {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
       {(access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && <TradeMembersSection />}
       {access.role === 'trade' ? (
         access.email && <ChangePassword />
       ) : (
       <>
-      {access.canManage && (
-        <section className="card">
-          <h2>
-            홈 화면 구성 <span className="tag gray">관리자만 보이는 칸</span>
-          </h2>
-          <p className="muted small">켜면 홈 화면에 모든 사람에게 보여요.</p>
-          {(
-            [
-              ['showUrgent', '🔥 급한 일 (마감 지났거나 오늘·내일인 할일)'],
-              ['showPipeline', '📦 진행중 주문 단계 (단계별 막대)'],
-            ] as const
-          ).map(([k, label]) => {
-            const cfg = data.config.find((c) => c.id === 'home') ?? { id: 'home' };
-            return (
-              <label key={k} className="check-line toggle-line">
-                <input type="checkbox" checked={!!cfg[k]} onChange={(e) => save('config', { ...cfg, [k]: e.target.checked })} />
-                {label}
-              </label>
-            );
-          })}
-        </section>
-      )}
-      {access.canManage && <HolidayAdmin />}
-      {access.role === 'admin' && <MemAutoSection />}
-      {access.role === 'admin' && <CalendarAdmin />}
-      <StoreAreaSection />
-      {access.role === 'admin' && <SalesApiAdmin />}
-      {access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
       {access.email && <ChangePassword />}
-
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
         <table className="settings-table">
@@ -186,7 +138,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           </thead>
           <tbody>
             {members.map((m) => (
-              <MemberRow key={m.id} m={m} onSave={(x) => save('members', x)} onDelete={() => confirm(`${m.name} 삭제?`) && remove('members', m.id)} />
+              <MemberRow key={m.id} m={m} accounts={accounts} onSave={(x) => save('members', x)} onDelete={() => confirm(`${m.name} 삭제?`) && remove('members', m.id)} />
             ))}
           </tbody>
         </table>
@@ -196,8 +148,8 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           + 담당자 추가
         </button>
       </section>
-
-
+      {access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
+      {access.role === 'admin' && <CalendarAdmin />}
       <section className="card">
         <h2>업체 관리</h2>
         <p className="muted small">
@@ -259,7 +211,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           + 업체 추가
         </button>
       </section>
-
+      <StoreAreaSection />
       <section className="card">
         <h2>데이터</h2>
         <div className="btn-row">
@@ -283,13 +235,78 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           할일 {data.tasks.length} · 주문 {data.orders.length} · 근태 기록 {data.attendance.length} · 무역사무 요청 {data.requests.length}
         </p>
       </section>
+
+      {/* 아래는 관리자용 */}
+      <section className="card">
+        <h2>저장 방식</h2>
+        {mode === 'firestore' ? (
+          <p>
+            <span className="tag green">팀 공유 (Firebase)</span> 모든 팀원이 같은 데이터를 보고, 바뀐 내용이 실시간으로 반영돼요.
+            {access.email && (
+              <span className="muted small">
+                {' '}
+                · {access.email} 로그인 중 ({access.role ? ROLE_NAME[access.role] : ''})
+              </span>
+            )}
+          </p>
+        ) : (
+          <p>
+            <span className="tag gray">로컬 모드</span> 테스트용이라 이 브라우저에만 저장돼요.
+          </p>
+        )}
+      </section>
+
+      {access.role === 'admin' && <AccessAdmin />}
+      {access.canManage && (
+        <section className="card">
+          <h2>
+            홈 화면 구성 <span className="tag gray">관리자만 보이는 칸</span>
+          </h2>
+          <p className="muted small">켜면 홈 화면에 모든 사람에게 보여요.</p>
+          {(
+            [
+              ['showUrgent', '🔥 급한 일 (마감 지났거나 오늘·내일인 할일)'],
+              ['showPipeline', '📦 진행중 주문 단계 (단계별 막대)'],
+            ] as const
+          ).map(([k, label]) => {
+            const cfg = data.config.find((c) => c.id === 'home') ?? { id: 'home' };
+            return (
+              <label key={k} className="check-line toggle-line">
+                <input type="checkbox" checked={!!cfg[k]} onChange={(e) => save('config', { ...cfg, [k]: e.target.checked })} />
+                {label}
+              </label>
+            );
+          })}
+        </section>
+      )}
+      {access.canManage && <HolidayAdmin />}
+      {access.role === 'admin' && <MemAutoSection />}
+      {access.role === 'admin' && <SalesApiAdmin />}
+
+
+
+
       </>
       )}
     </div>
   );
 }
 
-function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => void; onDelete: () => void }) {
+/** 관리자가 '대시보드 사용자'에 저장해 둔 계정 (담당자 로그인 이메일 고르기용) */
+function useAccounts(enabled: boolean) {
+  const [list, setList] = useState<{ email: string; name?: string }[]>([]);
+  useEffect(() => {
+    if (!enabled || DATA_MODE === 'local') return;
+    return onSnapshot(
+      collection(db, 'roles'),
+      (snap) => setList(snap.docs.map((d) => ({ email: d.id, name: d.get('name') as string | undefined })).sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email))),
+      () => setList([]),
+    );
+  }, [enabled]);
+  return list;
+}
+
+function MemberRow({ m, accounts, onSave, onDelete }: { m: Member; accounts: { email: string; name?: string }[]; onSave: (m: Member) => void; onDelete: () => void }) {
   const [name, setName] = useState(m.name);
   const [memName, setMemName] = useState(m.memName ?? '');
   const [email, setEmail] = useState(m.email ?? '');
@@ -300,14 +317,33 @@ function MemberRow({ m, onSave, onDelete }: { m: Member; onSave: (m: Member) => 
         <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== m.name && onSave({ ...m, name: name.trim() })} />
       </td>
       <td>
-        <input
-          type="email"
-          value={email}
-          disabled={!isAdmin}
-          placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
-          onChange={(e) => setEmail(e.target.value)}
-          onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
-        />
+        {isAdmin && accounts.length > 0 ? (
+          // 관리자가 저장해 둔 계정 중에서 고르기
+          <select
+            value={m.email ?? ''}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              onSave({ ...m, email: e.target.value || undefined });
+            }}
+          >
+            <option value="">— 연결 안 함 —</option>
+            {m.email && !accounts.some((a) => a.email === m.email) && <option value={m.email}>{m.email} (사용자 목록에 없음)</option>}
+            {accounts.map((a) => (
+              <option key={a.email} value={a.email}>
+                {a.name ? `${a.name} · ${a.email}` : a.email}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            type="email"
+            value={email}
+            disabled={!isAdmin}
+            placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
+          />
+        )}
       </td>
       <td>
         <input
