@@ -255,8 +255,8 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
               note={month < now ? '지난 달은 마감이라 패킹 중 금액은 넣지 않아요 (이번 달에만 보여요)' : '주문 들어갔고 아직 출고승인 전인 주문 전부 · 지금 기준'}
               title="② 패킹 중 금액 — 아직 출고승인 전인 주문"
               empty={month < now ? '지난 달은 마감 — 패킹 중 없음' : '패킹 중인 주문이 없어요.'}
-              items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: x.v.partial ? '일부 출고 (남은 금액)' : x.v.k || x.v.f ? 'ERP 예정 금액' : '금액 없음' })))}
-              extraHead="상태"
+              items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: `${x.o.packing?.trim() || '—'}${x.v.partial ? ' (일부 출고 · 남은 금액)' : ''}` })))}
+              extraHead="패킹 예정일"
               showCo={!coId}
             />
           )}
