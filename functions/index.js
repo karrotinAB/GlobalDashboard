@@ -481,7 +481,7 @@ export const storeBranches = onCall({ region: REGION, timeoutSeconds: 300 }, asy
 
 // ------------------------------------------------------------------
 // 수출매출 지난 데이터 한 번 채우기 (2026-01-01 ~ 시작한 날): ERP 에서 직접 → exportMonthly
-// 오늘 밤 10시부터 10분마다 이어서 하고, 다 채우면 그 뒤로는 아무것도 안 함 (앞으로는 주문 관리 데이터로)
+// 새벽 4시부터 (4:00~5:50) 10분마다 이어서 하고, 다 채우면 그 뒤로는 아무것도 안 함 (앞으로는 주문 관리 데이터로)
 // ------------------------------------------------------------------
 import { runExportSync } from './exportData.js';
 
@@ -497,7 +497,7 @@ async function runBackfill() {
   logger.info('export backfill', r);
   return r;
 }
-export const exportBackfill = onSchedule({ schedule: '*/10 22-23 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540, memory: '512MiB' }, async () => {
+export const exportBackfill = onSchedule({ schedule: '*/10 4-5 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540, memory: '512MiB' }, async () => {
   await runBackfill();
 });
 export const exportBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, memory: '512MiB' }, async (req) => {

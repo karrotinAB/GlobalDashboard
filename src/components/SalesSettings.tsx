@@ -326,7 +326,7 @@ export function SalesApiAdmin() {
           <b>지난 수출 데이터 채우기 (2026년 1월 ~ 오늘)</b>
           <span className="muted small">
             {' '}
-            ERP 에서 매장코드별 지난 출고를 한 번 가져와요 (주문 관리에 없는 것). 오늘 밤 10시부터 10분마다 자동으로 이어서 하고, 다 채우면 멈춰요.
+            ERP 에서 매장코드별 지난 출고를 한 번 가져와요 (주문 관리에 없는 것). 새벽 4시부터 (4:00~5:50) 10분마다 자동으로 이어서 하고, 다 채우면 멈춰요.
           </span>
           <div className="small">
             {!backfill
@@ -338,7 +338,7 @@ export function SalesApiAdmin() {
           </div>
           <button disabled={busy || !!backfill?.backfillDone} onClick={() => run('지난 수출 데이터 채우기', async () => {
             const r = await call<{ skipped?: string; scanned?: number; found?: number; checked?: number; backfillDone?: boolean }>('exportBackfillNow');
-            return r.skipped ?? `이번에 날짜 ${r.scanned}일 확인 · 주문 ${r.found}건 · 출고 ${r.checked}건 확인${r.backfillDone ? ' · 다 채웠어요 ✓' : ' · 아직 남았어요 (한 번 더 누르거나 밤 10시 자동)'}`;
+            return r.skipped ?? `이번에 날짜 ${r.scanned}일 확인 · 주문 ${r.found}건 · 출고 ${r.checked}건 확인${r.backfillDone ? ' · 다 채웠어요 ✓' : ' · 아직 남았어요 (한 번 더 누르거나 새벽 4시 자동)'}`;
           })}>
             지금 채우기
           </button>
