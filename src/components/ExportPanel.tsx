@@ -156,7 +156,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
   const [y, m] = month.split('-').map(Number);
   // 순서: ④ 총 수출 → ① 출고 → ② 패킹 중 → ③ 로열티
   const cards: { key: Exclude<Pick, null> | 'total'; n: string; label: string; k: number; f?: number; sub: string }[] = [
-    { key: 'total', n: '④', label: '총 수출 금액', k: sum('total'), f: sum('totalF'), sub: '① + ② + ③ (로열티는 환율 적용)' },
+    { key: 'total', n: '', label: '총 수출 금액', k: sum('total'), f: sum('totalF'), sub: '① + ② + ③ (로열티는 환율 적용)' },
     { key: 'ship', n: '①', label: `${m}월 출고 금액`, k: sum('shipK'), f: sum('shipF'), sub: '출고승인 난 금액 (출고일 기준)' },
     { key: 'pack', n: '②', label: '패킹 중 금액', k: sum('packK'), f: sum('packF'), sub: '주문 들어갔고 아직 출고승인 전 · 지금 기준' },
     { key: 'royalty', n: '③', label: '로열티', k: sum('royalty'), f: sum('royaltyF'), sub: `${m}월 판매 × ${ROYALTY_RATE * 100}% · 판매일 ECOS 환율` },
@@ -207,9 +207,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                 disabled={c.key === 'total'}
                 onClick={() => c.key !== 'total' && setOpen(open === c.key ? null : c.key)}
               >
-                <span className="ec-label">
-                  {c.n} {c.label}
-                </span>
+                <span className="ec-label">{c.n ? `${c.n} ${c.label}` : c.label}</span>
                 <span className="ec-amts">
                   <span className="ec-cell">
                     <small>원화</small>
@@ -220,14 +218,15 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                     <b className="ec-amt fx">{c.f ? fx(c.f, fxCode) : '—'}</b>
                   </span>
                 </span>
-                <span className="ec-sub">{c.sub}</span>
-                {c.key !== 'total' && <span className="ec-more">{open === c.key ? '접기 ▴' : '자세히 ▾'}</span>}
+                {/* 설명은 '자세히'를 누르면 (총 금액만 맨 아래 작게) */}
+                {c.key === 'total' ? <span className="ec-sub ec-foot">{c.sub}</span> : <span className="ec-more">{open === c.key ? '접기 ▴' : '자세히 ▾'}</span>}
               </button>
             ))}
           </div>
 
           {open === 'ship' && (
             <OrderList
+              note="출고승인 난 금액 (출고일 기준)"
               title={`① ${m}월 출고 금액 — 출고승인 난 주문`}
               empty="이 달 출고승인 난 주문이 없어요."
               items={scope.flatMap((r) => r.ship.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: x.v.date?.slice(5).replace('-', '/') ?? '' })))}
@@ -237,6 +236,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
           )}
           {open === 'pack' && (
             <OrderList
+              note="주문 들어갔고 아직 출고승인 전인 주문 전부 · 달과 상관없이 지금 기준"
               title="② 패킹 중 금액 — 아직 출고승인 전인 주문"
               empty="패킹 중인 주문이 없어요."
               items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: x.v.partial ? '일부 출고 (남은 금액)' : x.v.k || x.v.f ? 'ERP 예정 금액' : '금액 없음' })))}
@@ -247,6 +247,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
           {open === 'royalty' && (
             <div className="export-detail">
               <h3>③ 로열티 — {m}월 판매 합계 × {ROYALTY_RATE * 100}%</h3>
+              <p className="muted small detail-note">{m}월 판매 × {ROYALTY_RATE * 100}% · 판매일마다 ECOS 매매기준율로 원화·달러 환산 (주말·공휴일은 그 전 영업일 환율)</p>
               {scope.filter((r) => r.sale).length === 0 && <p className="muted small">로열티 매장이 없어요. 설정 &gt; 매장 평수에서 업체 이름 옆 <b>로열티</b>를 켜 주세요.</p>}
               {scope
                 .filter((r) => r.sale)
@@ -292,7 +293,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
               <thead>
                 <tr>
                   <th className="l">업체</th>
-                  <th>④ 총 수출</th>
+                  <th>총 수출</th>
                   <th>① 출고</th>
                   <th>② 패킹 중</th>
                   <th>③ 로열티</th>
@@ -338,11 +339,13 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
 function OrderList({
   title,
   empty,
+  note,
   items,
   extraHead,
   showCo,
 }: {
   title: string;
+  note?: string;
   empty: string;
   items: { c: Company; o: Order; k: number; f: number; extra: string }[];
   extraHead: string;
@@ -354,6 +357,7 @@ function OrderList({
       <h3>
         {title} <span className="muted small">{items.length}건</span>
       </h3>
+      {note && <p className="muted small detail-note">{note}</p>}
       {items.length === 0 ? (
         <p className="muted small">{empty}</p>
       ) : (
