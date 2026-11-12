@@ -24,7 +24,8 @@ const shiftMonth = (m: string, n: number) => {
 };
 const normDate = (s?: string | null) => (s ?? '').replace(/\./g, '-').slice(0, 10);
 const won = (n: number) => `₩${fullAmt(n)}`;
-const fx = (n: number, code?: string) => `${code && code !== 'USD' ? `${code} ` : '$'}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+// ERP 통화 코드(CURR_CODE)는 '02' 같은 숫자라 영문 3글자 통화일 때만 붙이고, 나머지는 주문 관리처럼 $
+const fx = (n: number, code?: string) => `${code && /^[A-Z]{3}$/.test(code) && code !== 'USD' ? `${code} ` : '$'}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 /** 이 달에 출고승인 난 금액 (줄별 출고일 기준) */
 export function shippedIn(o: Order, month: string) {
