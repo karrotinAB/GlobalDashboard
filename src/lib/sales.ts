@@ -138,3 +138,29 @@ function demoSales(codes: string[]): SalesMonth[] {
   }
   return out;
 }
+
+/** 지점 목록·이름 (서버가 ERP 거래처 정보 BRANCH_NAME 에서 가져와 storeBranches/{코드} 에 둠) → { STORE_ID: 이름 } */
+export function useStoreBranches(codes: string[]) {
+  const sig = [...new Set(codes)].sort().join(',');
+  const [map, setMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const list = sig ? sig.split(',') : [];
+    if (!list.length || DATA_MODE === 'local') {
+      setMap({});
+      return;
+    }
+    const parts = new Map<string, Record<string, string>>();
+    const unsubs = list.map((code) =>
+      onSnapshot(
+        doc(db, 'storeBranches', code),
+        (d) => {
+          parts.set(code, (d.get('branches') as Record<string, string>) ?? {});
+          setMap(Object.assign({}, ...parts.values()));
+        },
+        () => {},
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [sig]);
+  return map;
+}

@@ -393,3 +393,30 @@ export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
   });
   return { ok: true };
 });
+
+// ------------------------------------------------------------------
+// 지점 목록·이름 (설정 > 매장 평수): 매장코드 4자리로 시작하는 지점을 ERP 거래처 정보에서
+// storeBranches/{코드} 에 7일 보관 (사이트는 읽기만)
+// ------------------------------------------------------------------
+import { branchesOf } from './branches.js';
+
+export const storeBranches = onCall({ region: REGION, timeoutSeconds: 300 }, async (req) => {
+  const role = await roleOf(req);
+  if (!['admin', 'member', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만');
+  const codes = (Array.isArray(req.data?.codes) ? req.data.codes : []).map((c) => String(c).trim()).filter((c) => /^\d{4}$/.test(c)).slice(0, 30);
+  const refresh = !!req.data?.refresh;
+  const key = await apiKey();
+  const out = {};
+  for (const code of [...new Set(codes)]) {
+    const ref = db.doc(`storeBranches/${code}`);
+    const hit = await ref.get();
+    if (!refresh && hit.exists && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) {
+      out[code] = hit.get('branches') ?? {};
+      continue;
+    }
+    const branches = await branchesOf(code, key, { known: Object.keys(hit.get('branches') ?? {}) });
+    await ref.set({ code, branches, at: new Date().toISOString() });
+    out[code] = branches;
+  }
+  return out;
+});

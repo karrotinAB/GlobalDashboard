@@ -1,28 +1,54 @@
 // 설정: 판매 데이터 — 매장(지점) 평수 입력 + 관리자용 API 연결
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
-import { useSales, useSalesStatus } from '../lib/sales';
+import { useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
 import type { Company } from '../types';
 
 /** 지점별 평수 (판매 데이터에 나온 지점 + 직접 추가) */
 export function StoreAreaSection() {
   const { companies } = useLookups();
   const own = companies.filter((c) => !c.team && c.storeCodes?.length);
-  const { months } = useSales(own.flatMap((c) => c.storeCodes ?? []));
+  const allCodes = own.flatMap((c) => c.storeCodes ?? []);
+  const { months } = useSales(allCodes);
+  // 지점 목록·이름: ERP 거래처 정보(BRANCH_NAME). 서버가 7일 보관하니 들어올 때마다 불러도 괜찮음
+  const branchNames = useStoreBranches(allCodes);
+  const [loading, setLoading] = useState<'' | 'busy' | string>('');
+  const codesSig = [...new Set(allCodes)].sort().join(',');
+  const loadBranches = (refresh = false) => {
+    if (DATA_MODE === 'local' || !codesSig) return;
+    setLoading('busy');
+    httpsCallable(functions, 'storeBranches', { timeout: 300000 })({ codes: codesSig.split(','), refresh })
+      .then(() => setLoading(''))
+      .catch((e) => setLoading(`지점 목록을 못 불러왔어요: ${(e as Error).message} (서버 함수를 올렸는지 확인해 주세요 — deploy.bat)`));
+  };
+  useEffect(() => {
+    loadBranches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codesSig]);
   if (!own.length) return null;
   return (
     <section className="card">
       <h2>📈 매장 평수</h2>
       <p className="muted small">
         <b>판매데이터 수집 중</b>을 켠 업체만 판매 데이터를 가져오고 홈에 보여요. 지점별 평수를 넣으면 홈 &gt; 업체별 판매 데이터에서 <b>주차별 평당 금액</b>이 회색 선으로 같이 보여요. 지점은 판매 데이터가 들어오면 자동으로 나타나요
-        (아직 없으면 지점 코드로 직접 추가).
+        지점 목록과 이름은 ERP 거래처 정보에서 매장코드 4자리로 시작하는 지점을 자동으로 불러와요 (없으면 지점 코드로 직접 추가).
+        {DATA_MODE !== 'local' && (
+          <>
+            {' '}
+            <button className="link" disabled={loading === 'busy'} onClick={() => loadBranches(true)}>
+              {loading === 'busy' ? '지점 불러오는 중…' : '↻ 지점 다시 불러오기'}
+            </button>
+          </>
+        )}
       </p>
+      {loading && loading !== 'busy' && <p className="muted small">{loading}</p>}
       <div className="area-list">
         {own.map((c) => {
           const seen = new Map<string, string>();
-          for (const m of months) if ((c.storeCodes ?? []).includes(m.code)) for (const [sid, b] of Object.entries(m.branches)) seen.set(sid, b.name || seen.get(sid) || '');
+          for (const [sid, name] of Object.entries(branchNames)) if ((c.storeCodes ?? []).some((code) => sid.startsWith(code))) seen.set(sid, name);
+          for (const m of months) if ((c.storeCodes ?? []).includes(m.code)) for (const [sid, b] of Object.entries(m.branches)) seen.set(sid, seen.get(sid) || b.name || '');
           return <CompanyAreas key={c.id} c={c} seen={seen} />;
         })}
       </div>

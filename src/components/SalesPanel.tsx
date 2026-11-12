@@ -2,7 +2,7 @@
 //  업체 고르기 → 지점 × 월 합계 표 → 월(또는 지점의 그 월)을 누르면
 //  왼쪽: 주차별 금액 꺾은선 (아래 작게 회색으로 평당 금액) · 오른쪽: 주차 × 요일 금액 (토·일 붉게)
 import { useMemo, useState, type CSSProperties } from 'react';
-import { fullAmt, shortAmt, useSales, weeksOf, type SalesBranch } from '../lib/sales';
+import { fullAmt, shortAmt, useSales, useStoreBranches, weeksOf, type SalesBranch } from '../lib/sales';
 import type { Company } from '../types';
 
 const DOW = ['월', '화', '수', '목', '금', '토', '일'];
@@ -36,6 +36,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
     store.set('gd:salesCo', next);
   };
   const { months, ready } = useSales(co?.storeCodes ?? []);
+  const branchNames = useStoreBranches(co?.storeCodes ?? []); // ERP 거래처 정보의 지점 이름
   // 검색: 매장코드 4자리 / 업체·매장 이름 → 맞는 업체 추천 (코드가 딱 맞으면 바로 선택)
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -71,6 +72,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
   const monthList = [...byMonth.keys()].sort().slice(-12);
   const branchIds = [...new Set(monthList.flatMap((m) => Object.keys(byMonth.get(m) ?? {})))].sort();
   const nameOf = (sid: string) => {
+    if (branchNames[sid]) return branchNames[sid];
     for (const m of [...monthList].reverse()) {
       const n = byMonth.get(m)?.[sid]?.name;
       if (n) return n;
