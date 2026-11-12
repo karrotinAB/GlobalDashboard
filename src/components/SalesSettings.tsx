@@ -168,18 +168,36 @@ export function SalesApiAdmin() {
   const [busy, setBusy] = useState(false);
   const [insp, setInsp] = useState<Inspect | null>(null);
   const [month, setMonth] = useState('');
-  const call = async <T,>(name: string, data?: unknown) => (await httpsCallable(functions, name)(data)).data as T;
+  // 오래 걸릴 수 있어서 9분까지 기다림 (서버 함수 제한과 같게)
+  const call = async <T,>(name: string, data?: unknown) => (await httpsCallable(functions, name, { timeout: 540000 })(data)).data as T;
+  const [running, setRunning] = useState<{ label: string; at: number } | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
   const run = async (label: string, fn: () => Promise<string>) => {
     setBusy(true);
-    setMsg(`${label} 중…`);
+    setRunning({ label, at: Date.now() });
+    setMsg('');
     try {
-      setMsg(await fn());
+      const out = await fn();
+      setMsg(out || `${label} 끝 ✓`);
     } catch (e) {
       setMsg(`${label} 실패: ${(e as Error).message} (서버 함수를 올렸는지 확인해 주세요 — deploy.bat)`);
     } finally {
       setBusy(false);
+      setRunning(null);
     }
   };
+  void tick;
+  const busyBox = running && (
+    <div className="busy-box" role="status">
+      <span className="spinner" /> <b>{running.label} 중…</b> {Math.floor((Date.now() - running.at) / 1000)}초 지남
+      <span className="muted small"> · 처음엔 지점 목록도 같이 찾느라 1~3분 걸릴 수 있어요. 창을 닫지 말고 기다려 주세요.</span>
+    </div>
+  );
   const load = () => run('불러오기', async () => {
     setCfg(await call<Cfg>('salesConfig'));
     return '';
@@ -292,6 +310,7 @@ export function SalesApiAdmin() {
           </div>
         </div>
       )}
+      {busyBox}
       {msg && <pre className="sync-result">{msg}</pre>}
       {insp && (
         <div className="insp">
