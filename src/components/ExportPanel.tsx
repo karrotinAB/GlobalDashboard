@@ -3,7 +3,7 @@
 //  ② 패킹 중 (주문은 들어갔고 아직 출고승인 안 난 금액 — 지금 기준)
 //  ③ 로열티 (로열티 매장만: 그 달 판매 합계 × 5%)
 //  ④ 총 수출 = ① + ② + ③
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
@@ -233,16 +233,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                 onClick={() => c.key !== 'total' && setOpen(open === c.key ? null : c.key)}
               >
                 <span className="ec-label">{c.n ? `${c.n} ${c.label}` : c.label}</span>
-                <span className="ec-amts">
-                  <span className="ec-cell">
-                    <small>원화</small>
-                    <b className="ec-amt">{won(c.k)}</b>
-                  </span>
-                  <span className="ec-cell">
-                    <small>외화</small>
-                    <b className="ec-amt fx">{c.f ? fx(c.f, fxCode) : '—'}</b>
-                  </span>
-                </span>
+                <Amts krw={won(c.k)} fx={c.f ? fx(c.f, fxCode) : '—'} />
                 {/* 설명은 '자세히'를 누르면 (총 금액만 맨 아래 작게) */}
                 {c.key === 'total' ? <span className="ec-sub ec-foot">{c.sub}</span> : <span className="ec-more">{open === c.key ? '접기 ▴' : '자세히 ▾'}</span>}
               </button>
@@ -536,4 +527,35 @@ function useExportMonthly(codes: string[], month: string) {
     return () => unsubs.forEach((u) => u());
   }, [sig, month]);
   return map;
+}
+
+/** 원화 | 외화 — 한 줄에 안 들어가면 세로줄 없이 줄바꿈 */
+function Amts({ krw, fx: f }: { krw: string; fx: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [wrapped, setWrapped] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => {
+      const [a, b] = Array.from(el.children) as HTMLElement[];
+      // 세로줄·여백(약 26px) 포함해서 한 줄에 들어가는지 (줄바꿈 여부로 판단하면 왔다갔다 할 수 있어서 너비로)
+      if (a && b) setWrapped(a.offsetWidth + b.offsetWidth + 28 > el.clientWidth);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [krw, f]);
+  return (
+    <span ref={ref} className={`ec-amts ${wrapped ? 'wrapped' : ''}`}>
+      <span className="ec-cell">
+        <small>원화</small>
+        <b className="ec-amt">{krw}</b>
+      </span>
+      <span className="ec-cell">
+        <small>외화</small>
+        <b className="ec-amt fx">{f}</b>
+      </span>
+    </span>
+  );
 }

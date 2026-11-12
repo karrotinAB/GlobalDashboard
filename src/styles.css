@@ -6497,3 +6497,5 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .week-sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 
 .backfill-box { margin-top: 12px; padding: 10px 12px; border: 1px dashed #e3d3cf; border-radius: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
+.ec-amts.wrapped .ec-cell + .ec-cell { border-left: 0; margin-left: 0; padding-left: 0; }
