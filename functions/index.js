@@ -311,6 +311,7 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 // 매일 아침 8시(서울) 최근 3일을 다시 계산 (늦게 들어온 건·취소 반영). 주소·칸 이름은 secrets/sales
 // ------------------------------------------------------------------
 import { detectFields, fetchSales, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
+import { syncFx } from './fx.js';
 
 const salesCfg = async () => (await db.doc('secrets/sales').get()).data() ?? {};
 async function allStoreCodes() {
@@ -333,11 +334,42 @@ async function runSales({ days = 3, month } = {}) {
   const r = month
     ? await syncSalesDates(db, cfg, key, monthDays(month, today), codes, { rangeMonth: month })
     : await syncSalesDates(db, cfg, key, lastDays(days), codes);
-  const result = { ...r, month: month ?? null, at: new Date().toISOString() };
+  // 로열티 환율 (ECOS): 그 달 + 앞 달 (월초 주말은 앞 달 마지막 영업일 환율을 씀)
+  const fxMonth = month ?? today.slice(0, 7);
+  const fx = await runFx([prevMonth(fxMonth), fxMonth]).catch((e) => ({ errors: [e.message] }));
+  const result = { ...r, errors: [...(r.errors ?? []), ...(fx.errors ?? [])].slice(0, 10), fxSaved: fx.saved ?? 0, month: month ?? null, at: new Date().toISOString() };
   await db.doc('salesStatus/last').set(result);
   logger.info('sales sync', result);
   return result;
 }
+
+// ---- ECOS 환율 (로열티: 판매일 환율로 원화·달러 환산) ----
+const prevMonth = (m) => {
+  const [y, mo] = m.split('-').map(Number);
+  const d = new Date(Date.UTC(y, mo - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+async function ecosKey() {
+  const k = (await db.doc('secrets/ecos').get()).get('apiKey');
+  return k ? String(k).trim() : '';
+}
+async function fxCurrencies() {
+  const set = new Set(['USD']);
+  for (const space of await allSpaces()) {
+    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) if (d.get('royalty') && d.get('salesCurrency')) set.add(String(d.get('salesCurrency')));
+  }
+  return [...set];
+}
+async function runFx(months) {
+  const key = await ecosKey();
+  if (!key) return { saved: 0, errors: ['ECOS 인증키가 아직 없어요 (설정 > 판매 데이터 API)'] };
+  return syncFx(db, key, await fxCurrencies(), months);
+}
+export const syncFxNow = onCall({ region: REGION, timeoutSeconds: 300 }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
+  const month = typeof req.data?.month === 'string' && /^\d{4}-\d{2}$/.test(req.data.month) ? req.data.month : lastDays(1)[0].slice(0, 7);
+  return runFx([prevMonth(month), month]);
+});
 
 export const syncSales = onSchedule({ schedule: '0 8 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540 }, async () => {
   await runSales({ days: 3 });
@@ -373,7 +405,7 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
 export const salesConfig = onCall({ region: REGION }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
   const c = await salesCfg();
-  return { hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam ?? 'SALE_DATE', endParam: c.endParam ?? '', dateFormat: c.dateFormat ?? 'dot', fields: c.fields ?? {} };
+  return { hasEcos: !!(await ecosKey()), hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam ?? 'SALE_DATE', endParam: c.endParam ?? '', dateFormat: c.dateFormat ?? 'dot', fields: c.fields ?? {} };
 });
 
 export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
@@ -384,6 +416,7 @@ export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
   if (url && !/^https?:\/\//.test(url)) throw new HttpsError('invalid-argument', 'http(s):// 로 시작하는 주소를 넣어 주세요');
   const name = (v) => String(v ?? '').trim().replace(/[^\w가-힣]/g, '').slice(0, 40);
   const fields = Object.fromEntries(['date', 'amount', 'store', 'storeCode', 'name'].map((k) => [k, name(d.fields?.[k])]).filter(([, v]) => v));
+  if (d.ecosKey) await db.doc('secrets/ecos').set({ apiKey: String(d.ecosKey).trim() });
   await db.doc('secrets/sales').set({
     url: url ?? '',
     dateParam: name(d.dateParam) || 'SALE_DATE',

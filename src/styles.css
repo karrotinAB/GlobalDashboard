@@ -6347,7 +6347,7 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .sales-on.on { background: #e8f3ea; border-color: #9cc9a6; color: #2f6b3c; font-weight: 600; }
 .sales-on input { margin: 0; }
 /* 매장 평수: 판매데이터 토글은 업체 칸 오른쪽 위, 매장코드는 업체명 아래 줄 */
-.area-co-head .sales-on { margin-left: auto; }
+.area-co-head .co-toggles { margin-left: auto; display: inline-flex; gap: 4px; }
 .area-co-head .area-codes { flex-basis: 100%; order: 9; }
 /* 매장 평수: 지점은 10개까지 보이고 나머지는 스크롤 */
 .area-rows { max-height: calc(10 * 44px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
@@ -6391,3 +6391,14 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .export-table tr.row-on th, .export-table tr.row-on td { background: #f3dcd7; }
 .royalty-tag { background: #fff2d6; color: #8a5a00; }
 .sales-on.royalty.on { background: #fff2d6; border-color: #e7c27a; color: #8a5a00; }
+
+.cur-pick select { font-size: 12px; padding: 1px 4px; }
+.cur-pick.need select { border-color: #d9534f; background: #fdecea; }
+
+.area-add-btn { margin-top: 6px; }
+.area-add .area-add-pyeong { flex: 0 0 64px; text-align: right; }
+
+.royalty-calc { display: flex; flex-direction: column; gap: 4px; }
+.royalty-calc .warn, .export-detail .warn { color: #b03a2e; }
+.royalty-calc details summary { cursor: pointer; color: #8c2f3c; margin-top: 4px; }
+.royalty-calc .mini-table { background: #fff; margin-top: 6px; }

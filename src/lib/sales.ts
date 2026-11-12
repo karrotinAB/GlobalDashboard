@@ -164,3 +164,67 @@ export function useStoreBranches(codes: string[]) {
   }, [sig]);
   return map;
 }
+
+/** ECOS 일별 환율 (원 / 현지통화 1단위): fxRates/{통화}_{YYYY-MM} */
+export type FxTable = Record<string, Record<string, Record<string, number>>>; // cur → month → dd → rate
+export function useFxRates(curs: string[], months: string[]) {
+  const ids = [...new Set(curs.filter((c) => c && c !== 'KRW'))].flatMap((c) => [...new Set(months)].map((m) => `${c}_${m}`));
+  const sig = ids.sort().join(',');
+  const [table, setTable] = useState<FxTable>({});
+  useEffect(() => {
+    const list = sig ? sig.split(',') : [];
+    if (!list.length || DATA_MODE === 'local') {
+      // 로컬 테스트: 예시 환율
+      const demo: FxTable = {};
+      for (const id of list) {
+        const [cur, month] = id.split('_');
+        const base = cur === 'USD' ? 1385 : cur === 'MNT' ? 0.41 : cur === 'KZT' ? 2.8 : cur === 'GBP' ? 1820 : cur === 'EUR' ? 1500 : 1;
+        const days: Record<string, number> = {};
+        for (let d = 1; d <= 31; d++) {
+          const dow = new Date(`${month}-${pad(d)}T00:00:00`).getDay();
+          if (dow !== 0 && dow !== 6) days[pad(d)] = Math.round(base * (1 + Math.sin(d) * 0.01) * 1e4) / 1e4;
+        }
+        ((demo[cur] ??= {})[month] = days);
+      }
+      setTable(demo);
+      return;
+    }
+    const unsubs = list.map((id) =>
+      onSnapshot(
+        doc(db, 'fxRates', id),
+        (d) => {
+          const [cur, month] = id.split('_');
+          setTable((prev) => ({ ...prev, [cur]: { ...(prev[cur] ?? {}), [month]: (d.get('days') as Record<string, number>) ?? {} } }));
+        },
+        () => {},
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [sig]);
+  return table;
+}
+
+/** 그날 환율 (주말·공휴일이면 그 전 영업일). KRW 는 1 */
+export function rateOn(table: FxTable, cur: string, iso: string): { rate: number; date: string } | null {
+  if (cur === 'KRW') return { rate: 1, date: iso };
+  const d = new Date(`${iso}T00:00:00`);
+  for (let i = 0; i < 12; i++) {
+    const x = new Date(d.getTime() - i * 86400000);
+    const month = `${x.getFullYear()}-${pad(x.getMonth() + 1)}`;
+    const r = table[cur]?.[month]?.[pad(x.getDate())];
+    if (r) return { rate: r, date: `${month}-${pad(x.getDate())}` };
+  }
+  return null;
+}
+
+/** 판매 통화 (나라 이름으로 처음 추천) */
+export const SALES_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'MNT', 'KZT', 'RUB', 'VND', 'THB', 'MYR', 'IDR', 'PHP', 'SGD', 'TWD', 'HKD', 'AUD', 'CAD', 'NZD', 'MXN', 'BRL', 'INR', 'AED', 'SAR', 'TRY', 'UZS', 'KRW'];
+export function guessCurrency(country?: string): string | undefined {
+  const c = country ?? '';
+  const map: [RegExp, string][] = [
+    [/몽골/, 'MNT'], [/카자흐/, 'KZT'], [/러시아/, 'RUB'], [/영국/, 'GBP'], [/미국|에콰도르|파나마|엘살바도르/, 'USD'], [/스페인|프랑스|독일|이탈리아|네덜란드|포르투갈|오스트리아|벨기에|아일랜드|핀란드|그리스/, 'EUR'],
+    [/일본/, 'JPY'], [/중국/, 'CNY'], [/베트남/, 'VND'], [/태국/, 'THB'], [/말레이시아/, 'MYR'], [/인도네시아/, 'IDR'], [/필리핀/, 'PHP'], [/싱가포르/, 'SGD'], [/대만/, 'TWD'],
+    [/홍콩/, 'HKD'], [/호주/, 'AUD'], [/캐나다/, 'CAD'], [/뉴질랜드/, 'NZD'], [/멕시코/, 'MXN'], [/브라질/, 'BRL'], [/인도(?!네)/, 'INR'], [/두바이|아랍에미리트|UAE/, 'AED'], [/사우디/, 'SAR'], [/튀르키예|터키/, 'TRY'], [/우즈베/, 'UZS'], [/한국/, 'KRW'],
+  ];
+  return map.find(([re]) => re.test(c))?.[1];
+}

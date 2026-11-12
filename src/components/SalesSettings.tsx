@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
-import { useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
+import { guessCurrency, SALES_CURRENCIES, useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
 import type { Company } from '../types';
 
 /** 지점별 평수 (판매 데이터에 나온 지점 + 직접 추가) */
@@ -58,7 +58,8 @@ export function StoreAreaSection() {
 
 function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
   const { save } = useStore();
-  const [adding, setAdding] = useState('');
+  const [adding, setAdding] = useState<string | null>(null); // 지점 직접 추가 (누르면 입력칸)
+  const [addArea, setAddArea] = useState('');
   const ids = [...new Set([...seen.keys(), ...Object.keys(c.storeAreas ?? {})])].sort();
   const setArea = (sid: string, v: string) => {
     const n = Number(v.replace(/[^\d.]/g, ''));
@@ -72,6 +73,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
       <div className="area-co-head">
         <span className="dot" style={{ background: c.color }} />
         <b>{c.name}</b>
+        <span className="co-toggles">
         <label className={`sales-on royalty ${c.royalty ? 'on' : ''}`} title="로열티 매장: 매달 판매 합계의 5% 를 받아요 (홈 > 수출매출 ③). 판매 데이터도 같이 수집돼요">
           <input type="checkbox" checked={!!c.royalty} onChange={(e) => save('companies', { ...c, royalty: e.target.checked || undefined, salesOn: e.target.checked ? true : c.salesOn })} />
           로열티
@@ -80,7 +82,23 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           <input type="checkbox" checked={!!c.salesOn} onChange={(e) => save('companies', { ...c, salesOn: e.target.checked || undefined })} />
           판매데이터
         </label>
-        <span className="muted small area-codes">매장코드 {c.storeCodes!.join(', ')}</span>
+        </span>
+        <span className="muted small area-codes">
+          매장코드 {c.storeCodes!.join(', ')}
+          {(c.salesOn || c.royalty) && (
+            <label className={`cur-pick ${c.royalty && !c.salesCurrency ? 'need' : ''}`} title="판매 데이터 금액의 통화 — 로열티를 판매일 ECOS 환율로 원화·달러로 바꿀 때 써요">
+              {' · '}판매 통화{' '}
+              <select value={c.salesCurrency ?? ''} onChange={(e) => save('companies', { ...c, salesCurrency: e.target.value || undefined })}>
+                <option value="">{guessCurrency(c.country) ? `선택 (추천 ${guessCurrency(c.country)})` : '선택'}</option>
+                {SALES_CURRENCIES.map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </span>
       </div>
       {ids.length === 0 && <p className="muted small">아직 판매 데이터에 나온 지점이 없어요.</p>}
       <div className="area-rows">
@@ -101,24 +119,36 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
         </label>
       ))}
       </div>
-      <div className="area-add">
-        <input value={adding} onChange={(e) => setAdding(e.target.value.replace(/\D/g, ''))} placeholder="지점 코드 직접 추가 (예: 821201)" inputMode="numeric" />
-        <button
-          className="link"
-          disabled={adding.length < 4}
-          onClick={() => {
-            if (!ids.includes(adding)) save('companies', { ...c, storeAreas: { ...(c.storeAreas ?? {}), [adding]: 0 } });
-            setAdding('');
-          }}
-        >
+      {adding === null ? (
+        <button className="link area-add-btn" onClick={() => setAdding('')}>
           + 추가
         </button>
-      </div>
+      ) : (
+        <div className="area-add">
+          <input autoFocus value={adding} onChange={(e) => setAdding(e.target.value.replace(/\D/g, ''))} placeholder="지점 코드 (예: 821201)" inputMode="numeric" />
+          <input value={addArea} onChange={(e) => setAddArea(e.target.value.replace(/[^\d.]/g, ''))} placeholder="평수" inputMode="decimal" className="area-add-pyeong" />
+          <button
+            className="primary small"
+            disabled={adding.length < 4}
+            onClick={() => {
+              const n = Number(addArea);
+              save('companies', { ...c, storeAreas: { ...(c.storeAreas ?? {}), [adding]: n > 0 ? Math.round(n * 10) / 10 : 0 } });
+              setAdding(null);
+              setAddArea('');
+            }}
+          >
+            추가
+          </button>
+          <button className="link" onClick={() => (setAdding(null), setAddArea(''))}>
+            취소
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-type Cfg = { hasUrl: boolean; masked: string; dateParam: string; endParam: string; dateFormat: string; fields: Record<string, string> };
+type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; dateFormat: string; fields: Record<string, string> };
 type Inspect = { date: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
 const FIELD_LABEL: [string, string][] = [
   ['date', '날짜'],
@@ -133,6 +163,7 @@ export function SalesApiAdmin() {
   const status = useSalesStatus();
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [url, setUrl] = useState('');
+  const [ecos, setEcos] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [insp, setInsp] = useState<Inspect | null>(null);
@@ -183,6 +214,10 @@ export function SalesApiAdmin() {
             <span>API 주소</span>
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://…/getsalesdata.asp'} />
           </label>
+          <label className="row-field">
+            <span>ECOS 인증키 (한국은행 환율 — 로열티를 판매일 환율로 환산)</span>
+            <input type="password" autoComplete="off" value={ecos} onChange={(e) => setEcos(e.target.value)} placeholder={cfg.hasEcos ? '저장됨 (바꿀 때만 입력)' : 'ecos.bok.or.kr 에서 받은 인증키'} />
+          </label>
           <div className="row-fields">
             <label className="row-field">
               <span>날짜 파라미터</span>
@@ -218,8 +253,9 @@ export function SalesApiAdmin() {
               disabled={busy}
               onClick={() =>
                 run('저장', async () => {
-                  await call('saveSalesConfig', { url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
+                  await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
                   setUrl('');
+                  setEcos('');
                   setCfg(await call<Cfg>('salesConfig'));
                   return '저장했어요 ✓ 아래 [응답 확인]으로 칸 이름이 맞는지 봐 주세요';
                 })
@@ -236,6 +272,18 @@ export function SalesApiAdmin() {
             <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
             <button disabled={busy || !cfg.hasUrl || !month} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { month })))}>
               이 달 통째로 가져오기
+            </button>
+            <button
+              disabled={busy || !cfg.hasEcos}
+              title="고른 달(없으면 이번 달)과 그 앞 달의 ECOS 환율을 가져와요 — 매일 아침 판매 데이터와 같이 자동으로도 가져와요"
+              onClick={() =>
+                run('환율 가져오기', async () => {
+                  const r = await call<{ saved: number; errors?: string[] }>('syncFxNow', month ? { month } : {});
+                  return `환율 가져왔어요 ✓ ${r.saved}개 (통화·달)${r.errors?.length ? `\n문제: ${r.errors.join('\n')}` : ''}`;
+                })
+              }
+            >
+              환율 가져오기
             </button>
           </div>
         </div>

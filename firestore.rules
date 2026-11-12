@@ -103,6 +103,9 @@ service cloud.firestore {
     match /storeBranches/{code} {
       allow read: if isAny();
     }
+    match /fxRates/{id} {
+      allow read: if isAny();
+    }
     match /salesStatus/{id} {
       allow read: if isAny();
     }
