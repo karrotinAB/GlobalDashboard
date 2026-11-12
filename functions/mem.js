@@ -17,7 +17,9 @@
 //   attendanceFormat (선택) json 또는 form — POST 는 기본 json
 // 비밀값 (cmd 에서 한 번): npx firebase-tools functions:secrets:set MEM_ID / MEM_PASSWORD
 
-import * as cheerio from 'cheerio';
+// cheerio 는 무거워서 필요할 때만 불러옴 (배포할 때 코드 읽는 시간 줄이기)
+let cheerio;
+export const loadCheerio = async () => (cheerio ??= await import('cheerio'));
 
 const t = (s) => (s || '').replace(/\s+/g, ' ').trim();
 const fill = (s, date) => String(s ?? '').replaceAll('{date}', date).replaceAll('{dateDot}', date.replaceAll('-', '.'));
@@ -128,6 +130,7 @@ export function parseAttendance(html) {
 
 /** 로그인 → 부서 근태 현황 → 줄 목록 */
 export async function fetchMemRows(cfg, id, pw, date, fetchImpl = fetch) {
+  await loadCheerio();
   for (const k of ['loginUrl', 'idField', 'pwField', 'attendanceUrl']) if (!cfg[k]) throw new Error(`secrets/mem 문서에 ${k} 칸이 없어요`);
   const jar = new Jar();
   const form = new URLSearchParams();

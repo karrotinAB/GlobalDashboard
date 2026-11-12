@@ -1,6 +1,8 @@
 // 구글 캘린더 일정 읽기 (iCal 비공개 주소). 주소는 Firestore secrets/calendars 에만 (사이트에서 못 읽음)
 // 반복 일정(RRULE)·예외(EXDATE)·바뀐 회차(RECURRENCE-ID)·종일 일정 처리
-import ical from 'node-ical';
+// node-ical 은 무거워서 필요할 때만 불러옴 (배포할 때 코드 읽는 시간 줄이기)
+let ical;
+export const loadIcal = async () => (ical ??= (await import('node-ical')).default);
 
 const cache = new Map(); // url → { at, text } (서버 함수가 살아있는 동안 10분)
 const KEEP = 10 * 60 * 1000;
@@ -66,6 +68,7 @@ export function eventsFromIcs(text, calId, from, to) {
 
 /** 여러 달력 → 일정 (달력 하나가 실패해도 나머지는 보여줌) */
 export async function loadCalendars(list, from, to, fetchImpl = fetch) {
+  await loadIcal();
   const events = [];
   const errors = [];
   for (const c of list) {

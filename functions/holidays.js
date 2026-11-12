@@ -1,6 +1,6 @@
 // 나라별 공휴일·기념일 (음력 포함): 구글 캘린더 공개 '공휴일' 달력(iCal)에서 — 한국어 이름
 // 공휴일(쉬는 날)과 기념일(쉬지 않는 행사)을 구분해서 돌려줌
-import { eventsFromIcs } from './calendar.js';
+import { eventsFromIcs, loadIcal } from './calendar.js';
 
 // 구글 공휴일 달력 id: 새 형식(나라 코드) → 옛 형식(이름) 순서로 시도
 const LEGACY = {
@@ -23,6 +23,7 @@ export async function countryHolidays(cc, year, fetchImpl = fetch) {
   let text = await fetchText(icsUrl(cc.toLowerCase()), fetchImpl);
   if (!text && LEGACY[cc]) text = await fetchText(icsUrl(LEGACY[cc]), fetchImpl);
   if (!text) return null; // 구글에 그 나라 달력이 없음
+  await loadIcal();
   const from = new Date(`${year}-01-01T00:00:00Z`);
   const to = new Date(`${year + 1}-01-01T00:00:00Z`);
   const out = {};

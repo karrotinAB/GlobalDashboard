@@ -15,6 +15,8 @@ popd
 if errorlevel 1 goto :fail
 echo.
 echo [3/3] Firebase 에 올리는 중 (서버 함수 + Firestore 규칙 + Storage 규칙)...
+rem 코드 읽는 시간 넉넉히 (기본 10초 → 60초: 처음 실행·백신 검사로 느린 PC)
+set FUNCTIONS_DISCOVERY_TIMEOUT=60
 call npx --yes firebase-tools deploy --only functions,firestore:rules,storage
 if errorlevel 1 goto :fail
 echo.
