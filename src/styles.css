@@ -6346,3 +6346,6 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .sales-on { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid #eadcd9; color: #8a7470; cursor: pointer; white-space: nowrap; }
 .sales-on.on { background: #e8f3ea; border-color: #9cc9a6; color: #2f6b3c; font-weight: 600; }
 .sales-on input { margin: 0; }
+/* 매장 평수: 판매데이터 토글은 업체 칸 오른쪽 위, 매장코드는 업체명 아래 줄 */
+.area-co-head .sales-on { margin-left: auto; }
+.area-co-head .area-codes { flex-basis: 100%; order: 9; }

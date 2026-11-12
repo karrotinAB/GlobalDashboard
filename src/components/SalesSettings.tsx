@@ -76,7 +76,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           <input type="checkbox" checked={!!c.salesOn} onChange={(e) => save('companies', { ...c, salesOn: e.target.checked || undefined })} />
           판매데이터
         </label>
-        <span className="muted small">매장코드 {c.storeCodes!.join(', ')}</span>
+        <span className="muted small area-codes">매장코드 {c.storeCodes!.join(', ')}</span>
       </div>
       {ids.length === 0 && <p className="muted small">아직 판매 데이터에 나온 지점이 없어요.</p>}
       {ids.map((sid) => (
