@@ -1,4 +1,4 @@
-// 판매 데이터: 서버 함수가 매일 아침 salesMonthly/{매장코드}_{YYYY-MM} 에 지점·일자별 합계를 써 둠
+// 판매 데이터: 서버 함수가 매일 밤 11시 salesMonthly/{매장코드}_{YYYY-MM} 에 지점·일자별 합계를 써 둠
 import { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';

@@ -308,7 +308,7 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 
 // ------------------------------------------------------------------
 // 판매 데이터 (POS 계산 건 → 지점·일자별 합계) — 홈 맨 아래 '업체별 판매 데이터'
-// 매일 아침 8시(서울) 최근 3일을 다시 계산 (늦게 들어온 건·취소 반영). 주소·칸 이름은 secrets/sales
+// 매일 밤 11시(서울) 최근 3일을 다시 계산 (새로 들어온 건·취소 반영 — salesBackfill 이 함께). 주소·칸 이름은 secrets/sales
 // ------------------------------------------------------------------
 import { detectFields, fetchSales, isAbbr, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
@@ -385,9 +385,7 @@ export const syncFxNow = onCall({ region: REGION, timeoutSeconds: 300 }, async (
   return runFx([prevMonth(month), month]);
 });
 
-export const syncSales = onSchedule({ schedule: '0 8 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540 }, async () => {
-  await runSales({ days: 3 });
-});
+// (매일 가져오기는 아래 salesBackfill 이 함께: 지난 데이터를 다 채운 뒤 매일 밤 11시에 최근 3일만)
 
 // 관리자: 지금 가져오기 (최근 n일 또는 한 달 통째로 — 지난 달 채우기)
 export const syncSalesNow = onCall({ region: REGION, timeoutSeconds: 540 }, async (req) => {
@@ -534,8 +532,17 @@ async function runSalesBackfill({ from = '2026-01', budgetMs = 450000 } = {}) {
   logger.info('sales backfill', state);
   return state;
 }
+// 밤 11시 ~ 11:50 10분마다: 지난 데이터를 다 채울 때까지 이어서 → 다 채운 뒤엔 하루 한 번 최근 3일(새로 들어온 것)만
 export const salesBackfill = onSchedule({ schedule: '*/10 23 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540, memory: '512MiB' }, async () => {
-  await runSalesBackfill();
+  const st = (await db.doc('salesBackfill/state').get()).data() ?? {};
+  if (!st.done) {
+    await runSalesBackfill();
+    return;
+  }
+  const today = lastDays(1)[0];
+  if (st.lastDaily === today) return; // 오늘 이미 함
+  const r = await runSales({ days: 3 });
+  await db.doc('salesBackfill/state').set({ lastDaily: today, lastDailyResult: { rows: r.rows ?? 0, docs: r.docs ?? 0, errors: (r.errors ?? []).length, skipped: r.skipped ?? null } }, { merge: true });
 });
 export const salesBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, memory: '512MiB' }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');

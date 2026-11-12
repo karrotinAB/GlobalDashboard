@@ -6499,3 +6499,21 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .backfill-box { margin-top: 12px; padding: 10px 12px; border: 1px dashed #e3d3cf; border-radius: 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 
 .ec-amts.wrapped .ec-cell + .ec-cell { border-left: 0; margin-left: 0; padding-left: 0; }
+/* 판매 데이터: 달 고르기 + 가로 지점 표 (오른쪽으로 스크롤) */
+.sales .month-nav { margin: 4px 0 8px; }
+.hz-wrap { overflow-x: auto; }
+.hz-table { width: auto; min-width: 100%; }
+.hz-table th.l { position: sticky; left: 0; z-index: 2; background: #fbf6f4; width: 70px; white-space: nowrap; }
+.hz-table td { min-width: 130px; vertical-align: top; text-align: right; }
+.hz-table td.hz-total { position: sticky; left: 70px; z-index: 1; background: #fbf6f4; border-right: 2px solid #c9a9a3; text-align: right; }
+.hz-table td.on { background: #f3dcd7; }
+.hz-table .hz-name { border: 0; background: none; font: inherit; cursor: pointer; padding: 2px 4px; border-radius: 6px; text-align: right; white-space: nowrap; }
+.hz-table .hz-name:hover { background: #f4e9e6; }
+.hz-table .krw, .hz-table .per { display: block; font-size: 10.5px; color: #8a7470; }
+/* 판매: 달 고르기 + 환산 통화 슬라이드 */
+.sales-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 4px 0 8px; }
+.sales-bar .month-nav { margin: 0; }
+.conv-pick { display: inline-flex; align-items: center; gap: 8px; }
+.mode-slide.small button { font-size: 12px; padding: 4px 10px; }
+.sales-week .sw-c { display: block; font-size: 9.5px; font-weight: 500; color: #8a7470; }
+.sales-week td.we .sw-c { color: #c47a70; }

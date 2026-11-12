@@ -215,7 +215,7 @@ export function SalesApiAdmin() {
         판매 데이터 API <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
       <p className="muted small">
-        매일 아침 8시에 최근 3일 판매(계산 건)를 <b>판매데이터 켠 업체의 지점마다</b> (매장코드 + 매장 평수에 불러온 지점 약자) 가져와서 일자별로 합쳐요. 약자가 없는 매장은 매장코드로만 불러요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
+        매일 밤 11시에 최근 3일 판매(계산 건, 새로 들어온 것)를 <b>판매데이터 켠 업체의 지점마다</b> (매장코드 + 매장 평수에 불러온 지점 약자) 가져와서 일자별로 합쳐요. 약자가 없는 매장은 매장코드로만 불러요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
       </p>
       {status && (
         <p className="muted small">
@@ -309,7 +309,7 @@ export function SalesApiAdmin() {
             </button>
             <button
               disabled={busy || !cfg.hasEcos}
-              title="고른 달(없으면 이번 달)과 그 앞 달의 ECOS 환율을 가져와요 — 매일 아침 판매 데이터와 같이 자동으로도 가져와요"
+              title="고른 달(없으면 이번 달)과 그 앞 달의 ECOS 환율을 가져와요 — 매일 밤 판매 데이터와 같이 자동으로도 가져와요"
               onClick={() =>
                 run('환율 가져오기', async () => {
                   const r = await call<{ saved: number; errors?: string[] }>('syncFxNow', month ? { month } : {});
@@ -325,7 +325,7 @@ export function SalesApiAdmin() {
       {DATA_MODE !== 'local' && (
         <div className="backfill-box">
           <b>지난 판매 데이터 채우기 (2026년 1월 ~ 이번 달)</b>
-          <span className="muted small"> 판매데이터 켠 업체의 지난 판매를 한 달씩 가져와요. 밤 11시부터 10분마다 이어서 하고, 다 채우면 멈춰요.</span>
+          <span className="muted small"> 판매데이터 켠 업체의 지난 판매를 한 달씩 가져와요. 밤 11시부터 10분마다 이어서 하고, 다 채운 뒤엔 매일 밤 11시에 최근 3일(새로 들어온 것)만 가져와요.</span>
           <div className="small">
             {!salesBf
               ? '아직 시작 전'

@@ -5,11 +5,29 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../data/store';
 import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, weeksOf, type FxTable, type SalesBranch } from '../lib/sales';
+
+type Conv = (iso: string, amt: number) => number | null;
+/** 현지 통화 → 원화 / 달러 (판매일 ECOS 환율, 주말·공휴일은 그 전 영업일) */
+function makeConv(fx: FxTable, money: string | undefined, target: 'KRW' | 'USD'): Conv {
+  return (iso, amt) => {
+    if (!money) return null;
+    if (money === target) return amt;
+    const krw = money === 'KRW' ? amt : (() => {
+      const r = rateOn(fx, money, iso);
+      return r ? amt * r.rate : null;
+    })();
+    if (krw === null) return null;
+    if (target === 'KRW') return krw;
+    const u = rateOn(fx, 'USD', iso);
+    return u ? krw / u.rate : null;
+  };
+}
+const fmtConv = (n: number, t: 'KRW' | 'USD') => (t === 'USD' ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : fullAmt(n));
+const shortConv = (n: number, t: 'KRW' | 'USD') => (t === 'USD' ? (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(0)) : shortAmt(n));
 import type { Company } from '../types';
 import ExportPanel from './ExportPanel';
 
 const pad = (n: number) => String(n).padStart(2, '0');
-const monthLabel = (m: string) => `${m.slice(2, 4)}.${m.slice(5)}`;
 const store = {
   get: (k: string) => {
     try {
@@ -48,7 +66,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
           </button>
         </div>
         <span className="muted small sales-sub">
-          {mode === 'sales' ? '매일 아침 전날까지 판매가 들어와요 · 평수는 설정에서' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
+          {mode === 'sales' ? '매일 밤 11시에 새 판매가 들어와요 · 평수는 설정에서' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
         </span>
       </div>
       {mode === 'sales' ? <SalesView companies={companies} /> : <ExportPanel companies={companies} />}
@@ -118,15 +136,22 @@ function SalesView({ companies }: { companies: Company[] }) {
   const cur = sel ?? (monthList.length ? { month: monthList[monthList.length - 1], branch: null } : null);
   // 판매 통화 → 원화 (판매일 ECOS 환율)
   const money = co?.salesCurrency;
-  const fxTable = useFxRates(money && money !== 'KRW' ? [money] : [], monthList.length ? [prevMonth(monthList[0]), ...monthList] : []);
+  const fxTable = useFxRates([money ?? '', 'USD'], monthList.length ? [prevMonth(monthList[0]), ...monthList] : []);
+  // 현지 통화 금액 아래에 보여줄 환산 통화 (슬라이드 버튼: 원화 / 달러)
+  const [target, setTarget] = useState<'KRW' | 'USD'>(() => (store.get('gd:salesConv') === 'USD' ? 'USD' : 'KRW'));
+  const pickTarget = (t: 'KRW' | 'USD') => {
+    setTarget(t);
+    store.set('gd:salesConv', t);
+  };
+  const convDay = makeConv(fxTable, money, target);
+  const tSym = target === 'USD' ? '$' : '₩';
   const krwOf = (m: string, sid?: string) => {
-    if (!money || money === 'KRW') return null;
     const b = byMonth.get(m) ?? {};
     let sum = 0;
     for (const id of sid ? [sid] : Object.keys(b)) for (const [dd, v] of Object.entries(b[id]?.days ?? {})) {
-      const r = rateOn(fxTable, money, `${m}-${dd}`);
-      if (!r) return null;
-      sum += v * r.rate;
+      const r = convDay(`${m}-${dd}`, v);
+      if (r === null) return null;
+      sum += r;
     }
     return sum;
   };
@@ -183,66 +208,98 @@ function SalesView({ companies }: { companies: Company[] }) {
 
       {co && ready && monthList.length > 0 && (
         <>
-          <div className="sales-table-wrap month-wrap">
-            <table className="sales-table">
-              <thead>
-                <tr>
-                  <th className="l">지점</th>
-                  {monthList.map((m) => (
-                    <th key={m}>
-                      <button className={`sales-mbtn ${cur?.month === m ? 'on' : ''}`} onClick={() => setSel({ month: m, branch: null })} title="이 달 자세히">
-                        {monthLabel(m)}
+          {cur && (() => {
+            // 달 고르기 (수출매출처럼) + 그 달 지점 표: 가로로 지점, 세로로 매장명 · 금액 (오른쪽으로 스크롤)
+            const idx = monthList.indexOf(cur.month);
+            const [cy, cm] = cur.month.split('-').map(Number);
+            const ids = branchIds.filter((sid) => total(cur.month, sid));
+            const k = krwOf(cur.month);
+            return (
+              <>
+                <div className="sales-bar">
+                <div className="month-nav">
+                  <button disabled={idx <= 0} onClick={() => setSel({ month: monthList[idx - 1], branch: null })} aria-label="이전 달">
+                    ◀
+                  </button>
+                  <b>
+                    {cy}년 {cm}월
+                  </b>
+                  <button disabled={idx >= monthList.length - 1} onClick={() => setSel({ month: monthList[idx + 1], branch: null })} aria-label="다음 달">
+                    ▶
+                  </button>
+                  {idx !== monthList.length - 1 && (
+                    <button className="link" onClick={() => setSel({ month: monthList[monthList.length - 1], branch: null })}>
+                      최근 달
+                    </button>
+                  )}
+                </div>
+                {money && (
+                  <div className="conv-pick">
+                    <span className="muted small">{money} 아래 환산</span>
+                    <div className={`mode-slide small ${target === 'KRW' ? 'sales' : 'export'}`} role="tablist">
+                      <span className="mode-knob" />
+                      <button role="tab" aria-selected={target === 'KRW'} onClick={() => pickTarget('KRW')}>
+                        원화 KRW
                       </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {/* 합계를 맨 위에 */}
-                <tr className="sales-total-row">
-                  <th className="l">
-                    합계{branchIds.length > 1 ? ` (${branchIds.length}개 지점)` : ''} {money && <span className="cur-tag">{money}</span>}
-                  </th>
-                  {monthList.map((m) => {
-                    const k = krwOf(m);
-                    return (
-                      <td key={m} className={`r ${cur?.month === m ? 'col-on' : ''}`} title={`${money ? curSym(money) : ''}${fullAmt(total(m))}${k ? ` ≈ ₩${fullAmt(k)}` : ''}`}>
-                        <button className="sales-cell" onClick={() => setSel({ month: m, branch: null })}>
-                          {money ? curSym(money) : ''}
-                          {shortAmt(total(m))}
-                          {k !== null && <small className="krw">₩{shortAmt(k)}</small>}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-                {branchIds.map((sid, bi) => (
-                  <tr key={sid}>
-                    <th className="l">
-                      <span className="br-dot" style={{ background: BR_COLORS[bi % BR_COLORS.length] }} />
-                      <b>{nameOf(sid) || sid}</b>
-                      <span className="muted small"> {sid}{areaOf(sid) ? ` · ${fmtArea(areaOf(sid)!)}평` : ''}</span>
-                    </th>
-                    {monthList.map((m) => {
-                      const v = total(m, sid);
-                      const on = cur?.month === m && cur.branch === sid;
-                      return (
-                        <td key={m} className={`r ${on ? 'on' : ''} ${cur?.month === m ? 'col-on' : ''}`}>
-                          {v ? (
-                            <button className="sales-cell" onClick={() => setSel({ month: m, branch: sid })} title={`${fullAmt(v)} — 누르면 이 지점만`}>
-                              {shortAmt(v)}
-                            </button>
-                          ) : (
-                            <span className="muted">—</span>
-                          )}
+                      <button role="tab" aria-selected={target === 'USD'} onClick={() => pickTarget('USD')}>
+                        외화 USD
+                      </button>
+                    </div>
+                  </div>
+                )}
+                </div>
+                <div className="sales-table-wrap hz-wrap">
+                  <table className="sales-table hz-table">
+                    <tbody>
+                      <tr>
+                        <th className="l">매장명</th>
+                        <td className="hz-total">
+                          <b>합계</b>
+                          <span className="muted small"> {ids.length}개 지점</span>
                         </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        {ids.map((sid) => (
+                          <td key={sid} className={cur.branch === sid ? 'on' : ''}>
+                            <button className="hz-name" onClick={() => setSel({ month: cur.month, branch: cur.branch === sid ? null : sid })} title="누르면 이 지점만">
+                              <span className="br-dot" style={{ background: BR_COLORS[branchIds.indexOf(sid) % BR_COLORS.length] }} />
+                              <b>{nameOf(sid) || sid}</b>
+                              <span className="muted small">
+                                {' '}
+                                {sid}
+                                {areaOf(sid) ? ` · ${fmtArea(areaOf(sid)!)}평` : ''}
+                              </span>
+                            </button>
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <th className="l">
+                          금액 {money && <span className="cur-tag">{money}</span>}
+                        </th>
+                        <td className="hz-total r" title={fullAmt(total(cur.month))}>
+                          <b>
+                            {money ? curSym(money) : ''}
+                            {fullAmt(total(cur.month))}
+                          </b>
+                          {k !== null && <small className="krw">{tSym}{fmtConv(k, target)}</small>}
+                        </td>
+                        {ids.map((sid) => {
+                          const kk = krwOf(cur.month, sid);
+                          return (
+                            <td key={sid} className={`r ${cur.branch === sid ? 'on' : ''}`}>
+                              {money ? curSym(money) : ''}
+                              {fullAmt(total(cur.month, sid))}
+                              {kk !== null && <small className="krw">{tSym}{fmtConv(kk, target)}</small>}
+                              {areaOf(sid) ? <small className="per">평당 {fullAmt(total(cur.month, sid) / areaOf(sid)!)}</small> : null}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
 
           {cur && (
             <MonthDetail
@@ -251,7 +308,8 @@ function SalesView({ companies }: { companies: Company[] }) {
               color={co.color ?? '#8c2f3c'}
               focus={cur.branch}
               money={money}
-              fxTable={fxTable}
+              convDay={convDay}
+              target={target}
               holidayCode={countryCode(co.country || co.name, co.timezone)}
               branches={branchIds.flatMap((sid, bi) => {
                 const data = byMonth.get(cur.month)?.[sid];
@@ -277,12 +335,31 @@ const curSym = (c: string) => SYM[c] ?? `${c} `;
 type Br = { sid: string; name: string; color: string; area?: number; data: SalesBranch };
 
 /** 한 달 자세히: 왼쪽 주차별 그래프 (합계 + 지점별) · 오른쪽 날짜 × 지점 표 (주마다 합계·평당) */
-function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCode }: { month: string; color: string; branches: Br[]; focus: string | null; money?: string; fxTable: FxTable; holidayCode?: string }) {
+function MonthDetail({
+  month,
+  color,
+  branches,
+  focus,
+  money,
+  convDay,
+  target,
+  holidayCode,
+}: {
+  month: string;
+  color: string;
+  branches: Br[];
+  focus: string | null;
+  money?: string;
+  convDay: Conv;
+  target: 'KRW' | 'USD';
+  holidayCode?: string;
+}) {
+  const tSym = target === 'USD' ? '$' : '₩';
   const { data: storeData } = useStore();
   const holiday = useWorldHolidays(holidayCode ? [holidayCode] : [], Number(month.slice(0, 4)), storeData.config.find((c) => c.id === 'holidays')?.holidays ?? []);
   const holidayOn = (d: number) => (holidayCode ? holiday(holidayCode, `${month}-${pad(d)}`) : undefined);
   const sym = money ? curSym(money) : '';
-  const needKrw = !!money && money !== 'KRW';
+  const needKrw = !!money && money !== target;
   const [only, setOnly] = useState<string | null>(focus); // 표: 전체 / 지점 하나
   const [week, setWeek] = useState<number | null>(null); // 그래프 점(주)을 누르면 그 주 날짜 × 지점 표
   const [y, mo] = month.split('-').map(Number);
@@ -306,15 +383,15 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
     for (const d of days) {
       const amt = b ? v(b, d) ?? 0 : dayTotal(d);
       if (!amt) continue;
-      const r = rateOn(fxTable, money!, `${month}-${pad(d)}`);
-      if (!r) return null;
-      sum += amt * r.rate;
+      const r = convDay(`${month}-${pad(d)}`, amt);
+      if (r === null) return null;
+      sum += r;
     }
     return sum;
   };
   const Krw = ({ b, days }: { b: Br | null; days: number[] }) => {
     const k = krwOf(b, days);
-    return k !== null ? <small className="krw">₩{fullAmt(k)}</small> : null;
+    return k !== null ? <small className="krw">{tSym}{fmtConv(k, target)}</small> : null;
   };
   const shown = only ? branches.filter((b) => b.sid === only) : branches;
   const one = only ? shown[0] : null;
@@ -332,7 +409,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
           {money && ` ${money}`}
           {krwOf(null, allDays) !== null && (
             <>
-              {' '}≈ <b className="ink">₩{fullAmt(krwOf(null, allDays)!)}</b> <span className="muted">(판매일 환율)</span>
+              {' '}≈ <b className="ink">{tSym}{fmtConv(krwOf(null, allDays)!, target)}</b> <span className="muted">(판매일 환율)</span>
             </>
           )}
           {receipts ? ` · 계산 ${receipts.toLocaleString()}건 · 객단가 ${fullAmt(monthSum / receipts)}` : ''}
@@ -346,6 +423,9 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
           branches={only ? branches.filter((b) => b.sid === only) : branches}
           holidayOn={holidayOn}
           sym={sym}
+          conv={needKrw ? (d: number, amt: number) => convDay(`${month}-${pad(d)}`, amt) : undefined}
+          tSym={tSym}
+          target={target}
           picked={week}
           onPick={(i) => setWeek(week === i ? null : i)}
         />
@@ -484,7 +564,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
           </div>
           <p className="muted small">
             <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일{holidayCode ? ` (${holidayCode})` : ''} · 금액 단위 {money ?? '(설정 › 매장 평수에서 판매 통화를 골라 주세요)'}
-            {needKrw ? ' · ₩ = 판매일 ECOS 환율로 환산' : ''} · 평당은 지점별 (설정에서 평수를 넣은 지점만)
+            {needKrw ? ` · ${tSym} = 판매일 ECOS 환율로 환산` : ''} · 평당은 지점별 (설정에서 평수를 넣은 지점만)
           </p>
         </div>
       )}
@@ -603,6 +683,9 @@ function MonthCalendar({
   branches,
   holidayOn,
   sym,
+  conv,
+  tSym,
+  target,
   picked,
   onPick,
 }: {
@@ -611,6 +694,9 @@ function MonthCalendar({
   branches: Br[];
   holidayOn: (d: number) => string | undefined;
   sym: string;
+  conv?: (d: number, amt: number) => number | null;
+  tSym: string;
+  target: 'KRW' | 'USD';
   picked: number | null;
   onPick: (i: number) => void;
 }) {
@@ -625,6 +711,7 @@ function MonthCalendar({
     const ds = all.filter(pred);
     return ds.length ? ds.reduce((a, d) => a + val(d), 0) / ds.length : 0;
   };
+  const sumConv = (ds: number[]) => ds.reduce((a, d) => a + (has(d) ? conv?.(d, val(d)) ?? 0 : 0), 0);
   const wdAvg = avg((d) => !off(d));
   const offAvg = avg(off);
   return (
@@ -669,6 +756,7 @@ function MonthCalendar({
                             {hol && <span className="sw-hol">{hol}</span>}
                           </span>
                           <span className="sw-v">{has(d) ? shortAmt(val(d)) : ''}</span>
+                          {conv && has(d) && conv(d, val(d)) !== null && <span className="sw-c">{tSym}{shortConv(conv(d, val(d))!, target)}</span>}
                         </>
                       )}
                     </td>
@@ -676,9 +764,11 @@ function MonthCalendar({
                 })}
                 <td className="sum sep" title={`${sym}${fullAmt(wd)}`}>
                   {wd ? shortAmt(wd) : ''}
+                  {conv && wd ? <span className="sw-c">{tSym}{shortConv(sumConv(days.filter((d) => !off(d))), target)}</span> : null}
                 </td>
                 <td className="sum we" title={`${sym}${fullAmt(we)}`}>
                   {we ? shortAmt(we) : ''}
+                  {conv && we ? <span className="sw-c">{tSym}{shortConv(sumConv(days.filter(off)), target)}</span> : null}
                 </td>
               </tr>
             );
