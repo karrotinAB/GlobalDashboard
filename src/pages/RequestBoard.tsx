@@ -305,7 +305,7 @@ function Row({
       <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
-          {r.title}
+          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
           {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className="rq-team">{r.teamName ?? `${teamOfRequest(r)}조`}</span>}
           {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
           {r.storeCode && <span className="rq-store">{r.storeCode}</span>}

@@ -1,6 +1,9 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
 import { useState, type ClipboardEvent, type CSSProperties } from 'react';
-import { PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
+import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
+import { useSpaceData, useStore } from '../data/store';
+import { useAccess } from './AuthGate';
+import OrderLinkPicker from './OrderLinkPicker';
 import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
@@ -71,7 +74,7 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
   );
 }
 
-type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
+type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderLink' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
 
 /** 필수: 마감일 · 우선순위 · 작업유형 (창 제목 오른쪽) */
 function HeadFields({ d, set, showMissing }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean }) {
@@ -117,6 +120,10 @@ function Fields({
   showMissing?: boolean;
 }) {
   const reqRequester = side === 'team'; // 무역사무가 넣는 자체 업무는 요청자 없어도 됨
+  const { data } = useStore();
+  const access = useAccess();
+  const [linking, setLinking] = useState(false);
+  const companyName = (id?: string | null) => data.companies.find((c) => c.id === id)?.name;
   return (
     <div className="rq-form">
       <label className={`rq-f req rq-title-f ${showMissing && !d.title.trim() ? 'missing' : ''}`}>
@@ -152,6 +159,26 @@ function Fields({
           <span>주문일자</span>
           <DateInput value={d.orderDate} placeholder="예: 20261110" onChange={(v) => set({ orderDate: v })} />
         </div>
+        {side === 'team' && (
+          <div className="rq-f rq-order-f">
+            <span>주문 연결</span>
+            {d.orderLink ? (
+              <span className="rq-order-chip">
+                📦 {d.orderLink.label}
+                <button type="button" className="link" onClick={() => setLinking(true)}>
+                  바꾸기
+                </button>
+                <button type="button" className="link" onClick={() => set({ orderLink: undefined })}>
+                  끊기
+                </button>
+              </span>
+            ) : (
+              <button type="button" className="rq-order-btn" onClick={() => setLinking(true)}>
+                📦 주문 연결하기
+              </button>
+            )}
+          </div>
+        )}
         <label className="rq-f">
           <span>처리자</span>
           <select value={d.assigneeId ?? ''} onChange={(e) => set({ assigneeId: e.target.value || undefined })}>
@@ -164,6 +191,97 @@ function Fields({
           </select>
         </label>
       </div>
+      {linking && (
+        <OrderLinkPicker
+          title={d.title || '이 요청'}
+          hint="이 요청에 연결할 주문(또는 묶음)을 골라 주세요. 무역사무가 요청을 열면 그 주문 정보를 바로 볼 수 있어요."
+          currentOrderId={d.orderLink?.orderId}
+          currentBundleId={d.orderLink?.bundleId}
+          orders={data.orders}
+          companyName={companyName}
+          onPick={({ orderId, bundleId }) => {
+            const list = bundleId ? data.orders.filter((o) => o.bundle?.id === bundleId) : data.orders.filter((o) => o.id === orderId);
+            const first = list[0];
+            const co = first ? companyName(first.companyId) : undefined;
+            const label = bundleId ? `${first?.bundle?.name || '묶음'} (주문 ${list.length}개${co ? ` · ${co}` : ''})` : `${first?.name ?? '주문'}${co ? ` · ${co}` : ''}`;
+            set({
+              orderLink: { team: access.viewTeam, orderId, bundleId, label },
+              // 비어 있으면 주문의 매장번호·주문일자로 채움
+              storeCode: d.storeCode || first?.storeCode,
+              orderDate: d.orderDate || first?.orderDate,
+            });
+            setLinking(false);
+          }}
+          onClose={() => setLinking(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 요청에 연결된 주문 (요청한 조의 주문 관리에서 실시간) — 무역사무도 봄 */
+function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' }) {
+  const space = useSpaceData(link.team, ['orders', 'companies']);
+  const orders = (space.data.orders as Order[] | undefined) ?? [];
+  const companies = (space.data.companies as { id: string; name: string }[] | undefined) ?? [];
+  const list = link.bundleId ? orders.filter((o) => o.bundle?.id === link.bundleId) : orders.filter((o) => o.id === link.orderId);
+  const won = (n?: number) => (n !== undefined ? `₩${Math.round(n).toLocaleString()}` : '-');
+  const usd = (n?: number) => (n !== undefined ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-');
+  return (
+    <div className="rq-linked">
+      <div className="rq-linked-head">
+        <b>📦 연결된 주문</b> <span className="muted small">{link.label}</span>
+      </div>
+      {!space.ready ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : list.length === 0 ? (
+        <p className="muted small">{space.error ? '주문을 볼 권한이 없어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat)' : '주문이 지워졌거나 묶음이 풀렸어요.'}</p>
+      ) : (
+        <div className="sales-table-wrap">
+          <table className="mini-table rq-linked-table">
+            <thead>
+              <tr>
+                <th>주문</th>
+                <th>업체</th>
+                <th>매장코드</th>
+                <th>주문일</th>
+                <th>진행</th>
+                <th>출고</th>
+                <th className="r">원화</th>
+                <th className="r">외화</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((o) => (
+                <tr key={o.id}>
+                  <td>
+                    {side === 'team' ? (
+                      <a href={`#/orders?c=${o.companyId ?? ''}&o=${o.id}`} title="주문 관리에서 보기">
+                        {o.name}
+                      </a>
+                    ) : (
+                      o.name
+                    )}
+                  </td>
+                  <td>{companies.find((c) => c.id === o.companyId)?.name ?? ''}</td>
+                  <td>{o.storeCode ?? ''}</td>
+                  <td>{dot(o.orderDate)}</td>
+                  <td className="rq-steps">
+                    {ORDER_STEPS.map((st) => (
+                      <span key={st.key} className={o[st.key] ? 'on' : ''} title={st.label}>
+                        {st.label}
+                      </span>
+                    ))}
+                  </td>
+                  <td>{o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : isOrderDone(o) ? '완료' : '대기'}</td>
+                  <td className="r">{won(o.amountKRW)}</td>
+                  <td className="r">{usd(o.amountForeign)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -272,7 +390,7 @@ export function RequestDetail({
   const saveEdit = () => {
     if (!d.title.trim()) return;
     const patch: Partial<TradeRequest> = {};
-    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
+    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderLink', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
       const v = typeof d[k] === 'string' ? (d[k] as string).trim() || undefined : d[k];
       if (JSON.stringify(v) !== JSON.stringify(r[k])) (patch as Record<string, unknown>)[k] = v;
     }
@@ -320,6 +438,7 @@ export function RequestDetail({
               ))}
             </div>
           )}
+          {r.orderLink && <LinkedOrders link={r.orderLink} side={side} />}
           <dl className="rq-info">
             <div>
               <dt>매장번호</dt>

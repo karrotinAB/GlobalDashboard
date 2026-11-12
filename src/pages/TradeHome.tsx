@@ -88,7 +88,7 @@ export default function TradeHome() {
                     {r.workType && <span className="tag gray small">{r.workType}</span>}
                     <span className="tw-ago">{ago(r.createdAt)}</span>
                   </span>
-                  <span className="tw-title">{r.title}</span>
+                  <span className="tw-title">{r.title}{r.orderLink && <span title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}</span>
                   <span className="tw-new-foot">
                     {who?.character ? <img src={characterSrc(who.character)} alt="" /> : who && <Avatar member={who} size={22} />}
                     <span>{who ? memberLabel(who) : '무역사무'}</span>
@@ -127,7 +127,7 @@ export default function TradeHome() {
                           {r.status === 'progress' && <StatusTag s={r.status} />}
                           {r.dueDate && <span className={`tw-due ${r.dueDate < todayIso ? 'overdue' : r.dueDate === todayIso ? 'today' : ''}`}>~{dot(r.dueDate)}</span>}
                         </span>
-                        <span className="tw-title">{r.title}</span>
+                        <span className="tw-title">{r.title}{r.orderLink && <span title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}</span>
                         <span className="muted small">
                           {(() => { const w = team.find((m) => m.id === r.requesterId); return w ? memberLabel(w) : ''; })()} {r.workType ? `· ${r.workType}` : ''}
                         </span>

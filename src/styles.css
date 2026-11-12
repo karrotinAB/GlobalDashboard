@@ -6517,3 +6517,16 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .mode-slide.small button { font-size: 12px; padding: 4px 10px; }
 .sales-week .sw-c { display: block; font-size: 9.5px; font-weight: 500; color: #8a7470; }
 .sales-week td.we .sw-c { color: #c47a70; }
+
+/* 무역사무 요청: 주문 연결 */
+.rq-order-f .rq-order-btn { border: 1px dashed #d8c2bd; background: #fff; border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; color: #8c2f3c; }
+.rq-order-chip { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; padding: 5px 8px; border-radius: 8px; background: #f7eeeb; }
+.rq-linked { border: 1px solid #eadcd9; border-radius: 12px; padding: 10px 12px; margin: 10px 0; background: #fffaf8; }
+.rq-linked-head { margin-bottom: 6px; }
+.rq-linked-table { width: 100%; font-size: 12.5px; border-collapse: collapse; }
+.rq-linked-table th, .rq-linked-table td { padding: 4px 8px; border-bottom: 1px solid #f4ece9; text-align: left; white-space: nowrap; }
+.rq-linked-table .r { text-align: right; }
+.rq-steps span { display: inline-block; font-size: 10.5px; padding: 0 4px; margin-right: 2px; border-radius: 4px; background: #f1e6e3; color: #b5a29d; }
+.rq-steps span.on { background: #e3f1e5; color: #2f6b3c; font-weight: 600; }
+/* 가로 지점 표: 지점마다 점선 구분 */
+.hz-table td:not(.hz-total) + td { border-left: 1.5px dashed #d9c4bf; }

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
-import { isOrderDone, type Company, type Member, type Order, type Task } from '../types';
-import { characterSrc, charOf, CompanyDot, Empty, Modal, Ring } from '../components/ui';
+import type { Company, Member, Task } from '../types';
+import { characterSrc, charOf, CompanyDot, Empty, Ring } from '../components/ui';
 import { useAccess } from '../components/AuthGate';
+import OrderLinkPicker from '../components/OrderLinkPicker';
 import { AddCompany, AddTaskRow, AssigneeCell, CompanyMemo, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
 
 type GroupBy = 'company' | 'member' | 'due';
@@ -572,7 +573,10 @@ export default function Todos() {
 
       {linking && (
         <OrderLinkPicker
-          task={linking}
+          title={linking.title}
+          companyId={linking.companyId}
+          currentOrderId={linking.orderId}
+          currentBundleId={linking.bundleId}
           orders={data.orders}
           companyName={(id) => companyById.get(id ?? '')?.name}
           onPick={(pick) => {
@@ -583,100 +587,6 @@ export default function Todos() {
         />
       )}
     </div>
-  );
-}
-
-/** 할일에 주문 연결: 같은 업체 주문 먼저 (진행중 → 최근 순), 검색, 다른 업체 주문도 */
-function OrderLinkPicker({
-  task,
-  orders,
-  companyName,
-  onPick,
-  onClose,
-}: {
-  task: Task;
-  orders: Order[];
-  companyName: (id?: string | null) => string | undefined;
-  onPick: (p: { orderId?: string; bundleId?: string }) => void;
-  onClose: () => void;
-}) {
-  const [q, setQ] = useState('');
-  const [all, setAll] = useState(!task.companyId);
-  const [byBundle, setByBundle] = useState(!!task.bundleId); // 묶음으로 보기
-  const query = q.trim().toLowerCase();
-  const pool = orders.filter((o) => all || o.companyId === task.companyId);
-  const list = pool
-    .filter((o) => !query || `${o.name} ${o.storeCode ?? ''} ${o.bundle?.name ?? ''} ${companyName(o.companyId) ?? ''}`.toLowerCase().includes(query))
-    .sort((a, b) => Number(isOrderDone(a)) - Number(isOrderDone(b)) || (b.orderDate ?? b.createdAt).localeCompare(a.orderDate ?? a.createdAt))
-    .slice(0, 100);
-  // 묶음: 묶음 이름 또는 그 안 주문 중 하나라도 검색에 맞으면
-  const bundles = [...new Map(pool.filter((o) => o.bundle).map((o) => [o.bundle!.id, o.bundle!])).values()]
-    .map((b) => {
-      const items = pool.filter((o) => o.bundle?.id === b.id);
-      const dates = items.map((o) => o.orderDate).filter(Boolean).sort() as string[];
-      return { b, items, done: items.every(isOrderDone), from: dates[0], to: dates[dates.length - 1], companyId: items[0]?.companyId };
-    })
-    .filter((x) => !query || `${x.b.name ?? ''} ${companyName(x.companyId) ?? ''} ${x.items.map((o) => `${o.name} ${o.storeCode ?? ''}`).join(' ')}`.toLowerCase().includes(query))
-    .sort((a, b) => Number(a.done) - Number(b.done) || (b.to ?? '').localeCompare(a.to ?? ''));
-  const d = (x?: string) => x?.slice(5).replace('-', '.');
-  return (
-    <Modal title="주문 연결하기" onClose={onClose}>
-      <p className="muted small" style={{ marginTop: 0 }}>
-        「{task.title}」에 연결할 주문을 골라 주세요. 연결하면 비고 끝 ↗ 를 눌러 그 주문으로 바로 갈 수 있어요.
-      </p>
-      <div className="link-tools">
-        <input className="search" autoFocus placeholder="🔍 주문 이름 · 매장코드 · 묶음" value={q} onChange={(e) => setQ(e.target.value)} />
-        <label className="check-line small">
-          <input type="checkbox" checked={byBundle} onChange={(e) => setByBundle(e.target.checked)} /> 묶음
-        </label>
-        {task.companyId && (
-          <label className="check-line small">
-            <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> 다른 업체 주문도
-          </label>
-        )}
-      </div>
-      {byBundle ? (
-        <ul className="link-list">
-          {bundles.length === 0 && <li className="muted small">맞는 묶음이 없어요. (주문 관리에서 주문을 체크해서 묶을 수 있어요)</li>}
-          {bundles.map((x) => (
-            <li key={x.b.id}>
-              <button className={x.b.id === task.bundleId ? 'on' : ''} onClick={() => onPick({ bundleId: x.b.id })}>
-                <span className="link-bundle" style={{ '--c': x.b.color } as CSSProperties}>
-                  {x.b.name || '묶음'}
-                </span>
-                <span className="small">주문 {x.items.length}개</span>
-                <span className="muted small">
-                  {[all ? companyName(x.companyId) : '', x.from ? (x.from === x.to ? d(x.from) : `${d(x.from)}~${d(x.to)}`) : '', x.items.slice(0, 3).map((o) => o.name).join(', ') + (x.items.length > 3 ? ' …' : '')]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-                <span className={`tag small ${x.done ? 'green' : 'gray'}`}>{x.done ? '완료' : '진행중'}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-      <ul className="link-list">
-        {list.length === 0 && <li className="muted small">맞는 주문이 없어요.</li>}
-        {list.map((o) => (
-          <li key={o.id}>
-            <button className={o.id === task.orderId && !task.bundleId ? 'on' : ''} onClick={() => onPick({ orderId: o.id })}>
-              <b>{o.name}</b>
-              {o.bundle && (
-                <span className="link-bundle" style={{ '--c': o.bundle.color } as CSSProperties}>
-                  {o.bundle.name || '묶음'}
-                </span>
-              )}
-              <span className="muted small">
-                {[all ? companyName(o.companyId) : '', o.orderDate?.replace(/-/g, '.'), o.storeCode].filter(Boolean).join(' · ')}
-              </span>
-              <span className={`tag small ${isOrderDone(o) ? 'green' : 'gray'}`}>{isOrderDone(o) ? '완료' : '진행중'}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      )}
-    </Modal>
   );
 }
 

@@ -227,6 +227,14 @@ export interface RequestLog {
   prev?: string; // 바뀌기 전 긴 내용 (내용 수정 시)
 }
 
+/** 무역사무 요청에 연결한 주문 (개별 또는 묶음). 이름 등은 연결할 때 적어 둠 (주문이 지워져도 보이게) */
+export interface OrderLink {
+  team: string; // 그 주문이 있는 공간 ('1'·'2'·'3'·'p…')
+  orderId?: string;
+  bundleId?: string;
+  label: string; // '몽골 10월 주문' / '4번째 컨테이너 (주문 3개)'
+}
+
 export interface TradeRequest {
   id: string;
   title: string; // 업무 내용(제목)
@@ -234,6 +242,7 @@ export interface TradeRequest {
   files?: RequestFile[]; // 사진
   storeCode?: string;
   orderDate?: string; // YYYY-MM-DD
+  orderLink?: OrderLink; // 연결한 주문 (요청한 조의 주문 관리) — 무역사무도 볼 수 있음
   requestedAt: string; // 의뢰일 YYYY-MM-DD
   team?: string; // 요청한 조 (없으면 2조) 또는 팀장님·이사님 개인 공간
   teamName?: string; // 화면에 보일 요청 쪽 이름 ('1조', '팀장님 (홍길동)')

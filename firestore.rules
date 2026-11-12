@@ -132,7 +132,9 @@ service cloud.firestore {
         && (inTeam(col)
             || leaderCanRead(col)
             // 무역사무: 각 조 담당자 이름(요청자) + 무역사무 근태(2조 쪽 attendance)
-            || (isTrade() && (baseOf(col) == 'members' || col == 'attendance')));
+            || (isTrade() && (baseOf(col) == 'members' || col == 'attendance'))
+            // 무역사무: 요청에 연결된 주문 보기 (각 조 주문·업체 읽기만)
+            || (isTrade() && baseOf(col) in ['orders', 'companies']));
 
       // 공용 설정(홈 화면 구성 등)은 관리자만 (개인 대시보드는 그 주인도)
       allow write: if teamCol(col) && baseOf(col) == 'config' && ownsSpace(col);
