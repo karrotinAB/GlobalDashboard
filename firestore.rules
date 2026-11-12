@@ -112,6 +112,9 @@ service cloud.firestore {
     match /exportSync/{id} {
       allow read: if isAny();
     }
+    match /salesBackfill/{id} {
+      allow read: if isAny();
+    }
     match /salesStatus/{id} {
       allow read: if isAny();
     }

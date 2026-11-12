@@ -163,6 +163,7 @@ const FIELD_LABEL: [string, string][] = [
 export function SalesApiAdmin() {
   const status = useSalesStatus();
   const backfill = useBackfillState();
+  const salesBf = useDocState<{ done?: boolean; end?: string; next?: string; last?: { month: string; rows: number; errors: number; skipped?: string }[] }>('salesBackfill', 'state');
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [url, setUrl] = useState('');
   const [ecos, setEcos] = useState('');
@@ -323,6 +324,31 @@ export function SalesApiAdmin() {
       )}
       {DATA_MODE !== 'local' && (
         <div className="backfill-box">
+          <b>지난 판매 데이터 채우기 (2026년 1월 ~ 이번 달)</b>
+          <span className="muted small"> 판매데이터 켠 업체의 지난 판매를 한 달씩 가져와요. 밤 11시부터 10분마다 이어서 하고, 다 채우면 멈춰요.</span>
+          <div className="small">
+            {!salesBf
+              ? '아직 시작 전'
+              : salesBf.done
+                ? `✓ 다 채웠어요 (${salesBf.end ?? ''}까지)`
+                : `진행 중: ${salesBf.next ?? '2026-01'} 부터 남음`}
+            {salesBf?.last?.length ? ` · 최근: ${salesBf.last.map((x) => `${x.month} ${x.rows}건${x.errors ? ` (문제 ${x.errors})` : ''}${x.skipped ? ` (${x.skipped})` : ''}`).join(', ')}` : ''}
+          </div>
+          <button
+            disabled={busy || !!salesBf?.done}
+            onClick={() =>
+              run('지난 판매 데이터 채우기', async () => {
+                const r = await call<{ skipped?: string; done?: boolean; next?: string }>('salesBackfillNow');
+                return r.skipped ?? (r.done ? '다 채웠어요 ✓' : `${r.next ?? ''} 부터 남았어요 (한 번 더 누르거나 밤 11시 자동)`);
+              })
+            }
+          >
+            지금 채우기
+          </button>
+        </div>
+      )}
+      {DATA_MODE !== 'local' && (
+        <div className="backfill-box">
           <b>지난 수출 데이터 채우기 (2026년 1월 ~ 오늘)</b>
           <span className="muted small">
             {' '}
@@ -396,5 +422,18 @@ function useBackfillState() {
       () => {},
     );
   }, []);
+  return s;
+}
+
+function useDocState<T>(col: string, id: string) {
+  const [s, setS] = useState<T | null>(null);
+  useEffect(() => {
+    if (DATA_MODE === 'local') return;
+    return onSnapshot(
+      doc(db, col, id),
+      (d) => setS((d.data() as T) ?? null),
+      () => {},
+    );
+  }, [col, id]);
   return s;
 }

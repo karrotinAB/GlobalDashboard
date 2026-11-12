@@ -508,3 +508,40 @@ export const exportBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, m
     throw new HttpsError('internal', e.message);
   }
 });
+
+// ------------------------------------------------------------------
+// 판매 데이터 지난 달 한 번 채우기 (2026-01 ~ 이번 달): 밤 11시부터 10분마다 한 달씩 이어서, 다 채우면 멈춤
+// 어디까지 했는지: salesBackfill/state { next: 'YYYY-MM', done }
+// ------------------------------------------------------------------
+async function runSalesBackfill({ from = '2026-01', budgetMs = 450000 } = {}) {
+  const ref = db.doc('salesBackfill/state');
+  const st = (await ref.get()).data() ?? {};
+  if (st.from === from && st.done) return { skipped: '이미 다 채웠어요', ...st };
+  const until = Date.now() + budgetMs;
+  const thisMonth = lastDays(1)[0].slice(0, 7);
+  const end = st.from === from && st.end ? st.end : thisMonth;
+  let next = st.from === from && st.next ? st.next : from;
+  const results = [];
+  while (next <= end && Date.now() < until) {
+    const r = await runSales({ month: next });
+    results.push({ month: next, rows: r.rows ?? 0, errors: (r.errors ?? []).length, skipped: r.skipped });
+    if (r.skipped) break; // 주소·업체 설정이 없으면 다음에
+    const [y, m] = next.split('-').map(Number);
+    next = `${m === 12 ? y + 1 : y}-${String((m % 12) + 1).padStart(2, '0')}`;
+  }
+  const state = { from, end, next, done: next > end, at: new Date().toISOString(), last: results };
+  await ref.set(state);
+  logger.info('sales backfill', state);
+  return state;
+}
+export const salesBackfill = onSchedule({ schedule: '*/10 23 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540, memory: '512MiB' }, async () => {
+  await runSalesBackfill();
+});
+export const salesBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, memory: '512MiB' }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
+  try {
+    return await runSalesBackfill();
+  } catch (e) {
+    throw new HttpsError('internal', e.message);
+  }
+});
