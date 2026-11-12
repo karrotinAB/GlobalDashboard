@@ -100,7 +100,13 @@ export async function fetchSales(cfg, apiKey, fromIso, toIso, fetchImpl = fetch,
   u.searchParams.set(cfg.dateParam || 'DATE_FROM', fmtDate(fromIso, cfg.dateFormat));
   if (cfg.endParam) u.searchParams.set(cfg.endParam, fmtDate(toIso ?? fromIso, cfg.dateFormat));
   const res = await fetchImpl(u.toString(), { headers: { 'X-API-Key': apiKey, Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`판매 API HTTP ${res.status}`);
+  if (!res.ok) {
+    // 400 같은 오류: API 가 돌려준 설명도 같이 (무엇이 틀렸는지 보려고)
+    const why = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 160);
+    const err = new Error(`판매 API HTTP ${res.status}${why ? ` — ${why}` : ''}`);
+    err.status = res.status;
+    throw err;
+  }
   const text = await res.text();
   let body;
   try {
@@ -160,11 +166,28 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
     const label = Object.values(u.extra).filter(Boolean).join('/') || '전체';
     if (cfg.endParam) {
       // 기간 API: 날짜 구간 한 번에
+      const fb = sorted.length === 1 ? sorted[0] : undefined;
       try {
         const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, u.extra);
-        groups.push({ fallbackDate: sorted.length === 1 ? sorted[0] : undefined, rows: r.rows, code: u.code });
+        groups.push({ fallbackDate: fb, rows: r.rows, code: u.code });
       } catch (e) {
-        errors.push(`${label}: ${e.message}`);
+        // 매장코드만으로 안 되면 (지점 약자가 꼭 필요한 API) → 지점 약자를 붙여 지점마다 다시
+        const abbrs = u.code ? Object.entries(abbrToId).filter(([a, sid]) => sid.startsWith(u.code) && isAbbr(a)) : [];
+        if (!abbrs.length || !e.status || e.status >= 500) {
+          errors.push(`${label}: ${e.message}`);
+          continue;
+        }
+        const bp = cfg.branchParam || 'BRANCH_ABBR';
+        const failed = [];
+        for (const [abbr, sid] of abbrs) {
+          try {
+            const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, { ...u.extra, [bp]: abbr });
+            groups.push({ fallbackDate: fb, rows: r.rows, code: u.code, store: sid });
+          } catch (e2) {
+            failed.push(`${abbr}: ${e2.message}`);
+          }
+        }
+        if (failed.length) errors.push(`${label}: 매장코드만으로 ${e.message} → 지점별로 다시 불렀는데 ${failed.length}곳 실패 (${failed.slice(0, 2).join(' / ')})`);
       }
     } else {
       for (const d of sorted) {
@@ -183,11 +206,11 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
     rows += g.rows.length;
     if (!g.rows.length) continue;
     const f = detectFields(g.rows, f0);
-    if ((!f.store && !g.code) || !f.amount || (!f.date && !g.fallbackDate)) {
+    if ((!f.store && !g.code && !g.store) || !f.amount || (!f.date && !g.fallbackDate)) {
       errors.push(`칸 이름을 못 찾았어요 (매장: ${f.store ?? '?'}, 금액: ${f.amount ?? '?'}, 날짜: ${f.date ?? '?'}) — 설정에서 칸 이름을 넣어 주세요`);
       continue;
     }
-    for (const a of aggregate(g.rows, f, g.fallbackDate, undefined, { abbrToId, code: g.code })) {
+    for (const a of aggregate(g.rows, f, g.fallbackDate, g.store, { abbrToId, code: g.code })) {
       if (codes && !codes.has(a.code)) continue;
       const month = a.date.slice(0, 7);
       const id = `${a.code}_${month}`;

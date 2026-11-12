@@ -310,7 +310,7 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 // 판매 데이터 (POS 계산 건 → 지점·일자별 합계) — 홈 맨 아래 '업체별 판매 데이터'
 // 매일 아침 8시(서울) 최근 3일을 다시 계산 (늦게 들어온 건·취소 반영). 주소·칸 이름은 secrets/sales
 // ------------------------------------------------------------------
-import { detectFields, fetchSales, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
+import { detectFields, fetchSales, isAbbr, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
 
 // 기본값: getExportSalesUpload.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
@@ -413,7 +413,17 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
     const abbrToId = {};
     if (code) for (const [sid, a] of Object.entries(await branchesFor(code).catch(() => ({})))) if (a) abbrToId[String(a).toUpperCase()] = sid;
     const from = cfg.endParam ? lastDays(8)[7] : date;
-    const { rows, body } = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
+    let res;
+    try {
+      res = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
+    } catch (e) {
+      // 매장코드만으로 안 되면 첫 지점 약자를 붙여서 다시 (지점 약자가 꼭 필요한 API)
+      const first = Object.keys(abbrToId).find((a) => isAbbr(a));
+      if (!first || !e.status || e.status >= 500) throw e;
+      extra[cfg.branchParam || 'BRANCH_ABBR'] = first;
+      res = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
+    }
+    const { rows, body } = res;
     const fields = detectFields(rows, cfg.fields ?? {});
     const sums = aggregate(rows, fields, from === date ? date : undefined, undefined, { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
     return { date: from === date ? date : `${from} ~ ${date}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
