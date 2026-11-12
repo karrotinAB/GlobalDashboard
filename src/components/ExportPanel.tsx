@@ -154,11 +154,12 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
   const fxCode = scope.flatMap((r) => [...r.ship, ...r.pack]).find((x) => x.o.fxCode)?.o.fxCode;
   const now = thisMonth();
   const [y, m] = month.split('-').map(Number);
+  // 순서: ④ 총 수출 → ① 출고 → ② 패킹 중 → ③ 로열티
   const cards: { key: Exclude<Pick, null> | 'total'; n: string; label: string; k: number; f?: number; sub: string }[] = [
+    { key: 'total', n: '④', label: '총 수출 금액', k: sum('total'), f: sum('totalF'), sub: '① + ② + ③ (로열티는 환율 적용)' },
     { key: 'ship', n: '①', label: `${m}월 출고 금액`, k: sum('shipK'), f: sum('shipF'), sub: '출고승인 난 금액 (출고일 기준)' },
     { key: 'pack', n: '②', label: '패킹 중 금액', k: sum('packK'), f: sum('packF'), sub: '주문 들어갔고 아직 출고승인 전 · 지금 기준' },
     { key: 'royalty', n: '③', label: '로열티', k: sum('royalty'), f: sum('royaltyF'), sub: `${m}월 판매 × ${ROYALTY_RATE * 100}% · 판매일 ECOS 환율` },
-    { key: 'total', n: '④', label: '총 수출 금액', k: sum('total'), f: sum('totalF'), sub: '① + ② + ③ (로열티는 환율 적용)' },
   ];
 
   return (
@@ -209,8 +210,16 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                 <span className="ec-label">
                   {c.n} {c.label}
                 </span>
-                <b className="ec-amt">{won(c.k)}</b>
-                {!!c.f && <span className="ec-fx">{fx(c.f, fxCode)}</span>}
+                <span className="ec-amts">
+                  <span className="ec-cell">
+                    <small>원화</small>
+                    <b className="ec-amt">{won(c.k)}</b>
+                  </span>
+                  <span className="ec-cell">
+                    <small>외화</small>
+                    <b className="ec-amt fx">{c.f ? fx(c.f, fxCode) : '—'}</b>
+                  </span>
+                </span>
                 <span className="ec-sub">{c.sub}</span>
                 {c.key !== 'total' && <span className="ec-more">{open === c.key ? '접기 ▴' : '자세히 ▾'}</span>}
               </button>
@@ -283,10 +292,10 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
               <thead>
                 <tr>
                   <th className="l">업체</th>
+                  <th>④ 총 수출</th>
                   <th>① 출고</th>
                   <th>② 패킹 중</th>
                   <th>③ 로열티</th>
-                  <th>④ 총 수출</th>
                 </tr>
               </thead>
               <tbody>
@@ -295,12 +304,12 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                     <th className="l">
                       <span className="dot" style={{ background: r.c.color }} /> {r.c.name}
                     </th>
-                    <td className="r" title={won(r.shipK)}>{r.shipK ? shortAmt(r.shipK) : '—'}</td>
-                    <td className="r" title={won(r.packK)}>{r.packK ? shortAmt(r.packK) : '—'}</td>
-                    <td className="r" title={won(r.royalty)}>{r.c.royalty ? shortAmt(r.royalty) : '—'}</td>
                     <td className="r" title={`${won(r.total)}${r.totalF ? ` · ${fx(r.totalF)}` : ''}`}>
                       <b>{shortAmt(r.total)}</b>
                     </td>
+                    <td className="r" title={won(r.shipK)}>{r.shipK ? shortAmt(r.shipK) : '—'}</td>
+                    <td className="r" title={won(r.packK)}>{r.packK ? shortAmt(r.packK) : '—'}</td>
+                    <td className="r" title={won(r.royalty)}>{r.c.royalty ? shortAmt(r.royalty) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -308,10 +317,10 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
                 <tfoot>
                   <tr>
                     <th className="l">합계</th>
+                    <td className="r">{shortAmt(rows.reduce((a, r) => a + r.total, 0))}</td>
                     <td className="r">{shortAmt(rows.reduce((a, r) => a + r.shipK, 0))}</td>
                     <td className="r">{shortAmt(rows.reduce((a, r) => a + r.packK, 0))}</td>
                     <td className="r">{shortAmt(rows.reduce((a, r) => a + r.royalty, 0))}</td>
-                    <td className="r">{shortAmt(rows.reduce((a, r) => a + r.total, 0))}</td>
                   </tr>
                 </tfoot>
               )}

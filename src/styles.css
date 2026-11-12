@@ -6402,3 +6402,15 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .royalty-calc .warn, .export-detail .warn { color: #b03a2e; }
 .royalty-calc details summary { cursor: pointer; color: #8c2f3c; margin-top: 4px; }
 .royalty-calc .mini-table { background: #fff; margin-top: 6px; }
+/* 수출매출 카드: 원화 | 외화 나란히 · 패킹 중 연초록 · 로열티 연노랑 */
+.ec-amts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px 14px; margin: 2px 0; }
+.ec-cell { display: flex; flex-direction: column; min-width: 0; }
+.ec-cell small { font-size: 11px; color: #a8958f; }
+.export-card .ec-amt { font-size: 20px; line-height: 1.2; }
+.export-card .ec-amt.fx { font-size: 17px; color: #6b5753; }
+.export-card.total .ec-cell small { color: #f3d9dc; }
+.export-card.total .ec-amt.fx { color: #fbe7ea; }
+.export-card.pack { background: #eef7ee; border-color: #c9e3cb; }
+.export-card.royalty { background: #fff8e1; border-color: #f0dc9c; }
+.export-card.pack.on { border-color: #4f9a5a; box-shadow: 0 0 0 2px rgba(79, 154, 90, 0.18); }
+.export-card.royalty.on { border-color: #d4a72c; box-shadow: 0 0 0 2px rgba(212, 167, 44, 0.2); }
