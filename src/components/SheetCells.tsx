@@ -662,7 +662,7 @@ export function CompanyMemo({
       >
         <span className="memo-icon">📝</span>
         <span className="memo-text">{first || '메모 남기기'}</span>
-        {all.length > 1 && <span className="memo-more">+{all.length - 1}줄</span>}
+        {all.length > 1 && <span className="memo-more">(더보기)</span>}
       </button>
       {open && (
         <Modal title={`${name} 메모`} onClose={close} wide>
