@@ -4,6 +4,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { fullAmt, shortAmt, useSales, useStoreBranches, weeksOf, type SalesBranch } from '../lib/sales';
 import type { Company } from '../types';
+import ExportPanel from './ExportPanel';
 
 const DOW = ['월', '화', '수', '목', '금', '토', '일'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -25,7 +26,36 @@ const store = {
   },
 };
 
+/** 판매데이터 ↔ 수출매출 슬라이드 버튼 */
 export default function SalesPanel({ companies }: { companies: Company[] }) {
+  const [mode, setMode] = useState<'sales' | 'export'>(() => (store.get('gd:salesMode') === 'export' ? 'export' : 'sales'));
+  const pick = (m: 'sales' | 'export') => {
+    setMode(m);
+    store.set('gd:salesMode', m);
+  };
+  return (
+    <section className="card sales">
+      <div className="section-head">
+        <h2>{mode === 'sales' ? '📈 업체별 판매 데이터' : '🚢 업체별 수출 매출'}</h2>
+        <div className={`mode-slide ${mode}`} role="tablist">
+          <span className="mode-knob" />
+          <button role="tab" aria-selected={mode === 'sales'} onClick={() => pick('sales')}>
+            판매데이터
+          </button>
+          <button role="tab" aria-selected={mode === 'export'} onClick={() => pick('export')}>
+            수출매출
+          </button>
+        </div>
+        <span className="muted small sales-sub">
+          {mode === 'sales' ? '매일 아침 전날까지 판매가 들어와요 · 평수는 설정에서' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
+        </span>
+      </div>
+      {mode === 'sales' ? <SalesView companies={companies} /> : <ExportPanel companies={companies} />}
+    </section>
+  );
+}
+
+function SalesView({ companies }: { companies: Company[] }) {
   const withCodes = companies.filter((c) => c.storeCodes?.length && c.salesOn);
   const [coId, setCoId] = useState(() => store.get('gd:salesCo'));
   const co = withCodes.find((c) => c.id === coId);
@@ -87,11 +117,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
   const cur = sel ?? (monthList.length ? { month: monthList[monthList.length - 1], branch: null } : null);
 
   return (
-    <section className="card sales">
-      <div className="section-head">
-        <h2>📈 업체별 판매 데이터</h2>
-        <span className="muted small">매일 아침 전날까지 판매가 들어와요 · 평수는 설정에서</span>
-      </div>
+    <>
       {withCodes.length === 0 ? (
         <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 평수에서 업체 이름 옆 <b>판매데이터</b>를 켜 주세요.</p>
       ) : (
@@ -214,7 +240,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
           )}
         </>
       )}
-    </section>
+    </>
   );
 }
 

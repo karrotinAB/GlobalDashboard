@@ -72,6 +72,10 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
       <div className="area-co-head">
         <span className="dot" style={{ background: c.color }} />
         <b>{c.name}</b>
+        <label className={`sales-on royalty ${c.royalty ? 'on' : ''}`} title="로열티 매장: 매달 판매 합계의 5% 를 받아요 (홈 > 수출매출 ③). 판매 데이터도 같이 수집돼요">
+          <input type="checkbox" checked={!!c.royalty} onChange={(e) => save('companies', { ...c, royalty: e.target.checked || undefined, salesOn: e.target.checked ? true : c.salesOn })} />
+          로열티
+        </label>
         <label className={`sales-on ${c.salesOn ? 'on' : ''}`} title="켠 업체만 판매 데이터를 가져오고 홈에 보여요">
           <input type="checkbox" checked={!!c.salesOn} onChange={(e) => save('companies', { ...c, salesOn: e.target.checked || undefined })} />
           판매데이터

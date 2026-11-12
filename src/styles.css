@@ -6352,3 +6352,42 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 /* 매장 평수: 지점은 10개까지 보이고 나머지는 스크롤 */
 .area-rows { max-height: calc(10 * 44px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
 .area-row { min-height: 44px; box-sizing: border-box; }
+/* 판매데이터 ↔ 수출매출 슬라이드 */
+.sales .section-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.sales .sales-sub { margin-left: auto; }
+.mode-slide { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; background: #f1e6e3; border-radius: 999px; padding: 3px; }
+.mode-slide button { position: relative; z-index: 1; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; padding: 5px 14px; border-radius: 999px; color: #8a7470; cursor: pointer; transition: color 0.2s; }
+.mode-slide .mode-knob { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px; background: #8c2f3c; box-shadow: 0 2px 6px rgba(140, 47, 60, 0.3); transition: transform 0.25s ease; }
+.mode-slide.export .mode-knob { transform: translateX(100%); }
+.mode-slide.sales button:first-of-type, .mode-slide.export button:last-of-type { color: #fff; }
+/* 수출매출 */
+.export-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 0 12px; }
+.export-bar .company-chips { margin: 0; }
+.month-nav { display: inline-flex; align-items: center; gap: 8px; }
+.month-nav > button:not(.link) { border: 1px solid #eadcd9; background: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: grid; place-items: center; padding: 0; font-size: 11px; line-height: 1; }
+.month-nav > button:disabled { opacity: 0.35; cursor: default; }
+.export-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+@media (max-width: 900px) { .export-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.export-card { text-align: left; border: 1px solid #eadcd9; background: #fff; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; font: inherit; color: inherit; transition: box-shadow 0.15s, border-color 0.15s; }
+.export-card:not(:disabled):hover { box-shadow: 0 4px 14px rgba(60, 30, 30, 0.08); }
+.export-card.on { border-color: #8c2f3c; box-shadow: 0 0 0 2px rgba(140, 47, 60, 0.15); }
+.export-card.total { background: #8c2f3c; color: #fff; border-color: #8c2f3c; cursor: default; }
+.export-card.total .ec-sub, .export-card.total .ec-label { color: #f3d9dc; }
+.ec-label { font-size: 13px; font-weight: 600; color: #8a7470; }
+.ec-amt { font-size: 22px; letter-spacing: -0.02em; }
+.ec-fx { font-size: 12px; color: #8a7470; }
+.ec-sub { font-size: 11.5px; color: #a8958f; }
+.ec-more { font-size: 11.5px; color: #8c2f3c; margin-top: 2px; }
+.export-detail { border: 1px solid #f1e6e3; border-radius: 12px; background: #fff; padding: 10px 12px; margin-bottom: 12px; }
+.export-detail h3 { font-size: 14px; margin: 0 0 8px; }
+.export-detail .mini-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.export-detail .mini-table th, .export-detail .mini-table td { padding: 5px 8px; border-bottom: 1px solid #f4ece9; text-align: left; white-space: nowrap; }
+.export-detail .mini-table .r { text-align: right; }
+.royalty-box + .royalty-box { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #eadcd9; }
+.royalty-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.royalty-calc { margin: 8px 0 0; padding: 8px 10px; background: #fbf6f4; border-radius: 8px; font-size: 13px; }
+.export-table tbody tr { cursor: pointer; }
+.export-table tbody tr:hover th, .export-table tbody tr:hover td { background: #fbf1ee; }
+.export-table tr.row-on th, .export-table tr.row-on td { background: #f3dcd7; }
+.royalty-tag { background: #fff2d6; color: #8a5a00; }
+.sales-on.royalty.on { background: #fff2d6; border-color: #e7c27a; color: #8a5a00; }
