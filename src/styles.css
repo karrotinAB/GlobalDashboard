@@ -6469,3 +6469,14 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .month-wrap .sales-table .sales-total-row th, .month-wrap .sales-table .sales-total-row td { position: sticky; top: 36px; z-index: 2; }
 .month-wrap .sales-table .sales-total-row th.l { z-index: 3; }
 .month-wrap .sales-table th, .month-wrap .sales-table td { height: 36px; box-sizing: border-box; }
+/* 판매 표: 공휴일 · 합계 구분선 · 평일|주말 */
+.sales-sheet tr.hol th, .sales-sheet tr.hol td { background: #f3e8fb; color: #7a3fa3; }
+.sales-sheet tr.we.hol th, .sales-sheet tr.we.hol td { background: #f6e1f0; }
+.sales-sheet .hol-name { display: inline-block; margin-left: 6px; font-size: 10.5px; padding: 0 5px; border-radius: 6px; background: #e6d2f4; color: #6a2f93; max-width: 120px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.sales-sheet .sep { border-left: 2px solid #c9a9a3; }
+.sales-sheet .wk-split { display: block; font-size: 10.5px; font-weight: 500; color: #6b5753; }
+.sales-sheet .wk-split i { font-style: normal; color: #c9a9a3; margin: 0 2px; }
+.sales-sheet .wk-split em { font-style: normal; color: #b03a2e; }
+.legend-chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-left: 4px; }
+.legend-chip.we { background: #fdecea; border: 1px solid #f3b9b1; }
+.legend-chip.hol { background: #f3e8fb; border: 1px solid #d5b6ec; }

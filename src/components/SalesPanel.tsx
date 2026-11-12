@@ -2,6 +2,8 @@
 //  업체 고르기 → 지점 × 월 합계 표 → 월(또는 지점의 그 월)을 누르면
 //  왼쪽: 주차별 금액 꺾은선 (아래 작게 회색으로 평당 금액) · 오른쪽: 주차 × 요일 금액 (토·일 붉게)
 import { useMemo, useState } from 'react';
+import { useStore } from '../data/store';
+import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, weeksOf, type FxTable, type SalesBranch } from '../lib/sales';
 import type { Company } from '../types';
 import ExportPanel from './ExportPanel';
@@ -250,6 +252,7 @@ function SalesView({ companies }: { companies: Company[] }) {
               focus={cur.branch}
               money={money}
               fxTable={fxTable}
+              holidayCode={countryCode(co.country || co.name, co.timezone)}
               branches={branchIds.flatMap((sid, bi) => {
                 const data = byMonth.get(cur.month)?.[sid];
                 return data ? [{ sid, name: nameOf(sid) || sid, color: BR_COLORS[bi % BR_COLORS.length], area: areaOf(sid), data } as Br] : [];
@@ -274,7 +277,10 @@ const curSym = (c: string) => SYM[c] ?? `${c} `;
 type Br = { sid: string; name: string; color: string; area?: number; data: SalesBranch };
 
 /** 한 달 자세히: 왼쪽 주차별 그래프 (합계 + 지점별) · 오른쪽 날짜 × 지점 표 (주마다 합계·평당) */
-function MonthDetail({ month, color, branches, focus, money, fxTable }: { month: string; color: string; branches: Br[]; focus: string | null; money?: string; fxTable: FxTable }) {
+function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCode }: { month: string; color: string; branches: Br[]; focus: string | null; money?: string; fxTable: FxTable; holidayCode?: string }) {
+  const { data: storeData } = useStore();
+  const holiday = useWorldHolidays(holidayCode ? [holidayCode] : [], Number(month.slice(0, 4)), storeData.config.find((c) => c.id === 'holidays')?.holidays ?? []);
+  const holidayOn = (d: number) => (holidayCode ? holiday(holidayCode, `${month}-${pad(d)}`) : undefined);
   const sym = money ? curSym(money) : '';
   const needKrw = !!money && money !== 'KRW';
   const [only, setOnly] = useState<string | null>(focus); // 표: 전체 / 지점 하나
@@ -364,7 +370,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
                           {b.name}
                         </th>
                       ))}
-                      {shown.length > 1 && <th>합계</th>}
+                      {shown.length > 1 && <th className="sep">합계</th>}
                     </>
                   )}
                 </tr>
@@ -374,11 +380,13 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
                   <WeekBlock key={w.i}>
                     {w.days.map((d) => {
                       const we = dow(d) >= 5;
+                      const hol = holidayOn(d);
                       if (!has(d) && new Date(y, mo - 1, d) > new Date()) return null; // 아직 안 온 날
                       return (
-                        <tr key={d} className={we ? 'we' : ''}>
+                        <tr key={d} className={`${we ? 'we' : ''} ${hol ? 'hol' : ''}`} title={hol ? `${hol} (공휴일)` : undefined}>
                           <th className="l">
                             {mo}/{d} <span className="dw">{DOWK[dow(d)]}</span>
+                            {hol && <span className="hol-name">{hol}</span>}
                           </th>
                           {one ? (
                             <>
@@ -393,7 +401,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
                                   {v(b, d) !== undefined ? fullAmt(v(b, d)!) : '—'}
                                 </td>
                               ))}
-                              {shown.length > 1 && <td className="r b">{has(d) ? fullAmt(dayTotal(d)) : '—'}</td>}
+                              {shown.length > 1 && <td className="r b sep">{has(d) ? fullAmt(dayTotal(d)) : '—'}</td>}
                             </>
                           )}
                         </tr>
@@ -404,6 +412,18 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
                         <th className="l">
                           {w.i + 1}주 합계
                           <span className="muted small"> {mo}/{w.from}~{mo}/{w.to}</span>
+                          {(() => {
+                            // 평일 | 주말·공휴일 (지금 보는 지점 기준)
+                            const pick = one ?? null;
+                            const off = (d: number) => dow(d) >= 5 || !!holidayOn(d);
+                            const wd = sumOf(pick, w.days.filter((d) => !off(d)));
+                            const wkend = sumOf(pick, w.days.filter(off));
+                            return (
+                              <span className="wk-split">
+                                평일 {shortAmt(wd)} <i>|</i> <em>주말·공휴일 {shortAmt(wkend)}</em>
+                              </span>
+                            );
+                          })()}
                         </th>
                         {one ? (
                           <>
@@ -427,7 +447,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
                               </td>
                             ))}
                             {shown.length > 1 && (
-                              <td className="r">
+                              <td className="r sep">
                                 {sym}
                                 {fullAmt(sumOf(null, w.days))}
                                 <Krw b={null} days={w.days} />
@@ -465,7 +485,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
                         </td>
                       ))}
                       {shown.length > 1 && (
-                        <td className="r">
+                        <td className="r sep">
                           {sym}
                           {fullAmt(monthSum)}
                           <Krw b={null} days={allDays} />
@@ -478,8 +498,8 @@ function MonthDetail({ month, color, branches, focus, money, fxTable }: { month:
             </table>
           </div>
           <p className="muted small">
-            금액 단위 {money ?? '(설정 › 매장 평수에서 판매 통화를 골라 주세요)'}
-            {needKrw ? ' · ₩ = 판매일 ECOS 환율로 환산' : ''} · 토·일은 붉게 · 평당은 지점별 (설정에서 평수를 넣은 지점만)
+            <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일{holidayCode ? ` (${holidayCode})` : ''} · 금액 단위 {money ?? '(설정 › 매장 평수에서 판매 통화를 골라 주세요)'}
+            {needKrw ? ' · ₩ = 판매일 ECOS 환율로 환산' : ''} · 평당은 지점별 (설정에서 평수를 넣은 지점만)
           </p>
         </div>
       </div>
