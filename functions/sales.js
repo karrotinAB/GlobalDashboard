@@ -4,10 +4,9 @@
 //   url        : API 주소 (…/getsalesdata.asp 같은 전체 주소)
 //   dateParam  : 날짜(시작)를 넣는 파라미터 이름 (기본 DATE_FROM)
 //   endParam   : 끝 날짜 파라미터 이름 (기본 DATE_TO, 비우면 하루씩 부름)
-//   storeParam : 매장코드 4자리 파라미터 (기본 STORE_CODE, 비우면 안 넣음)
-//   branchParam: 지점 약자 파라미터 (기본 BRANCH_ABBR, 비우면 매장 단위로 한 번)
-//     예) getExportSalesUpload.asp?STORE_CODE=8254&BRANCH_ABBR=MEG&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
-//     지점 약자는 ERP 거래처 정보의 BRANCH_NAME (storeBranches/{코드})
+//   storeParam : 매장코드 4자리 파라미터 (기본 STORE_CODE) — 매장코드마다 한 번 부름
+//     예) getExportSalesUpload.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
+//     지점은 응답의 지점 칸으로 나눔 (약자면 ERP 거래처 정보로 지점 코드로 바꿈)
 //   dateFormat : 'dot' 2026.11.12 · 'dash' 2026-11-12 · 'compact' 20261112
 //   fields     : { date, amount, store, storeCode, name } 응답 칸 이름 (비우면 자동으로 찾음)
 // API 키는 ERP 와 같은 것 (secrets/erp apiKey → X-API-Key 헤더)
@@ -63,23 +62,26 @@ export function detectFields(rows, over = {}) {
     amount:
       over.amount ||
       pickAmt(/^(TOTAL_)?SALE_?AMT$/i, /^(NET|REAL|PAY|TOT(AL)?)_?(SALE_?)?AMT$/i, /SALE.*AMT/i, /AMT|AMOUNT|금액/i, /PRICE|매출/i),
-    store: over.store || find(/^STORE_?ID$/i, /^SHOP_?ID$/i, /^STORE_?CD$/i, /STORE.*(ID|CD|NO)$/i, /SHOP|STORE|매장|지점/i),
+    store:
+      over.store ||
+      find(/^STORE_?ID$/i, /^SHOP_?ID$/i, /^BRANCH_?(ID|CODE|CD|NO)$/i, /^BRANCH_?ABBR$/i, /^STORE_?CD$/i, /STORE.*(ID|NO)$/i, /BRANCH(?!.*(NM|NAME))/i, /지점/i, /^STORE_?CODE$/i, /SHOP|STORE|매장/i),
     storeCode: over.storeCode || find(/^STORE_?CODE$/i),
     name: over.name || find(/^STORE_?(NM|NAME)$/i, /^SHOP_?(NM|NAME)$/i, /(STORE|SHOP|BRANCH).*(NM|NAME)/i, /매장명|지점명/i),
   };
 }
 
 /** 계산 건들 → { 'STORE_ID|YYYY-MM-DD': { storeId, code, name, date, amount, count } } */
-export function aggregate(rows, f, fallbackDate, forcedStore) {
+export function aggregate(rows, f, fallbackDate, forcedStore, { abbrToId = {}, code: callCode } = {}) {
   const out = new Map();
   for (const r of rows) {
-    // 지점별로 불렀으면 그 지점 (응답의 매장 칸이 4자리 매장코드여도)
-    const storeId = forcedStore || String(r?.[f.store] ?? '').trim();
+    // 지점: 응답의 지점 칸 (약자면 지점 코드로 바꿈). 지점 칸이 없으면 부른 매장코드 하나로
+    const raw = String(r?.[f.store] ?? '').trim();
+    const storeId = forcedStore || abbrToId[raw.toUpperCase()] || raw || callCode || '';
     if (!storeId) continue;
     const date = parseDate(r?.[f.date]) ?? fallbackDate;
     const amt = toNum(r?.[f.amount]);
     if (!date || amt === undefined) continue;
-    const code = String((f.storeCode && r?.[f.storeCode]) || storeId.slice(0, 4)).trim();
+    const code = String(callCode || (f.storeCode && r?.[f.storeCode]) || storeId.slice(0, 4)).trim();
     const k = `${storeId}|${date}`;
     const cur = out.get(k) ?? { storeId, code, name: f.name ? String(r?.[f.name] ?? '').trim() : '', date, amount: 0, count: 0 };
     cur.amount += amt;
@@ -138,23 +140,21 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
   const groups = []; // [{ fallbackDate, rows, store }]
   const sorted = [...dates].sort();
   // 부를 단위: 지점별(매장코드+지점 약자) / 매장별 / 전체
+  // 매장코드(4자리)마다 한 번: STORE_CODE=8254 → 그 매장 모든 지점의 계산 건 (지점은 응답 칸으로 나눔)
   const units = [];
-  if (cfg.branchParam && branchesFor) {
+  if (cfg.storeParam) for (const code of codes ?? []) units.push({ code, extra: { [cfg.storeParam]: code } });
+  else units.push({ extra: {} });
+  // 응답 지점 칸이 약자(LDC)면 지점 코드(825401)로 바꾸려고: 약자 → STORE_ID
+  const abbrToId = {};
+  if (branchesFor) {
     for (const code of codes ?? []) {
-      const br = await branchesFor(code); // { STORE_ID: 약자 }
-      const ok = Object.entries(br).filter(([, a]) => isAbbr(a));
-      const bad = Object.entries(br).filter(([, a]) => !isAbbr(a));
-      if (bad.length) errors.push(`${code}: 약자가 아닌 지점 이름은 건너뜀 — ${bad.map(([sid, a]) => `${sid} ${a || '(이름 없음)'}`).join(', ')}`);
-      if (!ok.length) {
-        // 약자를 하나도 못 찾으면 매장코드만으로 (API 가 지점 없이도 주면 받음)
-        errors.push(`${code}: 지점 약자를 못 찾아서 매장코드로만 불렀어요`);
-        units.push({ store: undefined, extra: { [cfg.storeParam || '']: code } });
+      try {
+        for (const [sid, abbr] of Object.entries(await branchesFor(code))) if (abbr) abbrToId[String(abbr).trim().toUpperCase()] = sid;
+      } catch {
+        /* 지점 목록 없어도 진행 */
       }
-      for (const [sid, abbr] of ok) units.push({ store: sid, extra: { [cfg.storeParam || '']: code, [cfg.branchParam]: abbr } });
     }
-  } else if (cfg.storeParam) {
-    for (const code of codes ?? []) units.push({ store: undefined, extra: { [cfg.storeParam]: code } });
-  } else units.push({ store: undefined, extra: {} });
+  }
 
   for (const u of units) {
     const label = Object.values(u.extra).filter(Boolean).join('/') || '전체';
@@ -162,7 +162,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
       // 기간 API: 날짜 구간 한 번에
       try {
         const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, u.extra);
-        groups.push({ fallbackDate: sorted.length === 1 ? sorted[0] : undefined, rows: r.rows, store: u.store });
+        groups.push({ fallbackDate: sorted.length === 1 ? sorted[0] : undefined, rows: r.rows, code: u.code });
       } catch (e) {
         errors.push(`${label}: ${e.message}`);
       }
@@ -170,7 +170,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
       for (const d of sorted) {
         try {
           const r = await fetchSales(cfg, apiKey, d, d, fetchImpl, u.extra);
-          groups.push({ fallbackDate: d, rows: r.rows, store: u.store });
+          groups.push({ fallbackDate: d, rows: r.rows, code: u.code });
         } catch (e) {
           errors.push(`${label} ${d}: ${e.message}`);
         }
@@ -183,11 +183,11 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
     rows += g.rows.length;
     if (!g.rows.length) continue;
     const f = detectFields(g.rows, f0);
-    if ((!f.store && !g.store) || !f.amount || (!f.date && !g.fallbackDate)) {
+    if ((!f.store && !g.code) || !f.amount || (!f.date && !g.fallbackDate)) {
       errors.push(`칸 이름을 못 찾았어요 (매장: ${f.store ?? '?'}, 금액: ${f.amount ?? '?'}, 날짜: ${f.date ?? '?'}) — 설정에서 칸 이름을 넣어 주세요`);
       continue;
     }
-    for (const a of aggregate(g.rows, f, g.fallbackDate, g.store)) {
+    for (const a of aggregate(g.rows, f, g.fallbackDate, undefined, { abbrToId, code: g.code })) {
       if (codes && !codes.has(a.code)) continue;
       const month = a.date.slice(0, 7);
       const id = `${a.code}_${month}`;

@@ -148,7 +148,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
   );
 }
 
-type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; storeParam?: string; branchParam?: string; dateFormat: string; fields: Record<string, string> };
+type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; storeParam?: string; dateFormat: string; fields: Record<string, string> };
 type Inspect = { date: string; called?: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
 const FIELD_LABEL: [string, string][] = [
   ['date', '날짜'],
@@ -194,7 +194,7 @@ export function SalesApiAdmin() {
         판매 데이터 API <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
       <p className="muted small">
-        매일 아침 8시에 최근 3일 판매(계산 건)를 <b>판매데이터 켠 업체의 지점마다</b> (매장코드 + 지점 약자 = 매장 평수의 지점 이름) 가져와서 일자별로 합쳐요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
+        매일 아침 8시에 최근 3일 판매(계산 건)를 <b>판매데이터 켠 업체의 매장코드마다</b> 가져와서 지점·일자별로 합쳐요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
       </p>
       {status && (
         <p className="muted small">
@@ -222,10 +222,6 @@ export function SalesApiAdmin() {
             <label className="row-field">
               <span>매장코드 파라미터</span>
               <input value={cfg.storeParam ?? ''} onChange={(e) => set({ storeParam: e.target.value })} placeholder="STORE_CODE" />
-            </label>
-            <label className="row-field">
-              <span>지점 약자 파라미터</span>
-              <input value={cfg.branchParam ?? ''} onChange={(e) => set({ branchParam: e.target.value })} placeholder="비우면 매장 단위로" />
             </label>
             <label className="row-field">
               <span>시작 날짜 파라미터</span>
@@ -261,7 +257,7 @@ export function SalesApiAdmin() {
               disabled={busy}
               onClick={() =>
                 run('저장', async () => {
-                  await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, storeParam: cfg.storeParam, branchParam: cfg.branchParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
+                  await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, storeParam: cfg.storeParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
                   setUrl('');
                   setEcos('');
                   setCfg(await call<Cfg>('salesConfig'));
@@ -272,7 +268,7 @@ export function SalesApiAdmin() {
               저장
             </button>
             <button disabled={busy || !cfg.hasUrl} onClick={() => run('응답 확인', async () => (setInsp(await call<Inspect>('inspectSalesApi', {})), ''))}>
-              응답 확인 (어제)
+              응답 확인 (최근 7일)
             </button>
             <button disabled={busy || !cfg.hasUrl} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { days: 7 })))}>
               최근 7일 가져오기

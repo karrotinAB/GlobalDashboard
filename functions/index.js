@@ -310,11 +310,11 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 // 판매 데이터 (POS 계산 건 → 지점·일자별 합계) — 홈 맨 아래 '업체별 판매 데이터'
 // 매일 아침 8시(서울) 최근 3일을 다시 계산 (늦게 들어온 건·취소 반영). 주소·칸 이름은 secrets/sales
 // ------------------------------------------------------------------
-import { detectFields, fetchSales, isAbbr, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
+import { detectFields, fetchSales, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
 
-// 기본값: getExportSalesUpload.asp?STORE_CODE=8254&BRANCH_ABBR=MEG&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
-const SALES_DEFAULTS = { dateParam: 'DATE_FROM', endParam: 'DATE_TO', storeParam: 'STORE_CODE', branchParam: 'BRANCH_ABBR', dateFormat: 'dot' };
+// 기본값: getExportSalesUpload.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
+const SALES_DEFAULTS = { dateParam: 'DATE_FROM', endParam: 'DATE_TO', storeParam: 'STORE_CODE', dateFormat: 'dot' };
 const salesCfg = async () => {
   const d = (await db.doc('secrets/sales').get()).data() ?? {};
   const out = { ...SALES_DEFAULTS, fields: {} };
@@ -407,23 +407,16 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
   const date = typeof req.data?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.data.date) ? req.data.date : lastDays(2)[1];
   const cfg = await salesCfg();
   try {
-    // 확인용: 고른 매장코드·지점 (없으면 판매데이터 켠 첫 업체의 첫 지점)
-    let code = /^\d{4}$/.test(String(req.data?.code ?? '')) ? String(req.data.code) : [...(await allStoreCodes())][0];
-    let extra = {};
-    let store;
-    if (cfg.storeParam && code) extra[cfg.storeParam] = code;
-    if (cfg.branchParam && code) {
-      const br = await branchesFor(code);
-      const pick = Object.entries(br).find(([, a]) => a === req.data?.abbr) ?? Object.entries(br).find(([, a]) => isAbbr(a));
-      if (pick) {
-        extra[cfg.branchParam] = pick[1];
-        store = pick[0];
-      }
-    }
-    const { rows, body } = await fetchSales(cfg, await apiKey(), date, date, fetch, extra);
+    // 확인용: 고른 매장코드 (없으면 판매데이터 켠 첫 업체) · 기간 API면 최근 7일
+    const code = /^\d{4}$/.test(String(req.data?.code ?? '')) ? String(req.data.code) : [...(await allStoreCodes())][0];
+    const extra = cfg.storeParam && code ? { [cfg.storeParam]: code } : {};
+    const abbrToId = {};
+    if (code) for (const [sid, a] of Object.entries(await branchesFor(code).catch(() => ({})))) if (a) abbrToId[String(a).toUpperCase()] = sid;
+    const from = cfg.endParam ? lastDays(8)[7] : date;
+    const { rows, body } = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
     const fields = detectFields(rows, cfg.fields ?? {});
-    const sums = aggregate(rows, fields, date, store).sort((a, b) => b.amount - a.amount).slice(0, 15);
-    return { date, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
+    const sums = aggregate(rows, fields, from === date ? date : undefined, undefined, { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
+    return { date: from === date ? date : `${from} ~ ${date}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
@@ -432,7 +425,7 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
 export const salesConfig = onCall({ region: REGION }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
   const c = await salesCfg();
-  return { hasEcos: !!(await ecosKey()), hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam, endParam: c.endParam, storeParam: c.storeParam, branchParam: c.branchParam, dateFormat: c.dateFormat, fields: c.fields ?? {} };
+  return { hasEcos: !!(await ecosKey()), hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam, endParam: c.endParam, storeParam: c.storeParam, dateFormat: c.dateFormat, fields: c.fields ?? {} };
 });
 
 export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
@@ -449,7 +442,6 @@ export const saveSalesConfig = onCall({ region: REGION }, async (req) => {
     dateParam: name(d.dateParam) || 'DATE_FROM',
     endParam: name(d.endParam),
     storeParam: name(d.storeParam),
-    branchParam: name(d.branchParam),
     dateFormat: ['dot', 'dash', 'compact'].includes(d.dateFormat) ? d.dateFormat : 'dot',
     fields,
   });
