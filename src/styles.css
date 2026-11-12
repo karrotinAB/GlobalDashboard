@@ -6414,3 +6414,11 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .export-card.royalty { background: #fff8e1; border-color: #f0dc9c; }
 .export-card.pack.on { border-color: #4f9a5a; box-shadow: 0 0 0 2px rgba(79, 154, 90, 0.18); }
 .export-card.royalty.on { border-color: #d4a72c; box-shadow: 0 0 0 2px rgba(212, 167, 44, 0.2); }
+/* 원화 | 외화 같은 크기, 가운데 세로줄 */
+.export-card .ec-amt.fx { font-size: 20px; color: inherit; }
+.export-card.total .ec-amt.fx { color: #fff; }
+.ec-amts { gap: 2px 0; }
+.ec-cell + .ec-cell { border-left: 1.5px solid #e3d3cf; margin-left: 12px; padding-left: 12px; }
+.export-card.total .ec-cell + .ec-cell { border-left-color: rgba(255, 255, 255, 0.45); }
+.export-card.pack .ec-cell + .ec-cell { border-left-color: #b9d9bc; }
+.export-card.royalty .ec-cell + .ec-cell { border-left-color: #ead08a; }
