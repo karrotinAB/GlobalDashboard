@@ -6250,3 +6250,15 @@ td.c-title {
   color: var(--mut);
   letter-spacing: 0.2px;
 }
+/* 클레임: 패킹금액이 '자동' 표시와 같이 다 보이게 */
+.claim-table .k-amt {
+  width: 168px;
+}
+.claim-table .k-amt-wrap .cell-view {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+.claim-table .k-amt-wrap > :last-child {
+  flex: none;
+}
