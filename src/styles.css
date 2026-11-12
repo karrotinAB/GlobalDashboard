@@ -6434,3 +6434,38 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .status-errors { margin: -4px 0 8px; color: #b03a2e; }
 .status-errors summary { cursor: pointer; }
 .status-errors ul { margin: 4px 0 0; padding-left: 18px; word-break: break-all; }
+/* 판매 데이터: 합계 맨 위 · 지점 색 · 날짜 × 지점 표 */
+.sales-table .sales-total-row th, .sales-table .sales-total-row td { background: #fbf6f4; font-weight: 700; }
+.sales-table .sales-total-row .l { background: #fbf6f4; }
+.br-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.cur-tag { font-size: 10.5px; font-weight: 600; color: #8a7470; background: #f1e6e3; border-radius: 6px; padding: 1px 5px; margin-left: 4px; }
+.sales-cell .krw, .sales-sheet .krw { display: block; font-size: 10.5px; font-weight: 500; color: #8a7470; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 2px 4px; }
+.chart-legend .lg { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; font: inherit; font-size: 12px; color: #4a3a37; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+.chart-legend .lg:hover { background: #f7eeeb; }
+.chart-legend .lg.off { opacity: 0.35; text-decoration: line-through; }
+.chart-legend .lg-line { display: inline-block; width: 16px; border-radius: 2px; }
+.sales-sheet-wrap { min-width: 0; }
+.sheet-chips { margin: 0 0 6px; }
+.sales-sheet-scroll { max-height: 560px; overflow: auto; border: 1px solid #f1e6e3; border-radius: 12px; background: #fff; }
+.sales-sheet { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sales-sheet th, .sales-sheet td { padding: 4px 8px; border-bottom: 1px solid #f4ece9; white-space: nowrap; text-align: right; }
+.sales-sheet .l { text-align: left; }
+.sales-sheet thead th { position: sticky; top: 0; z-index: 1; background: #fbf6f4; font-weight: 700; border-bottom: 1px solid #eadcd9; }
+.sales-sheet tbody th { font-weight: 500; color: #4a3a37; }
+.sales-sheet .dw { font-size: 11px; color: #a8958f; margin-left: 2px; }
+.sales-sheet tr.we th, .sales-sheet tr.we td { background: #fdecea; color: #b03a2e; }
+.sales-sheet tr.we .dw { color: #d77a6f; }
+.sales-sheet td.b { font-weight: 700; }
+.sales-sheet tr.wk-sum th, .sales-sheet tr.wk-sum td { background: #fff8e6; font-weight: 700; border-bottom: 2px dashed #e6cf99; vertical-align: top; }
+.sales-sheet tr.wk-sum th .muted { font-weight: 400; }
+.sales-sheet .per { display: block; font-size: 10.5px; font-weight: 500; color: #9a9290; }
+.sales-sheet tfoot th, .sales-sheet tfoot td { position: sticky; bottom: 0; background: #8c2f3c; color: #fff; font-weight: 700; vertical-align: top; }
+.sales-sheet tfoot .per, .sales-sheet tfoot .krw { color: #f3d9dc; }
+/* 지점 × 월 표: 지점 10개까지 보이고 스크롤 (머리글·합계 줄은 고정) */
+.sales-table-wrap.month-wrap { max-height: calc(36px * 12 + 4px); overflow: auto; }
+.month-wrap .sales-table thead th { position: sticky; top: 0; z-index: 3; background: #fff; }
+.month-wrap .sales-table thead th.l { z-index: 4; }
+.month-wrap .sales-table .sales-total-row th, .month-wrap .sales-table .sales-total-row td { position: sticky; top: 36px; z-index: 2; }
+.month-wrap .sales-table .sales-total-row th.l { z-index: 3; }
+.month-wrap .sales-table th, .month-wrap .sales-table td { height: 36px; box-sizing: border-box; }
