@@ -437,7 +437,14 @@ export default function Todos() {
                     const ds = doneInWeek ? 'none' : dueState(task, todayIso);
                     const company = companyById.get(task.companyId ?? '');
                     const patch = (p: Partial<Task>) => save('tasks', { ...task, ...p });
-                    const linked = task.orderId ? data.orders.find((o) => o.id === task.orderId) : undefined;
+                    // 연결: 묶음이면 그 묶음 첫 주문으로 이동 (묶음 전체가 반짝), 아니면 그 주문
+                    const bundleOrders = task.bundleId ? data.orders.filter((o) => o.bundle?.id === task.bundleId) : [];
+                    const linked = task.bundleId ? bundleOrders[0] : task.orderId ? data.orders.find((o) => o.id === task.orderId) : undefined;
+                    const linkTitle = !linked
+                      ? ''
+                      : task.bundleId
+                        ? `연결된 묶음: ${linked.bundle?.name || '묶음'} (주문 ${bundleOrders.length}개) — 눌러서 주문 관리로`
+                        : `연결된 주문: ${linked.name}${linked.orderDate ? ` (${linked.orderDate.replace(/-/g, '.')})` : ''} — 눌러서 주문 관리로`;
                     return (
                       <tr
                         key={task.id}
@@ -510,10 +517,11 @@ export default function Todos() {
                             {linked && (
                               <a
                                 className="order-link"
-                                href={`#/orders?c=${linked.companyId ?? ''}&o=${linked.id}`}
-                                title={`연결된 주문: ${linked.name}${linked.orderDate ? ` (${linked.orderDate.replace(/-/g, '.')})` : ''} — 눌러서 주문 관리로`}
+                                href={`#/orders?c=${linked.companyId ?? ''}&o=${linked.id}${task.bundleId ? `&b=${task.bundleId}` : ''}`}
+                                title={linkTitle}
+                                style={task.bundleId && linked.bundle ? ({ '--c': linked.bundle.color } as CSSProperties) : undefined}
                               >
-                                ↗
+                                {task.bundleId ? '⧉↗' : '↗'}
                               </a>
                             )}
                           </div>
@@ -525,7 +533,7 @@ export default function Todos() {
                               onImportant={() => patch({ important: !task.important })}
                               extra={[
                                 { label: linked ? '📦 연결한 주문 바꾸기' : '📦 주문 연결하기', onClick: () => setLinking(task) },
-                                ...(linked ? [{ label: '연결 끊기', onClick: () => patch({ orderId: undefined }) }] : []),
+                                ...(linked ? [{ label: '연결 끊기', onClick: () => patch({ orderId: undefined, bundleId: undefined }) }] : []),
                               ]}
                               onDelete={() => {
                                 if (confirm(`"${task.title}" 할일을 삭제할까요?\n(완료 체크하면 그 주 기록에 남고, 삭제하면 기록에서도 사라져요)`)) remove('tasks', task.id);
@@ -567,8 +575,8 @@ export default function Todos() {
           task={linking}
           orders={data.orders}
           companyName={(id) => companyById.get(id ?? '')?.name}
-          onPick={(orderId) => {
-            save('tasks', { ...linking, orderId });
+          onPick={(pick) => {
+            save('tasks', { ...linking, orderId: pick.orderId, bundleId: pick.bundleId });
             setLinking(null);
           }}
           onClose={() => setLinking(null)}
@@ -589,17 +597,28 @@ function OrderLinkPicker({
   task: Task;
   orders: Order[];
   companyName: (id?: string | null) => string | undefined;
-  onPick: (orderId: string) => void;
+  onPick: (p: { orderId?: string; bundleId?: string }) => void;
   onClose: () => void;
 }) {
   const [q, setQ] = useState('');
   const [all, setAll] = useState(!task.companyId);
+  const [byBundle, setByBundle] = useState(!!task.bundleId); // 묶음으로 보기
   const query = q.trim().toLowerCase();
-  const list = orders
-    .filter((o) => all || o.companyId === task.companyId)
+  const pool = orders.filter((o) => all || o.companyId === task.companyId);
+  const list = pool
     .filter((o) => !query || `${o.name} ${o.storeCode ?? ''} ${o.bundle?.name ?? ''} ${companyName(o.companyId) ?? ''}`.toLowerCase().includes(query))
     .sort((a, b) => Number(isOrderDone(a)) - Number(isOrderDone(b)) || (b.orderDate ?? b.createdAt).localeCompare(a.orderDate ?? a.createdAt))
     .slice(0, 100);
+  // 묶음: 묶음 이름 또는 그 안 주문 중 하나라도 검색에 맞으면
+  const bundles = [...new Map(pool.filter((o) => o.bundle).map((o) => [o.bundle!.id, o.bundle!])).values()]
+    .map((b) => {
+      const items = pool.filter((o) => o.bundle?.id === b.id);
+      const dates = items.map((o) => o.orderDate).filter(Boolean).sort() as string[];
+      return { b, items, done: items.every(isOrderDone), from: dates[0], to: dates[dates.length - 1], companyId: items[0]?.companyId };
+    })
+    .filter((x) => !query || `${x.b.name ?? ''} ${companyName(x.companyId) ?? ''} ${x.items.map((o) => `${o.name} ${o.storeCode ?? ''}`).join(' ')}`.toLowerCase().includes(query))
+    .sort((a, b) => Number(a.done) - Number(b.done) || (b.to ?? '').localeCompare(a.to ?? ''));
+  const d = (x?: string) => x?.slice(5).replace('-', '.');
   return (
     <Modal title="주문 연결하기" onClose={onClose}>
       <p className="muted small" style={{ marginTop: 0 }}>
@@ -607,17 +626,41 @@ function OrderLinkPicker({
       </p>
       <div className="link-tools">
         <input className="search" autoFocus placeholder="🔍 주문 이름 · 매장코드 · 묶음" value={q} onChange={(e) => setQ(e.target.value)} />
+        <label className="check-line small">
+          <input type="checkbox" checked={byBundle} onChange={(e) => setByBundle(e.target.checked)} /> 묶음
+        </label>
         {task.companyId && (
           <label className="check-line small">
             <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> 다른 업체 주문도
           </label>
         )}
       </div>
+      {byBundle ? (
+        <ul className="link-list">
+          {bundles.length === 0 && <li className="muted small">맞는 묶음이 없어요. (주문 관리에서 주문을 체크해서 묶을 수 있어요)</li>}
+          {bundles.map((x) => (
+            <li key={x.b.id}>
+              <button className={x.b.id === task.bundleId ? 'on' : ''} onClick={() => onPick({ bundleId: x.b.id })}>
+                <span className="link-bundle" style={{ '--c': x.b.color } as CSSProperties}>
+                  {x.b.name || '묶음'}
+                </span>
+                <span className="small">주문 {x.items.length}개</span>
+                <span className="muted small">
+                  {[all ? companyName(x.companyId) : '', x.from ? (x.from === x.to ? d(x.from) : `${d(x.from)}~${d(x.to)}`) : '', x.items.slice(0, 3).map((o) => o.name).join(', ') + (x.items.length > 3 ? ' …' : '')]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                <span className={`tag small ${x.done ? 'green' : 'gray'}`}>{x.done ? '완료' : '진행중'}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
       <ul className="link-list">
         {list.length === 0 && <li className="muted small">맞는 주문이 없어요.</li>}
         {list.map((o) => (
           <li key={o.id}>
-            <button className={o.id === task.orderId ? 'on' : ''} onClick={() => onPick(o.id)}>
+            <button className={o.id === task.orderId && !task.bundleId ? 'on' : ''} onClick={() => onPick({ orderId: o.id })}>
               <b>{o.name}</b>
               {o.bundle && (
                 <span className="link-bundle" style={{ '--c': o.bundle.color } as CSSProperties}>
@@ -632,6 +675,7 @@ function OrderLinkPicker({
           </li>
         ))}
       </ul>
+      )}
     </Modal>
   );
 }

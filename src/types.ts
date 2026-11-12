@@ -45,6 +45,7 @@ export interface Task {
   important?: boolean;
   num?: string; // 직접 정한 번호 (예: 1-1). 없으면 업체 안에서 자동 번호
   orderId?: string; // 연결한 주문 (비고 끝 ↗ 로 주문 관리의 그 주문으로)
+  bundleId?: string; // 연결한 주문 묶음 (↗ 로 그 묶음으로)
   order: number;
   createdAt: string; // YYYY-MM-DD
 }

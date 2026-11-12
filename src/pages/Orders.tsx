@@ -95,15 +95,17 @@ export default function Orders() {
   // 주간 할일에서 ↗ 로 오면 #/orders?c=업체&o=주문 → 그 주문으로 내려가서 반짝
   const focusId = useMemo(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('o'), []);
   const focusOrder = focusId ? data.orders.find((x) => x.id === focusId) : undefined;
+  const focusBundle = useMemo(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('b'), []); // 묶음으로 오면 묶음 전체 반짝
   useEffect(() => {
     if (!focusOrder) return;
-    if (isOrderDone(focusOrder)) setTab('all');
+    const group = focusBundle ? data.orders.filter((x) => x.bundle?.id === focusBundle) : [focusOrder];
+    if (group.some(isOrderDone)) setTab('all');
     const t = setTimeout(() => {
-      const el = document.querySelector(`tr[data-oid="${focusOrder.id}"]`);
-      if (!el) return;
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      el.classList.add('flash');
-      setTimeout(() => el.classList.remove('flash'), 2600);
+      const els = group.map((x) => document.querySelector(`tr[data-oid="${x.id}"]`)).filter((x): x is Element => !!x);
+      if (!els.length) return;
+      els[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+      els.forEach((el) => el.classList.add('flash'));
+      setTimeout(() => els.forEach((el) => el.classList.remove('flash')), 2600);
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
