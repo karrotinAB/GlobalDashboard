@@ -416,7 +416,19 @@ function MonthDetail({
         </span>
       </div>
       <div className="sales-detail-grid">
-        <WeekChart weeks={weeks.filter((w) => w.hasData)} m={mo} color={color} branches={branches} sumOf={sumOf} picked={week} onPick={(i) => setWeek(week === i ? null : i)} />
+        <WeekChart
+          weeks={weeks.filter((w) => w.hasData)}
+          m={mo}
+          color={color}
+          branches={branches}
+          sumOf={sumOf}
+          sym={sym}
+          convOf={needKrw ? krwOf : undefined}
+          tSym={tSym}
+          target={target}
+          picked={week}
+          onPick={(i) => setWeek(week === i ? null : i)}
+        />
         <MonthCalendar
           month={month}
           weeks={weeks}
@@ -434,7 +446,7 @@ function MonthDetail({
         <div className="sales-sheet-wrap week-sheet">
           <div className="week-sheet-head">
             <b>
-              {week + 1}주 자세히 · 날짜 × 지점
+              {week + 1}주 자세히
             </b>
             <button className="link" onClick={() => setWeek(null)}>
               닫기 ✕
@@ -490,7 +502,10 @@ function MonthDetail({
                           </th>
                           {one ? (
                             <>
-                              <td className="r">{v(one, d) !== undefined ? fullAmt(v(one, d)!) : '—'}</td>
+                              <td className="r">
+                                {v(one, d) !== undefined ? `${sym}${fullAmt(v(one, d)!)}` : '—'}
+                                {v(one, d) !== undefined && <Krw b={one} days={[d]} />}
+                              </td>
                               <td className="r muted">{c(one, d) || ''}</td>
                               <td className="r muted">{c(one, d) && v(one, d) ? fullAmt(v(one, d)! / c(one, d)) : ''}</td>
                             </>
@@ -498,10 +513,16 @@ function MonthDetail({
                             <>
                               {shown.map((b) => (
                                 <td key={b.sid} className="r">
-                                  {v(b, d) !== undefined ? fullAmt(v(b, d)!) : '—'}
+                                  {v(b, d) !== undefined ? `${sym}${fullAmt(v(b, d)!)}` : '—'}
+                                  {v(b, d) !== undefined && <Krw b={b} days={[d]} />}
                                 </td>
                               ))}
-                              {shown.length > 1 && <td className="r b sep">{has(d) ? fullAmt(dayTotal(d)) : '—'}</td>}
+                              {shown.length > 1 && (
+                                <td className="r b sep">
+                                  {has(d) ? `${sym}${fullAmt(dayTotal(d))}` : '—'}
+                                  {has(d) && <Krw b={null} days={[d]} />}
+                                </td>
+                              )}
                             </>
                           )}
                         </tr>
@@ -543,7 +564,7 @@ function MonthDetail({
                                 {sym}
                                 {fullAmt(sumOf(b, w.days))}
                                 {b.area ? <small className="per">평당 {fullAmt(sumOf(b, w.days) / b.area)}</small> : null}
-                                {shown.length === 1 && <Krw b={b} days={w.days} />}
+                                <Krw b={b} days={w.days} />
                               </td>
                             ))}
                             {shown.length > 1 && (
@@ -581,6 +602,10 @@ function WeekChart({
   color,
   branches,
   sumOf,
+  sym,
+  convOf,
+  tSym,
+  target,
   picked,
   onPick,
 }: {
@@ -589,6 +614,10 @@ function WeekChart({
   color: string;
   branches: Br[];
   sumOf: (b: Br | null, days: number[]) => number;
+  sym: string;
+  convOf?: (b: Br | null, days: number[]) => number | null;
+  tSym: string;
+  target: 'KRW' | 'USD';
   picked: number | null;
   onPick: (i: number) => void;
 }) {
@@ -597,7 +626,7 @@ function WeekChart({
   const W = 560;
   const L = 50;
   const R = 26;
-  const top = 30;
+  const top = 44;
   const bottom = 210;
   const H = 252;
   if (!weeks.length) return <div className="sales-chart muted small">이 달 판매 데이터가 없어요.</div>;
@@ -631,16 +660,15 @@ function WeekChart({
           <g key={g}>
             <line x1={L} x2={W - R} y1={y(max * g)} y2={y(max * g)} className="sc-grid" />
             <text x={L - 6} y={y(max * g) + 4} className="sc-axis" textAnchor="end">
+              {sym}
               {shortAmt(max * g)}
             </text>
           </g>
         ))}
-        {series
-          .slice()
-          .reverse()
-          .map((s) => (
+        {/* 합계(굵고 옅게)를 먼저 그리고 지점 선을 위에 — 지점 하나가 합계와 거의 같아도 보이게 */}
+        {series.map((s) => (
             <g key={s.key}>
-              <path d={line(s.vals)} fill="none" stroke={s.color} strokeWidth={s.main ? 3 : 1.8} strokeLinejoin="round" strokeLinecap="round" opacity={s.main ? 1 : 0.85} />
+              <path d={line(s.vals)} fill="none" stroke={s.color} strokeWidth={s.main ? 5 : 2} strokeLinejoin="round" strokeLinecap="round" opacity={s.main ? 0.45 : 0.95} />
               {s.vals.map((v, i) => (
                 <circle key={i} cx={x(i)} cy={y(v)} r={s.main ? 4 : 2.6} fill="#fff" stroke={s.color} strokeWidth={s.main ? 2 : 1.5}>
                   <title>
@@ -650,8 +678,15 @@ function WeekChart({
               ))}
               {s.main &&
                 s.vals.map((v, i) => (
-                  <text key={i} x={x(i)} y={y(v) - 9} textAnchor="middle" className="sc-val">
+                  <text key={i} x={x(i)} y={y(v) - (convOf ? 20 : 9)} textAnchor="middle" className="sc-val">
+                    {sym}
                     {shortAmt(v)}
+                    {convOf && convOf(null, weeks[i].days) !== null && (
+                      <tspan x={x(i)} dy={11} className="sc-conv">
+                        {tSym}
+                        {shortConv(convOf(null, weeks[i].days)!, target)}
+                      </tspan>
+                    )}
                   </text>
                 ))}
             </g>
@@ -671,7 +706,6 @@ function WeekChart({
           </g>
         ))}
       </svg>
-      <p className="muted small sc-note"><b>점(주)을 누르면 그 주 날짜 × 지점 표</b> · 주차는 월요일 시작 · 범례를 누르면 그 선을 숨겨요</p>
     </div>
   );
 }
@@ -785,7 +819,7 @@ function MonthCalendar({
         {wdAvg > 0 && offAvg > 0 && <span className="muted small">주말이 평일의 {(offAvg / wdAvg).toFixed(1)}배</span>}
       </div>
       <p className="muted small">
-        <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일 (주말에 포함) · 주 이름을 누르면 날짜 × 지점 표
+        <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일 (주말에 포함) · 주 이름이나 그래프의 점을 누르면 그 주 자세히
       </p>
     </div>
   );
