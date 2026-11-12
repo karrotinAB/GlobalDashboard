@@ -18,6 +18,15 @@ const MID_STEPS = ORDER_STEPS;
 const BUNDLE_COLORS = ['#c0587a', '#4f7cae', '#d08a2e', '#5f8a4e', '#8e5a8a', '#3f8f8a', '#b5543c', '#7a6a4f'];
 
 /** 순서 기준값: 직접 옮긴 순서가 있으면 그것, 없으면 주문일자 (작을수록 위 → 새 주문은 맨 아래) */
+/** 주문일자를 여러 모양으로: 2026-09-29 · 20260929 · 2026.09.29 · 9/29 · 9.29 · 0929 · 9월 29일 */
+function dateForms(iso?: string): string[] {
+  const m = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso ? [iso] : [];
+  const [, y, mm, dd] = m;
+  const M = String(+mm);
+  const D = String(+dd);
+  return [iso!, `${y}${mm}${dd}`, `${y}.${mm}.${dd}`, `${y}/${mm}/${dd}`, `${M}/${D}`, `${M}.${D}`, `${mm}${dd}`, `${M}월 ${D}일`, `${M}월${D}일`, `${y}년 ${M}월`];
+}
 const keyOf = (o: Order) => o.sort ?? Date.parse(o.orderDate ?? o.createdAt) ?? 0;
 
 type Unit = { bundle?: OrderBundle; orders: Order[] };
@@ -100,6 +109,10 @@ export default function Orders() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusOrder?.id]);
   const [q, setQ] = useState('');
+  // 주문일자 기간 검색 (from ~ to, 비우면 한쪽만)
+  const [dFrom, setDFrom] = useState('');
+  const [dTo, setDTo] = useState('');
+  const dateRange = !!(dFrom || dTo);
 
   // 기간: 주문일자 기준 연도 / 연도+월
   const [year, setYear] = useState('');
@@ -127,19 +140,24 @@ export default function Orders() {
   );
 
   const query = q.trim().toLowerCase();
+  const searching = !!query || dateRange;
   const rows = useMemo(() => {
     // 아직 안 끝난 주문이 하나라도 있는 묶음 → 그 묶음의 완료건도 진행중에 같이 보여줌
     const openBundles = new Set(base.filter((o) => o.bundle && !isOrderDone(o)).map((o) => o.bundle!.id));
     return base
       .filter((o) => {
         // 검색어가 있으면 완료건까지 전부 검색
-        if (!query) {
+        if (!searching) {
           if (tab === 'open' && isOrderDone(o) && !(o.bundle && openBundles.has(o.bundle.id))) return false;
           if (tab === 'done' && !isOrderDone(o)) return false;
         }
         if (missingStep && (o[missingStep] || isOrderDone(o))) return false;
+        if (dateRange) {
+          const d = (o.orderDate ?? '').slice(0, 10);
+          if (!d || (dFrom && d < dFrom) || (dTo && d > dTo)) return false;
+        }
         if (query) {
-          const hay = [o.name, o.storeCode, o.orderDate, o.packing, o.shipFrom, o.note, companyById.get(o.companyId ?? '')?.name]
+          const hay = [o.name, o.storeCode, ...dateForms(o.orderDate), o.packing, o.shipFrom, o.note, companyById.get(o.companyId ?? '')?.name]
             .filter(Boolean)
             .join(' ')
             .toLowerCase();
@@ -148,7 +166,7 @@ export default function Orders() {
         return true;
       })
       ;
-  }, [base, tab, query, missingStep, companyById]);
+  }, [base, tab, query, searching, dateRange, dFrom, dTo, missingStep, companyById]);
   const units = useMemo(() => toUnits(rows), [rows]);
   const flat = useMemo(() => units.flatMap((u) => u.orders), [units]);
 
@@ -231,7 +249,7 @@ export default function Orders() {
   const sheet = companyById.get(companyFilter); // 지금 보고 있는 업체 시트 (없으면 전체)
   const colSpan = sheet ? 15 : 16;
   // 첫 화면: 업체를 고르기 전에는 '업체를 골라주세요'만
-  const landing = !sheet && !query && !missingStep;
+  const landing = !sheet && !searching && !missingStep;
   const sum = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
   const hasAmt = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.some((o) => o[k] !== undefined);
 
@@ -322,7 +340,18 @@ export default function Orders() {
             <>업체 고르기 {showCompanies ? '▴' : '▾'}</>
           )}
         </button>
-        <input className="search" placeholder="주문명 / 매장코드 / 비고 검색 (완료건 포함)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="search" placeholder="주문명 / 매장코드 / 주문일(9/29) / 비고 검색 (완료건 포함)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="date-range" title="주문일자 기간으로 찾기 (완료건 포함)">
+          <span className="muted small">주문일</span>
+          <input type="date" className="cell-input" value={dFrom} max={dTo || undefined} onChange={(e) => setDFrom(e.target.value)} />
+          <span className="muted">~</span>
+          <input type="date" className="cell-input" value={dTo} min={dFrom || undefined} onChange={(e) => setDTo(e.target.value)} />
+          {dateRange && (
+            <button className="link" onClick={() => { setDFrom(''); setDTo(''); }} title="기간 지우기">
+              ✕
+            </button>
+          )}
+        </span>
         {sheet && DATA_MODE === 'firestore' && <SyncButton companyId={sheet.id} last={data.config.find((c) => c.id === 'apiSync')} />}
         {missingStep && (
           <button className="link" onClick={() => setMissingStep(null)}>
@@ -343,7 +372,7 @@ export default function Orders() {
 
       </>
       )}
-      {query && <div className="banner">검색 중에는 진행중/완료 구분 없이 전체에서 찾아요. ({rows.length}건)</div>}
+      {searching && <div className="banner">검색 중에는 진행중/완료 구분 없이 전체에서 찾아요. ({rows.length}건)</div>}
 
       {landing ? (
         <div className="pick-company">
@@ -404,7 +433,7 @@ export default function Orders() {
                 </td>
               </tr>
             )}
-            {tab !== 'done' && !query && !sheet && (
+            {tab !== 'done' && !searching && !sheet && (
               <tr className="add-row">
                 <td colSpan={colSpan}>
                   <button className="add-row-btn pick-first" onClick={() => setShowCompanies(true)}>
@@ -413,7 +442,7 @@ export default function Orders() {
                 </td>
               </tr>
             )}
-            {tab !== 'done' && !query && sheet && (
+            {tab !== 'done' && !searching && sheet && (
               <AddOrderRow
                 key={companyFilter}
                 colSpan={colSpan}
