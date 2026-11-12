@@ -284,6 +284,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
   const sym = money ? curSym(money) : '';
   const needKrw = !!money && money !== 'KRW';
   const [only, setOnly] = useState<string | null>(focus); // 표: 전체 / 지점 하나
+  const [week, setWeek] = useState<number | null>(null); // 그래프 점(주)을 누르면 그 주 날짜 × 지점 표
   const [y, mo] = month.split('-').map(Number);
   const last = new Date(y, mo, 0).getDate();
   const v = (b: Br, d: number) => b.data.days[pad(d)];
@@ -338,8 +339,27 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
         </span>
       </div>
       <div className="sales-detail-grid">
-        <WeekChart weeks={weeks.filter((w) => w.hasData)} m={mo} color={color} branches={branches} sumOf={sumOf} />
-        <div className="sales-sheet-wrap">
+        <WeekChart weeks={weeks.filter((w) => w.hasData)} m={mo} color={color} branches={branches} sumOf={sumOf} picked={week} onPick={(i) => setWeek(week === i ? null : i)} />
+        <MonthCalendar
+          month={month}
+          weeks={weeks}
+          branches={only ? branches.filter((b) => b.sid === only) : branches}
+          holidayOn={holidayOn}
+          sym={sym}
+          picked={week}
+          onPick={(i) => setWeek(week === i ? null : i)}
+        />
+      </div>
+      {week !== null && (
+        <div className="sales-sheet-wrap week-sheet">
+          <div className="week-sheet-head">
+            <b>
+              {week + 1}주 자세히 · 날짜 × 지점
+            </b>
+            <button className="link" onClick={() => setWeek(null)}>
+              닫기 ✕
+            </button>
+          </div>
           <div className="company-chips sheet-chips">
             <button className={`cchip ${!only ? 'on' : ''}`} onClick={() => setOnly(null)}>
               전체
@@ -376,7 +396,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
                 </tr>
               </thead>
               <tbody>
-                {weeks.map((w) => (
+                {weeks.filter((w) => w.i === week).map((w) => (
                   <WeekBlock key={w.i}>
                     {w.days.map((d) => {
                       const we = dow(d) >= 5;
@@ -460,41 +480,6 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
                   </WeekBlock>
                 ))}
               </tbody>
-              <tfoot>
-                <tr>
-                  <th className="l">{mo}월 합계</th>
-                  {one ? (
-                    <>
-                      <td className="r">
-                        {sym}
-                        {fullAmt(sumOf(one, allDays))}
-                        {one.area ? <small className="per">평당 {fullAmt(sumOf(one, allDays) / one.area)}</small> : null}
-                        <Krw b={one} days={allDays} />
-                      </td>
-                      <td className="r muted">{allDays.reduce((a, d) => a + c(one, d), 0) || ''}</td>
-                      <td />
-                    </>
-                  ) : (
-                    <>
-                      {shown.map((b) => (
-                        <td key={b.sid} className="r">
-                          {sym}
-                          {fullAmt(sumOf(b, allDays))}
-                          {b.area ? <small className="per">평당 {fullAmt(sumOf(b, allDays) / b.area)}</small> : null}
-                          <Krw b={b} days={allDays} />
-                        </td>
-                      ))}
-                      {shown.length > 1 && (
-                        <td className="r sep">
-                          {sym}
-                          {fullAmt(monthSum)}
-                          <Krw b={null} days={allDays} />
-                        </td>
-                      )}
-                    </>
-                  )}
-                </tr>
-              </tfoot>
             </table>
           </div>
           <p className="muted small">
@@ -502,7 +487,7 @@ function MonthDetail({ month, color, branches, focus, money, fxTable, holidayCod
             {needKrw ? ' · ₩ = 판매일 ECOS 환율로 환산' : ''} · 평당은 지점별 (설정에서 평수를 넣은 지점만)
           </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -510,7 +495,23 @@ const WeekBlock = ({ children }: { children: React.ReactNode }) => <>{children}<
 
 type Wk = { i: number; days: number[]; from: number; to: number };
 /** 주차별 꺾은선: 합계(굵게) + 지점별(가늘게) */
-function WeekChart({ weeks, m, color, branches, sumOf }: { weeks: Wk[]; m: number; color: string; branches: Br[]; sumOf: (b: Br | null, days: number[]) => number }) {
+function WeekChart({
+  weeks,
+  m,
+  color,
+  branches,
+  sumOf,
+  picked,
+  onPick,
+}: {
+  weeks: Wk[];
+  m: number;
+  color: string;
+  branches: Br[];
+  sumOf: (b: Br | null, days: number[]) => number;
+  picked: number | null;
+  onPick: (i: number) => void;
+}) {
   // 지점이 많으면 처음엔 합계 선만 (범례에서 지점을 눌러 켜기)
   const [hide, setHide] = useState<Set<string>>(() => new Set(branches.length > 6 ? branches.map((b) => b.sid) : []));
   const W = 560;
@@ -576,7 +577,11 @@ function WeekChart({ weeks, m, color, branches, sumOf }: { weeks: Wk[]; m: numbe
             </g>
           ))}
         {weeks.map((w, i) => (
-          <g key={w.i}>
+          <g key={w.i} className={`wk-hit ${picked === w.i ? 'on' : ''}`} onClick={() => onPick(w.i)}>
+            {/* 주 전체 세로 띠를 눌러도 됨 */}
+            <rect x={x(i) - 22} y={top - 18} width={44} height={bottom - top + 52} rx={8} className="wk-band">
+              <title>{w.i + 1}주 날짜별·지점별 보기</title>
+            </rect>
             <text x={x(i)} y={bottom + 18} textAnchor="middle" className="sc-wk">
               {w.i + 1}주
             </text>
@@ -586,7 +591,112 @@ function WeekChart({ weeks, m, color, branches, sumOf }: { weeks: Wk[]; m: numbe
           </g>
         ))}
       </svg>
-      <p className="muted small sc-note">주차는 월요일 시작 · 첫 주·마지막 주는 이 달 날짜만 · 범례를 누르면 그 선을 숨겨요</p>
+      <p className="muted small sc-note"><b>점(주)을 누르면 그 주 날짜 × 지점 표</b> · 주차는 월요일 시작 · 범례를 누르면 그 선을 숨겨요</p>
+    </div>
+  );
+}
+
+/** 달력: 주 × 요일 금액 · 평일 / 주말 합 (주말 붉게 · 공휴일 보라) */
+function MonthCalendar({
+  month,
+  weeks,
+  branches,
+  holidayOn,
+  sym,
+  picked,
+  onPick,
+}: {
+  month: string;
+  weeks: { i: number; days: number[] }[];
+  branches: Br[];
+  holidayOn: (d: number) => string | undefined;
+  sym: string;
+  picked: number | null;
+  onPick: (i: number) => void;
+}) {
+  const [y, mo] = month.split('-').map(Number);
+  const val = (d: number) => branches.reduce((a, b) => a + (b.data.days[pad(d)] ?? 0), 0);
+  const has = (d: number) => branches.some((b) => b.data.days[pad(d)] !== undefined);
+  const dow = (d: number) => (new Date(y, mo - 1, d).getDay() + 6) % 7;
+  const off = (d: number) => dow(d) >= 5 || !!holidayOn(d);
+  const grid = weeksOf(month);
+  const all = weeks.flatMap((w) => w.days).filter(has);
+  const avg = (pred: (d: number) => boolean) => {
+    const ds = all.filter(pred);
+    return ds.length ? ds.reduce((a, d) => a + val(d), 0) / ds.length : 0;
+  };
+  const wdAvg = avg((d) => !off(d));
+  const offAvg = avg(off);
+  return (
+    <div className="sales-week-wrap">
+      <table className="sales-week">
+        <thead>
+          <tr>
+            <th />
+            {['월', '화', '수', '목', '금', '토', '일'].map((d, i) => (
+              <th key={d} className={i >= 5 ? 'we' : ''}>
+                {d}
+              </th>
+            ))}
+            <th className="sep">평일</th>
+            <th className="we">주말</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grid.map((w, wi) => {
+            const days = w.filter((d): d is number => d !== null);
+            const wd = days.filter((d) => !off(d)).reduce((a, d) => a + val(d), 0);
+            const we = days.filter(off).reduce((a, d) => a + val(d), 0);
+            return (
+              <tr key={wi} className={picked === wi ? 'picked' : ''}>
+                <th>
+                  <button className="wk-btn" onClick={() => onPick(wi)} title="이 주 날짜 × 지점 표">
+                    {wi + 1}주
+                  </button>
+                </th>
+                {w.map((d, i) => {
+                  const hol = d !== null ? holidayOn(d) : undefined;
+                  return (
+                    <td
+                      key={i}
+                      className={`${i >= 5 ? 'we' : ''} ${hol ? 'hol' : ''} ${d === null ? 'out' : ''}`}
+                      title={d !== null && has(d) ? `${mo}/${d}${hol ? ` ${hol}` : ''} ${sym}${fullAmt(val(d))}` : hol}
+                    >
+                      {d !== null && (
+                        <>
+                          <span className="sw-d">
+                            {d}
+                            {hol && <span className="sw-hol">{hol}</span>}
+                          </span>
+                          <span className="sw-v">{has(d) ? shortAmt(val(d)) : ''}</span>
+                        </>
+                      )}
+                    </td>
+                  );
+                })}
+                <td className="sum sep" title={`${sym}${fullAmt(wd)}`}>
+                  {wd ? shortAmt(wd) : ''}
+                </td>
+                <td className="sum we" title={`${sym}${fullAmt(we)}`}>
+                  {we ? shortAmt(we) : ''}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="sales-avg">
+        <span>
+          평일 하루 평균 <b>{sym}{fullAmt(wdAvg)}</b>
+        </span>
+        <span className="we">
+          주말·공휴일 하루 평균 <b>{sym}{fullAmt(offAvg)}</b>
+        </span>
+        {wdAvg > 0 && offAvg > 0 && <span className="muted small">주말이 평일의 {(offAvg / wdAvg).toFixed(1)}배</span>}
+      </div>
+      <p className="muted small">
+        <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일 (주말에 포함) · 주 이름을 누르면 날짜 × 지점 표
+      </p>
     </div>
   );
 }
