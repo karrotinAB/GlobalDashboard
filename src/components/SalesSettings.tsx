@@ -245,7 +245,7 @@ export function SalesApiAdmin() {
             </label>
           </div>
           <details>
-            <summary className="small">응답 칸 이름 (비우면 자동으로 찾아요)</summary>
+            <summary className="small">응답 칸 이름 (비우면 자동으로 찾아요 — 매장코드 숫자가 아니라 응답 JSON 의 칸 이름을 넣는 곳)</summary>
             <div className="row-fields">
               {FIELD_LABEL.map(([k, label]) => (
                 <label key={k} className="row-field">

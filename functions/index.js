@@ -310,7 +310,7 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 // 판매 데이터 (POS 계산 건 → 지점·일자별 합계) — 홈 맨 아래 '업체별 판매 데이터'
 // 매일 아침 8시(서울) 최근 3일을 다시 계산 (늦게 들어온 건·취소 반영). 주소·칸 이름은 secrets/sales
 // ------------------------------------------------------------------
-import { detectFields, fetchSales, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
+import { detectFields, fetchSales, isAbbr, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
 
 // 기본값: getExportSalesUpload.asp?STORE_CODE=8254&BRANCH_ABBR=MEG&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
@@ -414,7 +414,7 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
     if (cfg.storeParam && code) extra[cfg.storeParam] = code;
     if (cfg.branchParam && code) {
       const br = await branchesFor(code);
-      const pick = Object.entries(br).find(([, a]) => a === req.data?.abbr) ?? Object.entries(br)[0];
+      const pick = Object.entries(br).find(([, a]) => a === req.data?.abbr) ?? Object.entries(br).find(([, a]) => isAbbr(a));
       if (pick) {
         extra[cfg.branchParam] = pick[1];
         store = pick[0];

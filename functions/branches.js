@@ -4,7 +4,8 @@
 // 2) 안 오면 4자리 + 01~99 를 하나씩 확인 (한 번 해 두면 7일 보관)
 import { call } from './sync.js';
 
-const nameOf = (r) => String(r?.BRANCH_NAME ?? r?.STORE_NAME ?? r?.STORE_NM ?? '').trim();
+// 지점 약자(LDC 등)가 판매 API 의 BRANCH_ABBR 로 쓰임 → 약자 칸이 따로 있으면 그걸 먼저
+const nameOf = (r) => String(r?.BRANCH_ABBR ?? r?.BRANCH_NAME ?? r?.STORE_NAME ?? r?.STORE_NM ?? '').trim();
 const idOf = (r) => String(r?.STORE_ID ?? '').trim();
 
 async function safeCall(params, key, fetchImpl) {

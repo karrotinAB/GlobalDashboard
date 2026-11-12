@@ -13,6 +13,8 @@
 // API 키는 ERP 와 같은 것 (secrets/erp apiKey → X-API-Key 헤더)
 
 const pad = (n) => String(n).padStart(2, '0');
+/** 지점 약자처럼 생겼는지 (LDC, MEG, BKS …) — '(주)그랜드에스코리아' 같은 회사 이름은 아님 */
+export const isAbbr = (a) => /^[A-Za-z0-9]{2,8}$/.test(String(a ?? '').trim());
 
 export function fmtDate(iso, format = 'dot') {
   const [y, m, d] = iso.split('-');
@@ -38,6 +40,8 @@ export const toNum = (v) => {
 /** 응답 칸 이름 자동 찾기 (설정에서 정한 이름이 먼저) */
 export function detectFields(rows, over = {}) {
   const keys = [...new Set(rows.slice(0, 20).flatMap((r) => Object.keys(r ?? {})))];
+  // 설정에 넣은 칸 이름이 응답에 없으면 무시 (예: 칸 이름 대신 매장코드 숫자를 넣은 경우)
+  over = Object.fromEntries(Object.entries(over ?? {}).filter(([, v]) => v && keys.includes(v)));
   const find = (...res) => {
     for (const re of res) {
       const k = keys.find((k) => re.test(k));
@@ -102,7 +106,7 @@ export async function fetchSales(cfg, apiKey, fromIso, toIso, fetchImpl = fetch,
   } catch {
     throw new Error(`판매 API: JSON 이 아님 (${text.slice(0, 80)})`);
   }
-  const rows = Array.isArray(body) ? body : body?.Infos ?? body?.data ?? body?.Data ?? body?.rows ?? body?.list ?? [];
+  const rows = Array.isArray(body) ? body : body?.items ?? body?.Items ?? body?.Infos ?? body?.data ?? body?.Data ?? body?.rows ?? body?.list ?? [];
   if (!Array.isArray(rows)) return { rows: [], body };
   if (body && body.success === false && !rows.length) return { rows: [], body }; // 데이터 없음
   return { rows, body };
@@ -138,8 +142,15 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
   if (cfg.branchParam && branchesFor) {
     for (const code of codes ?? []) {
       const br = await branchesFor(code); // { STORE_ID: 약자 }
-      if (!Object.keys(br).length) errors.push(`${code}: 지점 약자를 못 찾았어요 (설정 > 매장 평수 > 지점 다시 불러오기)`);
-      for (const [sid, abbr] of Object.entries(br)) if (abbr) units.push({ store: sid, extra: { [cfg.storeParam || '']: code, [cfg.branchParam]: abbr } });
+      const ok = Object.entries(br).filter(([, a]) => isAbbr(a));
+      const bad = Object.entries(br).filter(([, a]) => !isAbbr(a));
+      if (bad.length) errors.push(`${code}: 약자가 아닌 지점 이름은 건너뜀 — ${bad.map(([sid, a]) => `${sid} ${a || '(이름 없음)'}`).join(', ')}`);
+      if (!ok.length) {
+        // 약자를 하나도 못 찾으면 매장코드만으로 (API 가 지점 없이도 주면 받음)
+        errors.push(`${code}: 지점 약자를 못 찾아서 매장코드로만 불렀어요`);
+        units.push({ store: undefined, extra: { [cfg.storeParam || '']: code } });
+      }
+      for (const [sid, abbr] of ok) units.push({ store: sid, extra: { [cfg.storeParam || '']: code, [cfg.branchParam]: abbr } });
     }
   } else if (cfg.storeParam) {
     for (const code of codes ?? []) units.push({ store: undefined, extra: { [cfg.storeParam]: code } });
