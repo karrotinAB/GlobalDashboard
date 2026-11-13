@@ -7,6 +7,9 @@ import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { guessCurrency, SALES_CURRENCIES, useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
 import type { Company } from '../types';
 
+/** 판매 API 지점 약자처럼 생겼는지 (서버 규칙과 같게) */
+const looksAbbr = (a?: string) => /^[A-Za-z0-9][A-Za-z0-9 ._\-&]{0,15}$/.test((a ?? '').trim());
+
 /** 지점별 평수 (판매 데이터에 나온 지점 + 직접 추가) */
 export function StoreAreaSection() {
   const { companies } = useLookups();
@@ -115,15 +118,20 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           <span>
             {seen.get(sid) || '지점'} <span className="muted small">{sid}</span>
           </span>
-          <input
-            className="abbr-in"
-            key={`a${c.storeAbbr?.[sid] ?? ''}`}
-            defaultValue={c.storeAbbr?.[sid] ?? ''}
-            placeholder="약자"
-            title={`판매 데이터를 불러올 때 쓰는 지점 약자 (비우면 '${seen.get(sid) || '-'}')`}
-            onBlur={(e) => setAbbr(sid, e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          />
+          {c.storeAbbr?.[sid] || !looksAbbr(seen.get(sid)) ? (
+            // 자동으로 불러온 지점 이름이 약자가 아니면 (예: 회사 이름) 판매 데이터를 못 불러와서 → 약자를 직접
+            <input
+              className="abbr-in need"
+              key={`a${c.storeAbbr?.[sid] ?? ''}`}
+              defaultValue={c.storeAbbr?.[sid] ?? ''}
+              placeholder="약자 필요"
+              title="이 지점은 이름이 약자가 아니라 판매 데이터를 못 불러와요. 지점 약자(예: LDC)를 넣어 주세요"
+              onBlur={(e) => setAbbr(sid, e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            />
+          ) : (
+            <span />
+          )}
           <input
             key={c.storeAreas?.[sid] ?? ''}
             defaultValue={c.storeAreas?.[sid] || ''}
@@ -191,6 +199,11 @@ export function SalesApiAdmin() {
   const salesCos = companies.filter((c) => c.salesOn && c.storeCodes?.length);
   const [pickCo, setPickCo] = useState('');
   const pickCodes = pickCo ? salesCos.find((c) => c.id === pickCo)?.storeCodes : undefined;
+  const [pickBranch, setPickBranch] = useState('');
+  const pickedNames = useStoreBranches(pickCodes ?? []);
+  const pickedCo = salesCos.find((c) => c.id === pickCo);
+  const branchList = Object.entries({ ...Object.fromEntries(Object.keys(pickedCo?.storeAreas ?? {}).map((k) => [k, ''])), ...pickedNames }).sort(([a], [b]) => a.localeCompare(b));
+  const thisMonthIso = () => new Date().toISOString().slice(0, 7);
   // 오래 걸릴 수 있어서 9분까지 기다림 (서버 함수 제한과 같게)
   const call = async <T,>(name: string, data?: unknown) => (await httpsCallable(functions, name, { timeout: 540000 })(data)).data as T;
   const [running, setRunning] = useState<{ label: string; at: number } | null>(null);
@@ -221,6 +234,10 @@ export function SalesApiAdmin() {
       <span className="muted small"> · 처음엔 지점 목록도 같이 찾느라 1~3분 걸릴 수 있어요. 창을 닫지 말고 기다려 주세요.</span>
     </div>
   );
+  useEffect(() => {
+    if (DATA_MODE !== 'local') call<Cfg>('salesConfig').then(setCfg).catch(() => setMsg('설정을 못 불러왔어요 (서버 함수를 올렸는지 확인해 주세요 — deploy.bat)'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const load = () => run('불러오기', async () => {
     setCfg(await call<Cfg>('salesConfig'));
     return '';
@@ -260,95 +277,145 @@ export function SalesApiAdmin() {
         </button>
       ) : (
         <div className="sales-api">
-          <label className="row-field">
-            <span>API 주소</span>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://ex.artbox.kr/api/getExportSalesUpload.asp'} />
-          </label>
-          <label className="row-field">
-            <span>ECOS 인증키 (한국은행 환율 — 로열티를 판매일 환율로 환산)</span>
-            <input type="password" autoComplete="off" value={ecos} onChange={(e) => setEcos(e.target.value)} placeholder={cfg.hasEcos ? '저장됨 (바꿀 때만 입력)' : 'ecos.bok.or.kr 에서 받은 인증키'} />
-          </label>
-          <div className="row-fields">
-            <label className="row-field">
-              <span>매장코드 파라미터</span>
-              <input value={cfg.storeParam ?? ''} onChange={(e) => set({ storeParam: e.target.value })} placeholder="STORE_CODE" />
-            </label>
-            <label className="row-field">
-              <span>시작 날짜 파라미터</span>
-              <input value={cfg.dateParam} onChange={(e) => set({ dateParam: e.target.value })} placeholder="DATE_FROM" />
-            </label>
-            <label className="row-field">
-              <span>끝 날짜 파라미터</span>
-              <input value={cfg.endParam} onChange={(e) => set({ endParam: e.target.value })} placeholder="비우면 하루씩" />
-            </label>
-            <label className="row-field">
-              <span>날짜 모양</span>
-              <select value={cfg.dateFormat} onChange={(e) => set({ dateFormat: e.target.value })}>
-                <option value="dot">2026.11.12</option>
-                <option value="dash">2026-11-12</option>
-                <option value="compact">20261112</option>
-              </select>
-            </label>
-          </div>
-          <details>
-            <summary className="small">응답 칸 이름 (비우면 자동으로 찾아요 — 매장코드 숫자가 아니라 응답 JSON 의 칸 이름을 넣는 곳)</summary>
-            <div className="row-fields">
-              {FIELD_LABEL.map(([k, label]) => (
-                <label key={k} className="row-field">
-                  <span>{label}</span>
-                  <input value={cfg.fields[k] ?? ''} onChange={(e) => set({ fields: { ...cfg.fields, [k]: e.target.value } })} placeholder="자동" />
+          <div className="sa-step">
+            <h3>판매 데이터 가져오기</h3>
+            <p className="muted small" style={{ margin: 0 }}>
+              매일 밤 11시에 자동으로 들어와요. 빠졌거나 다시 받고 싶을 때만 여기서 골라서 가져오세요 (필요한 것만 골라야 API 를 덜 불러요).
+            </p>
+            <div className="sa-pick">
+              <label className="row-field">
+                <span>업체</span>
+                <select value={pickCo} onChange={(e) => (setPickCo(e.target.value), setPickBranch(''))}>
+                  <option value="">판매데이터 켠 업체 전부</option>
+                  {salesCos.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({(c.storeCodes ?? []).join(', ')})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="row-field">
+                <span>지점</span>
+                <select value={pickBranch} disabled={!pickCo} onChange={(e) => setPickBranch(e.target.value)}>
+                  <option value="">{pickCo ? '이 업체 지점 전부' : '(업체를 먼저 골라 주세요)'}</option>
+                  {branchList.map(([sid, name]) => (
+                    <option key={sid} value={sid}>
+                      {name || '지점'} {sid}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="row-field">
+                <span>기간</span>
+                <select value={month ? 'month' : 'recent'} onChange={(e) => setMonth(e.target.value === 'month' ? thisMonthIso() : '')}>
+                  <option value="recent">최근 7일</option>
+                  <option value="month">한 달 통째로</option>
+                </select>
+              </label>
+              {month && (
+                <label className="row-field">
+                  <span>달</span>
+                  <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
                 </label>
-              ))}
+              )}
+              <button
+                className="primary sa-go"
+                disabled={busy || !cfg.hasUrl}
+                title={cfg.hasUrl ? '' : '아래 연결 설정에서 API 주소를 먼저 저장해 주세요'}
+                onClick={() =>
+                  run('가져오기', async () =>
+                    syncMsg(await call('syncSalesNow', { ...(month ? { month } : { days: 7 }), codes: pickCodes, branches: pickBranch ? [pickBranch] : undefined })),
+                  )
+                }
+              >
+                가져오기
+              </button>
+            </div>
+          </div>
+
+          <details className="sa-step" open={!cfg.hasUrl}>
+            <summary>
+              <b>연결 설정</b> <span className="muted small">처음 한 번만 · {cfg.hasUrl ? 'API 주소 저장됨 ✓' : 'API 주소를 넣어 주세요'}{cfg.hasEcos ? ' · ECOS 인증키 저장됨 ✓' : ''}</span>
+            </summary>
+            <label className="row-field">
+              <span>판매 API 주소</span>
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://ex.artbox.kr/api/getExportSalesUpload.asp'} />
+            </label>
+            <label className="row-field">
+              <span>ECOS 인증키 (한국은행 환율 — 로열티·원화 환산)</span>
+              <input type="password" autoComplete="off" value={ecos} onChange={(e) => setEcos(e.target.value)} placeholder={cfg.hasEcos ? '저장됨 (바꿀 때만 입력)' : 'ecos.bok.or.kr 에서 받은 인증키'} />
+            </label>
+            <details>
+              <summary className="small">고급 (보통은 안 건드려도 돼요)</summary>
+              <div className="row-fields">
+                <label className="row-field">
+                  <span>매장코드 파라미터</span>
+                  <input value={cfg.storeParam ?? ''} onChange={(e) => set({ storeParam: e.target.value })} placeholder="STORE_CODE" />
+                </label>
+                <label className="row-field">
+                  <span>시작 날짜 파라미터</span>
+                  <input value={cfg.dateParam} onChange={(e) => set({ dateParam: e.target.value })} placeholder="DATE_FROM" />
+                </label>
+                <label className="row-field">
+                  <span>끝 날짜 파라미터</span>
+                  <input value={cfg.endParam} onChange={(e) => set({ endParam: e.target.value })} placeholder="DATE_TO" />
+                </label>
+                <label className="row-field">
+                  <span>날짜 모양</span>
+                  <select value={cfg.dateFormat} onChange={(e) => set({ dateFormat: e.target.value })}>
+                    <option value="dot">2026.11.12</option>
+                    <option value="dash">2026-11-12</option>
+                    <option value="compact">20261112</option>
+                  </select>
+                </label>
+              </div>
+              <p className="muted small">응답 칸 이름 — 비우면 자동으로 찾아요 (응답 JSON 의 칸 이름, 매장코드 숫자 아님)</p>
+              <div className="row-fields">
+                {FIELD_LABEL.map(([k, label]) => (
+                  <label key={k} className="row-field">
+                    <span>{label}</span>
+                    <input value={cfg.fields[k] ?? ''} onChange={(e) => set({ fields: { ...cfg.fields, [k]: e.target.value } })} placeholder="자동" />
+                  </label>
+                ))}
+              </div>
+            </details>
+            <div className="btn-row">
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  run('저장', async () => {
+                    await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, storeParam: cfg.storeParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
+                    setUrl('');
+                    setEcos('');
+                    setCfg(await call<Cfg>('salesConfig'));
+                    return '저장했어요 ✓ [연결 확인]으로 잘 오는지 봐 주세요';
+                  })
+                }
+              >
+                저장
+              </button>
+              <button
+                disabled={busy || !cfg.hasUrl}
+                title="아무것도 안 넣어도 돼요 — 판매데이터 켠 첫 업체로 최근 7일을 불러서 보여주기만 해요 (저장 안 함)"
+                onClick={() => run('연결 확인', async () => (setInsp(await call<Inspect>('inspectSalesApi', {})), ''))}
+              >
+                연결 확인 (저장 안 함)
+              </button>
+              <button
+                disabled={busy || !cfg.hasEcos}
+                title="이번 달과 지난 달 ECOS 환율을 가져와요 — 매일 밤 판매 데이터와 같이 자동으로도 가져와요"
+                onClick={() =>
+                  run('환율 가져오기', async () => {
+                    const r = await call<{ saved: number; errors?: string[] }>('syncFxNow', month ? { month } : {});
+                    return `환율 가져왔어요 ✓ ${r.saved}개 (통화·달)${r.errors?.length ? `\n문제: ${r.errors.join('\n')}` : ''}`;
+                  })
+                }
+              >
+                환율 가져오기
+              </button>
             </div>
           </details>
-          <div className="btn-row">
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={() =>
-                run('저장', async () => {
-                  await call('saveSalesConfig', { ecosKey: ecos || undefined, url: url || undefined, dateParam: cfg.dateParam, endParam: cfg.endParam, storeParam: cfg.storeParam, dateFormat: cfg.dateFormat, fields: cfg.fields });
-                  setUrl('');
-                  setEcos('');
-                  setCfg(await call<Cfg>('salesConfig'));
-                  return '저장했어요 ✓ 아래 [응답 확인]으로 칸 이름이 맞는지 봐 주세요';
-                })
-              }
-            >
-              저장
-            </button>
-            <button disabled={busy || !cfg.hasUrl} onClick={() => run('응답 확인', async () => (setInsp(await call<Inspect>('inspectSalesApi', {})), ''))}>
-              응답 확인 (최근 7일)
-            </button>
-            {/* 업체 하나만 골라서 (API 를 덜 부르려고) — 비우면 판매데이터 켠 업체 전부 */}
-            <select value={pickCo} onChange={(e) => setPickCo(e.target.value)} title="이 업체 매장만 가져와요">
-              <option value="">판매데이터 켠 업체 전부</option>
-              {salesCos.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({(c.storeCodes ?? []).join(', ')})
-                </option>
-              ))}
-            </select>
-            <button disabled={busy || !cfg.hasUrl} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { days: 7, codes: pickCodes })))}>
-              최근 7일 가져오기
-            </button>
-            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-            <button disabled={busy || !cfg.hasUrl || !month} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { month, codes: pickCodes })))}>
-              이 달 통째로 가져오기
-            </button>
-            <button
-              disabled={busy || !cfg.hasEcos}
-              title="고른 달(없으면 이번 달)과 그 앞 달의 ECOS 환율을 가져와요 — 매일 밤 판매 데이터와 같이 자동으로도 가져와요"
-              onClick={() =>
-                run('환율 가져오기', async () => {
-                  const r = await call<{ saved: number; errors?: string[] }>('syncFxNow', month ? { month } : {});
-                  return `환율 가져왔어요 ✓ ${r.saved}개 (통화·달)${r.errors?.length ? `\n문제: ${r.errors.join('\n')}` : ''}`;
-                })
-              }
-            >
-              환율 가져오기
-            </button>
-          </div>
         </div>
       )}
       {DATA_MODE !== 'local' && (

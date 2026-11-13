@@ -138,7 +138,7 @@ export function monthDays(month, todayIso) {
  * 날짜들을 가져와서 salesMonthly 에 씀 (그 날짜의 값은 새로 계산한 합계로 바꿈)
  * @param codes 대시보드에 등록된 매장코드(4자리) — 이 매장들만 저장
  */
-export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl = fetch, branchesFor } = {}) {
+export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl = fetch, branchesFor, onlyStores } = {}) {
   const f0 = cfg.fields ?? {};
   codes = codes ? new Set(codes) : null;
   const errors = [];
@@ -170,7 +170,10 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
   if (cfg.storeParam) {
     for (const code of codes ?? []) {
       const list = abbrsOf[code] ?? [];
-      if (list.length) for (const [a, sid] of list) units.push({ code, store: sid, extra: { [cfg.storeParam]: code, [bp]: a } });
+      // 지점을 골랐으면 그 지점만
+      const want = onlyStores ? list.filter(([, sid]) => onlyStores.has(sid)) : list;
+      if (want.length) for (const [a, sid] of want) units.push({ code, store: sid, extra: { [cfg.storeParam]: code, [bp]: a } });
+      else if (onlyStores && list.length) errors.push(`${code}: 고른 지점의 약자를 못 찾았어요 (설정 › 매장 평수에서 약자를 넣어 주세요)`);
       else units.push({ code, extra: { [cfg.storeParam]: code } });
     }
   } else units.push({ extra: {} });
@@ -227,6 +230,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
       continue;
     }
     for (const a of aggregate(g.rows, f, g.fallbackDate, g.store, { abbrToId, code: g.code })) {
+      if (onlyStores && !onlyStores.has(a.storeId)) continue;
       if (codes && !codes.has(a.code)) continue;
       const month = a.date.slice(0, 7);
       const id = `${a.code}_${month}`;

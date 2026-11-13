@@ -6559,3 +6559,13 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .roy-daily-btn { border: 1px solid #eadcd9; background: #fff; border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 12px; color: #8c2f3c; cursor: pointer; }
 .roy-daily-btn.on { background: #8c2f3c; color: #fff; border-color: #8c2f3c; }
 .royalty-box > .warn, .royalty-box > .muted.small { margin-top: 4px; }
+
+/* 판매 데이터 API 설정: 가져오기 / 연결 설정 */
+.sa-step { border: 1px solid #f1e6e3; border-radius: 12px; padding: 12px 14px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.sa-step h3 { margin: 0; font-size: 15px; }
+details.sa-step > summary { cursor: pointer; }
+details.sa-step[open] > summary { margin-bottom: 4px; }
+.sa-pick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.sa-pick .row-field { min-width: 140px; flex: 0 1 auto; }
+.sa-pick .sa-go { padding: 8px 22px; }
+.area-row .abbr-in.need { border-color: #e7a19a; background: #fdf1ef; }

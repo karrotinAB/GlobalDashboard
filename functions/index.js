@@ -351,7 +351,7 @@ async function branchesWithAbbr(code) {
   for (const [sid, a] of Object.entries(abbrOverrides)) if (sid.startsWith(code)) out[sid] = a;
   return out;
 }
-async function runSales({ days = 3, month, only } = {}) {
+async function runSales({ days = 3, month, only, stores } = {}) {
   const cfg = await salesCfg();
   if (!cfg.url) return { skipped: '판매 데이터 API 주소가 아직 없어요' };
   const key = await apiKey();
@@ -360,7 +360,7 @@ async function runSales({ days = 3, month, only } = {}) {
   if (only?.length) codes = new Set([...codes].filter((c) => only.includes(c)));
   if (!codes.size) return { skipped: "'판매데이터 수집 중'을 켠 업체(매장코드 있는)가 없어요" };
   const today = lastDays(1)[0];
-  const r = await syncSalesDates(db, cfg, key, month ? monthDays(month, today) : lastDays(days), [...codes], { branchesFor: branchesWithAbbr });
+  const r = await syncSalesDates(db, cfg, key, month ? monthDays(month, today) : lastDays(days), [...codes], { branchesFor: branchesWithAbbr, onlyStores: stores?.length ? new Set(stores) : undefined });
   // 로열티 환율 (ECOS): 그 달 + 앞 달 (월초 주말은 앞 달 마지막 영업일 환율을 씀)
   const fxMonth = month ?? today.slice(0, 7);
   const fx = await runFx([prevMonth(fxMonth), fxMonth]).catch((e) => ({ errors: [e.message] }));
@@ -407,7 +407,8 @@ export const syncSalesNow = onCall({ region: REGION, timeoutSeconds: 540 }, asyn
   const days = Math.min(Math.max(Number(req.data?.days) || 3, 1), 31);
   const only = Array.isArray(req.data?.codes) ? req.data.codes.map((c) => String(c).trim()).filter((c) => /^\d{4}$/.test(c)).slice(0, 20) : undefined;
   try {
-    return await runSales(month ? { month, only } : { days, only });
+    const stores = Array.isArray(req.data?.branches) ? req.data.branches.map((x) => String(x).trim()).filter((x) => /^\d{5,8}$/.test(x)).slice(0, 50) : undefined;
+    return await runSales(month ? { month, only, stores } : { days, only, stores });
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
