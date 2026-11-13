@@ -6624,3 +6624,13 @@ tr.is-done .c-due, tr.is-done .c-due * { text-decoration: line-through; color: #
 .chart-legend .lg-all { display: inline-flex; gap: 8px; margin-left: auto; font-size: 12px; }
 
 .conv-missing { font-size: 11.5px; color: #b03a2e; background: #fdecea; border-radius: 8px; padding: 3px 8px; }
+
+/* 할일: 🔁 매일 반복 */
+.c-title .title-wrap { display: flex; align-items: center; gap: 4px; }
+.c-title .title-wrap > :first-child { flex: 1; min-width: 0; }
+.repeat-btn { flex: none; border: 0; background: none; cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 6px; opacity: 0; filter: grayscale(1); transition: opacity 0.15s; }
+tr:hover .repeat-btn { opacity: 0.45; }
+.repeat-btn:hover { opacity: 1 !important; filter: none; background: #f4e9e6; }
+.repeat-btn.on { opacity: 1; filter: none; background: #e8f0fb; }
+@media (hover: none) { .repeat-btn { opacity: 0.4; } }
+tr.is-done .repeat-btn.on { text-decoration: none; }

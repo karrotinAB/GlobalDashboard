@@ -7,11 +7,26 @@ import { addDays, weekEnd } from './date';
  * - 아직 안 끝났거나, 그 주(월~일) 안에 완료된 할일
  * 지난주는 "그 주 일요일 기준" 상태로 보여줌 → 금요일에 멈춰둔 시트와 같은 효과
  */
-export function tasksForWeek(tasks: Task[], monday: string): { task: Task; doneInWeek: boolean }[] {
+export function tasksForWeek(tasks: Task[], monday: string, todayIso: string = localToday()): { task: Task; doneInWeek: boolean }[] {
   const sunday = weekEnd(monday);
+  const thisWeek = todayIso >= monday && todayIso <= sunday;
   return tasks
-    .filter((t) => t.createdAt <= sunday && (!t.done || !t.doneAt || t.doneAt >= monday))
-    .map((t) => ({ task: t, doneInWeek: t.done && (!t.doneAt || t.doneAt <= sunday) }));
+    .filter((t) => t.createdAt <= sunday && (t.repeat || !t.done || !t.doneAt || t.doneAt >= monday))
+    .map((t) => ({
+      task: t,
+      // 🔁 반복: 이번 주는 '오늘 완료했는지', 지난주는 '그 주에 완료한 적 있는지'
+      doneInWeek: t.repeat
+        ? t.done && !!t.doneAt && (thisWeek ? t.doneAt === todayIso : t.doneAt >= monday && t.doneAt <= sunday)
+        : t.done && (!t.doneAt || t.doneAt <= sunday),
+    }));
+}
+
+/** 반복 할일이 오늘 완료됐는지 (어제 완료한 건 오늘은 다시 '안 함') */
+export const doneToday = (t: Task, todayIso: string) => (t.repeat ? t.done && t.doneAt === todayIso : t.done);
+
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export type DueState = 'overdue' | 'today' | 'tomorrow' | 'later' | 'none';

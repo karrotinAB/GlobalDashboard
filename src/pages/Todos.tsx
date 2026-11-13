@@ -197,7 +197,9 @@ export default function Todos() {
 
   const toggleDone = (t: Task) => {
     if (readOnly) return;
-    save('tasks', t.done ? { ...t, done: false, doneAt: undefined } : { ...t, done: true, doneAt: todayIso });
+    // 반복 할일은 '오늘 완료했는지'로 판단 (어제 완료 → 오늘은 다시 체크할 수 있음)
+    const doneNow = t.repeat ? t.done && t.doneAt === todayIso : t.done;
+    save('tasks', doneNow ? { ...t, done: false, doneAt: undefined } : { ...t, done: true, doneAt: todayIso });
   };
 
   const newTask = (companyId: string | null, assigneeIds: string[] = []): Task => ({
@@ -501,7 +503,18 @@ export default function Todos() {
                           </td>
                         )}
                         <td className="c-title">
-                          <EditableText value={task.title} oneLine expand disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
+                          <div className="title-wrap">
+                            <EditableText value={task.title} oneLine expand disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
+                            <button
+                              type="button"
+                              className={`repeat-btn ${task.repeat ? 'on' : ''}`}
+                              disabled={readOnly}
+                              title={task.repeat ? '매일 반복 중 — 완료해도 내일 다시 떠요 (눌러서 끄기)' : '매일 반복 (완료해도 내일 다시 뜨게)'}
+                              onClick={() => patch({ repeat: task.repeat ? undefined : true })}
+                            >
+                              🔁
+                            </button>
+                          </div>
                         </td>
                         <td className="c-who">
                           <AssigneeCell ids={task.assigneeIds} members={members} memberById={memberById} disabled={readOnly} onSave={(ids) => patch({ assigneeIds: ids })} />

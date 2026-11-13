@@ -47,6 +47,7 @@ export interface Task {
   doneAt?: string; // YYYY-MM-DD
   note?: string;
   important?: boolean;
+  repeat?: boolean; // 🔁 매일 반복: 완료해도 다음 날 다시 '안 함'으로 (완료는 그날만)
   num?: string; // 직접 정한 번호 (예: 1-1). 없으면 업체 안에서 자동 번호
   orderId?: string; // 연결한 주문 (비고 끝 ↗ 로 주문 관리의 그 주문으로)
   bundleId?: string; // 연결한 주문 묶음 (↗ 로 그 묶음으로)
