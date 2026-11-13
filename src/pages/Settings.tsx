@@ -102,6 +102,12 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
 
   return (
     <div className="page">
+      {(() => {
+        // 접속한 사람 이름: 내 담당자 카드(조·무역사무) → 계정 이름 → 이메일 앞
+        const mine = [...members, ...data.tradeMembers].find((m) => !!access.email && m.email?.toLowerCase() === access.email);
+        const name = mine?.name ?? access.accountName ?? (access.email ? access.email.split('@')[0] : '');
+        return name ? <p className="settings-hello">안녕하세요 <b>{name}</b>님 👋</p> : null;
+      })()}
       <div className="page-head">
         <h1>설정</h1>
         {access.role !== 'trade' && <span className="tag gray">{access.viewLabel}</span>}
