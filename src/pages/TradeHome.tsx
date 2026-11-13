@@ -5,7 +5,7 @@ import { Avatar, characterSrc, Ring } from '../components/ui';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
 import { ago, isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
-import { attendanceOf } from '../lib/mem';
+import { attendanceOf, adjustLeave } from '../lib/mem';
 import type { Attendance, Member, TradeRequest } from '../types';
 
 const dot = (iso?: string) => (iso ? iso.slice(5).replace('-', '.') : '');
@@ -50,7 +50,7 @@ export default function TradeHome() {
                 key={m.id}
                 m={m}
                 w={w}
-                record={todayAtt.get(m.id) ?? attendanceOf(m, todayIso, [], data.memAttendance)}
+                record={adjustLeave(todayAtt.get(m.id)) ?? attendanceOf(m, todayIso, [], data.memAttendance)}
                 nowMin={nowMin}
                 fallbackChar={tradeChar(m, trade)}
                 mine={mine(m)}

@@ -122,7 +122,7 @@ export function parseAttendance(html) {
       start: t($(times[0]).text()),
       end: t($(times[1]).text()),
       status: t($(c[1]).children().eq(1).text()),
-      period: t(extra[1] ? $(extra[1]).text() : ''),
+      period: t(extra.filter((_, s) => $(s).children('span').length === 0).map((_, s) => t($(s).text())).get().filter(Boolean).join(' ')) || t(extra[1] ? $(extra[1]).text() : ''),
     });
   });
   return rows;

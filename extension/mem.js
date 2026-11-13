@@ -28,7 +28,8 @@
         start: t(times[0] && times[0].textContent),
         end: t(times[1] && times[1].textContent),
         status: t(c[1].children[1] && c[1].children[1].textContent),
-        period: t(extra[1] && extra[1].textContent),
+        // 세 번째 칸 글자 모두 ('대체시차 15:30~18:00' 처럼 시차·반차 시간도)
+        period: t([...extra].filter((s) => !s.querySelector('span')).map((s) => t(s.textContent)).filter(Boolean).join(' ')),
       });
     }
     if (!rows.length) return;

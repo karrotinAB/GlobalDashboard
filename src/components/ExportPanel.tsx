@@ -557,7 +557,10 @@ function Amts({ krw, fx: f }: { krw: string; fx: string }) {
     const check = () => {
       const [a, b] = Array.from(el.children) as HTMLElement[];
       // 세로줄·여백(약 26px) 포함해서 한 줄에 들어가는지 (줄바꿈 여부로 판단하면 왔다갔다 할 수 있어서 너비로)
-      if (a && b) setWrapped(a.offsetWidth + b.offsetWidth + 28 > el.clientWidth);
+      if (!a || !b) return;
+      const need = a.offsetWidth + b.offsetWidth + 28;
+      // 한 번 줄바꿈하면 넉넉히 들어갈 때만 다시 한 줄로 (스크롤바 생김/없어짐으로 왔다갔다 떨리는 것 방지)
+      setWrapped((w) => (w ? need > el.clientWidth - 24 : need > el.clientWidth));
     };
     check();
     const ro = new ResizeObserver(check);

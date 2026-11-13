@@ -105,6 +105,7 @@ export interface Attendance {
   status: string; // 근무 / 연차 / 출장 / 대체휴가 ...
   start?: string; // 출근 HH:MM
   end?: string; // 퇴근 예정 HH:MM (출근 태그 기준)
+  planEnd?: string; // 시차·반차로 앞당겨지기 전 원래 퇴근 (화면 계산용, 저장 안 함)
   period?: string; // 휴가·출장 기간 텍스트 (예: 26.11.09~26.11.24)
   source?: 'mem';
   updatedAt?: string;

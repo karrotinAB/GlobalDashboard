@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "2조 근태 보내기",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "mem 부서 근태 현황이 뜨면 2조 대시보드에 출근·퇴근·휴가를 자동으로 보내요.",
   "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
   "action": {

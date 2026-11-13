@@ -40,7 +40,7 @@ L.forEach(function(li){
   if(!N.some(function(n){return name===n||name.slice(-n.length)===n;}))return;
   var ps=c[2]?c[2].querySelectorAll('span'):[];
   R.push({name:name,start:t(tm[0]&&tm[0].textContent),end:t(tm[1]&&tm[1].textContent),
-    status:t(c[1].children[1]&&c[1].children[1].textContent),period:t(ps[1]&&ps[1].textContent)});
+    status:t(c[1].children[1]&&c[1].children[1].textContent),period:t([].slice.call(ps).filter(function(s){return !s.querySelector('span');}).map(function(s){return t(s.textContent);}).filter(Boolean).join(' '))});
 });
 if(!R.length){alert('우리 조 이름을 못 찾았어요. 대시보드 설정에서 mem 이름을 확인해 주세요.');return;}
 var d=new Date(),p=function(x){return ('0'+x).slice(-2);};
@@ -105,7 +105,34 @@ export function sharedRecords(raw: string, names: string[]): MemAttendance[] {
   return res.records.map((r) => ({ ...r, id: `${r.date}_${r.memberId}`, name: r.memberId, memberId: '' }));
 }
 
-/** 오늘 이 사람 근태: 내 공간 기록이 있으면 그것, 없으면 공용 근태함 */
+/** 오늘 이 사람 근태: 내 공간 기록이 있으면 그것, 없으면 공용 근태함 (시차·반차 시간 반영) */
 export function attendanceOf(m: Member, date: string, own: Attendance[], shared: MemAttendance[]): Attendance | undefined {
-  return own.find((a) => a.date === date && a.memberId === m.id) ?? shared.find((a) => a.date === date && a.name === memKey(m));
+  return adjustLeave(own.find((a) => a.date === date && a.memberId === m.id) ?? shared.find((a) => a.date === date && a.name === memKey(m)));
+}
+
+const toMin = (hhmm: string) => {
+  const [h, mm] = hhmm.split(':').map(Number);
+  return h * 60 + (mm || 0);
+};
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+/**
+ * 시차·반차·외출 (예: '대체시차 15:30~18:00'): 근무 시간 끝에 붙어 있으면 그 시작이 실제 퇴근,
+ * 근무 시간 앞에 붙어 있으면 그 끝이 실제 출근. 원래 퇴근은 planEnd 로 남김
+ */
+export function adjustLeave<T extends Attendance | undefined>(r: T): T {
+  if (!r || !r.period) return r;
+  const m = r.period.match(/(\d{1,2}:\d{2})\s*[~\-–]\s*(\d{1,2}:\d{2})/);
+  if (!m) return r;
+  const a = toMin(m[1]);
+  const b = toMin(m[2]);
+  if (b <= a) return r;
+  const out = { ...r } as Attendance;
+  if (r.end && b >= toMin(r.end) - 30 && a < toMin(r.end)) {
+    out.planEnd = r.end;
+    out.end = hhmm(a);
+  } else if (r.start && a <= toMin(r.start) + 30 && b > toMin(r.start)) {
+    out.start = hhmm(b);
+  }
+  return out as T;
 }
