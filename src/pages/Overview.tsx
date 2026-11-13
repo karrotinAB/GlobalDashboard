@@ -60,6 +60,7 @@ export default function Overview() {
     setWho('');
   };
   const [q, setQ] = useState('');
+  const [tradeWho, setTradeWho] = useState(''); // 무역사무: 담당자 한 명만
   const todayIso = today();
   const monday = weekStart(todayIso);
   const shown = teams.filter((t) => !only || t.team === only);
@@ -92,9 +93,32 @@ export default function Overview() {
       {/* 조별 요약 카드 */}
       <div className="ov-cards">
         {teams.map((t) => (
-          <TeamCard key={t.team} t={t} monday={monday} todayIso={todayIso} on={only === t.team} onClick={() => setOnly((v) => (v === t.team ? '' : t.team))} />
+          <TeamCard
+            key={t.team}
+            t={t}
+            monday={monday}
+            todayIso={todayIso}
+            on={only === t.team && view !== 'trade'}
+            onClick={() => {
+              // 무역사무를 보고 있었으면 이 조 할일로
+              if (view === 'trade') {
+                setView('todos');
+                setOnly(t.team);
+              } else setOnly((v) => (v === t.team ? '' : t.team));
+            }}
+          />
         ))}
-        <TradeCard requests={data.requests} people={tradePeople} todayIso={todayIso} on={view === 'trade'} onClick={() => setView('trade')} />
+        <TradeCard
+          requests={data.requests}
+          people={tradePeople}
+          todayIso={todayIso}
+          on={view === 'trade'}
+          onClick={() => {
+            setView((v) => (v === 'trade' ? 'todos' : 'trade'));
+            setOnly('');
+            setTradeWho('');
+          }}
+        />
       </div>
 
       <div className="toolbar ov-toolbar">
@@ -130,7 +154,10 @@ export default function Overview() {
       )}
 
       {/* 조를 고르면: 조원별 업무량 (누르면 그 사람 할일만) */}
-      {oneTeam && (
+      {view === 'trade' && (
+        <TradeLoad requests={data.requests} people={tradePeople} todayIso={todayIso} who={tradeWho} onPick={(id) => setTradeWho((v) => (v === id ? '' : id))} />
+      )}
+      {oneTeam && view !== 'trade' && (
         <MemberLoad
           t={oneTeam}
           monday={monday}
@@ -182,7 +209,7 @@ export default function Overview() {
       {view === 'todos' && <TodosView teams={picked} monday={monday} todayIso={todayIso} q={q} />}
       {view === 'orders' && <OrdersView teams={picked} q={q} />}
       {view === 'claims' && <ClaimsView teams={picked} q={q} />}
-      {view === 'trade' && <TradeView requests={data.requests} people={tradePeople} only={only} q={q} todayIso={todayIso} />}
+      {view === 'trade' && <TradeView requests={data.requests} people={tradePeople} only={only} who={tradeWho} q={q} todayIso={todayIso} />}
     </div>
   );
 }
@@ -621,7 +648,7 @@ function TradeCard({ requests, people, todayIso, on, onClick }: { requests: Trad
 }
 
 /** 무역사무 요청: 남은 요청 (조 필터·검색), 급한 순 */
-function TradeView({ requests, people, only, q, todayIso }: { requests: TradeRequest[]; people: Member[]; only: string; q: string; todayIso: string }) {
+function TradeView({ requests, people, only, who, q, todayIso }: { requests: TradeRequest[]; people: Member[]; only: string; who: string; q: string; todayIso: string }) {
   const [tab, setTab] = useState<'open' | 'done'>('open');
   const query = q.trim().toLowerCase();
   const month = todayIso.slice(0, 7);
@@ -629,6 +656,7 @@ function TradeView({ requests, people, only, q, todayIso }: { requests: TradeReq
     requests
       .filter((r) => (tab === 'open' ? isOpen(r) : r.status === 'done' && (r.doneAt ?? '').startsWith(month)))
       .filter((r) => !only || teamOfRequest(r) === only)
+      .filter((r) => !who || (who === '-' ? !r.assigneeId : r.assigneeId === who))
       .filter((r) => !query || `${r.title} ${r.workType ?? ''} ${r.requesterName ?? ''}`.toLowerCase().includes(query)),
   );
   return (
@@ -813,3 +841,76 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
   );
 }
 
+
+/** 무역사무 담당자별 업무 (조원별 업무량처럼): 남은 요청 · 이번 달 완료 · 마감 지남 — 누르면 그 사람 요청만 */
+function TradeLoad({ requests, people, todayIso, who, onPick }: { requests: TradeRequest[]; people: Member[]; todayIso: string; who: string; onPick: (id: string) => void }) {
+  const month = todayIso.slice(0, 7);
+  const stats = people.map((m) => {
+    const mine = requests.filter((r) => r.assigneeId === m.id);
+    const open = mine.filter(isOpen);
+    const doneM = mine.filter((r) => r.status === 'done' && (r.doneAt ?? '').startsWith(month)).length;
+    return {
+      m,
+      open: open.length,
+      doneM,
+      progress: open.filter((r) => r.status === 'progress').length,
+      overdue: open.filter((r) => r.dueDate && r.dueDate < todayIso).length,
+      today: open.filter((r) => (r.eta || r.dueDate) === todayIso).length,
+      hot: open.filter((r) => r.priority === '초긴급' || r.priority === '마감일 오전').length,
+    };
+  });
+  const none = requests.filter((r) => isOpen(r) && !r.assigneeId).length;
+  return (
+    <section className="ov-load">
+      <div className="section-head">
+        <h2>
+          무역사무 담당자별 업무 <span className="muted small">남은 요청 · 누르면 그 사람 요청만</span>
+        </h2>
+        {none > 0 && (
+          <button className={`link small ${who === '-' ? 'on' : ''}`} onClick={() => onPick('-')}>
+            처리자 미정 {none}건
+          </button>
+        )}
+      </div>
+      {stats.length === 0 ? (
+        <p className="muted small">무역사무 담당자가 아직 없어요.</p>
+      ) : (
+        <div className="team compact ov-load-grid">
+          {stats.map((s) => (
+            <button
+              key={s.m.id}
+              className={`member-card ${who === s.m.id ? 'selected' : ''}`}
+              style={{ '--c': s.m.color } as CSSProperties}
+              onClick={() => onPick(s.m.id)}
+              title="눌러서 이 사람 요청만 보기"
+            >
+              <div className="mc-top">
+                <img className="mc-mini-char" src={characterSrc(charOf(s.m))} alt="" />
+                <div className="mc-name">
+                  <b>{s.m.name}</b>
+                  <span className="muted small">
+                    남은 요청 {s.open} · 진행중 {s.progress} · 이번 달 완료 {s.doneM}
+                  </span>
+                </div>
+                <Ring value={s.doneM} total={s.doneM + s.open} size={56} stroke={6} color={s.m.color} label={s.open} sub="남음" />
+              </div>
+              <span className="ov-busy-row">
+                <span className="muted small">
+                  이번 달 처리 {s.doneM + s.open ? Math.round((s.doneM / (s.doneM + s.open)) * 100) : 0}% ({s.doneM}/{s.doneM + s.open})
+                </span>
+              </span>
+              <span className="ov-load-bar" title={`이번 달 완료 ${s.doneM} · 남은 ${s.open}`}>
+                <span style={{ width: `${s.doneM + s.open ? (s.doneM / (s.doneM + s.open)) * 100 : 0}%`, background: s.m.color }} />
+              </span>
+              <div className="mc-flags">
+                <span className={`flag ${s.overdue ? 'warn' : ''}`}>마감 지남 {s.overdue}</span>
+                <span className={`flag ${s.today ? 'hot' : ''}`}>오늘 {s.today}</span>
+                <span className="flag">초긴급·오전 {s.hot}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
