@@ -8,7 +8,8 @@ interface Seen {
   email: string;
   name?: string; // 보내는 사람이 정한 표시 이름 (어느 조·페이지에서든 같은 이름)
   color?: string;
-  page: string;
+  page: string; // '조:페이지' (예: '2:home', 'p1a2:home') 또는 무역사무 'thome'
+  v?: number; // 2 = 공간까지 구분하는 새 신호 (옛 화면이 보낸 신호는 무시)
   at: number; // 마지막으로 "보는 중" 신호를 보낸 시각 (ms)
 }
 
@@ -60,11 +61,11 @@ export default function Presence({ page }: { page: string }) {
     if (!me.email) return;
     const ref = doc(db, 'presence', me.email);
     const beat = () => {
-      if (document.visibilityState === 'visible') setDoc(ref, { email: me.email, name: myName, ...(myColor ? { color: myColor } : {}), page, at: Date.now() }).catch(() => {});
+      if (document.visibilityState === 'visible') setDoc(ref, { email: me.email, name: myName, ...(myColor ? { color: myColor } : {}), page, v: 2, at: Date.now() }).catch(() => {});
     };
     beat();
     const id = setInterval(beat, BEAT);
-    const onVis = () => (document.visibilityState === 'visible' ? beat() : setDoc(ref, { email: me.email, name: myName, ...(myColor ? { color: myColor } : {}), page: '', at: Date.now() }).catch(() => {}));
+    const onVis = () => (document.visibilityState === 'visible' ? beat() : setDoc(ref, { email: me.email, name: myName, ...(myColor ? { color: myColor } : {}), page: '', v: 2, at: Date.now() }).catch(() => {}));
     const onLeave = () => deleteDoc(ref).catch(() => {});
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('pagehide', onLeave);
@@ -94,7 +95,8 @@ export default function Presence({ page }: { page: string }) {
   if (!me.email) return null;
   const now = Date.now();
   const here = all
-    .filter((s) => s.page === page && now - s.at < ALIVE)
+    // 같은 대시보드(같은 조·개인 공간·무역사무)의 같은 페이지를 지금 보는 사람만
+    .filter((s) => s.v === 2 && s.page === page && now - s.at < ALIVE)
     .sort((a, b) => (a.email === me.email ? 1 : b.email === me.email ? -1 : a.email.localeCompare(b.email)));
   if (!here.length) return null;
 

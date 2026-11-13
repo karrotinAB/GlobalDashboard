@@ -149,7 +149,7 @@ export default function App() {
             </a>
           )}
           {mode === 'firestore' ? (
-            <Presence page={side === 'trade' ? page : `${viewTeam}:${page}`} />
+            <Presence page={side === 'trade' ? `trade:${page}` : `${viewTeam}:${page}`} />
           ) : (
             <span className="mode local" title="이 브라우저에만 저장 중">
               로컬 모드
