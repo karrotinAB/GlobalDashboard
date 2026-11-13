@@ -6707,3 +6707,5 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 
 .rq-link-teams { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .rq-link-btn { border-color: #b9d3ea !important; color: #2f5fa8 !important; }
+
+.link-cos { margin: 4px 0 8px; max-height: 92px; overflow-y: auto; }

@@ -28,8 +28,13 @@ export default function OrderLinkPicker({
   const [q, setQ] = useState('');
   const [all, setAll] = useState(!companyId);
   const [byBundle, setByBundle] = useState(!!currentBundleId); // 묶음으로 보기
+  const [coPick, setCoPick] = useState(''); // 업체 하나만 (업체 버튼)
   const query = q.trim().toLowerCase();
-  const pool = orders.filter((o) => all || o.companyId === companyId);
+  const pool = orders.filter((o) => (coPick ? o.companyId === coPick : all || o.companyId === companyId));
+  // 주문이 있는 업체들 (주문 많은 순)
+  const coIds = [...new Set(orders.map((o) => o.companyId).filter((x): x is string => !!x))].sort(
+    (a, b) => orders.filter((o) => o.companyId === b).length - orders.filter((o) => o.companyId === a).length,
+  );
   const list = pool
     .filter((o) => !query || `${o.name} ${o.storeCode ?? ''} ${o.bundle?.name ?? ''} ${companyName(o.companyId) ?? ''}`.toLowerCase().includes(query))
     .sort((a, b) => Number(isOrderDone(a)) - Number(isOrderDone(b)) || (b.orderDate ?? b.createdAt).localeCompare(a.orderDate ?? a.createdAt))
@@ -54,12 +59,24 @@ export default function OrderLinkPicker({
         <label className="check-line small">
           <input type="checkbox" checked={byBundle} onChange={(e) => setByBundle(e.target.checked)} /> 묶음
         </label>
-        {companyId && (
+        {companyId && !coPick && (
           <label className="check-line small">
             <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> 다른 업체 주문도
           </label>
         )}
       </div>
+      {coIds.length > 1 && (
+        <div className="company-chips link-cos">
+          <button className={`cchip ${!coPick ? 'on' : ''}`} onClick={() => setCoPick('')}>
+            전체 업체
+          </button>
+          {coIds.map((id) => (
+            <button key={id} className={`cchip ${coPick === id ? 'on' : ''}`} onClick={() => setCoPick(coPick === id ? '' : id)}>
+              {companyName(id) ?? '업체'} <span className="muted small">{orders.filter((o) => o.companyId === id && !isOrderDone(o)).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {byBundle ? (
         <ul className="link-list">
           {bundles.length === 0 && <li className="muted small">맞는 묶음이 없어요. (주문 관리에서 주문을 체크해서 묶을 수 있어요)</li>}
