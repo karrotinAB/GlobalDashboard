@@ -6577,3 +6577,6 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 .roy-table td.r:last-child, .roy-table th.r:last-child { border-left: 1px dashed #eadcd9; }
 
 .c-gutter .sel-all { cursor: pointer; }
+
+.range-in { display: inline-flex; align-items: center; gap: 4px; }
+.range-in input { width: auto; }

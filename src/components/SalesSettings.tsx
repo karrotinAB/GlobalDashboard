@@ -200,6 +200,9 @@ export function SalesApiAdmin() {
   const [pickCo, setPickCo] = useState('');
   const pickCodes = pickCo ? salesCos.find((c) => c.id === pickCo)?.storeCodes : undefined;
   const [pickBranch, setPickBranch] = useState('');
+  const [periodMode, setPeriodMode] = useState<'recent' | 'month' | 'range'>('recent');
+  const [rFrom, setRFrom] = useState('');
+  const [rTo, setRTo] = useState('');
   const pickedNames = useStoreBranches(pickCodes ?? []);
   const pickedCo = salesCos.find((c) => c.id === pickCo);
   const branchList = Object.entries({ ...Object.fromEntries(Object.keys(pickedCo?.storeAreas ?? {}).map((k) => [k, ''])), ...pickedNames }).sort(([a], [b]) => a.localeCompare(b));
@@ -307,24 +310,48 @@ export function SalesApiAdmin() {
               </label>
               <label className="row-field">
                 <span>기간</span>
-                <select value={month ? 'month' : 'recent'} onChange={(e) => setMonth(e.target.value === 'month' ? thisMonthIso() : '')}>
+                <select
+                  value={periodMode}
+                  onChange={(e) => {
+                    const v = e.target.value as 'recent' | 'month' | 'range';
+                    setPeriodMode(v);
+                    setMonth(v === 'month' ? thisMonthIso() : '');
+                  }}
+                >
                   <option value="recent">최근 7일</option>
                   <option value="month">한 달 통째로</option>
+                  <option value="range">기간 직접 (최대 93일)</option>
                 </select>
               </label>
-              {month && (
+              {periodMode === 'month' && (
                 <label className="row-field">
                   <span>달</span>
                   <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
                 </label>
               )}
+              {periodMode === 'range' && (
+                <label className="row-field">
+                  <span>시작 ~ 끝</span>
+                  <span className="range-in">
+                    <input type="date" value={rFrom} max={rTo || undefined} onChange={(e) => setRFrom(e.target.value)} />
+                    ~
+                    <input type="date" value={rTo} min={rFrom || undefined} onChange={(e) => setRTo(e.target.value)} />
+                  </span>
+                </label>
+              )}
               <button
                 className="primary sa-go"
-                disabled={busy || !cfg.hasUrl}
+                disabled={busy || !cfg.hasUrl || (periodMode === 'range' && (!rFrom || !rTo))}
                 title={cfg.hasUrl ? '' : '아래 연결 설정에서 API 주소를 먼저 저장해 주세요'}
                 onClick={() =>
                   run('가져오기', async () =>
-                    syncMsg(await call('syncSalesNow', { ...(month ? { month } : { days: 7 }), codes: pickCodes, branches: pickBranch ? [pickBranch] : undefined })),
+                    syncMsg(
+                      await call('syncSalesNow', {
+                        ...(periodMode === 'range' ? { from: rFrom, to: rTo } : periodMode === 'month' ? { month } : { days: 7 }),
+                        codes: pickCodes,
+                        branches: pickBranch ? [pickBranch] : undefined,
+                      }),
+                    ),
                   )
                 }
               >
@@ -421,7 +448,7 @@ export function SalesApiAdmin() {
       {DATA_MODE !== 'local' && (
         <div className="backfill-box">
           <b>지난 판매 데이터 채우기 (2026년 1월 ~ 이번 달)</b>
-          <span className="muted small"> 판매데이터 켠 업체의 지난 판매를 한 달씩 가져와요. 밤 11시부터 10분마다 이어서 하고, 다 채운 뒤엔 매일 밤 11시에 최근 3일(새로 들어온 것)만 가져와요.</span>
+          <span className="muted small"> 자동으로 한 번만: 밤 11시부터 판매데이터 켠 업체의 지난 판매를 한 달씩 가져오고, 다 채운 뒤엔 매일 밤 11시에 최근 3일(새로 들어온 것)만 가져와요. 빠진 곳만 다시 받고 싶으면 위 '판매 데이터 가져오기'에서 업체·지점·기간을 골라 주세요.</span>
           <div className="small">
             {!salesBf
               ? '아직 시작 전'
@@ -430,17 +457,7 @@ export function SalesApiAdmin() {
                 : `진행 중: ${salesBf.next ?? '2026-01'} 부터 남음`}
             {salesBf?.last?.length ? ` · 최근: ${salesBf.last.map((x) => `${x.month} ${x.rows}건${x.errors ? ` (문제 ${x.errors})` : ''}${x.skipped ? ` (${x.skipped})` : ''}`).join(', ')}` : ''}
           </div>
-          <button
-            disabled={busy || !!salesBf?.done}
-            onClick={() =>
-              run('지난 판매 데이터 채우기', async () => {
-                const r = await call<{ skipped?: string; done?: boolean; next?: string }>('salesBackfillNow');
-                return r.skipped ?? (r.done ? '다 채웠어요 ✓' : `${r.next ?? ''} 부터 남았어요 (한 번 더 누르거나 밤 11시 자동)`);
-              })
-            }
-          >
-            지금 채우기
-          </button>
+
         </div>
       )}
       {DATA_MODE !== 'local' && (
