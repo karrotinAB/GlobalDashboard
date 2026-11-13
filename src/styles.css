@@ -6727,3 +6727,63 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .co-set-row.sub > span:first-child { font-weight: 600; font-size: 13px; }
 .flag-word.royalty { color: #a37800; }
 .flag-word.sales { color: #2f6b3c; }
+
+/* ================= 휴대폰 (홈 화면) ================= */
+@media (max-width: 600px) {
+  .shell { padding: 0 12px; }
+  .cover { height: 64px; }
+  .cover.tall { height: 84px; }
+  .page-icon { font-size: 40px; margin-top: -24px; }
+  .page-icon .jelly { width: 52px; height: auto; }
+  .top-actions { gap: 6px; }
+  .top-actions .top-btn, .top-actions select { font-size: 12px; padding: 5px 9px; }
+  /* 탭: 한 줄로 옆으로 밀기 */
+  .tabs { gap: 2px; margin-top: 8px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { padding: 6px 10px; font-size: 13px; white-space: nowrap; flex: none; }
+  /* 제목 + 인사 */
+  .hero h1 { font-size: 26px; margin-bottom: 2px; }
+  .hero-greet { font-size: 14px; }
+  .hero-cal { padding: 5px 10px; font-size: 13px; }
+  /* TODAY · THIS WEEK: 작게 나란히 */
+  .zones { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 8px; }
+  .zone { padding: 12px 12px 10px; border-radius: 16px; }
+  .zone-tag { font-size: 9.5px; }
+  .zone-date { font-size: 22px; }
+  .zone-date span { font-size: 11px; }
+  .zone-date .arrow { font-size: 15px; }
+  .zone-now { font-size: 17px; }
+  .zone-today .muted { font-size: 10.5px; }
+  .week-days { gap: 3px; flex-wrap: nowrap; }
+  .wd { width: auto; flex: 1; min-width: 0; padding: 4px 0; border-radius: 8px; }
+  .wd span { font-size: 9.5px; }
+  .wd b { font-size: 13px; }
+  .wd-left { display: none; }
+  /* 우리 팀 오늘: 카드 작게 */
+  .team { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .leave { padding: 10px 14px; }
+  .leave-time { font-size: 24px; }
+  .mc-body { padding: 10px 14px 4px; gap: 10px; }
+  .mc-char { width: 54px; height: 64px; }
+  .mc-name b { font-size: 16px; }
+  .bubble { padding: 6px 10px; font-size: 12.5px; }
+  .mc-tasks { margin: 6px 14px 10px; padding-top: 8px; gap: 10px; }
+  /* 세계 시계: 3개씩 */
+  .dclocks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .dclock { padding: 8px 9px; border-radius: 12px; }
+  .dc-label { font-size: 11px; }
+  .dc-time { font-size: 20px; }
+  .dc-meta { font-size: 9.5px; flex-wrap: wrap; gap: 0 4px; }
+  .dc-holiday { font-size: 9.5px; }
+  /* 업체 tracking: 2개씩 */
+  .companies { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .company-card { padding: 10px 12px; }
+  .cc-title { font-size: 13px; }
+  .cc-orders { font-size: 11px; padding: 2px 6px; }
+  .cc-todo b { font-size: 22px; }
+  /* 판매 데이터 달력: 옆으로 밀어서 */
+  .sales-week-wrap { overflow-x: auto; }
+  .sales-week { min-width: 560px; }
+  .section { margin-top: 22px; }
+  .section-head h2 { font-size: 17px; }
+}
