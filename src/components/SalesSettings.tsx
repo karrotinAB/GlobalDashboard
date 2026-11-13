@@ -187,6 +187,10 @@ export function SalesApiAdmin() {
   const [busy, setBusy] = useState(false);
   const [insp, setInsp] = useState<Inspect | null>(null);
   const [month, setMonth] = useState('');
+  const { companies } = useLookups();
+  const salesCos = companies.filter((c) => c.salesOn && c.storeCodes?.length);
+  const [pickCo, setPickCo] = useState('');
+  const pickCodes = pickCo ? salesCos.find((c) => c.id === pickCo)?.storeCodes : undefined;
   // 오래 걸릴 수 있어서 9분까지 기다림 (서버 함수 제한과 같게)
   const call = async <T,>(name: string, data?: unknown) => (await httpsCallable(functions, name, { timeout: 540000 })(data)).data as T;
   const [running, setRunning] = useState<{ label: string; at: number } | null>(null);
@@ -316,11 +320,20 @@ export function SalesApiAdmin() {
             <button disabled={busy || !cfg.hasUrl} onClick={() => run('응답 확인', async () => (setInsp(await call<Inspect>('inspectSalesApi', {})), ''))}>
               응답 확인 (최근 7일)
             </button>
-            <button disabled={busy || !cfg.hasUrl} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { days: 7 })))}>
+            {/* 업체 하나만 골라서 (API 를 덜 부르려고) — 비우면 판매데이터 켠 업체 전부 */}
+            <select value={pickCo} onChange={(e) => setPickCo(e.target.value)} title="이 업체 매장만 가져와요">
+              <option value="">판매데이터 켠 업체 전부</option>
+              {salesCos.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({(c.storeCodes ?? []).join(', ')})
+                </option>
+              ))}
+            </select>
+            <button disabled={busy || !cfg.hasUrl} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { days: 7, codes: pickCodes })))}>
               최근 7일 가져오기
             </button>
             <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-            <button disabled={busy || !cfg.hasUrl || !month} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { month })))}>
+            <button disabled={busy || !cfg.hasUrl || !month} onClick={() => run('가져오기', async () => syncMsg(await call('syncSalesNow', { month, codes: pickCodes })))}>
               이 달 통째로 가져오기
             </button>
             <button

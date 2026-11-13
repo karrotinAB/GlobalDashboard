@@ -351,11 +351,13 @@ async function branchesWithAbbr(code) {
   for (const [sid, a] of Object.entries(abbrOverrides)) if (sid.startsWith(code)) out[sid] = a;
   return out;
 }
-async function runSales({ days = 3, month } = {}) {
+async function runSales({ days = 3, month, only } = {}) {
   const cfg = await salesCfg();
   if (!cfg.url) return { skipped: '판매 데이터 API 주소가 아직 없어요' };
   const key = await apiKey();
-  const codes = await allStoreCodes();
+  let codes = await allStoreCodes();
+  // 업체 하나만 (그 업체 매장코드만) — API 를 덜 부르려고
+  if (only?.length) codes = new Set([...codes].filter((c) => only.includes(c)));
   if (!codes.size) return { skipped: "'판매데이터 수집 중'을 켠 업체(매장코드 있는)가 없어요" };
   const today = lastDays(1)[0];
   const r = await syncSalesDates(db, cfg, key, month ? monthDays(month, today) : lastDays(days), [...codes], { branchesFor: branchesWithAbbr });
@@ -403,8 +405,9 @@ export const syncSalesNow = onCall({ region: REGION, timeoutSeconds: 540 }, asyn
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   const month = typeof req.data?.month === 'string' && /^\d{4}-\d{2}$/.test(req.data.month) ? req.data.month : undefined;
   const days = Math.min(Math.max(Number(req.data?.days) || 3, 1), 31);
+  const only = Array.isArray(req.data?.codes) ? req.data.codes.map((c) => String(c).trim()).filter((c) => /^\d{4}$/.test(c)).slice(0, 20) : undefined;
   try {
-    return await runSales(month ? { month } : { days });
+    return await runSales(month ? { month, only } : { days, only });
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }
