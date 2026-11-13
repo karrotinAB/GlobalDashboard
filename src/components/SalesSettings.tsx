@@ -65,6 +65,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
   const [adding, setAdding] = useState<string | null>(null); // 지점 직접 추가 (누르면 입력칸)
   const [addArea, setAddArea] = useState('');
   const ids = [...new Set([...seen.keys(), ...Object.keys(c.storeAreas ?? {})])].sort();
+  const [editAbbr, setEditAbbr] = useState<string | null>(null);
   const setAbbr = (sid: string, v: string) => {
     const a = v.trim().toUpperCase();
     const next = { ...(c.storeAbbr ?? {}) };
@@ -116,21 +117,34 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
       {ids.map((sid) => (
         <label key={sid} className="area-row">
           <span>
-            {seen.get(sid) || '지점'} <span className="muted small">{sid}</span>
+            {/* 판매 데이터를 불러올 때 쓰는 약자: 직접 넣은 게 있으면 그것 (자동 이름은 작게) */}
+            <b>{c.storeAbbr?.[sid] || seen.get(sid) || '지점'}</b> <span className="muted small">{sid}</span>
+            {c.storeAbbr?.[sid] && seen.get(sid) && seen.get(sid) !== c.storeAbbr[sid] && <span className="muted small"> (원래 {seen.get(sid)})</span>}
           </span>
-          {c.storeAbbr?.[sid] || !looksAbbr(seen.get(sid)) ? (
-            // 자동으로 불러온 지점 이름이 약자가 아니면 (예: 회사 이름) 판매 데이터를 못 불러와서 → 약자를 직접
+          {c.storeAbbr?.[sid] || editAbbr === sid ? (
+            // 약자 직접: 고른 지점만 (✎ 를 눌렀거나 이미 넣은 것)
             <input
-              className="abbr-in need"
+              className={`abbr-in ${!c.storeAbbr?.[sid] && !looksAbbr(seen.get(sid)) ? 'need' : ''}`}
               key={`a${c.storeAbbr?.[sid] ?? ''}`}
+              autoFocus={editAbbr === sid}
               defaultValue={c.storeAbbr?.[sid] ?? ''}
-              placeholder="약자 필요"
-              title="이 지점은 이름이 약자가 아니라 판매 데이터를 못 불러와요. 지점 약자(예: LDC)를 넣어 주세요"
-              onBlur={(e) => setAbbr(sid, e.target.value)}
+              placeholder={looksAbbr(seen.get(sid)) ? seen.get(sid) : '약자 필요'}
+              title="판매 데이터를 불러올 때 쓰는 지점 약자 (비우면 자동으로 불러온 이름)"
+              onBlur={(e) => {
+                setAbbr(sid, e.target.value);
+                setEditAbbr(null);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             />
           ) : (
-            <span />
+            <button
+              type="button"
+              className={`abbr-edit ${looksAbbr(seen.get(sid)) ? '' : 'warn'}`}
+              title={looksAbbr(seen.get(sid)) ? '약자 고치기 (판매 데이터를 불러올 때 쓰는 이름)' : '이 지점 이름은 약자가 아니라 판매 데이터를 못 불러와요 — 눌러서 약자를 넣어 주세요'}
+              onClick={(e) => (e.preventDefault(), setEditAbbr(sid))}
+            >
+              {looksAbbr(seen.get(sid)) ? '✎ 약자' : '⚠ 약자'}
+            </button>
           )}
           <input
             key={c.storeAreas?.[sid] ?? ''}

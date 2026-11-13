@@ -6615,3 +6615,8 @@ tr.is-done .c-due, tr.is-done .c-due * { text-decoration: line-through; color: #
 /* 로열티 표: 칸 전체 폭 (원화·달러는 따로 칸) */
 .royalty-box .sales-table-wrap { display: block; }
 .roy-table { width: 100%; }
+
+.area-row .abbr-edit { border: 1px dashed #e3d3cf; background: none; border-radius: 8px; font: inherit; font-size: 11px; color: #a8958f; cursor: pointer; padding: 4px 6px; }
+.area-row .abbr-edit:hover { color: #8c2f3c; border-color: #8c2f3c; }
+
+.area-row .abbr-edit.warn { color: #b03a2e; border-color: #e7a19a; }
