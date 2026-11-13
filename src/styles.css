@@ -6787,3 +6787,59 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .section { margin-top: 22px; }
   .section-head h2 { font-size: 17px; }
 }
+
+/* ===== 휴대폰: 위쪽 바 (☰ · 아이콘 · 페이지 제목) + 옆 서랍 메뉴 ===== */
+.mobile-bar, .drawer-bg { display: none; }
+@media (max-width: 600px) {
+  html, body { overflow-x: clip; max-width: 100%; }
+  .app, .shell, main, .page { max-width: 100vw; }
+  .cover, .top-actions, .page-icon, .tabs { display: none !important; }
+  .mobile-bar { display: flex; position: sticky; top: 0; z-index: 60; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(243, 229, 226, 0.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .mb-menu { border: 0; background: #fff; width: 36px; height: 36px; border-radius: 10px; font-size: 18px; box-shadow: 0 1px 4px rgba(91, 40, 40, 0.12); cursor: pointer; flex: none; }
+  .mb-icon { font-size: 22px; line-height: 1; display: inline-flex; }
+  .mb-icon .jelly { width: 30px; height: auto; }
+  .mb-title { font-family: 'Gowun Batang', serif; font-size: 18px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mobile-bar .presence { margin-left: auto; }
+  .mobile-bar .presence .pres-label { display: none; }
+  .drawer-bg { display: block; position: fixed; inset: 0; z-index: 100; background: rgba(40, 20, 20, 0.35); }
+  .drawer { position: absolute; top: 0; left: 0; bottom: 0; width: min(78vw, 300px); background: #fffaf8; box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; padding: 14px 12px; gap: 10px; overflow-y: auto; animation: drawer-in 0.18s ease-out; }
+  @keyframes drawer-in { from { transform: translateX(-100%); } to { transform: none; } }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; font-size: 16px; padding: 0 4px; }
+  .drawer-switch select { width: 100%; }
+  .drawer-nav { display: flex; flex-direction: column; gap: 2px; }
+  .drawer-nav a, .drawer-foot a, .drawer-foot button { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 12px; text-decoration: none; color: var(--ink, #3b2a28); font: inherit; font-size: 15px; background: none; border: 0; text-align: left; cursor: pointer; }
+  .drawer-nav a.active { background: #8c2f3c; color: #fff; }
+  .drawer-nav .tab-icon { width: 24px; display: inline-flex; justify-content: center; }
+  .drawer-nav .tab-icon .jelly { width: 22px; height: auto; }
+  .drawer-foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .drawer-foot a.active { background: #f4e9e6; }
+  /* 제목은 위쪽 바에 있으니 페이지 안 큰 제목은 숨김 */
+  .hero h1, .page-head > h1 { display: none; }
+  .hero-greet-row { margin-top: 4px; }
+  /* 우리 팀 오늘: 출퇴근 미니 카드처럼 2개씩 나란히 */
+  .team { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+  .team .member-card { border-radius: 16px; }
+  .team .leave { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; }
+  .team .leave-main { flex-direction: column; align-items: flex-start; }
+  .team .leave-time { font-size: 20px; }
+  .team .leave-side { gap: 2px; }
+  .team .leave-detail { font-size: 10.5px; }
+  .team .leave-tag { font-size: 10px; padding: 1px 6px; }
+  .team .mc-body { flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 8px 8px 2px; }
+  .team .mc-char { width: 50px; height: 56px; }
+  .team .mc-main { align-items: center; width: 100%; }
+  .team .mc-name { justify-content: center; }
+  .team .mc-name b { font-size: 15px; }
+  .team .bubble { font-size: 11px; padding: 4px 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 100%; }
+  .team .bubble::before { display: none; }
+  .team .mc-tasks { margin: 4px 10px 8px; padding-top: 6px; gap: 6px; }
+  .team .mc-task-text { font-size: 11px; }
+  .team .mc-tasks svg { width: 34px; height: 34px; }
+}
+@media (max-width: 600px) {
+  .shell > main, .page { padding-top: 0; }
+  .hero { padding-top: 6px !important; margin-top: 0 !important; }
+  .team .leave-time { font-size: 18px; }
+  .team .mc-char { width: 44px; height: 48px; }
+  .team .mc-tasks { flex-direction: column; align-items: center; text-align: center; }
+}

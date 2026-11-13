@@ -97,14 +97,75 @@ export default function App() {
     return () => window.removeEventListener('hashchange', h);
   }, []);
 
+  const [drawer, setDrawer] = useState(false);
   const go = (p: string) => {
     window.location.hash = `/${p}`;
   };
   const current = PAGES.find((p) => p.key === page) ?? PAGES[0];
 
+  // 휴대폰: 위쪽 메뉴·탭 대신 ☰ 옆 서랍
+  const pageTitle = page === 'home' ? `${viewLabel} Dashboard` : page === 'thome' ? '무역사무 Dashboard' : current.label;
+  const closeDrawer = () => setDrawer(false);
   return (
     <div className="app">
       <ExtensionBridge />
+      <div className="mobile-bar">
+        <button className="mb-menu" onClick={() => setDrawer(true)} aria-label="메뉴 열기">
+          ☰
+        </button>
+        <span className="mb-icon" aria-hidden="true">
+          <PageIcon icon={current.icon} />
+        </span>
+        <b className="mb-title">{pageTitle}</b>
+        {mode === 'firestore' && <Presence page={side === 'trade' ? `trade:${page}` : `${viewTeam}:${page}`} />}
+      </div>
+      {drawer && (
+        <div className="drawer-bg" onClick={closeDrawer}>
+          <aside className="drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-head">
+              <b>{side === 'trade' ? '무역사무' : viewLabel}</b>
+              <button className="icon-btn" onClick={closeDrawer} aria-label="닫기">
+                ✕
+              </button>
+            </div>
+            {role !== 'trade' && !leader && canTrade && side === 'team' && (
+              <div className="drawer-switch">
+                <TeamSwitch />
+              </div>
+            )}
+            <nav className="drawer-nav" onClick={closeDrawer}>
+              {tabs.map((k) => PAGES.find((p) => p.key === k)!).map((p) => (
+                <a key={p.key} href={`#/${p.key}`} className={page === p.key ? 'active' : ''}>
+                  <span className="tab-icon" aria-hidden="true">
+                    <PageIcon icon={p.icon} />
+                  </span>
+                  {p.label}
+                </a>
+              ))}
+              {side === 'team' && (
+                <a href="#/requests" className={page === 'requests' ? 'active' : ''}>
+                  <span className="tab-icon" aria-hidden="true">
+                    📨
+                  </span>
+                  무역사무요청
+                </a>
+              )}
+            </nav>
+            <div className="drawer-foot" onClick={closeDrawer}>
+              {!tradeOnly && canTrade && <a href={side === 'trade' ? '#/home' : '#/thome'}>{side === 'trade' ? `← ${viewLabel} 페이지` : '무역사무 페이지 →'}</a>}
+              {role !== 'admin' && role !== null && (
+                <a href={GOP_URL} target="_blank" rel="noreferrer">
+                  Global Opening Prep ↗
+                </a>
+              )}
+              <a href="#/settings" className={page === 'settings' ? 'active' : ''}>
+                ⚙️ 설정
+              </a>
+              {mode === 'firestore' && <button onClick={() => confirm('로그아웃할까요?') && logout()}>로그아웃</button>}
+            </div>
+          </aside>
+        </div>
+      )}
       <Cover tall={page === 'home' || page === 'thome'} />
       <div className="top-actions">
         {role !== 'trade' && !leader && canTrade && side === 'team' && (
