@@ -54,8 +54,9 @@ export default function Orders() {
   const { data, save, saveMany, remove } = useStore();
   const { myCompanies: companies, companyById } = useLookups();
   const [tab, setTab] = useState<Tab>('open');
-  // 관리자 확인 도구 (ERP 원본 보기): 사이트 연결(firestore) 모드 + 관리자만
-  const canInspect = DATA_MODE === 'firestore' && useAccess().role === 'admin';
+  // ERP 내역 보기: 모두 (저장된 값 — API 안 부름) · 'ERP 에서 다시 조회'는 관리자만 (API 2~3번)
+  const canQuery = DATA_MODE === 'firestore' && useAccess().role === 'admin';
+  const canInspect = DATA_MODE === 'firestore';
   const [inspecting, setInspecting] = useState<Order | null>(null);
   // 업체 = 시트: 고른 업체를 이 브라우저에 기억해서 다음에 열어도 그 시트로
   const [companyFilter, setCompanyFilterState] = useState<string>(() => {
@@ -476,7 +477,7 @@ export default function Orders() {
           </button>
         </div>
       )}
-      {inspecting && <ErpInspector o={data.orders.find((x) => x.id === inspecting.id) ?? inspecting} onClose={() => setInspecting(null)} />}
+      {inspecting && <ErpInspector o={data.orders.find((x) => x.id === inspecting.id) ?? inspecting} canQuery={canQuery} onClose={() => setInspecting(null)} />}
     </div>
   );
 
@@ -646,7 +647,7 @@ export default function Orders() {
                 o.closed
                   ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
                   : { label: '✓ 수동 완료 처리 (출고 없이 끝난 건)', onClick: () => patch({ closed: true }) },
-                ...(canInspect ? [{ label: '🔍 ERP 원본 확인 (관리자)', onClick: () => setInspecting(o) }] : []),
+                ...(canInspect ? [{ label: '🔍 ERP 내역 보기', onClick: () => setInspecting(o) }] : []),
                 { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
               ]}
             />
@@ -772,7 +773,7 @@ function ApiTag({ o, onInspect }: { o: Order; onInspect?: () => void }) {
           )}
           {onInspect && (
             <button className="link small api-inspect-btn" onClick={onInspect}>
-              🔍 ERP 원본 확인 (관리자)
+              🔍 ERP 내역 자세히
             </button>
           )}
         </div>
@@ -786,7 +787,7 @@ type InspectResult = { api1: RawCall | null; api2: RawCall[] };
 const numOf = (v: unknown) => (v === null || v === undefined || v === '' ? undefined : Number(v));
 
 /** 관리자 확인용: 이 주문으로 ERP API 를 다시 불러서 받은 그대로 보여줌 (아무것도 저장/수정 안 함) */
-function ErpInspector({ o, onClose }: { o: Order; onClose: () => void }) {
+function ErpInspector({ o, canQuery, onClose }: { o: Order; canQuery: boolean; onClose: () => void }) {
   const [orderDate, setOrderDate] = useState(o.orderDate ?? '');
   const [storeCode, setStoreCode] = useState(o.storeCode ?? '');
   const [res, setRes] = useState<InspectResult | null>(null);
@@ -805,10 +806,6 @@ function ErpInspector({ o, onClose }: { o: Order; onClose: () => void }) {
       setBusy(false);
     }
   };
-  useEffect(() => {
-    void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const infos1 = res?.api1?.body?.Infos ?? [];
   const plannedK = infos1.reduce((a, r) => a + (numOf(r.TOTAL_OUT_AMT_K) ?? 0), 0);
@@ -823,10 +820,13 @@ function ErpInspector({ o, onClose }: { o: Order; onClose: () => void }) {
   const diffF = (a?: number, b?: number) => (a === undefined || b === undefined ? '' : Math.abs(a - b) < 0.005 ? '같음' : `${a - b > 0 ? '+' : ''}${fmtFX(Math.round((a - b) * 100) / 100)}`);
 
   return (
-    <Modal title={`ERP 원본 확인 · ${o.name}`} onClose={onClose} wide>
+    <Modal title={`ERP 내역 · ${o.name}`} onClose={onClose} wide>
       <p className="muted small" style={{ marginTop: 0 }}>
-        관리자만 보이는 확인 도구예요. ERP API 를 지금 다시 불러서 받은 값을 그대로 보여줘요. 대시보드 금액은 바꾸지 않아요.
+        자동 갱신(30분마다)으로 저장해 둔 ERP 내역이에요 — 여는 것만으로는 API 를 부르지 않아요.
+        {canQuery ? ' [ERP 에서 다시 조회]를 누르면 지금 ERP 값을 직접 불러와요 (API 2~3번 · 대시보드 금액은 안 바뀜).' : ''}
       </p>
+      {!res && <SavedErp o={o} />}
+      {canQuery && (
       <div className="insp-form">
         <label>
           주문일자 <input className="cell-input" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} placeholder="2026-09-29" />
@@ -835,10 +835,11 @@ function ErpInspector({ o, onClose }: { o: Order; onClose: () => void }) {
           매장코드 <input className="cell-input" value={storeCode} onChange={(e) => setStoreCode(e.target.value)} />
         </label>
         <button className="primary" onClick={run} disabled={busy}>
-          {busy ? '불러오는 중…' : '다시 조회'}
+          {busy ? '불러오는 중…' : 'ERP 에서 다시 조회'}
         </button>
         <span className="muted small">날짜나 매장코드를 바꿔서 시험해 볼 수 있어요.</span>
       </div>
+      )}
       {err && <p className="insp-err">{err}</p>}
       {res && (
         <>
@@ -969,5 +970,69 @@ function BundleColor({ color, onPick }: { color: string; onPick: (c: string) => 
         </div>
       )}
     </span>
+  );
+}
+
+/** 저장해 둔 ERP 내역 (자동 갱신 때 받은 값) — API 안 부름 */
+function SavedErp({ o }: { o: Order }) {
+  const rows = o.outRows ?? [];
+  const ok = rows.filter((r) => r.status === '출고승인');
+  return (
+    <div className="saved-erp">
+      <table className="insp-sum">
+        <thead>
+          <tr>
+            <th />
+            <th className="r">원화</th>
+            <th className="r">외화</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="me">
+            <td>대시보드 금액</td>
+            <td className="r">{fmtKRW(o.amountKRW)}</td>
+            <td className="r">{fmtFX(o.amountForeign)}</td>
+          </tr>
+          {(o.planKRW !== undefined || o.planForeign !== undefined) && (
+            <tr>
+              <td>ERP 예정 금액 (주문 조회)</td>
+              <td className="r">{fmtKRW(o.planKRW)}</td>
+              <td className="r">{fmtFX(o.planForeign)}</td>
+            </tr>
+          )}
+          <tr>
+            <td>출고승인 합계 · {ok.length}줄</td>
+            <td className="r">{fmtKRW(ok.reduce((a, r) => a + (r.k ?? 0), 0))}</td>
+            <td className="r">{fmtFX(ok.reduce((a, r) => a + (r.f ?? 0), 0))}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="muted small">
+        EXP_NO {o.expNo ?? '-'}
+        {o.apiSyncedAt ? ` · ${new Date(o.apiSyncedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 에 확인한 값` : ' · 아직 ERP 에서 확인 전'}
+      </p>
+      {rows.length > 0 && (
+        <table className="insp-sum">
+          <thead>
+            <tr>
+              <th>출고일</th>
+              <th>상태</th>
+              <th className="r">원화</th>
+              <th className="r">외화</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.date ?? '-'}</td>
+                <td>{r.status}</td>
+                <td className="r">{fmtKRW(r.k ?? undefined)}</td>
+                <td className="r">{fmtFX(r.f ?? undefined)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
