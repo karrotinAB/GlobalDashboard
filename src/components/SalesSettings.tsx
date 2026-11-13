@@ -470,6 +470,18 @@ export function SalesApiAdmin() {
               >
                 환율 가져오기
               </button>
+              <button
+                disabled={busy || !cfg.hasEcos}
+                title="올해 1월부터 이번 달까지 ECOS 환율을 한 번에 가져와요 (판매 통화 + 달러)"
+                onClick={() =>
+                  run('환율 가져오기 (올해 전체)', async () => {
+                    const r = await call<{ saved: number; errors?: string[] }>('syncFxNow', { year: true });
+                    return `환율 가져왔어요 ✓ ${r.saved}개 (통화·달)${r.errors?.length ? `\n문제: ${r.errors.join('\n')}` : ''}`;
+                  })
+                }
+              >
+                환율 가져오기 (올해 전체)
+              </button>
             </div>
           </details>
         </div>

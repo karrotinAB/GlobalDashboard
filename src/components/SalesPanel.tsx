@@ -7,6 +7,15 @@ import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, weeksOf, type FxTable, type SalesBranch } from '../lib/sales';
 
 type Conv = (iso: string, amt: number) => number | null;
+// 판매 통화별 짧은 금액: 달러·유로 등은 12.3k / 1.2M, 나머지(₮·₸·₩ …)는 만·억
+const KM = new Set(['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'SGD', 'CHF', 'HKD', 'AED', 'SAR', 'MYR', 'BRL', 'TRY', 'PLN']);
+let CUR_MONEY = '';
+const sm = (n: number) => {
+  if (!KM.has(CUR_MONEY)) return shortAmt(n);
+  const a = Math.abs(n);
+  return a >= 1e6 ? `${(n / 1e6).toFixed(a >= 1e7 ? 1 : 2)}M` : a >= 1e3 ? `${(n / 1e3).toFixed(a >= 1e4 ? 0 : 1)}k` : `${Math.round(n)}`;
+};
+
 /** 현지 통화 → 원화 / 달러 (판매일 ECOS 환율, 주말·공휴일은 그 전 영업일) */
 function makeConv(fx: FxTable, money: string | undefined, target: 'KRW' | 'USD'): Conv {
   return (iso, amt) => {
@@ -145,6 +154,7 @@ function SalesView({ companies }: { companies: Company[] }) {
   const cur = sel ?? (monthList.length ? { month: monthList[monthList.length - 1], branch: null } : null);
   // 판매 통화 → 원화 (판매일 ECOS 환율)
   const money = co?.salesCurrency;
+  CUR_MONEY = money ?? '';
   const fxTable = useFxRates([money ?? '', 'USD'], monthList.length ? [prevMonth(monthList[0]), ...monthList] : []);
   // 현지 통화 금액 아래에 보여줄 환산 통화 (슬라이드 버튼: 원화 / 달러)
   const [target, setTarget] = useState<'KRW' | 'USD'>(() => (store.get('gd:salesConv') === 'USD' ? 'USD' : 'KRW'));
@@ -242,6 +252,11 @@ function SalesView({ companies }: { companies: Company[] }) {
                     </button>
                   )}
                 </div>
+                {money && money !== target && k === null && (
+                  <span className="conv-missing" title="ECOS 환율이 이 달에 없어요">
+                    {target === 'USD' ? '달러' : '원화'} 환산 없음 — 설정 › 판매 데이터 API 에서 ECOS 인증키 저장 후 [환율 가져오기 (올해 전체)]
+                  </span>
+                )}
                 {money && (
                   <div className="conv-pick">
                     <span className="muted small">{money} 아래 환산</span>
@@ -550,7 +565,7 @@ function MonthDetail({
                             const wkend = sumOf(pick, w.days.filter(off));
                             return (
                               <span className="wk-split">
-                                평일 {shortAmt(wd)} <i>|</i> <em>주말·공휴일 {shortAmt(wkend)}</em>
+                                평일 {sm(wd)} <i>|</i> <em>주말·공휴일 {sm(wkend)}</em>
                               </span>
                             );
                           })()}
@@ -680,7 +695,7 @@ function WeekChart({
             <line x1={L} x2={W - R} y1={y(max * g)} y2={y(max * g)} className="sc-grid" />
             <text x={L - 6} y={y(max * g) + 4} className="sc-axis" textAnchor="end">
               {sym}
-              {shortAmt(max * g)}
+              {sm(max * g)}
             </text>
           </g>
         ))}
@@ -700,7 +715,7 @@ function WeekChart({
                 s.vals.map((v, i) => (
                   <text key={i} x={x(i)} y={y(v) - (convOf ? 20 : 9)} textAnchor="middle" className="sc-val">
                     {sym}
-                    {shortAmt(v)}
+                    {sm(v)}
                     {convOf && convOf(s.b, weeks[i].days) !== null && (
                       <tspan x={x(i)} dy={11} className="sc-conv">
                         {tSym}
@@ -809,7 +824,7 @@ function MonthCalendar({
                             {d}
                             {hol && <span className="sw-hol">{hol}</span>}
                           </span>
-                          <span className="sw-v">{has(d) ? shortAmt(val(d)) : ''}</span>
+                          <span className="sw-v">{has(d) ? sm(val(d)) : ''}</span>
                           {conv && has(d) && conv(d, val(d)) !== null && <span className="sw-c">{tSym}{shortConv(conv(d, val(d))!, target)}</span>}
                         </>
                       )}
@@ -817,11 +832,11 @@ function MonthCalendar({
                   );
                 })}
                 <td className="sum sep" title={`${sym}${fullAmt(wd)}`}>
-                  {wd ? shortAmt(wd) : ''}
+                  {wd ? sm(wd) : ''}
                   {conv && wd ? <span className="sw-c">{tSym}{shortConv(sumConv(days.filter((d) => !off(d))), target)}</span> : null}
                 </td>
                 <td className="sum we" title={`${sym}${fullAmt(we)}`}>
-                  {we ? shortAmt(we) : ''}
+                  {we ? sm(we) : ''}
                   {conv && we ? <span className="sw-c">{tSym}{shortConv(sumConv(days.filter(off)), target)}</span> : null}
                 </td>
               </tr>

@@ -6622,3 +6622,5 @@ tr.is-done .c-due, tr.is-done .c-due * { text-decoration: line-through; color: #
 .area-row .abbr-edit.warn { color: #b03a2e; border-color: #e7a19a; }
 
 .chart-legend .lg-all { display: inline-flex; gap: 8px; margin-left: auto; font-size: 12px; }
+
+.conv-missing { font-size: 11.5px; color: #b03a2e; background: #fdecea; border-radius: 8px; padding: 3px 8px; }

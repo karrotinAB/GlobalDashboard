@@ -390,7 +390,7 @@ async function ecosKey() {
 async function fxCurrencies() {
   const set = new Set(['USD']);
   for (const space of await allSpaces()) {
-    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) if (d.get('royalty') && d.get('salesCurrency')) set.add(String(d.get('salesCurrency')));
+    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) if ((d.get('royalty') || d.get('salesOn')) && d.get('salesCurrency')) set.add(String(d.get('salesCurrency')));
   }
   return [...set];
 }
@@ -402,6 +402,12 @@ async function runFx(months) {
 export const syncFxNow = onCall({ region: REGION, timeoutSeconds: 300 }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   const month = typeof req.data?.month === 'string' && /^\d{4}-\d{2}$/.test(req.data.month) ? req.data.month : lastDays(1)[0].slice(0, 7);
+  if (req.data?.year) {
+    // 올해 1월 ~ 이번 달 (+ 작년 12월: 1월 초 주말용)
+    const months = [prevMonth(`${month.slice(0, 4)}-01`)];
+    for (let m = `${month.slice(0, 4)}-01`; m <= month; m = (() => { const [y, mo] = m.split('-').map(Number); return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`; })()) months.push(m);
+    return runFx(months);
+  }
   return runFx([prevMonth(month), month]);
 });
 
