@@ -784,16 +784,11 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
                 </div>
                 <Ring value={s.done} total={s.total} size={56} stroke={6} color={s.m.color} label={s.open} sub="남음" />
               </div>
-              {/* 바쁨 정도 + 남은 비율 막대: 각자 맡은 할일 중 남은 비율 */}
+              {/* 완료 비율 + 막대 */}
               {(() => {
-                const ratio = s.total ? s.open / s.total : 0;
-                const b = busyLevel(s.open, ratio);
                 return (
                   <>
                     <span className="ov-busy-row">
-                      <span className={`ov-busy ${b.cls}`} title={BUSY_HELP}>
-                        {b.label}
-                      </span>
                       <span className="muted small">
                         완료 {s.total ? Math.round((s.done / s.total) * 100) : 0}% ({s.done}/{s.total})
                       </span>
@@ -818,16 +813,3 @@ function MemberLoad({ t, monday, todayIso, who, onPick }: { t: TeamData; monday:
   );
 }
 
-const BUSY_HELP = '맡은 할일 중 남은 비율: 80% 이상 매우 바쁨 · 60% 이상 바쁨 · 30% 이상 보통 · 그 아래 여유 (남은 할일이 2개 이하면 보통까지만)';
-/** 바쁨 정도: 맡은 할일 중 남은 비율 기준 (남은 게 적으면 한 단계 낮춤) */
-function busyLevel(open: number, ratio: number): { label: string; cls: string } {
-  if (open === 0) return { label: '여유', cls: 'b-free' };
-  let lv = ratio >= 0.8 ? 3 : ratio >= 0.6 ? 2 : ratio >= 0.3 ? 1 : 0;
-  if (open <= 2) lv = Math.min(lv, 1);
-  return [
-    { label: '여유', cls: 'b-free' },
-    { label: '보통', cls: 'b-mid' },
-    { label: '바쁨', cls: 'b-busy' },
-    { label: '매우 바쁨', cls: 'b-very' },
-  ][lv];
-}
