@@ -126,10 +126,7 @@ function Fields({
   showMissing?: boolean;
 }) {
   const reqRequester = side === 'team'; // 무역사무가 넣는 자체 업무는 요청자 없어도 됨
-  const { data } = useStore();
-  const access = useAccess();
   const [linking, setLinking] = useState(false);
-  const companyName = (id?: string | null) => data.companies.find((c) => c.id === id)?.name;
   return (
     <div className="rq-form">
       <label className={`rq-f req rq-title-f ${showMissing && !d.title.trim() ? 'missing' : ''}`}>
@@ -170,7 +167,7 @@ function Fields({
             <DateInput value={d.orderDateTo} placeholder="(기간이면) 끝" onChange={(v) => set({ orderDateTo: v })} />
           </span>
         </div>
-        {side === 'team' && (
+        {(
           <div className="rq-f rq-order-f">
             <span>주문 연결</span>
             {d.orderLink ? (
@@ -203,20 +200,13 @@ function Fields({
         </label>
       </div>
       {linking && (
-        <OrderLinkPicker
+        <RequestOrderLinker
           title={d.title || '이 요청'}
-          hint="이 요청에 연결할 주문(또는 묶음)을 골라 주세요. 무역사무가 요청을 열면 그 주문 정보를 바로 볼 수 있어요."
-          currentOrderId={d.orderLink?.orderId}
-          currentBundleId={d.orderLink?.bundleId}
-          orders={data.orders}
-          companyName={companyName}
-          onPick={({ orderId, bundleId }) => {
-            const list = bundleId ? data.orders.filter((o) => o.bundle?.id === bundleId) : data.orders.filter((o) => o.id === orderId);
-            const first = list[0];
-            const co = first ? companyName(first.companyId) : undefined;
-            const label = bundleId ? `${first?.bundle?.name || '묶음'} (주문 ${list.length}개${co ? ` · ${co}` : ''})` : `${first?.name ?? '주문'}${co ? ` · ${co}` : ''}`;
+          current={d.orderLink}
+          side={side}
+          onPick={(link, first) => {
             set({
-              orderLink: { team: access.viewTeam, orderId, bundleId, label },
+              orderLink: link,
               // 비어 있으면 주문의 매장번호·주문일자로 채움
               storeCode: d.storeCode || first?.storeCode,
               orderDate: d.orderDate || first?.orderDate,
@@ -395,6 +385,7 @@ export function RequestDetail({
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [linkingOrder, setLinkingOrder] = useState(false);
   const [d, setD] = useState<Draft>(r);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const requester = team.find((m) => m.id === r.requesterId);
@@ -470,6 +461,19 @@ export function RequestDetail({
             </div>
           )}
           {r.orderLink && <LinkedOrders link={r.orderLink} side={side} />}
+          {linkingOrder && (
+            <RequestOrderLinker
+              title={r.title}
+              current={r.orderLink}
+              side={side}
+              defaultTeam={r.team}
+              onPick={(link, first) => {
+                onSave({ orderLink: link, storeCode: r.storeCode || first?.storeCode, orderDate: r.orderDate || first?.orderDate });
+                setLinkingOrder(false);
+              }}
+              onClose={() => setLinkingOrder(false)}
+            />
+          )}
           {r.longTerm && <LongTermBox r={r} canEdit={side === 'trade' || canEditContent} onSave={onSave} />}
           <dl className="rq-info">
             <div>
@@ -526,6 +530,14 @@ export function RequestDetail({
           </dl>
           <div className="rq-actions left">
             {canEditContent && r.status !== 'cancelled' && <button onClick={() => setEditing(true)}>✎ 수정</button>}
+            {side === 'trade' && r.status !== 'cancelled' && (
+              <button className="rq-link-btn" onClick={() => setLinkingOrder(true)}>
+                📦 {r.orderLink ? '주문 바꾸기' : '주문 연결'}
+              </button>
+            )}
+            {side === 'trade' && r.orderLink && r.status !== 'cancelled' && (
+              <button onClick={() => confirm('주문 연결을 끊을까요?') && onSave({ orderLink: undefined })}>주문 연결 끊기</button>
+            )}
             {side === 'trade' && r.status !== 'cancelled' && (
               <button
                 className={r.longTerm ? '' : 'rq-to-long'}
@@ -793,5 +805,70 @@ function LongTermBox({ r, canEdit, onSave }: { r: TradeRequest; canEdit: boolean
         </form>
       )}
     </div>
+  );
+}
+
+/**
+ * 요청 ↔ 주문 연결 창: 조 화면은 우리 조 주문, 무역사무는 1·2·3조를 골라서 (개별 또는 묶음)
+ */
+function RequestOrderLinker({
+  title,
+  current,
+  side,
+  defaultTeam,
+  onPick,
+  onClose,
+}: {
+  title: string;
+  current?: OrderLink;
+  side: 'team' | 'trade';
+  defaultTeam?: string;
+  onPick: (link: OrderLink, first?: Order) => void;
+  onClose: () => void;
+}) {
+  const access = useAccess();
+  const { data } = useStore();
+  const isTrade = side === 'trade';
+  const [team, setTeam] = useState(current?.team && /^[123]$/.test(current.team) ? current.team : defaultTeam && /^[123]$/.test(defaultTeam) ? defaultTeam : '2');
+  const space = useSpaceData(isTrade ? team : access.viewTeam, ['orders', 'companies']);
+  const orders = isTrade ? ((space.data.orders as Order[] | undefined) ?? []) : data.orders;
+  const companies = isTrade ? ((space.data.companies as { id: string; name: string }[] | undefined) ?? []) : data.companies;
+  const companyName = (id?: string | null) => companies.find((c) => c.id === id)?.name;
+  const linkTeam = isTrade ? team : access.viewTeam;
+  return (
+    <OrderLinkPicker
+      key={linkTeam}
+      title={title}
+      hint={
+        isTrade ? (
+          <span className="rq-link-teams">
+            <span>어느 조 주문인가요?</span>
+            <span className="seg">
+              {['1', '2', '3'].map((t) => (
+                <button key={t} className={team === t ? 'on' : ''} onClick={() => setTeam(t)}>
+                  {t}조
+                </button>
+              ))}
+            </span>
+            {!space.ready && <span className="muted small">불러오는 중…</span>}
+            {space.error && <span className="warn small">주문을 못 읽었어요 (보안 규칙을 올렸는지 확인 — deploy.bat)</span>}
+          </span>
+        ) : (
+          '이 요청에 연결할 주문(또는 묶음)을 골라 주세요. 무역사무가 요청을 열면 그 주문 정보를 바로 볼 수 있어요.'
+        )
+      }
+      currentOrderId={current?.team === linkTeam ? current?.orderId : undefined}
+      currentBundleId={current?.team === linkTeam ? current?.bundleId : undefined}
+      orders={orders}
+      companyName={companyName}
+      onPick={({ orderId, bundleId }) => {
+        const list = bundleId ? orders.filter((o) => o.bundle?.id === bundleId) : orders.filter((o) => o.id === orderId);
+        const first = list[0];
+        const co = first ? companyName(first.companyId) : undefined;
+        const label = bundleId ? `${first?.bundle?.name || '묶음'} (주문 ${list.length}개${co ? ` · ${co}` : ''})` : `${first?.name ?? '주문'}${co ? ` · ${co}` : ''}`;
+        onPick({ team: linkTeam, orderId, bundleId, label: isTrade ? `${linkTeam}조 · ${label}` : label }, first);
+      }}
+      onClose={onClose}
+    />
   );
 }

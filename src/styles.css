@@ -6704,3 +6704,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 
 .rq-date-range { display: flex; align-items: center; gap: 4px; }
 .rq-date-range > :not(.muted) { flex: 1; min-width: 0; }
+
+.rq-link-teams { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.rq-link-btn { border-color: #b9d3ea !important; color: #2f5fa8 !important; }
