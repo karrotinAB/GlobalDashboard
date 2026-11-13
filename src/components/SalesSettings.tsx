@@ -174,7 +174,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
 }
 
 type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; storeParam?: string; dateFormat: string; fields: Record<string, string> };
-type Inspect = { attempts?: string[]; date: string; called?: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
+type Inspect = { api?: string; attempts?: string[]; date: string; called?: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
 const FIELD_LABEL: [string, string][] = [
   ['date', '날짜'],
   ['amount', '금액'],
@@ -518,6 +518,7 @@ export function SalesApiAdmin() {
           <p className="small">
             {insp.date}{insp.called ? ` (${insp.called})` : ''} · 계산 {insp.total}건 · 찾은 칸: {FIELD_LABEL.map(([k, l]) => `${l.split(' ')[0]}=${insp.fields[k] ?? '없음'}`).join(' · ')}
           </p>
+          {insp.api && <p className="small">불러온 API: <b>{insp.api}</b></p>}
           {!!insp.attempts?.length && (
             <ul className="small insp-tries">
               {insp.attempts.map((t, i) => (

@@ -441,11 +441,9 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
     const pickSid = /^\d{5,8}$/.test(String(req.data?.sid ?? '')) ? String(req.data.sid) : Object.entries(branches).find(([, a]) => isAbbr(a))?.[0];
     const abbr = pickSid ? branches[pickSid] : undefined;
     const bp = cfg.branchParam || 'BRANCH_ABBR';
-    // 시도: ① 매장코드 4자리 + 지점 약자 → ② 6자리 지점 코드만 → ③ 매장코드 4자리만
+    // 매장코드 4자리 + 지점 약자 (API 가 둘 다 꼭 받음)
     const tries = [];
     if (code && abbr) tries.push({ [cfg.storeParam]: code, [bp]: abbr });
-    if (pickSid) tries.push({ [cfg.storeParam]: pickSid });
-    if (code) tries.push({ [cfg.storeParam]: code });
     const key = await apiKey();
     const attempts = [];
     let res = null;
@@ -470,7 +468,8 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
     const { rows, body } = res;
     const fields = detectFields(rows, cfg.fields ?? {});
     const sums = aggregate(rows, fields, from === to ? to : undefined, first?.[1], { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
-    return { attempts, date: from === to ? to : `${from} ~ ${to}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
+    const u = new URL(cfg.url);
+    return { api: `${u.host}${u.pathname}`, attempts, date: from === to ? to : `${from} ~ ${to}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }

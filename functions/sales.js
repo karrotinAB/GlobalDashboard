@@ -201,13 +201,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
     if (cfg.endParam) {
       // 기간 API: 날짜 구간 한 번에
       try {
-        let parts = await fetchSplit(cfg, apiKey, sorted, fetchImpl, u.extra);
-        if (u.store && cfg.storeParam && !parts.some((p) => p.rows.length)) {
-          // 약자로 0건 → 6자리 지점 코드로 다시 (ERP 화면처럼 매장코드 = 825002)
-          const alt = await fetchSplit(cfg, apiKey, sorted, fetchImpl, { [cfg.storeParam]: u.store }).catch(() => []);
-          if (alt.some((p) => p.rows.length)) parts = alt;
-        }
-        for (const part of parts) groups.push({ ...part, code: u.code, store: u.store });
+        for (const part of await fetchSplit(cfg, apiKey, sorted, fetchImpl, u.extra)) groups.push({ ...part, code: u.code, store: u.store });
       } catch (e) {
         if (u.store) {
           errors.push(`${label}: ${e.message}`);
