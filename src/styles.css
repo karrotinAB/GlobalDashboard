@@ -6667,3 +6667,9 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-head-fields .rq-long input { margin: 0; width: 14px; height: 14px; }
 
 .rq-to-long { border-color: #d9c4ec !important; color: #6a3fa0 !important; }
+
+/* 마감기한: 날짜 또는 글자 */
+.due-edit { display: flex; align-items: center; gap: 2px; }
+.due-edit .cell-input { flex: 1; min-width: 0; }
+.due-edit .due-cal { width: 22px; padding: 0; border: 0; background: none; color: transparent; cursor: pointer; }
+.due-edit .due-cal::-webkit-calendar-picker-indicator { opacity: 0.6; cursor: pointer; margin: 0; }

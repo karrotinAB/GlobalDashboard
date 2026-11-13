@@ -520,7 +520,7 @@ export default function Todos() {
                           <AssigneeCell ids={task.assigneeIds} members={members} memberById={memberById} disabled={readOnly} onSave={(ids) => patch({ assigneeIds: ids })} />
                         </td>
                         <td className="c-due">
-                          <DueCell date={task.dueDate} text={task.dueText} state={ds} disabled={readOnly} onSave={(d) => patch({ dueDate: d })} />
+                          <DueCell date={task.dueDate} text={task.dueText} state={ds} disabled={readOnly} onSave={(d, txt) => patch({ dueDate: d, dueText: txt })} />
                         </td>
                         <td className="c-check">
                           <input type="checkbox" checked={doneInWeek} disabled={readOnly} onChange={() => toggleDone(task)} />

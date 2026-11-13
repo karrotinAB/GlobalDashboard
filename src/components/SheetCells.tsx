@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import type { Company, Member } from '../types';
 import { pickColor, shortDate } from '../lib/date';
 import { MemberChip, Modal } from './ui';
-import DateInput from './DateInput';
+import DateInput, { parseDate } from './DateInput';
 
 /** 구글 시트처럼: 누르면 그 자리에서 입력, Enter = 저장, Esc = 취소, 다른 데 누르면 저장 */
 export function EditableText({
@@ -352,16 +352,57 @@ export function DueCell({
   text?: string;
   state: string;
   disabled?: boolean;
-  onSave: (date?: string) => void;
+  onSave: (date?: string, text?: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  // 날짜로 읽히면 날짜(1110 · 11.10 · 11/10 · 내일 …), 아니면 그냥 글자 ('오픈 이후' 같은 것)
+  const commit = () => {
+    const v = draft.trim();
+    const iso = v ? parseDate(v) : null;
+    if (!v) onSave(undefined, undefined);
+    else if (iso) onSave(iso, undefined);
+    else onSave(undefined, v.slice(0, 40));
+    setEditing(false);
+  };
   if (editing) {
     return (
-      <DateInput autoFocus value={date} onChange={onSave} onDone={() => setEditing(false)} placeholder="1110 / 11.10" />
+      <div className="due-edit">
+        <input
+          autoFocus
+          className="cell-input"
+          value={draft}
+          placeholder="1110 · 11.10 · 또는 글자"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+        />
+        <input
+          type="date"
+          className="due-cal"
+          title="달력에서 고르기"
+          value={date ?? ''}
+          onMouseDown={(e) => e.preventDefault()}
+          onChange={(e) => {
+            onSave(e.target.value || undefined, undefined);
+            setEditing(false);
+          }}
+        />
+      </div>
     );
   }
   return (
-    <div className={`cell-view due-${state} ${disabled ? '' : 'editable'}`} onClick={() => !disabled && setEditing(true)}>
+    <div
+      className={`cell-view due-${state} ${disabled ? '' : 'editable'}`}
+      onClick={() => {
+        if (disabled) return;
+        setDraft(date ? shortDate(date) : text ?? '');
+        setEditing(true);
+      }}
+    >
       {date && <div>{shortDate(date)}</div>}
       {text && <div className="small">{text}</div>}
       {!date && !text && !disabled && <span className="cell-ph">날짜</span>}
