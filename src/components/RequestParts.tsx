@@ -435,7 +435,19 @@ export function RequestDetail({
         </>
       ) : (
         <>
-          {r.body ? <div className="rq-body">{r.body}</div> : <p className="muted small">자세한 내용 없음</p>}
+          {r.body ? (
+            r.longTerm ? (
+              // 장기 업무: 자세한 내용은 기본 접어 둠
+              <details className="rq-body-fold">
+                <summary>세부업무 전체보기</summary>
+                <div className="rq-body">{r.body}</div>
+              </details>
+            ) : (
+              <div className="rq-body">{r.body}</div>
+            )
+          ) : (
+            <p className="muted small">자세한 내용 없음</p>
+          )}
           {(r.files ?? []).length > 0 && (
             <div className="rq-files view">
               {r.files!.map((f, i) => (
@@ -533,25 +545,6 @@ export function RequestDetail({
         </>
       )}
 
-      <details className="rq-log" open={(r.log ?? []).length <= 6}>
-        <summary>기록 {(r.log ?? []).length}개</summary>
-        <ul>
-          {[...(r.log ?? [])].reverse().map((l, i) => (
-            <li key={i}>
-              <span className="muted small">
-                {new Date(l.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · {l.by}
-              </span>
-              <span>{l.text}</span>
-              {l.prev !== undefined && (
-                <details className="rq-prev">
-                  <summary className="muted small">이전 내용 보기</summary>
-                  <pre>{l.prev || '(비어 있었음)'}</pre>
-                </details>
-              )}
-            </li>
-          ))}
-        </ul>
-      </details>
     </Modal>
   );
 }

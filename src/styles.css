@@ -6697,3 +6697,7 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-team.t3 { background: #e2f3e6; color: #2f7a45; }
 .rq-team.self { background: #efe4fb; color: #6a3fa0; }
 .rq-team.lead { background: #f4ead9; color: #8a5a1c; }
+
+.rq-body-fold { margin: 6px 0; }
+.rq-body-fold > summary { cursor: pointer; font-size: 13px; color: #8c2f3c; font-weight: 600; padding: 4px 0; }
+.rq-body-fold[open] > summary { margin-bottom: 4px; }
