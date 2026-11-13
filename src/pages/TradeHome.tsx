@@ -1,13 +1,13 @@
 // 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 담당자별 업무 (시계 없음)
 import { useStore } from '../data/store';
 import { useState, type CSSProperties } from 'react';
-import { CharacterPicker, Hero, LeaveBand } from './Home';
+import { CharacterPicker, Hero, LeaveBand, WorldClocks } from './Home';
 import { Avatar, characterSrc, Ring } from '../components/ui';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
 import { ago, isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
 import { attendanceOf, adjustLeave } from '../lib/mem';
-import type { Attendance, Member, TradeRequest } from '../types';
+import type { Attendance, ClockPick, Member, TradeRequest } from '../types';
 
 const dot = (iso?: string) => (iso ? iso.slice(5).replace('-', '.') : '');
 
@@ -17,6 +17,15 @@ export default function TradeHome() {
   const todayIso = today();
   const [picking, setPicking] = useState<Member | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  // 시계: 내 무역사무 카드에 저장 (카드가 없으면 이 브라우저)
+  const myTrade = trade.find((m) => !!access.email && m.email?.toLowerCase() === access.email);
+  const [tradeLocalClocks, setTradeLocalClocks] = useState<ClockPick[] | undefined>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('gd:tradeClocks') ?? 'null') ?? undefined;
+    } catch {
+      return undefined;
+    }
+  });
   const load = workload(data.requests, trade, todayIso);
   const open = sortRequests(data.requests.filter(isOpen));
   const columns: { id: string; member?: Member; list: TradeRequest[] }[] = [
@@ -38,6 +47,24 @@ export default function TradeHome() {
   return (
     <div className="page">
       <Hero title="무역사무 Dashboard" />
+
+      <WorldClocks
+        defaults={[]}
+        picked={myTrade ? myTrade.clocks : tradeLocalClocks}
+        onSave={(list) => {
+          if (myTrade) save('tradeMembers', { ...myTrade, clocks: list });
+          else {
+            setTradeLocalClocks(list);
+            try {
+              if (list) localStorage.setItem('gd:tradeClocks', JSON.stringify(list));
+              else localStorage.removeItem('gd:tradeClocks');
+            } catch {
+              /* 무시 */
+            }
+          }
+        }}
+        where={myTrade ? `${myTrade.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'}
+      />
 
       <section className="section">
         <div className="section-head">

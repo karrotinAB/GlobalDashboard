@@ -195,22 +195,6 @@ export default function Home({ go }: { go: (page: string) => void }) {
       }
     }
   };
-  const [pickingClocks, setPickingClocks] = useState(false);
-  const clocks = useMemo(
-    () =>
-      picked
-        ? picked
-            .filter((c) => isValidTz(c.tz))
-            .map((c) => {
-              const code = c.code ?? countryCode(c.label, c.tz);
-              return { tz: c.tz, label: c.label, codes: code ? [code] : [], color: undefined as string | undefined };
-            })
-        : defaultClocks,
-    [picked, defaultClocks],
-  );
-
-  const extraHolidays = data.config.find((c) => c.id === 'holidays')?.holidays ?? [];
-  const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y, extraHolidays);
 
   const weekRows = useMemo(() => tasksForWeek(data.tasks, monday), [data.tasks, monday]);
   const summary = useMemo(() => summarize(weekRows, members, todayIso), [weekRows, members, todayIso]);
@@ -272,41 +256,8 @@ export default function Home({ go }: { go: (page: string) => void }) {
         </div>
       </section>
 
-      {/* 세계 시간 */}
-      <section className="section">
-        <div className="section-head">
-          <h2>🌍 지금 몇 시?</h2>
-          <span className="muted small">
-            흰색 = 낮 · 검정 = 밤 (7PM–7AM) ·{' '}
-            <button className="link small" onClick={() => setPickingClocks(true)} title="내 화면에 보일 시계 고르기 (계정마다 따로)">
-              ⚙ 시계 고르기
-            </button>
-          </span>
-        </div>
-        <div className="dclocks">
-          <DigitalClock label="서울" tz={HOME_TZ} now={now} home holidayOf={holidayName} />
-          {clocks.map((c) => (
-            <DigitalClock
-              key={c.tz}
-              label={c.label}
-              tz={c.tz}
-              now={now}
-              info={c.codes.length ? c.codes.map((code) => worldHoliday.status(code)).join('\n') : '이 시계는 나라를 몰라서 공휴일을 표시하지 않아요 (시계 이름을 나라 이름으로)'}
-              observanceOf={(iso) => {
-                const hits = c.codes.map((code) => [code, worldHoliday.observance(code, iso)] as const).filter(([, n]) => n);
-                if (!hits.length) return undefined;
-                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
-              }}
-              holidayOf={(iso) => {
-                // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
-                const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);
-                if (!hits.length) return undefined;
-                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
-              }}
-            />
-          ))}
-        </div>
-      </section>
+
+      <WorldClocks defaults={defaultClocks} picked={picked} onSave={saveClocks} where={myCard ? `${myCard.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'} />
 
       {(homeCfg.showUrgent || homeCfg.showPipeline) && (
       <div className="two-col">
@@ -420,19 +371,6 @@ export default function Home({ go }: { go: (page: string) => void }) {
 
       <SalesPanel companies={companies} />
 
-      {pickingClocks && (
-        <ClockPicker
-          current={clocks.map((c) => ({ tz: c.tz, label: c.label }))}
-          defaults={defaultClocks.map((c) => ({ tz: c.tz, label: c.label }))}
-          custom={!!picked}
-          where={myCard ? `${myCard.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'}
-          onSave={(l) => {
-            saveClocks(l);
-            setPickingClocks(false);
-          }}
-          onClose={() => setPickingClocks(false)}
-        />
-      )}
       {editing && (
         <CharacterPicker
           member={editing}
@@ -692,6 +630,85 @@ export function Hero({ title }: { title: string }) {
 }
 
 export { CharacterPicker, LeaveBand };
+
+type ClockDef = { tz: string; label: string; codes: string[]; color?: string };
+/** 🌍 지금 몇 시? — 서울 + 고른 시계 (나라 공휴일·기념일 포함). 2조 홈·무역사무 홈 같이 씀 */
+export function WorldClocks({ defaults, picked, onSave, where }: { defaults: ClockDef[]; picked?: ClockPick[]; onSave: (l: ClockPick[] | undefined) => void; where: string }) {
+  const { data } = useStore();
+  const now = useNow();
+  const seoul = tzParts(now, HOME_TZ);
+  const defaultClocks = defaults;
+  const saveClocks = onSave;
+  const [pickingClocks, setPickingClocks] = useState(false);
+  const clocks = useMemo(
+    () =>
+      picked
+        ? picked
+            .filter((c) => isValidTz(c.tz))
+            .map((c) => {
+              const code = c.code ?? countryCode(c.label, c.tz);
+              return { tz: c.tz, label: c.label, codes: code ? [code] : [], color: undefined as string | undefined };
+            })
+        : defaultClocks,
+    [picked, defaultClocks],
+  );
+
+  const extraHolidays = data.config.find((c) => c.id === 'holidays')?.holidays ?? [];
+  const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y, extraHolidays);
+  return (
+    <>
+      {/* 세계 시간 */}
+      <section className="section">
+        <div className="section-head">
+          <h2>🌍 지금 몇 시?</h2>
+          <span className="muted small">
+            흰색 = 낮 · 검정 = 밤 (7PM–7AM) ·{' '}
+            <button className="link small" onClick={() => setPickingClocks(true)} title="내 화면에 보일 시계 고르기 (계정마다 따로)">
+              ⚙ 시계 고르기
+            </button>
+          </span>
+        </div>
+        <div className="dclocks">
+          <DigitalClock label="서울" tz={HOME_TZ} now={now} home holidayOf={holidayName} />
+          {clocks.map((c) => (
+            <DigitalClock
+              key={c.tz}
+              label={c.label}
+              tz={c.tz}
+              now={now}
+              info={c.codes.length ? c.codes.map((code) => worldHoliday.status(code)).join('\n') : '이 시계는 나라를 몰라서 공휴일을 표시하지 않아요 (시계 이름을 나라 이름으로)'}
+              observanceOf={(iso) => {
+                const hits = c.codes.map((code) => [code, worldHoliday.observance(code, iso)] as const).filter(([, n]) => n);
+                if (!hits.length) return undefined;
+                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
+              }}
+              holidayOf={(iso) => {
+                // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
+                const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);
+                if (!hits.length) return undefined;
+                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
+              }}
+            />
+          ))}
+        </div>
+      </section>
+      {pickingClocks && (
+        <ClockPicker
+          current={clocks.map((c) => ({ tz: c.tz, label: c.label }))}
+          defaults={defaultClocks.map((c) => ({ tz: c.tz, label: c.label }))}
+          custom={!!picked}
+          where={where}
+          onSave={(l) => {
+            saveClocks(l);
+            setPickingClocks(false);
+          }}
+          onClose={() => setPickingClocks(false)}
+        />
+      )}
+    </>
+  );
+}
+
 
 /** 시계 고르기: 업체 나라 시계 켜고 끄기 + 다른 도시 추가 + 순서 */
 function ClockPicker({
