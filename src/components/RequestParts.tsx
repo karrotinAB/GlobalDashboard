@@ -353,7 +353,7 @@ export function NewRequest({
       createdByEmail: myEmail || undefined,
       team: isTrade ? team.find((m) => m.id === d.requesterId)?.team : teamId,
       teamName: isTrade ? undefined : teamName,
-      requesterName: team.find((m) => m.id === d.requesterId)?.name,
+      requesterName: team.find((m) => m.id === d.requesterId)?.name ?? (isTrade ? undefined : me?.name),
       status: 'requested',
       createdAt: now,
       log: [{ at: now, by, text: isTrade ? '무역사무에서 업무 추가' : '요청함' }],
@@ -416,7 +416,14 @@ export function RequestDetail({
         <PriorityTag p={r.priority} />
         {r.workType && <span className="tag gray">{r.workType}</span>}
         <span className="muted small">
-          {requester ? memberLabel(requester) : r.requesterEmail ?? '무역사무 자체 업무'} · {dot(r.requestedAt)} {r.requesterId || r.requesterEmail ? '의뢰' : '등록'}
+          {requester
+            ? memberLabel(requester)
+            : r.requesterName ??
+              (() => {
+                // 이메일만 있으면 담당자 목록에서 이름 찾기 (없으면 @ 앞부분)
+                const byMail = team.find((m) => m.email && m.email.toLowerCase() === r.requesterEmail?.toLowerCase());
+                return byMail ? memberLabel(byMail) : r.requesterEmail ? r.requesterEmail.split('@')[0] : '무역사무 자체 업무';
+              })()} · {dot(r.requestedAt)} {r.requesterId || r.requesterEmail ? '의뢰' : '등록'}
         </span>
       </div>
 
