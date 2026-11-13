@@ -8,7 +8,7 @@ import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { physName, DEFAULT_TEAM } from '../lib/team';
-import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches } from '../lib/sales';
+import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
 import type { Company, Order } from '../types';
 
 export const ROYALTY_RATE = 0.05;
@@ -97,12 +97,12 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
   const branchNames = useStoreBranches(royaltyCos.flatMap((c) => c.storeCodes ?? []));
   // 판매일 ECOS 환율 (주말·공휴일은 그 전 영업일). 앞 달도 같이 (월초 주말용)
   const fxTable = useFxRates([...royaltyCos.map((c) => c.salesCurrency ?? ''), 'USD'], [shiftMonth(month, -1), month]);
-  const salesOf = (c: Company) => {
-    const docs = sales.filter((m) => m.month === month && (c.storeCodes ?? []).includes(m.code));
+  const salesOf = (c: Company, mo: string = month, fx: FxTable = fxTable) => {
+    const docs = sales.filter((m) => m.month === mo && (c.storeCodes ?? []).includes(m.code));
     const cur0 = c.salesCurrency;
     const conv = (date: string, roy: number) => {
-      const kr = cur0 ? rateOn(fxTable, cur0, date) : null;
-      const ur = rateOn(fxTable, 'USD', date);
+      const kr = cur0 ? rateOn(fx, cur0, date) : null;
+      const ur = rateOn(fx, 'USD', date);
       const krw = kr ? roy * kr.rate : null;
       return { krw, usd: cur0 === 'USD' ? roy : krw !== null && ur ? krw / ur.rate : null };
     };
@@ -113,7 +113,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
         let usd = 0;
         let miss = 0;
         for (const [dd, v] of Object.entries(b.days)) {
-          const x = conv(`${month}-${dd}`, v * ROYALTY_RATE);
+          const x = conv(`${mo}-${dd}`, v * ROYALTY_RATE);
           if (x.krw === null) miss++;
           krw += x.krw ?? 0;
           usd += x.usd ?? 0;
@@ -123,14 +123,14 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
     );
     // 날짜별 합계 → 로열티(현지) × 그날 환율
     const byDay = new Map<string, number>();
-    for (const d of docs) for (const b of Object.values(d.branches)) for (const [dd, v] of Object.entries(b.days)) byDay.set(`${month}-${dd}`, (byDay.get(`${month}-${dd}`) ?? 0) + v);
+    for (const d of docs) for (const b of Object.values(d.branches)) for (const [dd, v] of Object.entries(b.days)) byDay.set(`${mo}-${dd}`, (byDay.get(`${mo}-${dd}`) ?? 0) + v);
     const cur = c.salesCurrency;
     const days = [...byDay.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, amt]) => {
         const roy = amt * ROYALTY_RATE;
-        const kr = cur ? rateOn(fxTable, cur, date) : null;
-        const ur = rateOn(fxTable, 'USD', date);
+        const kr = cur ? rateOn(fx, cur, date) : null;
+        const ur = rateOn(fx, 'USD', date);
         const krw = kr ? roy * kr.rate : null;
         const usd = cur === 'USD' ? roy : krw !== null && ur ? krw / ur.rate : null;
         return { date, amt, roy, kr, ur, krw, usd };
@@ -147,8 +147,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
     };
   };
 
-  const allRows = useMemo(
-    () =>
+  const rowsFor = (month: string, erpMonth: Record<string, ErpMonth>, fx: FxTable) =>
       companies
         .map((c) => {
           const orders = ordersOf(c);
@@ -177,7 +176,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
           }
           // 지난 달은 이미 마감 → 패킹 중은 이번 달에만
           const pack = (month < thisMonth() ? [] : orders).map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
-          const sale = c.royalty ? salesOf(c) : null;
+          const sale = c.royalty ? salesOf(c, month, fx) : null;
           const r = {
             c,
             ship,
@@ -192,10 +191,34 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
           };
           return { ...r, total: r.shipK + r.packK + r.royalty, totalF: r.shipF + r.packF + r.royaltyF };
         })
-        .filter((r) => r.ship.length || r.pack.length || r.c.royalty),
+        .filter((r) => r.ship.length || r.pack.length || r.c.royalty);
+  const allRows = useMemo(
+    () => rowsFor(month, erpMonth, fxTable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [companies, data.orders, teamOrders, sales, branchNames, month, fxTable, erpMonth],
   );
+
+  // 비중 '올해': 1월 ~ 이번 달(또는 그 해 12월) 업체별 총 수출 합계 (패킹 중은 이번 달만)
+  const [pieYear, setPieYear] = useState(false);
+  const year = month.slice(0, 4);
+  const yearMonths: string[] = [];
+  for (let mo = `${year}-01`; mo <= `${year}-12` && mo <= thisMonth(); mo = shiftMonth(mo, 1)) yearMonths.push(mo);
+  const wantYear = view === 'pie' && pieYear;
+  const erpYear = useExportYear(companies.flatMap((c) => c.storeCodes ?? []), wantYear ? yearMonths : []);
+  const fxYear = useFxRates(wantYear ? [...royaltyCos.map((c) => c.salesCurrency ?? ''), 'USD'] : [], wantYear ? [shiftMonth(yearMonths[0], -1), ...yearMonths] : []);
+  const yearRows = useMemo(() => {
+    if (!wantYear) return [];
+    const by = new Map<string, { c: Company; total: number; totalF: number }>();
+    for (const mo of yearMonths)
+      for (const r of rowsFor(mo, erpYear[mo] ?? {}, fxYear)) {
+        const x = by.get(r.c.id) ?? { c: r.c, total: 0, totalF: 0 };
+        x.total += r.total;
+        x.totalF += r.totalF;
+        by.set(r.c.id, x);
+      }
+    return [...by.values()];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantYear, companies, data.orders, teamOrders, sales, branchNames, fxYear, erpYear, year]);
   // 팀장님·이사님 화면: 조 업체가 섞여 있으면 조로 거르기 ('own' = 내 업체)
   const hasTeams = allRows.some((r) => r.c.team);
   const teamOf = (c: Company) => c.team ?? 'own';
@@ -263,7 +286,13 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
       {rows.length === 0 ? (
         <p className="muted small">이 달 출고·패킹 중 주문이나 로열티 매장이 없어요.</p>
       ) : view === 'pie' ? (
-        <SharePie rows={rows} hasTeams={hasTeams} />
+        <SharePie
+          rows={pieYear ? (teamF ? yearRows.filter((r) => teamOf(r.c) === teamF) : yearRows) : rows}
+          hasTeams={hasTeams}
+          period={pieYear ? 'year' : 'month'}
+          periodLabel={pieYear ? `${year}년 1월 ~ ${Number(yearMonths[yearMonths.length - 1]?.slice(5) ?? 12)}월` : `${y}년 ${m}월`}
+          onPeriod={(p) => setPieYear(p === 'year')}
+        />
       ) : (
         <>
           <div className="export-cards">
@@ -638,7 +667,19 @@ function KF({ k, f, bold }: { k: number; f: number; bold?: boolean }) {
 
 /** 총 수출 비중: 도넛 (업체별 / 조별) + 옆에 금액·비중 표. 업체 색은 업체 고유색 (순위로 칠하지 않음) */
 const TEAM_COLORS: Record<string, string> = { own: '#8a7470', '1': '#3b7dd8', '2': '#c2185b', '3': '#3a9a5b' };
-export function SharePie({ rows, hasTeams }: { rows: { c: Company; total: number; totalF: number }[]; hasTeams: boolean }) {
+export function SharePie({
+  rows,
+  hasTeams,
+  period,
+  periodLabel,
+  onPeriod,
+}: {
+  rows: { c: Company; total: number; totalF: number }[];
+  hasTeams: boolean;
+  period: 'month' | 'year';
+  periodLabel: string;
+  onPeriod: (p: 'month' | 'year') => void;
+}) {
   const [by, setBy] = useState<'co' | 'team'>('co');
   const [hover, setHover] = useState<string | null>(null);
   const items0 =
@@ -658,7 +699,23 @@ export function SharePie({ rows, hasTeams }: { rows: { c: Company; total: number
   const items = sorted.length > 9 ? [...sorted.slice(0, 8), { key: 'etc', label: `기타 ${sorted.length - 8}곳`, tag: '', color: '#c9bcb8', k: sorted.slice(8).reduce((a, x) => a + x.k, 0), f: sorted.slice(8).reduce((a, x) => a + x.f, 0) }] : sorted;
   const total = items.reduce((a, x) => a + x.k, 0);
   const totalF = items.reduce((a, x) => a + x.f, 0);
-  if (!total) return <p className="muted small">이 달 총 수출 금액이 없어요.</p>;
+  const periodSeg = (
+    <div className="seg share-by">
+      <button className={period === 'month' ? 'on' : ''} onClick={() => onPeriod('month')}>
+        이 달
+      </button>
+      <button className={period === 'year' ? 'on' : ''} onClick={() => onPeriod('year')}>
+        올해 누적
+      </button>
+    </div>
+  );
+  if (!total)
+    return (
+      <div className="share">
+        <div className="share-tools">{periodSeg}</div>
+        <p className="muted small">{periodLabel} 총 수출 금액이 없어요{period === 'year' ? ' (불러오는 중일 수 있어요)' : ''}.</p>
+      </div>
+    );
   // 도넛 조각 (사이 2px 틈)
   const R = 90;
   const r0 = 56;
@@ -685,6 +742,9 @@ export function SharePie({ rows, hasTeams }: { rows: { c: Company; total: number
   const hov = arcs.find((a) => a.key === hover);
   return (
     <div className="share">
+      <div className="share-tools">
+      {periodSeg}
+      <span className="muted small">{periodLabel}</span>
       {hasTeams && (
         <div className="seg share-by">
           <button className={by === 'co' ? 'on' : ''} onClick={() => setBy('co')}>
@@ -695,6 +755,7 @@ export function SharePie({ rows, hasTeams }: { rows: { c: Company; total: number
           </button>
         </div>
       )}
+      </div>
       <div className="share-body">
         <svg viewBox="0 0 220 220" className="share-pie" role="img" aria-label="총 수출 비중">
           {arcs.map((a) => (
@@ -759,4 +820,34 @@ export function SharePie({ rows, hasTeams }: { rows: { c: Company; total: number
       <p className="muted small">비중은 원화 기준 · 총 수출 = ① 출고 + ② 패킹 중(이번 달만) + ③ 로열티 · 위에서 조를 고르면 그 조 안에서의 비중</p>
     </div>
   );
+}
+
+/** 여러 달의 ERP 지난 출고: { 'YYYY-MM': { 매장코드: ErpMonth } } */
+function useExportYear(codes: string[], months: string[]) {
+  const sig = `${[...new Set(codes)].sort().join(',')}|${months.join(',')}`;
+  const [map, setMap] = useState<Record<string, Record<string, ErpMonth>>>({});
+  useEffect(() => {
+    setMap({});
+    const [cs, ms] = sig.split('|');
+    const list = cs ? cs.split(',') : [];
+    const mlist = ms ? ms.split(',') : [];
+    if (!list.length || !mlist.length || DATA_MODE === 'local') return;
+    const unsubs = mlist.flatMap((mo) =>
+      list.map((code) =>
+        onSnapshot(
+          doc(db, 'exportMonthly', `${code}_${mo}`),
+          (d) =>
+            setMap((prev) => {
+              const cur = { ...(prev[mo] ?? {}) };
+              if (d.exists()) cur[code] = d.data() as ErpMonth;
+              else delete cur[code];
+              return { ...prev, [mo]: cur };
+            }),
+          () => {},
+        ),
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [sig]);
+  return map;
 }

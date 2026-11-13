@@ -6606,3 +6606,6 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 .share-table th:first-child { text-align: left; }
 /* 완료한 할일: 마감기한도 줄 긋고 흐리게 */
 tr.is-done .c-due, tr.is-done .c-due * { text-decoration: line-through; color: #bba8a3 !important; background: transparent !important; }
+
+.share-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+.share-tools .share-by { margin: 0; }
