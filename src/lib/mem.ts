@@ -123,7 +123,16 @@ const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:
 export function adjustLeave<T extends Attendance | undefined>(r: T): T {
   if (!r || !r.period) return r;
   const m = r.period.match(/(\d{1,2}:\d{2})\s*[~\-–]\s*(\d{1,2}:\d{2})/);
-  if (!m) return r;
+  if (!m) {
+    // 시간 길이로 적힌 경우: '대체시차 [퇴근 시간 기준] 1시간 0분' → 퇴근을 그만큼 앞당김
+    const h = Number(r.period.match(/(\d+)\s*시간/)?.[1] ?? 0);
+    const mm = Number(r.period.match(/(\d+)\s*분/)?.[1] ?? 0);
+    const dur = h * 60 + mm;
+    if (dur > 0 && r.end && /퇴근/.test(r.period)) {
+      return { ...r, planEnd: r.end, end: hhmm(Math.max(0, toMin(r.end) - dur)) } as T;
+    }
+    return r;
+  }
   const a = toMin(m[1]);
   const b = toMin(m[2]);
   if (b <= a) return r;
