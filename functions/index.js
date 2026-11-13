@@ -308,7 +308,7 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 
 // ------------------------------------------------------------------
 // 판매 데이터 (POS 계산 건 → 지점·일자별 합계) — 홈 맨 아래 '업체별 판매 데이터'
-// 매일 밤 11시(서울) 최근 3일을 다시 계산 (새로 들어온 건·취소 반영 — salesBackfill 이 함께). 주소·칸 이름은 secrets/sales
+// 매주 월요일 아침 7시(서울) 지난 달 + 이번 달을 다시 계산 (salesBackfill). 주소·칸 이름은 secrets/sales
 // ------------------------------------------------------------------
 import { detectFields, fetchSales, isAbbr, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
@@ -405,7 +405,7 @@ export const syncFxNow = onCall({ region: REGION, timeoutSeconds: 300 }, async (
   return runFx([prevMonth(month), month]);
 });
 
-// (매일 가져오기는 아래 salesBackfill 이 함께: 지난 데이터를 다 채운 뒤 매일 밤 11시에 최근 3일만)
+// (자동 가져오기는 아래 salesBackfill: 매주 월요일 7시)
 
 // 관리자: 지금 가져오기 (최근 n일 또는 한 달 통째로 — 지난 달 채우기)
 export const syncSalesNow = onCall({ region: REGION, timeoutSeconds: 540 }, async (req) => {
@@ -532,7 +532,7 @@ export const exportBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, m
 });
 
 // ------------------------------------------------------------------
-// 판매 데이터 지난 달 한 번 채우기 (2026-01 ~ 이번 달): 밤 11시부터 10분마다 한 달씩 이어서, 다 채우면 멈춤
+// 판매 데이터 지난 달 한 번 채우기 (2026-01 ~ 이번 달): 첫 월요일 7시부터 10분마다 한 달씩 이어서, 다 채우면 멈춤
 // 어디까지 했는지: salesBackfill/state { next: 'YYYY-MM', done }
 // ------------------------------------------------------------------
 async function runSalesBackfill({ from = '2026-01', budgetMs = 450000 } = {}) {
@@ -556,17 +556,28 @@ async function runSalesBackfill({ from = '2026-01', budgetMs = 450000 } = {}) {
   logger.info('sales backfill', state);
   return state;
 }
-// 밤 11시 ~ 11:50 10분마다: 지난 데이터를 다 채울 때까지 이어서 → 다 채운 뒤엔 하루 한 번 최근 3일(새로 들어온 것)만
-export const salesBackfill = onSchedule({ schedule: '*/10 23 * * *', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540, memory: '512MiB' }, async () => {
-  const st = (await db.doc('salesBackfill/state').get()).data() ?? {};
+// 매주 월요일 아침 7시 (7:00~7:50 10분마다 이어서):
+//  처음 한 번은 2026년 1월부터 이번 달까지 → 그 뒤로는 매주 '지난 달 + 이번 달' 만 다시 (한 달 치를 한꺼번에 올리는 매장도 잡히게)
+export const salesBackfill = onSchedule({ schedule: '*/10 7 * * 1', region: REGION, timeZone: 'Asia/Seoul', timeoutSeconds: 540, memory: '512MiB' }, async () => {
+  const ref = db.doc('salesBackfill/state');
+  const st = (await ref.get()).data() ?? {};
   if (!st.done) {
     await runSalesBackfill();
     return;
   }
   const today = lastDays(1)[0];
-  if (st.lastDaily === today) return; // 오늘 이미 함
-  const r = await runSales({ days: 3 });
-  await db.doc('salesBackfill/state').set({ lastDaily: today, lastDailyResult: { rows: r.rows ?? 0, docs: r.docs ?? 0, errors: (r.errors ?? []).length, skipped: r.skipped ?? null } }, { merge: true });
+  const thisMonth = today.slice(0, 7);
+  const months = [prevMonth(thisMonth), thisMonth];
+  // 이번 주 몇 번째 달까지 했는지 (10분마다 이어서)
+  let idx = st.weeklyDate === today ? st.weeklyIdx ?? 0 : 0;
+  const until = Date.now() + 450000;
+  const results = [];
+  while (idx < months.length && Date.now() < until) {
+    const r = await runSales({ month: months[idx] });
+    results.push({ month: months[idx], rows: r.rows ?? 0, errors: (r.errors ?? []).length, skipped: r.skipped ?? null });
+    idx++;
+  }
+  await ref.set({ weeklyDate: today, weeklyIdx: idx, lastWeekly: { at: new Date().toISOString(), results } }, { merge: true });
 });
 export const salesBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, memory: '512MiB' }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');

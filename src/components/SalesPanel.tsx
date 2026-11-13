@@ -66,7 +66,7 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
           </button>
         </div>
         <span className="muted small sales-sub">
-          {mode === 'sales' ? '매일 밤 11시에 새 판매가 들어와요 · 평수는 설정에서' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
+          {mode === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
         </span>
       </div>
       {mode === 'sales' ? <SalesView companies={companies} /> : <ExportPanel companies={companies} />}

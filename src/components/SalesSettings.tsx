@@ -255,7 +255,7 @@ export function SalesApiAdmin() {
         판매 데이터 API <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
       <p className="muted small">
-        매일 밤 11시에 최근 3일 판매(계산 건, 새로 들어온 것)를 <b>판매데이터 켠 업체의 지점마다</b> (매장코드 + 매장 평수에 불러온 지점 약자) 가져와서 일자별로 합쳐요. 약자가 없는 매장은 매장코드로만 불러요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
+        매주 월요일 아침 7시에 지난 달 + 이번 달 판매를 <b>판매데이터 켠 업체의 지점마다</b> 가져와서 일자별로 합쳐요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
       </p>
       {status && (
         <p className="muted small">
@@ -283,7 +283,7 @@ export function SalesApiAdmin() {
           <div className="sa-step">
             <h3>판매 데이터 가져오기</h3>
             <p className="muted small" style={{ margin: 0 }}>
-              매일 밤 11시에 자동으로 들어와요. 빠졌거나 다시 받고 싶을 때만 여기서 골라서 가져오세요 (필요한 것만 골라야 API 를 덜 불러요).
+              매주 월요일 아침 7시에 지난 달 + 이번 달이 자동으로 들어와요. 그 사이에 빠졌거나 다시 받고 싶을 때만 여기서 골라서 가져오세요 (필요한 것만 골라야 API 를 덜 불러요).
             </p>
             <div className="sa-pick">
               <label className="row-field">
@@ -431,7 +431,7 @@ export function SalesApiAdmin() {
               </button>
               <button
                 disabled={busy || !cfg.hasEcos}
-                title="이번 달과 지난 달 ECOS 환율을 가져와요 — 매일 밤 판매 데이터와 같이 자동으로도 가져와요"
+                title="이번 달과 지난 달 ECOS 환율을 가져와요 — 매주 판매 데이터와 같이 자동으로도 가져와요"
                 onClick={() =>
                   run('환율 가져오기', async () => {
                     const r = await call<{ saved: number; errors?: string[] }>('syncFxNow', month ? { month } : {});
@@ -447,8 +447,8 @@ export function SalesApiAdmin() {
       )}
       {DATA_MODE !== 'local' && (
         <div className="backfill-box">
-          <b>지난 판매 데이터 채우기 (2026년 1월 ~ 이번 달)</b>
-          <span className="muted small"> 자동으로 한 번만: 밤 11시부터 판매데이터 켠 업체의 지난 판매를 한 달씩 가져오고, 다 채운 뒤엔 매일 밤 11시에 최근 3일(새로 들어온 것)만 가져와요. 빠진 곳만 다시 받고 싶으면 위 '판매 데이터 가져오기'에서 업체·지점·기간을 골라 주세요.</span>
+          <b>판매 데이터 자동 가져오기 (매주 월요일 7시)</b>
+          <span className="muted small"> 매주 월요일 아침 7시 자동: 처음 한 번은 2026년 1월부터 이번 달까지, 그 뒤로는 매주 지난 달 + 이번 달만 다시 가져와요 (한 달 치를 한꺼번에 올리는 매장도 잡혀요). 빠진 곳만 급하게 받고 싶으면 위 '판매 데이터 가져오기'에서 업체·지점·기간을 골라 주세요.</span>
           <div className="small">
             {!salesBf
               ? '아직 시작 전'
