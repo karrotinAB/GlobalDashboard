@@ -48,24 +48,6 @@ export default function TradeHome() {
     <div className="page">
       <Hero title="무역사무 Dashboard" />
 
-      <WorldClocks
-        defaults={[]}
-        picked={myTrade ? myTrade.clocks : tradeLocalClocks}
-        onSave={(list) => {
-          if (myTrade) save('tradeMembers', { ...myTrade, clocks: list });
-          else {
-            setTradeLocalClocks(list);
-            try {
-              if (list) localStorage.setItem('gd:tradeClocks', JSON.stringify(list));
-              else localStorage.removeItem('gd:tradeClocks');
-            } catch {
-              /* 무시 */
-            }
-          }
-        }}
-        where={myTrade ? `${myTrade.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'}
-      />
-
       <section className="section">
         <div className="section-head">
           <h2>👋 우리 팀 오늘</h2>
@@ -96,6 +78,25 @@ export default function TradeHome() {
           {trade.length === 0 && <p className="muted small">아직 무역사무 담당자가 없어요. 관리자가 설정 → 무역사무 담당자에서 추가해요.</p>}
         </div>
       </section>
+
+      {/* 세계 시간: 출근 상태(우리 팀 오늘) 밑에 */}
+      <WorldClocks
+        defaults={[]}
+        picked={myTrade ? myTrade.clocks : tradeLocalClocks}
+        onSave={(list) => {
+          if (myTrade) save('tradeMembers', { ...myTrade, clocks: list });
+          else {
+            setTradeLocalClocks(list);
+            try {
+              if (list) localStorage.setItem('gd:tradeClocks', JSON.stringify(list));
+              else localStorage.removeItem('gd:tradeClocks');
+            } catch {
+              /* 무시 */
+            }
+          }
+        }}
+        where={myTrade ? `${myTrade.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'}
+      />
 
       {/* 새로 들어온 업무: 아직 '요청됨' 인 것 중 최근 7일, 최신순 */}
       <section className="section">
