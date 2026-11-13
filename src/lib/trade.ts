@@ -179,4 +179,9 @@ export function ago(iso: string, now = Date.now()) {
 /** 요청자 이름: 무역사무 화면처럼 여러 조가 섞이면 '이름 (1조)' */
 export const memberLabel = (m: Member) => (m.team ? `${m.name} (${m.team}조)` : m.name);
 /** 요청의 조 (옛 요청은 2조) */
-export const teamOfRequest = (r: TradeRequest) => r.team ?? '2';
+/** 무역사무가 직접 넣은 자체 업무 (요청한 조가 없음) */
+export const isSelfTask = (r: TradeRequest) => !r.team && !r.requesterId && !r.requesterEmail && !r.teamName;
+/** 요청한 조: 자체 업무는 'trade', 옛 요청(조 표시 없음)은 2조 */
+export const teamOfRequest = (r: TradeRequest) => r.team ?? (isSelfTask(r) ? 'trade' : '2');
+/** 화면에 보일 요청 쪽 이름 */
+export const requestSideLabel = (r: TradeRequest) => r.teamName ?? (isSelfTask(r) ? '무역사무' : `${teamOfRequest(r)}조`);

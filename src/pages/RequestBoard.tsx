@@ -3,7 +3,7 @@
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
 import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
-import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest } from '../lib/trade';
+import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel } from '../lib/trade';
 import { useStore } from '../data/store';
 import { NewRequest, PriorityTag, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
@@ -407,7 +407,7 @@ function Row({
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
           {r.title}{r.longTerm && <span className="rq-long-tag" title="장기 업무 진행률">📌 {r.progress ?? 0}%</span>}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
-          {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className="rq-team">{r.teamName ?? `${teamOfRequest(r)}조`}</span>}
+          {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${isSelfTask(r) ? 'self' : ''}`}>{requestSideLabel(r)}</span>}
           {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
           {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
         </button>
@@ -424,7 +424,7 @@ function Row({
           <select className="cell-select" value={r.requesterId ?? ''} onChange={(e) => onPatch({ requesterId: e.target.value || undefined })}>
             <option value="">무역사무</option>
             {team
-              .filter((m) => !m.team || m.team === teamOfRequest(r))
+              .filter((m) => isSelfTask(r) || !m.team || m.team === teamOfRequest(r))
               .map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}

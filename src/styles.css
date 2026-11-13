@@ -6689,3 +6689,4 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-sub-branch { color: #b9a6cf; font-size: 15px; margin-right: 2px; }
 .rq-sub-line input { margin: 0; }
 .rq-sub-row.done .rq-sub-title { text-decoration: line-through; color: #a99ab8; }
+.rq-team.self { background: #efe4fb; color: #6a3fa0; }
