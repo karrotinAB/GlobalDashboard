@@ -582,16 +582,24 @@ function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
         </div>
         <div className="leave-side">
           {!working && <span className="leave-tag">{r.status}</span>}
-          {/* 시차·반차·외출 (예: 대체시차 15:30~18:00) — 퇴근 예정이 앞당겨졌으면 원래 퇴근도 */}
-          {working && r.period && (
-            <span className="leave-tag shift" title={r.planEnd ? `원래 퇴근 ${ampm(r.planEnd).t} ${ampm(r.planEnd).p}` : undefined}>
-              {r.period}
-            </span>
-          )}
           <span className="leave-detail">
             {clockedOut ? '퇴근했어요 👋' : left > 0 ? `퇴근까지 ${fmtDur(left)}` : '퇴근 시간이 지났어요'}
           </span>
-          {r.start && <span className="leave-detail muted">출근 {ampm(r.start).t} {ampm(r.start).p}</span>}
+          {(r.start || (working && r.period)) && (
+            <span className="leave-detail muted leave-start-row">
+              {r.start && (
+                <>
+                  출근 {ampm(r.start).t} {ampm(r.start).p}
+                </>
+              )}
+              {/* 시차·반차·외출 (예: 대체시차 15:30~18:00) — 출근 시간 옆에 */}
+              {working && r.period && (
+                <span className="leave-tag shift" title={r.planEnd ? `원래 퇴근 ${ampm(r.planEnd).t} ${ampm(r.planEnd).p}` : undefined}>
+                  {r.period}
+                </span>
+              )}
+            </span>
+          )}
         </div>
       </div>
     );

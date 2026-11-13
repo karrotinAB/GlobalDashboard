@@ -6546,3 +6546,6 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .area-row .abbr-in { width: 100%; text-transform: uppercase; font-size: 12px; }
 
 .leave-tag.shift { background: #efe4fb; color: #6a3fa0; }
+
+.leave-start-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.leave-start-row .leave-tag.shift { font-size: 11.5px; }
