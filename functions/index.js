@@ -567,3 +567,78 @@ export const salesBackfillNow = onCall({ region: REGION, timeoutSeconds: 540, me
     throw new HttpsError('internal', e.message);
   }
 });
+
+// ------------------------------------------------------------------
+// 지난 수출 주문 (ERP 채우기 결과 exportOrders) → 각 조 주문 관리에 넣기 (관리자 버튼)
+// 이미 같은 EXP_NO 주문이 있으면 건너뜀. 전부 출고승인 난 건은 '완료'로, 아니면 진행중으로
+// 다 끝난 건은 erpArchive 표시 → 금액 자동 갱신이 다시 안 부름 (API 를 덜 부르려고)
+// ------------------------------------------------------------------
+export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, memory: '512MiB' }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
+  const all = (await db.collection('exportOrders').get()).docs.map((d) => d.data());
+  const iso = (v) => (v ? String(v).replaceAll('.', '-').slice(0, 10) : undefined);
+  const r2 = (n) => Math.round(n * 100) / 100;
+  let created = 0;
+  let skipped = 0;
+  const perTeam = {};
+  for (const team of TEAMS) {
+    const cos = (await db.collection(colOf(team, 'companies')).get()).docs;
+    const byCode = new Map();
+    for (const d of cos) for (const c of d.get('storeCodes') ?? []) byCode.set(String(c).trim(), d.id);
+    if (!byCode.size) continue;
+    const ordersCol = db.collection(colOf(team, 'orders'));
+    const have = new Set((await ordersCol.get()).docs.map((d) => String(d.get('expNo') ?? '')).filter(Boolean));
+    let batch = db.batch();
+    let n = 0;
+    for (const o of all) {
+      const companyId = byCode.get(o.code);
+      if (!companyId) continue;
+      if (have.has(o.expNo)) {
+        skipped++;
+        continue;
+      }
+      const rows = o.outRows ?? [];
+      const ok = rows.filter((x) => x.status === '출고승인');
+      const done = rows.length > 0 && ok.length === rows.length;
+      const id = `erp${o.expNo}`;
+      const order = {
+        id,
+        companyId,
+        name: `ERP ${o.expNo}`,
+        realOrder: true,
+        erp: true,
+        inbound: done,
+        invoice: done,
+        shipped: done,
+        storeCode: o.storeId,
+        orderDate: iso(o.orderDate),
+        expNo: o.expNo,
+        amountKRW: Math.round(ok.length ? ok.reduce((a, x) => a + (x.k ?? 0), 0) : o.planK ?? 0),
+        amountForeign: r2(ok.length ? ok.reduce((a, x) => a + (x.f ?? 0), 0) : o.planF ?? 0),
+        planKRW: Math.round(o.planK ?? 0),
+        planForeign: r2(o.planF ?? 0),
+        amountSource: ok.length ? 'api-outbound' : 'api-order',
+        outStatus: done ? 'approved' : ok.length ? 'partial' : 'pending',
+        outDate: ok.map((x) => iso(x.date)).filter(Boolean).sort().pop(),
+        outRows: rows.map((x) => ({ date: x.date ?? null, status: x.status ?? '', k: x.k ?? null, f: x.f ?? null })),
+        autoImported: true,
+        erpArchive: done || undefined,
+        apiSyncedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      for (const k of Object.keys(order)) if (order[k] === undefined) delete order[k];
+      batch.set(ordersCol.doc(id), order);
+      have.add(o.expNo);
+      n++;
+      created++;
+      perTeam[team] = (perTeam[team] ?? 0) + 1;
+      if (n >= 400) {
+        await batch.commit();
+        batch = db.batch();
+        n = 0;
+      }
+    }
+    if (n) await batch.commit();
+  }
+  return { created, skipped, perTeam, total: all.length };
+});

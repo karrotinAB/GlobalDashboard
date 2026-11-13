@@ -6575,3 +6575,5 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 .roy-table { width: auto; }
 .roy-table th, .roy-table td { padding: 5px 14px; white-space: nowrap; }
 .roy-table td.r:last-child, .roy-table th.r:last-child { border-left: 1px dashed #eadcd9; }
+
+.c-gutter .sel-all { cursor: pointer; }

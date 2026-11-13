@@ -30,6 +30,7 @@ export async function call(path, params, apiKey, fetchImpl = fetch) {
 /** 이 주문을 API 로 갱신할 대상인지 */
 export function needsSync(o, now = Date.now()) {
   if (o.amountSource === 'manual') return false;
+  if (o.erpArchive) return false; // ERP 에서 넣은 지난 주문 (다 출고됨) — 다시 안 부름
   if (!o.storeCode || !/^\d+$/.test(String(o.storeCode).trim())) return false; // 826702~4 같은 건 건너뜀
   if (!o.orderDate || o.orderDate < '2025-01-01') return false; // API 조회 하한
   if (o.outStatus === 'approved' && o.apiSyncedAt && now - Date.parse(o.apiSyncedAt) < RECHECK_APPROVED_MS) return false;

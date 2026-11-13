@@ -458,6 +458,19 @@ export function SalesApiAdmin() {
                 : `진행 중: ${backfill.cursor ?? '2026-01-01'} 까지 날짜 확인 · 주문 ${backfill.last?.orders ?? 0}건 · 출고 확인 남음 ${backfill.last?.waiting ?? '?'}건`}
             {backfill?.last?.errors?.length ? ` · 문제: ${backfill.last.errors.slice(0, 3).join(' / ')}` : ''}
           </div>
+          <button
+            disabled={busy || !backfill?.backfillDone}
+            title="ERP 에서 채운 지난 주문을 각 조 주문 관리에 넣어요 (이미 있는 주문번호는 건너뜀, 다 출고된 건은 완료로)"
+            onClick={() =>
+              run('주문 관리에 넣기', async () => {
+                const r = await call<{ created: number; skipped: number; perTeam: Record<string, number> }>('importExportOrders');
+                const per = Object.entries(r.perTeam ?? {}).map(([t, n]) => `${t}조 ${n}건`).join(', ');
+                return `주문 관리에 넣었어요 ✓ ${r.created}건${per ? ` (${per})` : ''} · 이미 있어서 건너뜀 ${r.skipped}건`;
+              })
+            }
+          >
+            📦 주문 관리에 넣기
+          </button>
           <button disabled={busy || !!backfill?.backfillDone} onClick={() => run('지난 수출 데이터 채우기', async () => {
             const r = await call<{ skipped?: string; scanned?: number; found?: number; checked?: number; backfillDone?: boolean }>('exportBackfillNow');
             return r.skipped ?? `이번에 날짜 ${r.scanned}일 확인 · 주문 ${r.found}건 · 출고 ${r.checked}건 확인${r.backfillDone ? ' · 다 채웠어요 ✓' : ' · 아직 남았어요 (한 번 더 누르거나 새벽 4시 자동)'}`;

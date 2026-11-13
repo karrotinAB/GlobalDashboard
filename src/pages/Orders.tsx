@@ -182,6 +182,12 @@ export default function Orders() {
     saveMany('orders', selectedOrders.map((o) => ({ ...o, bundle: target })));
     setSelected(new Set());
   };
+  // 일괄: 지금 보이는 주문 전부 선택 / 선택한 것 완료·진행중으로
+  const selectAllVisible = () => setSelected(new Set(flat.map((o) => o.id)));
+  const markSelected = (done: boolean) => {
+    saveMany('orders', selectedOrders.map((o) => ({ ...o, closed: done || undefined, ...(done ? {} : { shipped: false }) })));
+    setSelected(new Set());
+  };
   const unbundleSelected = () => {
     saveMany('orders', selectedOrders.filter((o) => o.bundle).map((o) => ({ ...o, bundle: undefined })));
     setSelected(new Set());
@@ -378,7 +384,15 @@ export default function Orders() {
         <table className="order-table">
           <thead>
             <tr>
-              <th className="c-gutter" />
+              <th className="c-gutter">
+                <input
+                  type="checkbox"
+                  className="sel-all"
+                  title="보이는 주문 전부 선택 (일괄 완료·묶기)"
+                  checked={flat.length > 0 && flat.every((o) => selected.has(o.id))}
+                  onChange={(e) => (e.target.checked ? selectAllVisible() : setSelected(new Set()))}
+                />
+              </th>
               <th className="c-name">주문</th>
               {!sheet && <th className="c-co">업체</th>}
               {MID_STEPS.map((s) => (
@@ -444,7 +458,16 @@ export default function Orders() {
       {selected.size > 0 && (
         <div className="select-bar">
           <b>{selected.size}건 선택</b>
-          <button className="primary" onClick={bundleSelected}>
+          {selected.size < flat.length && (
+            <button className="link" onClick={selectAllVisible}>
+              보이는 {flat.length}건 전부 선택
+            </button>
+          )}
+          <button className="primary" onClick={() => markSelected(true)}>
+            ✓ 완료로
+          </button>
+          {selectedOrders.some(isOrderDone) && <button onClick={() => markSelected(false)}>진행중으로</button>}
+          <button onClick={bundleSelected}>
             🔗 같이 출고로 묶기
           </button>
           {selectedOrders.some((o) => o.bundle) && <button onClick={unbundleSelected}>묶음에서 빼기</button>}
