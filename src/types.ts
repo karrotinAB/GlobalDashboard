@@ -247,6 +247,9 @@ export interface TradeRequest {
   storeCode?: string;
   orderDate?: string; // YYYY-MM-DD
   orderLink?: OrderLink; // 연결한 주문 (요청한 조의 주문 관리) — 무역사무도 볼 수 있음
+  longTerm?: boolean; // 장기 업무: 세부 업무 + 진행률 (100% 면 완료)
+  subtasks?: { id: string; title: string; done: boolean }[];
+  progress?: number; // 0~100 (사람이 직접)
   requestedAt: string; // 의뢰일 YYYY-MM-DD
   team?: string; // 요청한 조 (없으면 2조) 또는 팀장님·이사님 개인 공간
   teamName?: string; // 화면에 보일 요청 쪽 이름 ('1조', '팀장님 (홍길동)')

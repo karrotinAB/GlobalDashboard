@@ -6634,3 +6634,22 @@ tr:hover .repeat-btn { opacity: 0.45; }
 .repeat-btn.on { opacity: 1; filter: none; background: #e8f0fb; }
 @media (hover: none) { .repeat-btn { opacity: 0.4; } }
 tr.is-done .repeat-btn.on { text-decoration: none; }
+
+/* 무역사무: 장기 업무 */
+.rq-long { align-self: flex-end; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; padding: 6px 10px; border: 1.5px solid #d9c4ec; border-radius: 10px; color: #6a3fa0; background: #fff; cursor: pointer; white-space: nowrap; }
+.rq-long.on { background: #f1e6fb; border-color: #8a5cc0; }
+.rq-long-box { border: 1px solid #e3d3f2; background: #fbf7ff; border-radius: 12px; padding: 10px 12px; margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.rq-long-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rq-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rq-pbar { flex: 1 1 200px; height: 10px; border-radius: 999px; background: #ece2f6; overflow: hidden; }
+.rq-pbar > span { display: block; height: 100%; background: #8a5cc0; border-radius: 999px; transition: width 0.2s; }
+.rq-pct { min-width: 40px; text-align: right; color: #6a3fa0; }
+.rq-progress input[type='range'] { flex: 1 1 160px; accent-color: #8a5cc0; }
+.rq-subs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rq-subs li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; border-radius: 8px; }
+.rq-subs li:hover { background: #f4ecfb; }
+.rq-subs li label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; }
+.rq-subs li.done span { text-decoration: line-through; color: #a99ab8; }
+.rq-sub-add { display: flex; gap: 6px; }
+.rq-sub-add input { flex: 1; min-width: 0; }
+.rq-long-tag { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; padding: 0 6px; border-radius: 6px; background: #f1e6fb; color: #6a3fa0; vertical-align: 1px; }

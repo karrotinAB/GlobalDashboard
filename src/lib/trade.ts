@@ -67,6 +67,8 @@ const FIELD_LABEL: Partial<Record<keyof TradeRequest, string>> = {
   title: '제목',
   body: '내용',
   storeCode: '매장번호',
+  progress: '진행률',
+  longTerm: '장기 업무',
   orderDate: '주문일자',
   dueDate: '마감일',
   priority: '우선순위',
@@ -98,6 +100,10 @@ export function applyChange(
         ? names.assignee(v as string) ?? '미정'
         : k === 'requesterId'
           ? names.requester(v as string) ?? '-'
+          : k === 'progress'
+            ? `${v ?? 0}%`
+            : k === 'longTerm'
+              ? (v ? '켬' : '끔')
           : v === undefined || v === ''
             ? '(없음)'
             : String(v);

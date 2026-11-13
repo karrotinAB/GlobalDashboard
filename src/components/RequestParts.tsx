@@ -74,13 +74,19 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
   );
 }
 
-type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderLink' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
+type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderLink' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
 
 /** 필수: 마감일 · 우선순위 · 작업유형 (창 제목 오른쪽) */
-function HeadFields({ d, set, showMissing }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean }) {
+function HeadFields({ d, set, showMissing, longOk }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean; longOk?: boolean }) {
   const miss = (v: unknown) => (showMissing && !v ? 'missing' : '');
   return (
     <div className="rq-head-fields">
+      {longOk && (
+        <label className={`rq-long ${d.longTerm ? 'on' : ''}`} title="장기 업무: 세부 업무를 나눠 적고 진행률(%)을 직접 올려요. 100% 가 되면 완료">
+          <input type="checkbox" checked={!!d.longTerm} onChange={(e) => set({ longTerm: e.target.checked || undefined })} />
+          장기
+        </label>
+      )}
       <div className={`rq-f req ${miss(d.dueDate)}`}>
         <span>마감일 *</span>
         <DateInput value={d.dueDate} placeholder="예: 20261110" onChange={(v) => set({ dueDate: v })} />
@@ -349,7 +355,7 @@ export function NewRequest({
     onClose();
   };
   return (
-    <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide headExtra={<HeadFields d={d} set={set} showMissing={tried} />}>
+    <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide headExtra={<HeadFields d={d} set={set} showMissing={tried} longOk={isTrade} />}>
       <Fields d={d} set={set} reqId={id} team={team} trade={trade} side={side} showMissing={tried} />
       <div className="rq-actions">
         {tried && missing.length > 0 && <span className="rq-missing-msg">필수 칸을 채워 주세요: {missing.join(', ')}</span>}
@@ -390,7 +396,7 @@ export function RequestDetail({
   const saveEdit = () => {
     if (!d.title.trim()) return;
     const patch: Partial<TradeRequest> = {};
-    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderLink', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
+    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderLink', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
       const v = typeof d[k] === 'string' ? (d[k] as string).trim() || undefined : d[k];
       if (JSON.stringify(v) !== JSON.stringify(r[k])) (patch as Record<string, unknown>)[k] = v;
     }
@@ -410,7 +416,7 @@ export function RequestDetail({
 
       {editing ? (
         <>
-          <HeadFields d={d} set={set} />
+          <HeadFields d={d} set={set} longOk={side === 'trade'} />
           <Fields d={d} set={set} reqId={r.id} team={team} trade={trade} side={side} />
           <div className="rq-actions">
             <button
@@ -439,6 +445,7 @@ export function RequestDetail({
             </div>
           )}
           {r.orderLink && <LinkedOrders link={r.orderLink} side={side} />}
+          {r.longTerm && <LongTermBox r={r} canEdit={side === 'trade' || canEditContent} onSave={onSave} />}
           <dl className="rq-info">
             <div>
               <dt>매장번호</dt>
@@ -693,6 +700,86 @@ export function TradeSummaryCards({
           </span>
         </div>
       </button>
+    </div>
+  );
+}
+
+/** 장기 업무: 세부 업무 체크리스트 + 진행률 (직접 조절) — 100% 면 완료 */
+function LongTermBox({ r, canEdit, onSave }: { r: TradeRequest; canEdit: boolean; onSave: (patch: Partial<TradeRequest>) => void }) {
+  const subs = r.subtasks ?? [];
+  const [text, setText] = useState('');
+  const [pct, setPct] = useState(r.progress ?? 0);
+  const saveProgress = (v: number) => {
+    const p = Math.max(0, Math.min(100, Math.round(v)));
+    if (p === (r.progress ?? 0)) return;
+    // 100% → 완료, 100% 에서 내리면 다시 진행중
+    onSave({ progress: p, ...(p === 100 && r.status !== 'done' ? { status: 'done' as const } : p < 100 && r.status === 'done' ? { status: 'progress' as const } : p > 0 && r.status === 'requested' ? { status: 'progress' as const } : {}) });
+  };
+  const setSubs = (next: { id: string; title: string; done: boolean }[]) => onSave({ subtasks: next.length ? next : undefined });
+  const doneN = subs.filter((x) => x.done).length;
+  return (
+    <div className="rq-long-box">
+      <div className="rq-long-head">
+        <b>📌 장기 업무</b>
+        <span className="muted small">진행률은 직접 조절해요 · 100% 가 되면 완료로 바뀌어요</span>
+      </div>
+      <div className="rq-progress">
+        <div className="rq-pbar">
+          <span style={{ width: `${pct}%` }} />
+        </div>
+        <b className="rq-pct">{pct}%</b>
+        {canEdit && (
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={pct}
+            onChange={(e) => setPct(Number(e.target.value))}
+            onMouseUp={() => saveProgress(pct)}
+            onTouchEnd={() => saveProgress(pct)}
+            onKeyUp={() => saveProgress(pct)}
+            aria-label="진행률"
+          />
+        )}
+        {canEdit && subs.length > 0 && (
+          <button className="link small" onClick={() => (setPct(Math.round((doneN / subs.length) * 100)), saveProgress((doneN / subs.length) * 100))} title="세부 업무 완료 비율로 맞추기">
+            세부 업무대로 ({doneN}/{subs.length})
+          </button>
+        )}
+      </div>
+      <ul className="rq-subs">
+        {subs.length === 0 && <li className="muted small">세부 업무가 아직 없어요.</li>}
+        {subs.map((x) => (
+          <li key={x.id} className={x.done ? 'done' : ''}>
+            <label>
+              <input type="checkbox" checked={x.done} disabled={!canEdit} onChange={() => setSubs(subs.map((y) => (y.id === x.id ? { ...y, done: !y.done } : y)))} />
+              <span>{x.title}</span>
+            </label>
+            {canEdit && (
+              <button className="icon-btn" title="세부 업무 지우기" onClick={() => setSubs(subs.filter((y) => y.id !== x.id))}>
+                ✕
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {canEdit && (
+        <form
+          className="rq-sub-add"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!text.trim()) return;
+            setSubs([...subs, { id: uid(), title: text.trim(), done: false }]);
+            setText('');
+          }}
+        >
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="세부 업무 추가 (Enter)" />
+          <button type="submit" disabled={!text.trim()}>
+            + 추가
+          </button>
+        </form>
+      )}
     </div>
   );
 }
