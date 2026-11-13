@@ -178,7 +178,7 @@ function SalesView({ companies }: { companies: Company[] }) {
   return (
     <>
       {withCodes.length === 0 ? (
-        <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 평수에서 업체 이름 옆 <b>판매데이터</b>를 켜 주세요.</p>
+        <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>판매데이터</b>를 켜 주세요.</p>
       ) : (
         <>
         <div className="sales-search">
@@ -608,7 +608,7 @@ function MonthDetail({
             </table>
           </div>
           <p className="muted small">
-            <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일{holidayCode ? ` (${holidayCode})` : ''} · 금액 단위 {money ?? '(설정 › 매장 평수에서 판매 통화를 골라 주세요)'}
+            <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일{holidayCode ? ` (${holidayCode})` : ''} · 금액 단위 {money ?? '(설정 › 매장 설정에서 판매 통화를 골라 주세요)'}
             {needKrw ? ` · ${tSym} = 판매일 ECOS 환율로 환산` : ''} · 평당은 지점별 (설정에서 평수를 넣은 지점만)
           </p>
         </div>

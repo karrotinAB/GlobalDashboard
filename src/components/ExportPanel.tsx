@@ -179,7 +179,8 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
           }
           // 지난 달은 이미 마감 → 패킹 중은 이번 달에만
           const pack = (month < thisMonth() ? [] : orders).map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
-          const sale = c.royalty ? salesOf(c, month, fx) : null;
+          // 로열티 받기 시작한 달 전에는 없음
+          const sale = c.royalty && (!c.royaltyFrom || month >= c.royaltyFrom) ? salesOf(c, month, fx) : null;
           const r = {
             c,
             ship,
@@ -194,7 +195,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
           };
           return { ...r, total: r.shipK + r.packK + r.royalty, totalF: r.shipF + r.packF + r.royaltyF };
         })
-        .filter((r) => r.ship.length || r.pack.length || r.c.royalty);
+        .filter((r) => r.ship.length || r.pack.length || r.sale);
   const allRows = useMemo(
     () => rowsFor(month, erpMonth, fxTable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,7 +339,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
             <div className="export-detail">
               <h3>③ 로열티 — {m}월 판매 합계 × {ROYALTY_RATE * 100}%</h3>
               <p className="muted small detail-note">{m}월 판매 × {ROYALTY_RATE * 100}% · 판매일마다 ECOS 매매기준율로 원화·달러 환산 (주말·공휴일은 그 전 영업일 환율)</p>
-              {scope.filter((r) => r.sale).length === 0 && <p className="muted small">로열티 매장이 없어요. 설정 &gt; 매장 평수에서 업체 이름 옆 <b>로열티</b>를 켜 주세요.</p>}
+              {scope.filter((r) => r.sale).length === 0 && <p className="muted small">로열티 매장이 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>로열티</b>를 켜 주세요.</p>}
               {scope
                 .filter((r) => r.sale)
                 .map((r) => (
@@ -544,7 +545,7 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
           </table>
         </div>
       )}
-      {!cur && <div className="warn small">판매 통화를 아직 안 골랐어요 — 설정 &gt; 매장 평수에서 이 업체의 <b>판매 통화</b>를 골라 주세요. (그 전까지 원화·달러 환산은 0)</div>}
+      {!cur && <div className="warn small">판매 통화를 아직 안 골랐어요 — 설정 &gt; 매장 설정에서 이 업체의 <b>판매 통화</b>를 골라 주세요. (그 전까지 원화·달러 환산은 0)</div>}
       {cur && sale.missing > 0 && <div className="warn small">환율이 없는 날 {sale.missing}일은 원화·달러에서 빠졌어요 (ECOS 인증키·환율 가져오기 확인)</div>}
       {live && <div className="muted small">이번 달은 어제까지 판매 기준 — 월말에 확정 · 원화·달러는 판매일마다 그날 환율</div>}
       {open && sale.days.length > 0 && (

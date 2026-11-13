@@ -6317,7 +6317,7 @@ td.c-title {
 .sw-v { display: block; font-weight: 600; }
 .sales-avg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; }
 .sales-avg .we { color: #b03a2e; }
-/* 설정: 매장 평수 · 판매 API */
+/* 설정: 매장 설정 · 판매 API */
 .area-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .area-co { border: 1px solid #f1e6e3; border-radius: 12px; padding: 10px 12px; background: #fff; }
 .area-co-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -6346,10 +6346,10 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .sales-on { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid #eadcd9; color: #8a7470; cursor: pointer; white-space: nowrap; }
 .sales-on.on { background: #e8f3ea; border-color: #9cc9a6; color: #2f6b3c; font-weight: 600; }
 .sales-on input { margin: 0; }
-/* 매장 평수: 판매데이터 토글은 업체 칸 오른쪽 위, 매장코드는 업체명 아래 줄 */
+/* 매장 설정: 판매데이터 토글은 업체 칸 오른쪽 위, 매장코드는 업체명 아래 줄 */
 .area-co-head .co-toggles { margin-left: auto; display: inline-flex; gap: 4px; }
 .area-co-head .area-codes { flex-basis: 100%; order: 9; }
-/* 매장 평수: 지점은 10개까지 보이고 나머지는 스크롤 */
+/* 매장 설정: 지점은 10개까지 보이고 나머지는 스크롤 */
 .area-rows { max-height: calc(10 * 44px); overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
 .area-row { min-height: 44px; box-sizing: border-box; }
 /* 판매데이터 ↔ 수출매출 슬라이드 */
@@ -6541,7 +6541,7 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 .team-seg { display: inline-flex; }
 .team-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 5px; margin-right: 4px; border-radius: 5px; background: #efe3df; color: #7a5a54; vertical-align: 1px; }
 
-/* 매장 평수: 지점 약자 직접 입력 */
+/* 매장 설정: 지점 약자 직접 입력 */
 .area-row { grid-template-columns: 1fr 64px 70px auto; }
 .area-row .abbr-in { width: 100%; text-transform: uppercase; font-size: 12px; }
 
@@ -6712,3 +6712,18 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 
 .settings-hello { margin: 4px 0 -4px; font-size: 16px; color: #6b5753; }
 .settings-hello b { color: #8c2f3c; }
+
+/* 매장 설정: 밖에서는 보기만 (노랑 로열티 · 초록 판매데이터 · 통화) + ⚙ */
+.co-flags { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+.flag-box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #ddd2cf; background: #fff; display: inline-grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; cursor: help; }
+.flag-box.royalty.on { background: #f0c64a; border-color: #d9aa20; }
+.flag-box.sales.on { background: #4f9a5a; border-color: #3d7f47; }
+.co-flags .cur-tag.need { background: #fdecea; color: #b03a2e; }
+.co-gear { border: 1px solid #eadcd9; background: #fff; border-radius: 8px; width: 26px; height: 26px; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+.co-gear:hover { background: #f4e9e6; }
+.co-set { display: flex; flex-direction: column; gap: 10px; }
+.co-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; }
+.co-set-row.sub { margin-left: 26px; padding: 6px 10px; background: #fbf6f4; border-radius: 8px; cursor: default; }
+.co-set-row.sub > span:first-child { font-weight: 600; font-size: 13px; }
+.flag-word.royalty { color: #a37800; }
+.flag-word.sales { color: #2f6b3c; }

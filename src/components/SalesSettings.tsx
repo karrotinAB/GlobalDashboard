@@ -6,6 +6,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { guessCurrency, SALES_CURRENCIES, useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
 import type { Company } from '../types';
+import { Modal } from './ui';
 
 /** 판매 API 지점 약자처럼 생겼는지 (서버 규칙과 같게) */
 const looksAbbr = (a?: string) => /^[A-Za-z0-9][A-Za-z0-9 ._\-&]{0,15}$/.test((a ?? '').trim());
@@ -34,7 +35,7 @@ export function StoreAreaSection() {
   if (!own.length) return null;
   return (
     <section className="card">
-      <h2>📈 매장 평수</h2>
+      <h2>🏬 매장 설정</h2>
       <p className="muted small">
         <b>판매데이터</b>를 켠 업체만 판매 데이터를 가져오고 홈에 보여요. 지점별 평수를 넣으면 홈 &gt; 업체별 판매 데이터에서 <b>주차별 평당 금액</b>이 회색 선으로 같이 보여요. 지점은 판매 데이터가 들어오면 자동으로 나타나요
         지점 목록과 이름은 ERP 거래처 정보에서 매장코드 4자리로 시작하는 지점을 자동으로 불러와요 (없으면 지점 코드로 직접 추가).
@@ -66,6 +67,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
   const [addArea, setAddArea] = useState('');
   const ids = [...new Set([...seen.keys(), ...Object.keys(c.storeAreas ?? {})])].sort();
   const [editAbbr, setEditAbbr] = useState<string | null>(null);
+  const [gear, setGear] = useState(false);
   const setAbbr = (sid: string, v: string) => {
     const a = v.trim().toUpperCase();
     const next = { ...(c.storeAbbr ?? {}) };
@@ -85,33 +87,29 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
       <div className="area-co-head">
         <span className="dot" style={{ background: c.color }} />
         <b>{c.name}</b>
-        <span className="co-toggles">
-        <label className={`sales-on royalty ${c.royalty ? 'on' : ''}`} title="로열티 매장: 매달 판매 합계의 5% 를 받아요 (홈 > 수출매출 ③). 판매 데이터도 같이 수집돼요">
-          <input type="checkbox" checked={!!c.royalty} onChange={(e) => save('companies', { ...c, royalty: e.target.checked || undefined, salesOn: e.target.checked ? true : c.salesOn })} />
-          로열티
-        </label>
-        <label className={`sales-on ${c.salesOn ? 'on' : ''}`} title="켠 업체만 판매 데이터를 가져오고 홈에 보여요">
-          <input type="checkbox" checked={!!c.salesOn} onChange={(e) => save('companies', { ...c, salesOn: e.target.checked || undefined })} />
-          판매데이터
-        </label>
+        {/* 밖에서는 보기만: 노랑 = 로열티 · 초록 = 판매데이터 · 통화 (바꾸려면 ⚙) */}
+        <span className="co-flags">
+          <span className={`flag-box royalty ${c.royalty ? 'on' : ''}`} title={c.royalty ? `로열티 받는 매장${c.royaltyFrom ? ` (${c.royaltyFrom.replace('-', '.')}부터)` : ''}` : '로열티 안 받음'}>
+            {c.royalty ? '✓' : ''}
+          </span>
+          <span className={`flag-box sales ${c.salesOn ? 'on' : ''}`} title={c.salesOn ? '판매 데이터 가져오는 중' : '판매 데이터 안 가져옴'}>
+            {c.salesOn ? '✓' : ''}
+          </span>
+          {(c.salesOn || c.royalty) && (
+            <span className={`cur-tag ${c.salesCurrency ? '' : 'need'}`} title="판매 데이터 통화">
+              {c.salesCurrency ?? '통화 미정'}
+            </span>
+          )}
+          <button type="button" className="co-gear" title="이 업체 설정 (로열티 · 판매데이터 · 통화)" onClick={() => setGear(true)}>
+            ⚙
+          </button>
         </span>
         <span className="muted small area-codes">
           매장코드 {c.storeCodes!.join(', ')}
-          {(c.salesOn || c.royalty) && (
-            <label className={`cur-pick ${c.royalty && !c.salesCurrency ? 'need' : ''}`} title="판매 데이터 금액의 통화 — 로열티를 판매일 ECOS 환율로 원화·달러로 바꿀 때 써요">
-              {' · '}판매 통화{' '}
-              <select value={c.salesCurrency ?? ''} onChange={(e) => save('companies', { ...c, salesCurrency: e.target.value || undefined })}>
-                <option value="">{guessCurrency(c.country) ? `선택 (추천 ${guessCurrency(c.country)})` : '선택'}</option>
-                {SALES_CURRENCIES.map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {c.royalty && c.royaltyFrom && ` · 로열티 ${c.royaltyFrom.replace('-', '.')}부터`}
         </span>
       </div>
+      {gear && <CompanySalesSettings c={c} onSave={(x) => save('companies', x)} onClose={() => setGear(false)} />}
       {ids.length === 0 && <p className="muted small">아직 판매 데이터에 나온 지점이 없어요.</p>}
       <div className="area-rows">
       {ids.map((sid) => (
@@ -611,4 +609,73 @@ function useDocState<T>(col: string, id: string) {
     );
   }, [col, id]);
   return s;
+}
+
+/** ⚙ 업체 설정: 판매데이터 · 로열티 (언제부터) · 판매 통화 */
+function CompanySalesSettings({ c, onSave, onClose }: { c: Company; onSave: (c: Company) => void; onClose: () => void }) {
+  const [salesOn, setSalesOn] = useState(!!c.salesOn);
+  const [royalty, setRoyalty] = useState(!!c.royalty);
+  const [from, setFrom] = useState(c.royaltyFrom ?? '');
+  const [cur, setCur] = useState(c.salesCurrency ?? '');
+  const guess = guessCurrency(c.country);
+  return (
+    <Modal title={`${c.name} 설정`} onClose={onClose}>
+      <div className="co-set">
+        <label className="co-set-row">
+          <input type="checkbox" checked={salesOn} onChange={(e) => setSalesOn(e.target.checked)} />
+          <span>
+            <b className="flag-word sales">판매데이터</b> 가져오기
+            <span className="muted small"> — 켜면 매주 판매 데이터를 가져오고 홈에 보여요</span>
+          </span>
+        </label>
+        <label className="co-set-row">
+          <input
+            type="checkbox"
+            checked={royalty}
+            onChange={(e) => {
+              setRoyalty(e.target.checked);
+              if (e.target.checked) setSalesOn(true); // 로열티는 판매 합계로 계산해서 판매데이터도 켬
+            }}
+          />
+          <span>
+            <b className="flag-word royalty">로열티</b> 받는 매장
+            <span className="muted small"> — 매달 판매 합계의 5% (수출매출 ③)</span>
+          </span>
+        </label>
+        {royalty && (
+          <label className="co-set-row sub">
+            <span>로열티 받기 시작한 달</span>
+            <input type="month" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <span className="muted small">{from ? `${from.replace('-', '.')} 판매분부터 계산` : '비우면 처음부터'}</span>
+          </label>
+        )}
+        {(salesOn || royalty) && (
+          <label className="co-set-row sub">
+            <span>판매 통화</span>
+            <select value={cur} onChange={(e) => setCur(e.target.value)}>
+              <option value="">{guess ? `선택 (추천 ${guess})` : '선택'}</option>
+              {SALES_CURRENCIES.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+            <span className="muted small">판매 데이터 금액의 통화 (원화·달러 환산용)</span>
+          </label>
+        )}
+      </div>
+      <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
+        <button onClick={onClose}>닫기</button>
+        <button
+          className="primary"
+          onClick={() => {
+            onSave({ ...c, salesOn: salesOn || undefined, royalty: royalty || undefined, royaltyFrom: royalty && from ? from : undefined, salesCurrency: cur || undefined });
+            onClose();
+          }}
+        >
+          저장
+        </button>
+      </div>
+    </Modal>
+  );
 }
