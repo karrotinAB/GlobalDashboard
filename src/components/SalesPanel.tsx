@@ -47,8 +47,8 @@ const store = {
 
 /** 판매데이터 ↔ 수출매출 슬라이드 버튼 */
 export default function SalesPanel({ companies }: { companies: Company[] }) {
-  // 팀장님·이사님 화면 (조 업체가 섞여 있음): 세 번째 '비중' (총 수출 파이 차트)
-  const leader = companies.some((c) => c.team);
+  // 세 번째 '비중' (총 수출 파이 차트) — 모든 조 (팀장님·이사님 화면은 조별 보기도)
+  const leader = true;
   const saved = store.get('gd:salesMode');
   const [mode, setMode] = useState<'sales' | 'export' | 'share'>(() => (saved === 'export' ? 'export' : saved === 'share' && leader ? 'share' : 'sales'));
   const pick = (m: 'sales' | 'export' | 'share') => {
