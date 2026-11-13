@@ -118,8 +118,8 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
         <label key={sid} className="area-row">
           <span>
             {/* 판매 데이터를 불러올 때 쓰는 약자: 직접 넣은 게 있으면 그것 (자동 이름은 작게) */}
-            <b>{c.storeAbbr?.[sid] || seen.get(sid) || '지점'}</b> <span className="muted small">{sid}</span>
-            {c.storeAbbr?.[sid] && seen.get(sid) && seen.get(sid) !== c.storeAbbr[sid] && <span className="muted small"> (원래 {seen.get(sid)})</span>}
+            <b>{seen.get(sid) || c.storeAbbr?.[sid] || '지점'}</b> <span className="muted small">{sid}</span>
+            {c.storeAbbr?.[sid] && seen.get(sid) && seen.get(sid) !== c.storeAbbr[sid] && <span className="muted small"> (원래 {c.storeAbbr[sid]})</span>}
           </span>
           {c.storeAbbr?.[sid] || editAbbr === sid ? (
             // 약자 직접: 고른 지점만 (✎ 를 눌렀거나 이미 넣은 것)
