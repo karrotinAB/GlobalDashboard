@@ -6665,3 +6665,5 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-head-fields:has(.rq-long) { grid-template-columns: auto 150px 140px 210px; align-items: end; }
 .rq-head-fields .rq-long { align-self: end; padding: 4px 8px; font-size: 12px; border-width: 1px; border-radius: 8px; height: 34px; box-sizing: border-box; }
 .rq-head-fields .rq-long input { margin: 0; width: 14px; height: 14px; }
+
+.rq-to-long { border-color: #d9c4ec !important; color: #6a3fa0 !important; }

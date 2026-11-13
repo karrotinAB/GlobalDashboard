@@ -340,7 +340,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           side={side}
           canEditContent // 2조·무역사무 모두 고치기·취소 가능 (기록이 남음)
           onDelete={
-            access.role === 'admin' || access.role === null || (!!access.email && detail.requesterEmail?.toLowerCase() === access.email)
+            access.role === 'admin' || access.realRole === 'admin' || access.role === null || (!!access.email && (detail.requesterEmail?.toLowerCase() === access.email || detail.createdByEmail?.toLowerCase() === access.email))
               ? () => {
                   remove('requests', detail.id);
                   setOpenId(null);

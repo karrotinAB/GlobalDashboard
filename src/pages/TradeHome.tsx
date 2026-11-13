@@ -1,4 +1,5 @@
 // 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 담당자별 업무 (시계 없음)
+import { useStore } from '../data/store';
 import { useState, type CSSProperties } from 'react';
 import { CharacterPicker, Hero, LeaveBand } from './Home';
 import { Avatar, characterSrc, Ring } from '../components/ui';
@@ -12,6 +13,7 @@ const dot = (iso?: string) => (iso ? iso.slice(5).replace('-', '.') : '');
 
 export default function TradeHome() {
   const { data, save, access, team, trade, update } = useTrade();
+  const { remove } = useStore();
   const todayIso = today();
   const [picking, setPicking] = useState<Member | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -159,6 +161,14 @@ export default function TradeHome() {
           trade={trade}
           side="trade"
           canEditContent
+          onDelete={
+            access.role === 'admin' || access.realRole === 'admin' || access.role === null || (!!access.email && (detail.requesterEmail?.toLowerCase() === access.email || detail.createdByEmail?.toLowerCase() === access.email))
+              ? () => {
+                  remove('requests', detail.id);
+                  setOpenId(null);
+                }
+              : undefined
+          }
           onSave={(p) => update(detail, p)}
           onClose={() => setOpenId(null)}
         />

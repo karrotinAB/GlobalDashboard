@@ -345,6 +345,7 @@ export function NewRequest({
       storeCode: d.storeCode?.trim() || undefined,
       requestedAt: today(),
       requesterEmail: team.find((m) => m.id === d.requesterId)?.email ?? (isTrade ? undefined : myEmail || undefined),
+      createdByEmail: myEmail || undefined,
       team: isTrade ? team.find((m) => m.id === d.requesterId)?.team : teamId,
       teamName: isTrade ? undefined : teamName,
       requesterName: team.find((m) => m.id === d.requesterId)?.name,
@@ -501,6 +502,14 @@ export function RequestDetail({
           </dl>
           <div className="rq-actions left">
             {canEditContent && r.status !== 'cancelled' && <button onClick={() => setEditing(true)}>✎ 수정</button>}
+            {side === 'trade' && r.status !== 'cancelled' && (
+              <button
+                className={r.longTerm ? '' : 'rq-to-long'}
+                onClick={() => (r.longTerm ? confirm('장기 업무를 해제할까요? (세부 업무·진행률은 남아 있어요)') && onSave({ longTerm: undefined }) : onSave({ longTerm: true }))}
+              >
+                {r.longTerm ? '장기 해제' : '📌 장기 업무로'}
+              </button>
+            )}
             {canEditContent && r.status !== 'cancelled' && r.status !== 'done' && (
               <button className="danger" onClick={() => confirm('이 요청을 취소할까요? (기록은 남아요)') && onSave({ status: 'cancelled' })}>
                 요청 취소

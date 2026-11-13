@@ -256,6 +256,7 @@ export interface TradeRequest {
   requesterName?: string; // 요청자 이름 (다른 공간 담당자 이름을 못 읽을 때 대신 보임)
   requesterId?: string; // 요청한 조의 담당자(members) id
   requesterEmail?: string;
+  createdByEmail?: string; // 이 업무를 만든 사람 (지우기 권한)
   dueDate?: string;
   priority: Priority;
   workType?: string;
