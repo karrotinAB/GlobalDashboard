@@ -774,11 +774,14 @@ export function SharePie({
               </title>
             </path>
           ))}
-          <text x={C} y={C - 6} textAnchor="middle" className="share-c1">
+          <text x={C} y={C - 16} textAnchor="middle" className="share-c1">
             {hov ? `${hov.pct.toFixed(1)}%` : '총 수출'}
           </text>
-          <text x={C} y={C + 14} textAnchor="middle" className="share-c2">
-            {hov ? hov.label : shortAmt(total)}
+          <text x={C} y={C + 6} textAnchor="middle" className="share-c2">
+            {hov ? hov.label : `${shortAmt(total)}원`}
+          </text>
+          <text x={C} y={C + 22} textAnchor="middle" className="share-c3">
+            {hov ? `${shortAmt(hov.k)}원 · ${shortUsd(hov.f)}` : shortUsd(totalF)}
           </text>
         </svg>
         <table className="mini-table share-table">

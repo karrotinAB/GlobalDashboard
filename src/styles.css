@@ -6609,3 +6609,6 @@ tr.is-done .c-due, tr.is-done .c-due * { text-decoration: line-through; color: #
 
 .share-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
 .share-tools .share-by { margin: 0; }
+
+.share-c2 { font-size: 12px; font-weight: 600; fill: #6b5753; }
+.share-c3 { font-size: 11px; fill: #8a7470; }
