@@ -80,7 +80,7 @@ function useTeamOrders(teams: string[]) {
 
 type Pick = 'ship' | 'pack' | 'royalty' | null;
 
-export default function ExportPanel({ companies }: { companies: Company[] }) {
+export default function ExportPanel({ companies, view = 'table' }: { companies: Company[]; view?: 'table' | 'pie' }) {
   const { data } = useStore();
   const [month, setMonth] = useState(thisMonth);
   const [coId, setCoId] = useState('');
@@ -262,6 +262,8 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
 
       {rows.length === 0 ? (
         <p className="muted small">이 달 출고·패킹 중 주문이나 로열티 매장이 없어요.</p>
+      ) : view === 'pie' ? (
+        <SharePie rows={rows} hasTeams={hasTeams} />
       ) : (
         <>
           <div className="export-cards">
@@ -631,5 +633,130 @@ function KF({ k, f, bold }: { k: number; f: number; bold?: boolean }) {
       {bold ? <b>{shortAmt(k)}</b> : shortAmt(k)}
       {f ? <small className="kf-fx">{shortUsd(f)}</small> : null}
     </td>
+  );
+}
+
+/** 총 수출 비중: 도넛 (업체별 / 조별) + 옆에 금액·비중 표. 업체 색은 업체 고유색 (순위로 칠하지 않음) */
+const TEAM_COLORS: Record<string, string> = { own: '#8a7470', '1': '#3b7dd8', '2': '#c2185b', '3': '#3a9a5b' };
+export function SharePie({ rows, hasTeams }: { rows: { c: Company; total: number; totalF: number }[]; hasTeams: boolean }) {
+  const [by, setBy] = useState<'co' | 'team'>('co');
+  const [hover, setHover] = useState<string | null>(null);
+  const items0 =
+    by === 'co'
+      ? rows.map((r) => ({ key: r.c.id, label: r.c.name, tag: r.c.team ? `${r.c.team}조` : hasTeams ? '내' : '', color: r.c.color ?? '#999', k: r.total, f: r.totalF }))
+      : Object.values(
+          rows.reduce<Record<string, { key: string; label: string; tag: string; color: string; k: number; f: number }>>((acc, r) => {
+            const t = r.c.team ?? 'own';
+            const a = (acc[t] ??= { key: t, label: t === 'own' ? '내 업체' : `${t}조`, tag: '', color: TEAM_COLORS[t] ?? '#999', k: 0, f: 0 });
+            a.k += r.total;
+            a.f += r.totalF;
+            return acc;
+          }, {}),
+        );
+  const sorted = items0.filter((x) => x.k > 0).sort((a, b) => b.k - a.k);
+  // 조각이 너무 많으면 9번째부터 '기타'로 묶음
+  const items = sorted.length > 9 ? [...sorted.slice(0, 8), { key: 'etc', label: `기타 ${sorted.length - 8}곳`, tag: '', color: '#c9bcb8', k: sorted.slice(8).reduce((a, x) => a + x.k, 0), f: sorted.slice(8).reduce((a, x) => a + x.f, 0) }] : sorted;
+  const total = items.reduce((a, x) => a + x.k, 0);
+  const totalF = items.reduce((a, x) => a + x.f, 0);
+  if (!total) return <p className="muted small">이 달 총 수출 금액이 없어요.</p>;
+  // 도넛 조각 (사이 2px 틈)
+  const R = 90;
+  const r0 = 56;
+  const C = 110;
+  let acc = 0;
+  const arcs = items.map((x) => {
+    const a0 = (acc / total) * Math.PI * 2;
+    acc += x.k;
+    const a1 = (acc / total) * Math.PI * 2;
+    const pt = (rad: number, a: number) => [C + rad * Math.sin(a), C - rad * Math.cos(a)];
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const full = items.length === 1;
+    const d = full
+      ? `M ${C} ${C - R} A ${R} ${R} 0 1 1 ${C - 0.01} ${C - R} L ${C - 0.01} ${C - r0} A ${r0} ${r0} 0 1 0 ${C} ${C - r0} Z`
+      : (() => {
+          const [x0, y0] = pt(R, a0);
+          const [x1, y1] = pt(R, a1);
+          const [x2, y2] = pt(r0, a1);
+          const [x3, y3] = pt(r0, a0);
+          return `M ${x0} ${y0} A ${R} ${R} 0 ${large} 1 ${x1} ${y1} L ${x2} ${y2} A ${r0} ${r0} 0 ${large} 0 ${x3} ${y3} Z`;
+        })();
+    return { ...x, d, pct: (x.k / total) * 100 };
+  });
+  const hov = arcs.find((a) => a.key === hover);
+  return (
+    <div className="share">
+      {hasTeams && (
+        <div className="seg share-by">
+          <button className={by === 'co' ? 'on' : ''} onClick={() => setBy('co')}>
+            업체별
+          </button>
+          <button className={by === 'team' ? 'on' : ''} onClick={() => setBy('team')}>
+            조별
+          </button>
+        </div>
+      )}
+      <div className="share-body">
+        <svg viewBox="0 0 220 220" className="share-pie" role="img" aria-label="총 수출 비중">
+          {arcs.map((a) => (
+            <path
+              key={a.key}
+              d={a.d}
+              fill={a.color}
+              stroke="var(--card-bg, #fffaf8)"
+              strokeWidth={2}
+              opacity={hover && hover !== a.key ? 0.45 : 1}
+              onMouseEnter={() => setHover(a.key)}
+              onMouseLeave={() => setHover(null)}
+            >
+              <title>
+                {a.label} {a.pct.toFixed(1)}% · {won(a.k)}
+              </title>
+            </path>
+          ))}
+          <text x={C} y={C - 6} textAnchor="middle" className="share-c1">
+            {hov ? `${hov.pct.toFixed(1)}%` : '총 수출'}
+          </text>
+          <text x={C} y={C + 14} textAnchor="middle" className="share-c2">
+            {hov ? hov.label : shortAmt(total)}
+          </text>
+        </svg>
+        <table className="mini-table share-table">
+          <thead>
+            <tr>
+              <th>{by === 'co' ? '업체' : '조'}</th>
+              <th className="r">비중</th>
+              <th className="r">원화</th>
+              <th className="r">외화</th>
+            </tr>
+          </thead>
+          <tbody>
+            {arcs.map((a) => (
+              <tr key={a.key} className={hover === a.key ? 'on' : ''} onMouseEnter={() => setHover(a.key)} onMouseLeave={() => setHover(null)}>
+                <td>
+                  <span className="dot" style={{ background: a.color }} /> {a.tag && <span className="team-tag">{a.tag}</span>}
+                  {a.label}
+                </td>
+                <td className="r">
+                  <b>{a.pct.toFixed(1)}%</b>
+                </td>
+                <td className="r">{won(a.k)}</td>
+                <td className="r">{a.f ? fx(a.f) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>합계</th>
+              <td className="r">100%</td>
+              <td className="r">
+                <b>{won(total)}</b>
+              </td>
+              <td className="r">{totalF ? fx(totalF) : '—'}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="muted small">비중은 원화 기준 · 총 수출 = ① 출고 + ② 패킹 중(이번 달만) + ③ 로열티 · 위에서 조를 고르면 그 조 안에서의 비중</p>
+    </div>
   );
 }

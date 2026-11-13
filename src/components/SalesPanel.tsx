@@ -47,29 +47,38 @@ const store = {
 
 /** 판매데이터 ↔ 수출매출 슬라이드 버튼 */
 export default function SalesPanel({ companies }: { companies: Company[] }) {
-  const [mode, setMode] = useState<'sales' | 'export'>(() => (store.get('gd:salesMode') === 'export' ? 'export' : 'sales'));
-  const pick = (m: 'sales' | 'export') => {
+  // 팀장님·이사님 화면 (조 업체가 섞여 있음): 세 번째 '비중' (총 수출 파이 차트)
+  const leader = companies.some((c) => c.team);
+  const saved = store.get('gd:salesMode');
+  const [mode, setMode] = useState<'sales' | 'export' | 'share'>(() => (saved === 'export' ? 'export' : saved === 'share' && leader ? 'share' : 'sales'));
+  const pick = (m: 'sales' | 'export' | 'share') => {
     setMode(m);
     store.set('gd:salesMode', m);
   };
+  const shown = mode === 'share' && !leader ? 'sales' : mode;
   return (
     <section className="card sales">
       <div className="section-head">
-        <h2>{mode === 'sales' ? '📈 업체별 판매 데이터' : '🚢 업체별 수출 매출'}</h2>
-        <div className={`mode-slide ${mode}`} role="tablist">
+        <h2>{shown === 'sales' ? '📈 업체별 판매 데이터' : shown === 'export' ? '🚢 업체별 수출 매출' : '🥧 총 수출 비중'}</h2>
+        <div className={`mode-slide ${shown} ${leader ? 'three' : ''}`} role="tablist">
           <span className="mode-knob" />
-          <button role="tab" aria-selected={mode === 'sales'} onClick={() => pick('sales')}>
+          <button role="tab" aria-selected={shown === 'sales'} onClick={() => pick('sales')}>
             판매데이터
           </button>
-          <button role="tab" aria-selected={mode === 'export'} onClick={() => pick('export')}>
+          <button role="tab" aria-selected={shown === 'export'} onClick={() => pick('export')}>
             수출매출
           </button>
+          {leader && (
+            <button role="tab" aria-selected={shown === 'share'} onClick={() => pick('share')}>
+              비중
+            </button>
+          )}
         </div>
         <span className="muted small sales-sub">
-          {mode === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
+          {shown === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : shown === 'export' ? '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)' : '그 달 총 수출(출고 + 패킹 중 + 로열티) 중 업체·조별 비중'}
         </span>
       </div>
-      {mode === 'sales' ? <SalesView companies={companies} /> : <ExportPanel companies={companies} />}
+      {shown === 'sales' ? <SalesView companies={companies} /> : <ExportPanel companies={companies} view={shown === 'share' ? 'pie' : 'table'} />}
     </section>
   );
 }

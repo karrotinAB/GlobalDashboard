@@ -6582,3 +6582,25 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 .range-in input { width: auto; }
 
 .insp-tries { margin: 4px 0; padding-left: 18px; color: #6b5753; word-break: break-all; }
+
+/* 판매/수출/비중 3칸 슬라이드 */
+.mode-slide.three { grid-template-columns: 1fr 1fr 1fr; }
+.mode-slide.three .mode-knob { width: calc(33.333% - 2px); }
+.mode-slide.three.export .mode-knob { transform: translateX(100%); }
+.mode-slide.three.share .mode-knob { transform: translateX(200%); }
+.mode-slide.three.export button:last-of-type { color: #8a7470; }
+.mode-slide.three.export button:nth-of-type(2), .mode-slide.three.share button:nth-of-type(3) { color: #fff; }
+/* 총 수출 비중 */
+.share-by { margin-bottom: 10px; }
+.share-body { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 28px; }
+.share-pie { width: 240px; max-width: 100%; height: auto; flex: none; }
+.share-pie path { cursor: pointer; transition: opacity 0.15s; }
+.share-c1 { font-size: 18px; font-weight: 800; fill: #3b2a28; }
+.share-c2 { font-size: 11px; fill: #8a7470; }
+.share-table { width: auto; min-width: 320px; font-size: 13px; border-collapse: collapse; }
+.share-table th, .share-table td { padding: 5px 12px; border-bottom: 1px solid #f4ece9; white-space: nowrap; }
+.share-table .r { text-align: right; }
+.share-table tbody tr { cursor: default; }
+.share-table tbody tr.on td { background: #fbf1ee; }
+.share-table tfoot th, .share-table tfoot td { background: #fbf6f4; font-weight: 700; }
+.share-table th:first-child { text-align: left; }
