@@ -725,36 +725,34 @@ function LongTermBox({ r, canEdit, onSave }: { r: TradeRequest; canEdit: boolean
     onSave({ progress: p, ...(p === 100 && r.status !== 'done' ? { status: 'done' as const } : p < 100 && r.status === 'done' ? { status: 'progress' as const } : p > 0 && r.status === 'requested' ? { status: 'progress' as const } : {}) });
   };
   const setSubs = (next: { id: string; title: string; done: boolean }[]) => onSave({ subtasks: next.length ? next : undefined });
-  const doneN = subs.filter((x) => x.done).length;
   return (
     <div className="rq-long-box">
       <div className="rq-long-head">
-        <b>📌 장기 업무</b>
+        <b>📌 장기 업무 · {pct}%</b>
         <span className="muted small">진행률은 직접 조절해요 · 100% 가 되면 완료로 바뀌어요</span>
       </div>
+      {/* 진행률: 막대 하나 (끌어서 조절) */}
       <div className="rq-progress">
-        <div className="rq-pbar">
-          <span style={{ width: `${pct}%` }} />
-        </div>
-        <b className="rq-pct">{pct}%</b>
-        {canEdit && (
+        {canEdit ? (
           <input
             type="range"
+            className="rq-prange"
             min={0}
             max={100}
             step={5}
             value={pct}
+            style={{ '--p': `${pct}%` } as CSSProperties}
             onChange={(e) => setPct(Number(e.target.value))}
             onMouseUp={() => saveProgress(pct)}
             onTouchEnd={() => saveProgress(pct)}
             onKeyUp={() => saveProgress(pct)}
             aria-label="진행률"
+            title={`${pct}% — 끌어서 조절`}
           />
-        )}
-        {canEdit && subs.length > 0 && (
-          <button className="link small" onClick={() => (setPct(Math.round((doneN / subs.length) * 100)), saveProgress((doneN / subs.length) * 100))} title="세부 업무 완료 비율로 맞추기">
-            세부 업무대로 ({doneN}/{subs.length})
-          </button>
+        ) : (
+          <div className="rq-pbar">
+            <span style={{ width: `${pct}%` }} />
+          </div>
         )}
       </div>
       <ul className="rq-subs">
