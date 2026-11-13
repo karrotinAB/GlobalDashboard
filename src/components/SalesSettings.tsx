@@ -381,7 +381,7 @@ export function SalesApiAdmin() {
             </summary>
             <label className="row-field">
               <span>판매 API 주소</span>
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://ex.artbox.kr/api/getExportSalesUpload.asp'} />
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder={cfg.hasUrl ? `저장됨: ${cfg.masked} (바꿀 때만 입력)` : 'https://ex.artbox.kr/api/getExportSalesData.asp'} />
             </label>
             <label className="row-field">
               <span>ECOS 인증키 (한국은행 환율 — 로열티·원화 환산)</span>

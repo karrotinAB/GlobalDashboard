@@ -5,7 +5,7 @@
 //   dateParam  : 날짜(시작)를 넣는 파라미터 이름 (기본 DATE_FROM)
 //   endParam   : 끝 날짜 파라미터 이름 (기본 DATE_TO, 비우면 하루씩 부름)
 //   storeParam : 매장코드 4자리 파라미터 (기본 STORE_CODE) — 매장코드마다 한 번 부름
-//     예) getExportSalesUpload.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
+//     예) getExportSalesData.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
 //     지점은 응답의 지점 칸으로 나눔 (약자면 ERP 거래처 정보로 지점 코드로 바꿈)
 //   dateFormat : 'dot' 2026.11.12 · 'dash' 2026-11-12 · 'compact' 20261112
 //   fields     : { date, amount, store, storeCode, name } 응답 칸 이름 (비우면 자동으로 찾음)

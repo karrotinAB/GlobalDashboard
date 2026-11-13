@@ -313,7 +313,7 @@ export const worldHolidays = onCall({ region: REGION }, async (req) => {
 import { detectFields, fetchSales, isAbbr, lastDays, monthDays, syncSalesDates, aggregate } from './sales.js';
 import { syncFx } from './fx.js';
 
-// 기본값: getExportSalesUpload.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
+// 기본값: getExportSalesData.asp?STORE_CODE=8254&DATE_FROM=2026.10.01&DATE_TO=2026.10.10
 const SALES_DEFAULTS = { dateParam: 'DATE_FROM', endParam: 'DATE_TO', storeParam: 'STORE_CODE', dateFormat: 'dot' };
 const salesCfg = async () => {
   const d = (await db.doc('secrets/sales').get()).data() ?? {};
