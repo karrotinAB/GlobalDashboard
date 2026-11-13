@@ -9,7 +9,7 @@ import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { physName, DEFAULT_TEAM } from '../lib/team';
 import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
-import type { Company, Order } from '../types';
+import { isOrderDone, type Company, type Order } from '../types';
 
 export const ROYALTY_RATE = 0.05;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -27,24 +27,27 @@ const won = (n: number) => `₩${fullAmt(n)}`;
 // ERP 통화 코드(CURR_CODE)는 '02' 같은 숫자라 영문 3글자 통화일 때만 붙이고, 나머지는 주문 관리처럼 $
 const fx = (n: number, code?: string) => `${code && /^[A-Z]{3}$/.test(code) && code !== 'USD' ? `${code} ` : '$'}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
-/** 이 달에 출고승인 난 금액 (줄별 출고일 기준) */
+/**
+ * ① 이 달 출고 금액: 주문 관리에서 '출고'(또는 완료) 처리된 주문의 ERP 출고승인 금액 (출고일 기준 달)
+ * 출고 체크 전이면 ERP 승인이 났어도 아직 ② 패킹 중으로 봄 (패킹은 됐는데 아직 안 나간 것)
+ */
 export function shippedIn(o: Order, month: string) {
+  if (!o.id.startsWith('erp-') && !isOrderDone(o)) return null;
   const rows = (o.outRows ?? []).filter((r) => r.status === '출고승인' && normDate(r.date).startsWith(month));
   if (rows.length) return { k: rows.reduce((a, r) => a + (r.k ?? 0), 0), f: rows.reduce((a, r) => a + (r.f ?? 0), 0), date: rows.map((r) => normDate(r.date)).sort().pop() };
   if (!o.outRows?.length && o.outStatus === 'approved' && normDate(o.outDate).startsWith(month)) return { k: o.amountKRW ?? 0, f: o.amountForeign ?? 0, date: normDate(o.outDate) };
   return null;
 }
-/** 아직 출고승인 안 난 금액 (주문 들어간 것) */
+/**
+ * ② 패킹 중 금액: 주문은 들어갔고 아직 '출고' 체크 전인 주문 전부 (ERP 출고승인이 났어도)
+ * 금액: 승인 났으면 승인 금액, 일부만 승인이면 예정 금액(전체), 아직이면 예정 금액
+ */
 export function packingOf(o: Order) {
-  if (o.outStatus === 'approved' || o.closed) return null;
-  if (o.outStatus === 'partial') {
-    const ok = (o.outRows ?? []).filter((r) => r.status === '출고승인');
-    const k = Math.max(0, (o.planKRW ?? 0) - ok.reduce((a, r) => a + (r.k ?? 0), 0));
-    const f = Math.max(0, (o.planForeign ?? 0) - ok.reduce((a, r) => a + (r.f ?? 0), 0));
-    return k || f ? { k, f, partial: true } : null;
-  }
-  if (o.shipped) return null; // 사람이 출고 체크 (ERP 승인 전이라도 끝난 걸로)
-  return { k: o.amountKRW ?? 0, f: o.amountForeign ?? 0, partial: false };
+  if (isOrderDone(o)) return null;
+  const partial = o.outStatus === 'partial';
+  const k = partial ? o.planKRW ?? o.amountKRW ?? 0 : o.amountKRW ?? 0;
+  const f = partial ? o.planForeign ?? o.amountForeign ?? 0 : o.amountForeign ?? 0;
+  return { k, f, partial, approved: o.outStatus === 'approved' };
 }
 
 /** 팀장님·이사님 화면: 조 업체 주문은 그 조 저장소에서 (읽기만) */
@@ -232,8 +235,8 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
   // 순서: ④ 총 수출 → ① 출고 → ② 패킹 중 → ③ 로열티
   const cards: { key: Exclude<Pick, null> | 'total'; n: string; label: string; k: number; f?: number; sub: string }[] = [
     { key: 'total', n: '', label: '총 수출 금액', k: sum('total'), f: sum('totalF'), sub: '① + ② + ③ (로열티는 환율 적용)' },
-    { key: 'ship', n: '①', label: `${m}월 출고 금액`, k: sum('shipK'), f: sum('shipF'), sub: '출고승인 난 금액 (출고일 기준)' },
-    { key: 'pack', n: '②', label: '패킹 중 금액', k: sum('packK'), f: sum('packF'), sub: '주문 들어갔고 아직 출고승인 전 · 지금 기준' },
+    { key: 'ship', n: '①', label: `${m}월 출고 금액`, k: sum('shipK'), f: sum('shipF'), sub: '출고 체크한 주문의 ERP 출고승인 금액 (출고일 기준)' },
+    { key: 'pack', n: '②', label: '패킹 중 금액', k: sum('packK'), f: sum('packF'), sub: '주문 들어갔고 아직 출고 체크 전 (ERP 승인 났어도) · 지금 기준' },
     { key: 'royalty', n: '③', label: '로열티', k: sum('royalty'), f: sum('royaltyF'), sub: `${m}월 판매 × ${ROYALTY_RATE * 100}% · 판매일 ECOS 환율` },
   ];
 
@@ -313,7 +316,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
 
           {open === 'ship' && (
             <OrderList
-              note="출고승인 난 금액 (출고일 기준)"
+              note="주문 관리에서 출고(완료) 체크한 주문의 ERP 출고승인 금액 · 출고일이 이 달인 것"
               title={`① ${m}월 출고 금액 — 출고승인 난 주문`}
               empty="이 달 출고승인 난 주문이 없어요."
               items={scope.flatMap((r) => r.ship.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: x.v.date?.slice(5).replace('-', '/') ?? '' })))}
@@ -323,10 +326,10 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
           )}
           {open === 'pack' && (
             <OrderList
-              note={month < now ? '지난 달은 마감이라 패킹 중 금액은 넣지 않아요 (이번 달에만 보여요)' : '주문 들어갔고 아직 출고승인 전인 주문 전부 · 지금 기준'}
-              title="② 패킹 중 금액 — 아직 출고승인 전인 주문"
+              note={month < now ? '지난 달은 마감이라 패킹 중 금액은 넣지 않아요 (이번 달에만 보여요)' : '주문 들어갔고 아직 출고 체크 전인 주문 전부 (ERP 출고승인이 났어도) · 지금 기준'}
+              title="② 패킹 중 금액 — 아직 출고 체크 전인 주문"
               empty={month < now ? '지난 달은 마감 — 패킹 중 없음' : '패킹 중인 주문이 없어요.'}
-              items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: `${x.o.packing?.trim() || '—'}${x.v.partial ? ' (일부 출고 · 남은 금액)' : ''}` })))}
+              items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: `${x.o.packing?.trim() || '—'}${x.v.approved ? ' · ERP 출고승인 (출고 체크 전)' : x.v.partial ? ' · 일부 승인' : ''}` })))}
               extraHead="패킹 예정일"
               showCo={!coId}
             />
@@ -383,7 +386,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
             </table>
           </div>
           <p className="muted small">
-            표는 원화 · 아래 작게 외화($) (주문은 ERP 원화·외화 금액, 로열티는 판매일마다 ECOS 매매기준율로 환산 · 주말·공휴일은 그 전 영업일 환율). ② 패킹 중은 이번 달에만 (아직 출고승인 전인 주문 전부) — 지난 달은 마감이라 빠져요.
+            표는 원화 · 아래 작게 외화($) (주문은 ERP 원화·외화 금액, 로열티는 판매일마다 ECOS 매매기준율로 환산 · 주말·공휴일은 그 전 영업일 환율). ② 패킹 중은 이번 달에만 (아직 출고 체크 전인 주문 전부, ERP 승인 났어도) — 지난 달은 마감이라 빠져요.
           </p>
         </>
       )}
