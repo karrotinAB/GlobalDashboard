@@ -246,6 +246,7 @@ export interface TradeRequest {
   files?: RequestFile[]; // 사진
   storeCode?: string;
   orderDate?: string; // YYYY-MM-DD
+  orderDateTo?: string; // 주문일자를 기간으로 쓸 때 끝 날짜
   orderLink?: OrderLink; // 연결한 주문 (요청한 조의 주문 관리) — 무역사무도 볼 수 있음
   longTerm?: boolean; // 장기 업무: 세부 업무 + 진행률 (100% 면 완료)
   subtasks?: { id: string; title: string; done: boolean }[];

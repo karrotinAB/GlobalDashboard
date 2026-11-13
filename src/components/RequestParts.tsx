@@ -74,7 +74,7 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
   );
 }
 
-type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderLink' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
+type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderDateTo' | 'orderLink' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
 
 /** 필수: 마감일 · 우선순위 · 작업유형 (창 제목 오른쪽) */
 function HeadFields({ d, set, showMissing, longOk }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean; longOk?: boolean }) {
@@ -163,7 +163,12 @@ function Fields({
         </label>
         <div className="rq-f">
           <span>주문일자</span>
-          <DateInput value={d.orderDate} placeholder="예: 20261110" onChange={(v) => set({ orderDate: v })} />
+          {/* 하루 또는 기간 (끝 날짜는 비워도 돼요) */}
+          <span className="rq-date-range">
+            <DateInput value={d.orderDate} placeholder="예: 20261110" onChange={(v) => set({ orderDate: v })} />
+            <span className="muted">~</span>
+            <DateInput value={d.orderDateTo} placeholder="(기간이면) 끝" onChange={(v) => set({ orderDateTo: v })} />
+          </span>
         </div>
         {side === 'team' && (
           <div className="rq-f rq-order-f">
@@ -397,7 +402,7 @@ export function RequestDetail({
   const saveEdit = () => {
     if (!d.title.trim()) return;
     const patch: Partial<TradeRequest> = {};
-    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderLink', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
+    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderDateTo', 'orderLink', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
       const v = typeof d[k] === 'string' ? (d[k] as string).trim() || undefined : d[k];
       if (JSON.stringify(v) !== JSON.stringify(r[k])) (patch as Record<string, unknown>)[k] = v;
     }
@@ -466,7 +471,7 @@ export function RequestDetail({
             </div>
             <div>
               <dt>주문일자</dt>
-              <dd>{dot(r.orderDate) || '-'}</dd>
+              <dd>{r.orderDate ? `${dot(r.orderDate)}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${dot(r.orderDateTo)}` : ''}` : '-'}</dd>
             </div>
             <div>
               <dt>마감일</dt>

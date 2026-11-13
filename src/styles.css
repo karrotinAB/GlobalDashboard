@@ -6701,3 +6701,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-body-fold { margin: 6px 0; }
 .rq-body-fold > summary { cursor: pointer; font-size: 13px; color: #8c2f3c; font-weight: 600; padding: 4px 0; }
 .rq-body-fold[open] > summary { margin-bottom: 4px; }
+
+.rq-date-range { display: flex; align-items: center; gap: 4px; }
+.rq-date-range > :not(.muted) { flex: 1; min-width: 0; }

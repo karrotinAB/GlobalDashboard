@@ -108,7 +108,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         처리자: nameOf(trade, r.assigneeId),
         완료일: r.doneAt ?? '',
         매장번호: r.storeCode ?? '',
-        주문일자: r.orderDate ?? '',
+        주문일자: r.orderDate ? `${r.orderDate}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${r.orderDateTo}` : ''}` : '',
         '연결 주문': r.orderLink?.label ?? '',
         진행률: r.longTerm ? `${r.progress ?? 0}%` : '',
       })),

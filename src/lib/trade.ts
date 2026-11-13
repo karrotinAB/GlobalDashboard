@@ -70,6 +70,7 @@ const FIELD_LABEL: Partial<Record<keyof TradeRequest, string>> = {
   progress: '진행률',
   longTerm: '장기 업무',
   orderDate: '주문일자',
+  orderDateTo: '주문일자(끝)',
   dueDate: '마감일',
   priority: '우선순위',
   workType: '작업유형',
