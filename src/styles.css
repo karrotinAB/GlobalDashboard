@@ -6680,3 +6680,12 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-prange::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #8a5cc0; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 .rq-prange::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid #8a5cc0; }
 .rq-prange::-moz-range-track { background: transparent; }
+
+/* 무역사무 업무 표: 장기 업무 세부 업무 줄 */
+.rq-table tr.has-subs td { border-bottom-color: transparent; }
+.rq-table tr.rq-sub-row td { padding-top: 2px; padding-bottom: 2px; border-bottom: 0; background: #fcf9ff; }
+.rq-table tr.rq-sub-row.last td { border-bottom: 1px solid var(--line, #f1e6e3); padding-bottom: 6px; }
+.rq-sub-line { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.rq-sub-branch { color: #b9a6cf; font-size: 15px; margin-right: 2px; }
+.rq-sub-line input { margin: 0; }
+.rq-sub-row.done .rq-sub-title { text-decoration: line-through; color: #a99ab8; }

@@ -382,8 +382,10 @@ function Row({
   const overdue = isOpen(r) && r.dueDate && r.dueDate < todayIso;
   const requester = team.find((m) => m.id === r.requesterId);
   const assignee = trade.find((m) => m.id === r.assigneeId);
+  const subs = r.longTerm ? r.subtasks ?? [] : [];
   return (
-    <tr className={`rq-row ${r.status === 'cancelled' ? 'is-cancelled' : ''} ${r.priority === '초긴급' && isOpen(r) ? 'is-hot' : ''} ${doneToday ? 'is-done-today' : ''}`}>
+    <>
+    <tr className={`rq-row ${r.status === 'cancelled' ? 'is-cancelled' : ''} ${r.priority === '초긴급' && isOpen(r) ? 'is-hot' : ''} ${doneToday ? 'is-done-today' : ''} ${subs.length ? 'has-subs' : ''}`}>
       <td className="c-st">
         {edit && r.status !== 'cancelled' ? (
           <select className={`cell-select rs-${r.status}`} value={r.status} onChange={(e) => onPatch({ status: e.target.value as RequestStatus })}>
@@ -448,5 +450,24 @@ function Row({
       </td>
       {done && <td className="c-d">{dot(r.doneAt)}</td>}
     </tr>
+    {/* 장기 업무의 세부 업무: 업무 아래로 └ 줄마다 완료 체크 (진행률 막대와는 따로) */}
+    {subs.map((x, i) => (
+      <tr key={x.id} className={`rq-sub-row ${x.done ? 'done' : ''} ${i === subs.length - 1 ? 'last' : ''}`}>
+        <td colSpan={4} />
+        <td colSpan={done ? 6 : 5}>
+          <label className="rq-sub-line">
+            <span className="rq-sub-branch">└</span>
+            <input
+              type="checkbox"
+              checked={x.done}
+              disabled={!edit}
+              onChange={() => onPatch({ subtasks: subs.map((y) => (y.id === x.id ? { ...y, done: !y.done } : y)) })}
+            />
+            <span className="rq-sub-title">{x.title}</span>
+          </label>
+        </td>
+      </tr>
+    ))}
+    </>
   );
 }
