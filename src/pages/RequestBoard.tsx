@@ -18,6 +18,8 @@ function readParam(k: string) {
   return new URLSearchParams(q).get(k) ?? undefined;
 }
 
+const isTeamSideOf = (side: 'team' | 'trade') => side === 'team';
+
 export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const { data, save, access, team, trade, me, update } = useTrade();
   const { remove } = useStore();
@@ -69,6 +71,62 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   }, [all, tab, year, month, assignee, requester, workType, status, query]);
 
   const openCount = (f: (r: TradeRequest) => boolean) => all.filter((r) => isOpen(r) && f(r)).length;
+  // 무역사무 진행중: 일자별로 — 처리할 날 = 처리 예상일(없으면 마감일). 지난 건 오늘로 넘어옴, 끝낸 건 오늘만 보이고 내일 사라짐
+  const byDay = !isTeamSideOf(side) && tab === 'open';
+  const planOf = (r: TradeRequest) => r.eta || r.dueDate || '';
+  const doneToday = byDay
+    ? sortRequests(
+        all.filter(
+          (r) =>
+            r.status === 'done' &&
+            r.doneAt === todayIso &&
+            (!assignee || (assignee === '-' ? !r.assigneeId : r.assigneeId === assignee)) &&
+            (!requester || r.requesterId === requester) &&
+            (!workType || r.workType === workType),
+        ),
+      )
+    : [];
+  const todayRows = byDay ? rows.filter((r) => planOf(r) && planOf(r) <= todayIso) : [];
+  const laterRows = byDay ? [...rows.filter((r) => !planOf(r) || planOf(r) > todayIso)].sort((a, b) => (planOf(a) || '9999').localeCompare(planOf(b) || '9999')) : [];
+  // 엑셀: 지금 보이는 (필터 건) 업무 그대로
+  const exportRows = byDay ? [...todayRows, ...doneToday, ...laterRows] : rows;
+  const downloadExcel = async () => {
+    const XLSX = await import('xlsx');
+    const nameOf = (list: Member[], id?: string) => list.find((m) => m.id === id)?.name ?? '';
+    const sheet = XLSX.utils.json_to_sheet(
+      exportRows.map((r) => ({
+        상태: REQUEST_STATUS[r.status],
+        우선순위: r.priority,
+        마감일: r.dueDate ?? '',
+        '처리 예상일': r.eta ?? '',
+        '업무 내용': r.title,
+        '자세한 내용': r.body ?? '',
+        작업유형: r.workType ?? '',
+        '요청 조': r.teamName ?? (r.team ? `${r.team}조` : ''),
+        요청자: nameOf(team, r.requesterId) || r.requesterName || '',
+        의뢰일: r.requestedAt,
+        처리자: nameOf(trade, r.assigneeId),
+        완료일: r.doneAt ?? '',
+        매장번호: r.storeCode ?? '',
+        주문일자: r.orderDate ?? '',
+        '연결 주문': r.orderLink?.label ?? '',
+        진행률: r.longTerm ? `${r.progress ?? 0}%` : '',
+      })),
+    );
+    sheet['!cols'] = [8, 8, 11, 11, 40, 40, 12, 10, 10, 11, 10, 11, 10, 11, 24, 8].map((w) => ({ wch: w }));
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, tab === 'open' ? '진행중' : '완료');
+    const name = `무역사무_업무_${tab === 'open' ? '진행중' : `완료_${year}${month ? `-${month}` : ''}`}_${todayIso}.xlsx`;
+    const buf = XLSX.write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
   const detail = all.find((r) => r.id === openId);
   const isTeamSide = side === 'team';
 
@@ -191,6 +249,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           </select>
         )}
         <input className="search" placeholder="🔍 제목·내용·매장번호" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <button className="xlsx-btn" onClick={() => void downloadExcel()} title="지금 보이는 업무(필터 건 그대로)를 엑셀로 내려받아요">
+          ⬇ 엑셀 ({exportRows.length})
+        </button>
       </div>
 
       {isTeamSide && assignee && (
@@ -226,9 +287,45 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                 </td>
               </tr>
             )}
-            {rows.map((r) => (
-              <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
-            ))}
+            {!byDay &&
+              rows.map((r) => (
+                <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+              ))}
+            {byDay && (
+              <>
+                <tr className="rq-group today">
+                  <td colSpan={10}>
+                    📅 오늘 할 일 <b>{todayRows.length}</b>
+                    <span className="muted small"> · 처리 예상일(없으면 마감일)이 오늘이거나 지난 것 — 못 끝낸 건 다음 날로 넘어가요</span>
+                  </td>
+                </tr>
+                {todayRows.length === 0 && doneToday.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="muted small pad">오늘 할 일이 없어요 🍵</td>
+                  </tr>
+                )}
+                {todayRows.map((r) => (
+                  <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                ))}
+                {doneToday.map((r) => (
+                  <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} doneToday onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                ))}
+                <tr className="rq-group later">
+                  <td colSpan={10}>
+                    🗓 남은 업무 <b>{laterRows.length}</b>
+                    <span className="muted small"> · 날짜가 아직 넉넉한 것 (가까운 날짜 순)</span>
+                  </td>
+                </tr>
+                {laterRows.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="muted small pad">남은 업무가 없어요</td>
+                  </tr>
+                )}
+                {laterRows.map((r) => (
+                  <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                ))}
+              </>
+            )}
           </tbody>
         </table>
       </div>
@@ -266,6 +363,7 @@ function Row({
   trade,
   todayIso,
   done,
+  doneToday,
   onOpen,
   onPatch,
 }: {
@@ -276,6 +374,7 @@ function Row({
   trade: Member[];
   todayIso: string;
   done: boolean;
+  doneToday?: boolean; // 오늘 끝낸 것 (오늘만 보이고 내일 사라짐)
   onOpen: () => void;
   onPatch: (p: Partial<TradeRequest>) => void;
 }) {
@@ -284,7 +383,7 @@ function Row({
   const requester = team.find((m) => m.id === r.requesterId);
   const assignee = trade.find((m) => m.id === r.assigneeId);
   return (
-    <tr className={`rq-row ${r.status === 'cancelled' ? 'is-cancelled' : ''} ${r.priority === '초긴급' && isOpen(r) ? 'is-hot' : ''}`}>
+    <tr className={`rq-row ${r.status === 'cancelled' ? 'is-cancelled' : ''} ${r.priority === '초긴급' && isOpen(r) ? 'is-hot' : ''} ${doneToday ? 'is-done-today' : ''}`}>
       <td className="c-st">
         {edit && r.status !== 'cancelled' ? (
           <select className={`cell-select rs-${r.status}`} value={r.status} onChange={(e) => onPatch({ status: e.target.value as RequestStatus })}>
