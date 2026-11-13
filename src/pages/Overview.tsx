@@ -2,7 +2,7 @@
 // 조 대시보드에 '들어가는' 게 아니라, 모든 조 정보를 한 화면에서 확인하는 용도
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useSpaceData, useStore } from '../data/store';
-import { isOpen, sortRequests, teamOfRequest, requestSideLabel, workload } from '../lib/trade';
+import { isOpen, sortRequests, teamOfRequest, requestSideLabel, teamTagClass, workload } from '../lib/trade';
 import { PriorityTag, StatusTag } from '../components/RequestParts';
 import type { TradeRequest } from '../types';
 import { TEAMS, teamLabel } from '../lib/team';
@@ -697,7 +697,9 @@ function TradeView({ requests, people, only, who, q, todayIso }: { requests: Tra
               const overdue = isOpen(r) && r.dueDate && r.dueDate < todayIso;
               return (
                 <tr key={r.id}>
-                  <td className="nowrap">{requestSideLabel(r)}</td>
+                  <td className="nowrap">
+                    <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>
+                  </td>
                   <td>
                     <PriorityTag p={r.priority} />
                   </td>

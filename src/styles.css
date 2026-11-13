@@ -6690,3 +6690,10 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-sub-line input { margin: 0; }
 .rq-sub-row.done .rq-sub-title { text-decoration: line-through; color: #a99ab8; }
 .rq-team.self { background: #efe4fb; color: #6a3fa0; }
+
+/* 요청 쪽 태그 색 */
+.rq-team.t1 { background: #e3eefc; color: #2f5fa8; }
+.rq-team.t2 { background: #fbe4ec; color: #a8325a; }
+.rq-team.t3 { background: #e2f3e6; color: #2f7a45; }
+.rq-team.self { background: #efe4fb; color: #6a3fa0; }
+.rq-team.lead { background: #f4ead9; color: #8a5a1c; }

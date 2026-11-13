@@ -185,3 +185,9 @@ export const isSelfTask = (r: TradeRequest) => !r.team && !r.requesterId && !r.r
 export const teamOfRequest = (r: TradeRequest) => r.team ?? (isSelfTask(r) ? 'trade' : '2');
 /** 화면에 보일 요청 쪽 이름 */
 export const requestSideLabel = (r: TradeRequest) => r.teamName ?? (isSelfTask(r) ? '무역사무' : `${teamOfRequest(r)}조`);
+
+/** 요청 쪽 태그 색: 1조 · 2조 · 3조 · 무역사무 · 팀장님·이사님 */
+export const teamTagClass = (r: TradeRequest) => {
+  const t = teamOfRequest(r);
+  return t === 'trade' ? 'self' : /^p/.test(t) ? 'lead' : `t${t}`;
+};
