@@ -6549,3 +6549,13 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 
 .leave-start-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .leave-start-row .leave-tag.shift { font-size: 11.5px; }
+
+/* 로열티 표: 합계 맨 위 · 판매 합계 × 5% = 로열티 · 원화/달러 */
+.roy-table th, .roy-table td { padding: 5px 10px; }
+.roy-table .c { text-align: center; }
+.roy-table tr.roy-total td { background: #fff8e1; font-weight: 700; border-bottom: 2px solid #f0dc9c; }
+.roy-table .roy-usd { display: block; font-size: 11px; font-weight: 500; color: #8a7470; }
+.royalty-head { flex-wrap: wrap; }
+.roy-daily-btn { border: 1px solid #eadcd9; background: #fff; border-radius: 999px; padding: 2px 10px; font: inherit; font-size: 12px; color: #8c2f3c; cursor: pointer; }
+.roy-daily-btn.on { background: #8c2f3c; color: #fff; border-color: #8c2f3c; }
+.royalty-box > .warn, .royalty-box > .muted.small { margin-top: 4px; }

@@ -99,7 +99,28 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
   const fxTable = useFxRates([...royaltyCos.map((c) => c.salesCurrency ?? ''), 'USD'], [shiftMonth(month, -1), month]);
   const salesOf = (c: Company) => {
     const docs = sales.filter((m) => m.month === month && (c.storeCodes ?? []).includes(m.code));
-    const branches = docs.flatMap((d) => Object.entries(d.branches).map(([sid, b]) => ({ sid, name: branchNames[sid] || b.name || '', total: Object.values(b.days).reduce((a, n) => a + n, 0), days: Object.keys(b.days).length })));
+    const cur0 = c.salesCurrency;
+    const conv = (date: string, roy: number) => {
+      const kr = cur0 ? rateOn(fxTable, cur0, date) : null;
+      const ur = rateOn(fxTable, 'USD', date);
+      const krw = kr ? roy * kr.rate : null;
+      return { krw, usd: cur0 === 'USD' ? roy : krw !== null && ur ? krw / ur.rate : null };
+    };
+    const branches = docs.flatMap((d) =>
+      Object.entries(d.branches).map(([sid, b]) => {
+        const total = Object.values(b.days).reduce((a, n) => a + n, 0);
+        let krw = 0;
+        let usd = 0;
+        let miss = 0;
+        for (const [dd, v] of Object.entries(b.days)) {
+          const x = conv(`${month}-${dd}`, v * ROYALTY_RATE);
+          if (x.krw === null) miss++;
+          krw += x.krw ?? 0;
+          usd += x.usd ?? 0;
+        }
+        return { sid, name: branchNames[sid] || b.name || '', total, days: Object.keys(b.days).length, roy: total * ROYALTY_RATE, krw, usd, miss };
+      }),
+    );
     // 날짜별 합계 → 로열티(현지) × 그날 환율
     const byDay = new Map<string, number>();
     for (const d of docs) for (const b of Object.values(d.branches)) for (const [dd, v] of Object.entries(b.days)) byDay.set(`${month}-${dd}`, (byDay.get(`${month}-${dd}`) ?? 0) + v);
@@ -287,38 +308,7 @@ export default function ExportPanel({ companies }: { companies: Company[] }) {
               {scope
                 .filter((r) => r.sale)
                 .map((r) => (
-                  <div key={r.c.id} className="royalty-box">
-                    <div className="royalty-head">
-                      <span className="dot" style={{ background: r.c.color }} />
-                      <b>{r.c.name}</b>
-                      <span className="muted small">매장코드 {(r.c.storeCodes ?? []).join(', ')}</span>
-                    </div>
-                    {r.sale!.branches.length === 0 ? (
-                      <p className="muted small">이 달 판매 데이터가 아직 없어요.</p>
-                    ) : (
-                      <table className="mini-table">
-                        <thead>
-                          <tr>
-                            <th>지점</th>
-                            <th className="r">판매 일수</th>
-                            <th className="r">판매 합계</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {r.sale!.branches.map((b) => (
-                            <tr key={b.sid}>
-                              <td>
-                                {b.name || '지점'} <span className="muted small">{b.sid}</span>
-                              </td>
-                              <td className="r">{b.days}일</td>
-                              <td className="r">{fullAmt(b.total)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                    <RoyaltyCalc sale={r.sale!} live={month === now} />
-                  </div>
+                  <RoyaltyBox key={r.c.id} c={r.c} sale={r.sale!} live={month === now} />
                 ))}
             </div>
           )}
@@ -443,6 +433,7 @@ function OrderList({
 
 type Sale = {
   cur?: string;
+  branches: { sid: string; name: string; total: number; days: number; roy: number; krw: number; usd: number; miss: number }[];
   total: number;
   royLocal: number;
   royK: number;
@@ -452,26 +443,92 @@ type Sale = {
 };
 const rateTxt = (r: number) => (r >= 100 ? r.toLocaleString(undefined, { maximumFractionDigits: 2 }) : r.toLocaleString(undefined, { maximumFractionDigits: 4 }));
 
-/** 로열티 계산법: 판매 합계 × 5% → 판매일 환율로 원화·달러 */
-function RoyaltyCalc({ sale, live }: { sale: Sale; live: boolean }) {
+/** 로열티: 업체 하나 — 표 (합계 맨 위) + '일별 계산 보기' */
+function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }) {
+  const [open, setOpen] = useState(false);
   const cur = sale.cur;
+  const sym = cur ? `${cur} ` : '';
+  const pct = `${ROYALTY_RATE * 100}%`;
   return (
-    <div className="royalty-calc">
-      <div>
-        판매 합계 <b>{fullAmt(sale.total)}</b> {cur ?? ''} × {ROYALTY_RATE * 100}% = 로열티 <b>{fullAmt(sale.royLocal)}</b> {cur ?? ''}
+    <div className="royalty-box">
+      <div className="royalty-head">
+        <span className="dot" style={{ background: c.color }} />
+        <b>{c.name}</b>
+        <span className="muted small">매장코드 {(c.storeCodes ?? []).join(', ')}</span>
+        {sale.days.length > 0 && (
+          <button className={`roy-daily-btn ${open ? 'on' : ''}`} onClick={() => setOpen(!open)}>
+            📅 일별 계산 보기 ({sale.days.length}일) {open ? '▴' : '▾'}
+          </button>
+        )}
       </div>
-      {!cur ? (
-        <div className="warn small">판매 통화를 아직 안 골랐어요 — 설정 &gt; 매장 평수에서 이 업체의 <b>판매 통화</b>를 골라 주세요. (그 전까지 원화·달러 환산은 0)</div>
+      {sale.branches.length === 0 ? (
+        <p className="muted small">이 달 판매 데이터가 아직 없어요.</p>
       ) : (
-        <div>
-          → 판매일마다 환율 적용: 원화 <b>{won(sale.royK)}</b> · 달러 <b>{fx(sale.royF)}</b>
-          {sale.missing > 0 && <span className="warn small"> · 환율이 없는 날 {sale.missing}일은 빠졌어요 (ECOS 인증키·환율 가져오기 확인)</span>}
+        <div className="sales-table-wrap">
+          <table className="mini-table roy-table">
+            <thead>
+              <tr>
+                <th>지점</th>
+                <th className="r">판매 일수</th>
+                <th className="r">판매 합계 {cur && <span className="muted">({cur})</span>}</th>
+                <th className="c">× {pct}</th>
+                <th className="r">로열티 {cur && <span className="muted">({cur})</span>}</th>
+                <th className="r">원화 / 달러</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="roy-total">
+                <td>합계</td>
+                <td className="r">{sale.days.length}일</td>
+                <td className="r">
+                  {sym}
+                  {fullAmt(sale.total)}
+                </td>
+                <td className="c muted">×{pct}</td>
+                <td className="r">
+                  {sym}
+                  {fullAmt(sale.royLocal)}
+                </td>
+                <td className="r">
+                  {cur ? (
+                    <>
+                      {won(sale.royK)}
+                      <small className="roy-usd">{fx(sale.royF)}</small>
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+              </tr>
+              {sale.branches.map((b) => (
+                <tr key={b.sid}>
+                  <td>
+                    {b.name || '지점'} <span className="muted small">{b.sid}</span>
+                  </td>
+                  <td className="r">{b.days}일</td>
+                  <td className="r">{fullAmt(b.total)}</td>
+                  <td className="c muted">×{pct}</td>
+                  <td className="r">{fullAmt(b.roy)}</td>
+                  <td className="r">
+                    {cur ? (
+                      <>
+                        {won(b.krw)}
+                        <small className="roy-usd">{fx(b.usd)}</small>
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
-      {live && <div className="muted small">이번 달은 어제까지 판매 기준 — 월말에 확정</div>}
-      {sale.days.length > 0 && (
-        <details>
-          <summary className="small">일별 계산 보기 ({sale.days.length}일)</summary>
+      {!cur && <div className="warn small">판매 통화를 아직 안 골랐어요 — 설정 &gt; 매장 평수에서 이 업체의 <b>판매 통화</b>를 골라 주세요. (그 전까지 원화·달러 환산은 0)</div>}
+      {cur && sale.missing > 0 && <div className="warn small">환율이 없는 날 {sale.missing}일은 원화·달러에서 빠졌어요 (ECOS 인증키·환율 가져오기 확인)</div>}
+      {live && <div className="muted small">이번 달은 어제까지 판매 기준 — 월말에 확정 · 원화·달러는 판매일마다 그날 환율</div>}
+      {open && sale.days.length > 0 && (
           <div className="sales-table-wrap">
             <table className="mini-table">
               <thead>
@@ -514,7 +571,6 @@ function RoyaltyCalc({ sale, live }: { sale: Sale; live: boolean }) {
               </tfoot>
             </table>
           </div>
-        </details>
       )}
     </div>
   );
