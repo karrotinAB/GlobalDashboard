@@ -6604,3 +6604,5 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 .share-table tbody tr.on td { background: #fbf1ee; }
 .share-table tfoot th, .share-table tfoot td { background: #fbf6f4; font-weight: 700; }
 .share-table th:first-child { text-align: left; }
+/* 완료한 할일: 마감기한도 줄 긋고 흐리게 */
+tr.is-done .c-due, tr.is-done .c-due * { text-decoration: line-through; color: var(--muted, #a8958f) !important; background: transparent !important; }
