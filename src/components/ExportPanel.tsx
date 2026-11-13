@@ -473,7 +473,8 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
                 <th className="r">판매 합계 {cur && <span className="muted">({cur})</span>}</th>
                 <th className="c">× {pct}</th>
                 <th className="r">로열티 {cur && <span className="muted">({cur})</span>}</th>
-                <th className="r">원화 / 달러</th>
+                <th className="r">원화</th>
+                <th className="r">달러</th>
               </tr>
             </thead>
             <tbody>
@@ -489,16 +490,8 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
                   {sym}
                   {fullAmt(sale.royLocal)}
                 </td>
-                <td className="r">
-                  {cur ? (
-                    <>
-                      {won(sale.royK)}
-                      <small className="roy-usd">{fx(sale.royF)}</small>
-                    </>
-                  ) : (
-                    '—'
-                  )}
-                </td>
+                <td className="r">{cur ? won(sale.royK) : '—'}</td>
+                <td className="r">{cur ? fx(sale.royF) : '—'}</td>
               </tr>
               {sale.branches.map((b) => (
                 <tr key={b.sid}>
@@ -509,16 +502,8 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
                   <td className="r">{fullAmt(b.total)}</td>
                   <td className="c muted">×{pct}</td>
                   <td className="r">{fullAmt(b.roy)}</td>
-                  <td className="r">
-                    {cur ? (
-                      <>
-                        {won(b.krw)}
-                        <small className="roy-usd">{fx(b.usd)}</small>
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
+                  <td className="r">{cur ? won(b.krw) : '—'}</td>
+                  <td className="r">{cur ? fx(b.usd) : '—'}</td>
                 </tr>
               ))}
             </tbody>

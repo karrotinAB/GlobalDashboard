@@ -6569,3 +6569,9 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 .sa-pick .row-field { min-width: 140px; flex: 0 1 auto; }
 .sa-pick .sa-go { padding: 8px 22px; }
 .area-row .abbr-in.need { border-color: #e7a19a; background: #fdf1ef; }
+
+/* 로열티 표: 폭을 내용만큼 (너무 넓지 않게) · 원화 | 달러 같은 크기 */
+.royalty-box .sales-table-wrap { display: inline-block; max-width: 100%; }
+.roy-table { width: auto; }
+.roy-table th, .roy-table td { padding: 5px 14px; white-space: nowrap; }
+.roy-table td.r:last-child, .roy-table th.r:last-child { border-left: 1px dashed #eadcd9; }
