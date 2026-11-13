@@ -120,6 +120,24 @@ export async function fetchSales(cfg, apiKey, fromIso, toIso, fetchImpl = fetch,
   return { rows, body };
 }
 
+const tooLarge = (e) => e?.status === 422 || /RESULT_TOO_LARGE|exceeds the maximum/i.test(e?.message ?? '');
+
+/**
+ * 기간 API 를 부르되, 결과가 너무 많다고 하면 (1만 줄 넘음) 기간을 반씩 나눠서 다시 — 하루까지
+ * @param days 정렬된 날짜들 ['2026-10-01', …]
+ * @returns [{ fallbackDate, rows }]
+ */
+export async function fetchSplit(cfg, apiKey, days, fetchImpl, extra) {
+  try {
+    const r = await fetchSales(cfg, apiKey, days[0], days[days.length - 1], fetchImpl, extra);
+    return [{ fallbackDate: days.length === 1 ? days[0] : undefined, rows: r.rows }];
+  } catch (e) {
+    if (!tooLarge(e) || days.length <= 1) throw e;
+    const mid = Math.ceil(days.length / 2);
+    return [...(await fetchSplit(cfg, apiKey, days.slice(0, mid), fetchImpl, extra)), ...(await fetchSplit(cfg, apiKey, days.slice(mid), fetchImpl, extra))];
+  }
+}
+
 /** 서울 날짜로 오늘부터 n일 전까지 ['2026-11-12', '2026-11-11', …] */
 export function lastDays(n, now = new Date()) {
   const out = [];
@@ -182,10 +200,8 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
     const label = Object.values(u.extra).filter(Boolean).join('/') || '전체';
     if (cfg.endParam) {
       // 기간 API: 날짜 구간 한 번에
-      const fb = sorted.length === 1 ? sorted[0] : undefined;
       try {
-        const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, u.extra);
-        groups.push({ fallbackDate: fb, rows: r.rows, code: u.code, store: u.store });
+        for (const part of await fetchSplit(cfg, apiKey, sorted, fetchImpl, u.extra)) groups.push({ ...part, code: u.code, store: u.store });
       } catch (e) {
         if (u.store) {
           errors.push(`${label}: ${e.message}`);
@@ -200,8 +216,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
         const failed = [];
         for (const [abbr, sid] of abbrs) {
           try {
-            const r = await fetchSales(cfg, apiKey, sorted[0], sorted[sorted.length - 1], fetchImpl, { ...u.extra, [bp]: abbr });
-            groups.push({ fallbackDate: fb, rows: r.rows, code: u.code, store: sid });
+            for (const part of await fetchSplit(cfg, apiKey, sorted, fetchImpl, { ...u.extra, [bp]: abbr })) groups.push({ ...part, code: u.code, store: sid });
           } catch (e2) {
             failed.push(`${abbr}: ${e2.message}`);
           }
