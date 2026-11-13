@@ -640,8 +640,8 @@ function WeekChart({
   const H = 252;
   if (!weeks.length) return <div className="sales-chart muted small">이 달 판매 데이터가 없어요.</div>;
   const series = [
-    { key: 'all', name: '합계', color, vals: weeks.map((w) => sumOf(null, w.days)), main: true },
-    ...(branches.length > 1 ? branches.map((b) => ({ key: b.sid, name: b.name, color: b.color, vals: weeks.map((w) => sumOf(b, w.days)), main: false })) : []),
+    { key: 'all', name: '합계', color, vals: weeks.map((w) => sumOf(null, w.days)), main: true, b: null as Br | null },
+    ...(branches.length > 1 ? branches.map((b) => ({ key: b.sid, name: b.name, color: b.color, vals: weeks.map((w) => sumOf(b, w.days)), main: false, b: b as Br | null })) : []),
   ].filter((s) => !hide.has(s.key));
   const max = Math.max(1, ...series.flatMap((s) => s.vals));
   const x = (i: number) => (weeks.length === 1 ? (L + W - R) / 2 : L + (i * (W - L - R)) / (weeks.length - 1));
@@ -663,6 +663,16 @@ function WeekChart({
             {s.name}
           </button>
         ))}
+        {branches.length > 1 && (
+          <span className="lg-all">
+            <button className="link" onClick={() => setHide(new Set(branches.map((b) => b.sid)))} title="지점 선을 모두 숨겨요 (합계는 그대로)">
+              지점 모두 끄기
+            </button>
+            <button className="link" onClick={() => setHide(new Set())} title="모든 선을 보여요">
+              모두 켜기
+            </button>
+          </span>
+        )}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="주차별 판매 금액">
         {[0, 0.5, 1].map((g) => (
@@ -685,15 +695,16 @@ function WeekChart({
                   </title>
                 </circle>
               ))}
-              {s.main &&
+              {/* 금액 글씨: 합계 선, 또는 합계를 끄고 지점 1~2개만 보일 때 그 지점 */}
+              {(s.main || (!series.some((x) => x.main) && series.length <= 2)) &&
                 s.vals.map((v, i) => (
                   <text key={i} x={x(i)} y={y(v) - (convOf ? 20 : 9)} textAnchor="middle" className="sc-val">
                     {sym}
                     {shortAmt(v)}
-                    {convOf && convOf(null, weeks[i].days) !== null && (
+                    {convOf && convOf(s.b, weeks[i].days) !== null && (
                       <tspan x={x(i)} dy={11} className="sc-conv">
                         {tSym}
-                        {shortConv(convOf(null, weeks[i].days)!, target)}
+                        {shortConv(convOf(s.b, weeks[i].days)!, target)}
                       </tspan>
                     )}
                   </text>
