@@ -6540,3 +6540,7 @@ a.mc-tasks:hover .mc-task-text > span:first-child::after { content: ' →'; colo
 /* 팀장님·이사님 수출매출: 조 표시·거르기 */
 .team-seg { display: inline-flex; }
 .team-tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 5px; margin-right: 4px; border-radius: 5px; background: #efe3df; color: #7a5a54; vertical-align: 1px; }
+
+/* 매장 평수: 지점 약자 직접 입력 */
+.area-row { grid-template-columns: 1fr 64px 70px auto; }
+.area-row .abbr-in { width: 100%; text-transform: uppercase; font-size: 12px; }

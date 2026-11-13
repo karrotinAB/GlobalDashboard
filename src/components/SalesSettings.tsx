@@ -62,6 +62,13 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
   const [adding, setAdding] = useState<string | null>(null); // 지점 직접 추가 (누르면 입력칸)
   const [addArea, setAddArea] = useState('');
   const ids = [...new Set([...seen.keys(), ...Object.keys(c.storeAreas ?? {})])].sort();
+  const setAbbr = (sid: string, v: string) => {
+    const a = v.trim().toUpperCase();
+    const next = { ...(c.storeAbbr ?? {}) };
+    if (a) next[sid] = a;
+    else delete next[sid];
+    if (JSON.stringify(next) !== JSON.stringify(c.storeAbbr ?? {})) save('companies', { ...c, storeAbbr: Object.keys(next).length ? next : undefined });
+  };
   const setArea = (sid: string, v: string) => {
     const n = Number(v.replace(/[^\d.]/g, ''));
     const next = { ...(c.storeAreas ?? {}) };
@@ -108,6 +115,15 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           <span>
             {seen.get(sid) || '지점'} <span className="muted small">{sid}</span>
           </span>
+          <input
+            className="abbr-in"
+            key={`a${c.storeAbbr?.[sid] ?? ''}`}
+            defaultValue={c.storeAbbr?.[sid] ?? ''}
+            placeholder="약자"
+            title={`판매 데이터를 불러올 때 쓰는 지점 약자 (비우면 '${seen.get(sid) || '-'}')`}
+            onBlur={(e) => setAbbr(sid, e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          />
           <input
             key={c.storeAreas?.[sid] ?? ''}
             defaultValue={c.storeAreas?.[sid] || ''}

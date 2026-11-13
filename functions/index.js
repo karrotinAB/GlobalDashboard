@@ -330,15 +330,26 @@ async function branchesFor(code) {
   await ref.set({ code, branches, at: new Date().toISOString() });
   return branches;
 }
+// 설정 › 매장 평수에서 직접 넣은 지점 약자 (STORE_ID → 약자) — 자동으로 불러온 이름보다 먼저
+let abbrOverrides = {};
 async function allStoreCodes() {
   const codes = new Set();
+  abbrOverrides = {};
   for (const space of await allSpaces()) {
     for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) {
       if (!d.get('salesOn')) continue; // 설정에서 '판매데이터 수집 중' 켠 업체만
       for (const c of d.get('storeCodes') ?? []) codes.add(String(c).trim());
+      for (const [sid, a] of Object.entries(d.get('storeAbbr') ?? {})) if (a) abbrOverrides[sid] = String(a).trim();
     }
   }
   return codes;
+}
+/** 지점 목록 + 직접 넣은 약자 */
+async function branchesWithAbbr(code) {
+  const base = await branchesFor(code).catch(() => ({}));
+  const out = { ...base };
+  for (const [sid, a] of Object.entries(abbrOverrides)) if (sid.startsWith(code)) out[sid] = a;
+  return out;
 }
 async function runSales({ days = 3, month } = {}) {
   const cfg = await salesCfg();
@@ -347,7 +358,7 @@ async function runSales({ days = 3, month } = {}) {
   const codes = await allStoreCodes();
   if (!codes.size) return { skipped: "'판매데이터 수집 중'을 켠 업체(매장코드 있는)가 없어요" };
   const today = lastDays(1)[0];
-  const r = await syncSalesDates(db, cfg, key, month ? monthDays(month, today) : lastDays(days), [...codes], { branchesFor });
+  const r = await syncSalesDates(db, cfg, key, month ? monthDays(month, today) : lastDays(days), [...codes], { branchesFor: branchesWithAbbr });
   // 로열티 환율 (ECOS): 그 달 + 앞 달 (월초 주말은 앞 달 마지막 영업일 환율을 씀)
   const fxMonth = month ?? today.slice(0, 7);
   const fx = await runFx([prevMonth(fxMonth), fxMonth]).catch((e) => ({ errors: [e.message] }));

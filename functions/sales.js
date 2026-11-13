@@ -13,7 +13,7 @@
 
 const pad = (n) => String(n).padStart(2, '0');
 /** 지점 약자처럼 생겼는지 (LDC, MEG, BKS …) — '(주)그랜드에스코리아' 같은 회사 이름은 아님 */
-export const isAbbr = (a) => /^[A-Za-z0-9]{2,8}$/.test(String(a ?? '').trim());
+export const isAbbr = (a) => /^[A-Za-z0-9][A-Za-z0-9 ._\-&]{0,15}$/.test(String(a ?? '').trim());
 
 export function fmtDate(iso, format = 'dot') {
   const [y, m, d] = iso.split('-');
@@ -157,6 +157,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
           if (!a) continue;
           abbrToId[a.toUpperCase()] = sid;
           if (isAbbr(a)) (abbrsOf[code] ??= []).push([a, sid]);
+          else errors.push(`${sid}: 지점 이름 '${a}' 은 약자로 못 써서 건너뜀 — 설정 › 매장 평수에서 약자를 직접 넣어 주세요`);
         }
       } catch {
         /* 지점 목록 없어도 진행 */

@@ -26,6 +26,7 @@ export interface Company {
   salesCurrency?: string; // 판매 데이터 통화 (MNT 등) — 로열티를 판매일 ECOS 환율로 원화·달러 환산
   royalty?: boolean; // 로열티 매장: 월 판매 합계의 5% 를 받음 (수출매출 ③)
   salesOn?: boolean; // 판매 데이터 수집 중 (설정 > 매장 평수에서 켬) — 켠 업체만 수집·홈에 보임
+  storeAbbr?: Record<string, string>; // 지점(STORE_ID)별 판매 API 약자 (자동으로 불러온 이름이 약자가 아닐 때 직접)
   storeAreas?: Record<string, number>; // 지점(STORE_ID)별 평수 — 판매 데이터의 평당 금액용 (설정에서 입력)
   team?: string; // 팀장님·이사님 화면에서 조 업체를 같이 보여줄 때 붙는 조 (저장 안 함)
   color?: string;
