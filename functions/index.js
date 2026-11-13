@@ -429,20 +429,48 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
   const date = typeof req.data?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.data.date) ? req.data.date : lastDays(2)[1];
   const cfg = await salesCfg();
   try {
-    // 확인용: 고른 매장코드 (없으면 판매데이터 켠 첫 업체) · 기간 API면 최근 7일
+    // 확인용: 고른 매장코드·지점·기간 (없으면 판매데이터 켠 첫 업체 · 최근 7일)
+    await allStoreCodes();
     const code = /^\d{4}$/.test(String(req.data?.code ?? '')) ? String(req.data.code) : [...(await allStoreCodes())][0];
-    const extra = cfg.storeParam && code ? { [cfg.storeParam]: code } : {};
+    const branches = code ? await branchesWithAbbr(code) : {};
     const abbrToId = {};
-    if (code) for (const [sid, a] of Object.entries(await branchesFor(code).catch(() => ({})))) if (a) abbrToId[String(a).toUpperCase()] = sid;
-    const from = cfg.endParam ? lastDays(8)[7] : date;
-    // 설정의 지점 약자가 있으면 첫 지점으로 (STORE_CODE=8254&BRANCH_ABBR=LDC)
-    const first = Object.entries(abbrToId).find(([a, sid]) => isAbbr(a) && (!code || sid.startsWith(code)));
-    if (first && cfg.storeParam) extra[cfg.branchParam || 'BRANCH_ABBR'] = first[0];
-    const res = await fetchSales(cfg, await apiKey(), from, date, fetch, extra);
+    for (const [sid, a] of Object.entries(branches)) if (a) abbrToId[String(a).toUpperCase()] = sid;
+    const isoOk = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const to = isoOk(req.data?.to) ? req.data.to : date;
+    const from = isoOk(req.data?.from) ? req.data.from : cfg.endParam ? lastDays(8)[7] : date;
+    const pickSid = /^\d{5,8}$/.test(String(req.data?.sid ?? '')) ? String(req.data.sid) : Object.entries(branches).find(([, a]) => isAbbr(a))?.[0];
+    const abbr = pickSid ? branches[pickSid] : undefined;
+    const bp = cfg.branchParam || 'BRANCH_ABBR';
+    // 시도: ① 매장코드 4자리 + 지점 약자 → ② 6자리 지점 코드만 → ③ 매장코드 4자리만
+    const tries = [];
+    if (code && abbr) tries.push({ [cfg.storeParam]: code, [bp]: abbr });
+    if (pickSid) tries.push({ [cfg.storeParam]: pickSid });
+    if (code) tries.push({ [cfg.storeParam]: code });
+    const key = await apiKey();
+    const attempts = [];
+    let res = null;
+    let extra = {};
+    let first = pickSid ? [abbr, pickSid] : undefined;
+    for (const t of tries) {
+      const q = Object.entries(t).map(([k, v]) => `${k}=${v}`).join('&');
+      try {
+        const r = await fetchSales(cfg, key, from, to, fetch, t);
+        attempts.push(`${q} → ${r.rows.length}줄`);
+        if (r.rows.length && !res) {
+          res = r;
+          extra = t;
+          if (!t[bp] && t[cfg.storeParam] === code) first = undefined;
+        }
+      } catch (e) {
+        attempts.push(`${q} → ${e.message.slice(0, 160)}`);
+      }
+      if (res) break;
+    }
+    if (!res) res = { rows: [], body: null };
     const { rows, body } = res;
     const fields = detectFields(rows, cfg.fields ?? {});
-    const sums = aggregate(rows, fields, from === date ? date : undefined, first?.[1], { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
-    return { date: from === date ? date : `${from} ~ ${date}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
+    const sums = aggregate(rows, fields, from === to ? to : undefined, first?.[1], { abbrToId, code }).sort((a, b) => b.amount - a.amount).slice(0, 15);
+    return { attempts, date: from === to ? to : `${from} ~ ${to}`, called: Object.entries(extra).map(([k, v]) => `${k}=${v}`).join('&'), total: rows.length, keys: Object.keys(rows[0] ?? {}), sample: rows.slice(0, 5), fields, sums, top: rows.length ? undefined : JSON.stringify(body).slice(0, 500) };
   } catch (e) {
     throw new HttpsError('internal', e.message);
   }

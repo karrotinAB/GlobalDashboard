@@ -174,7 +174,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
 }
 
 type Cfg = { hasEcos?: boolean; hasUrl: boolean; masked: string; dateParam: string; endParam: string; storeParam?: string; dateFormat: string; fields: Record<string, string> };
-type Inspect = { date: string; called?: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
+type Inspect = { attempts?: string[]; date: string; called?: string; total: number; keys: string[]; sample: Record<string, unknown>[]; fields: Record<string, string | undefined>; sums: { storeId: string; name: string; amount: number; count: number }[]; top?: string };
 const FIELD_LABEL: [string, string][] = [
   ['date', '날짜'],
   ['amount', '금액'],
@@ -357,6 +357,21 @@ export function SalesApiAdmin() {
               >
                 가져오기
               </button>
+              <button
+                disabled={busy || !cfg.hasUrl || (periodMode === 'range' && (!rFrom || !rTo))}
+                title="고른 업체·지점·기간으로 API 가 뭘 돌려주는지 보기만 해요 (저장 안 함)"
+                onClick={() =>
+                  run('확인', async () => {
+                    const m = periodMode === 'month' && month ? month : '';
+                    const last = m ? new Date(Number(m.slice(0, 4)), Number(m.slice(5)), 0).getDate() : 0;
+                    const range = periodMode === 'range' ? { from: rFrom, to: rTo } : m ? { from: `${m}-01`, to: `${m}-${String(Math.min(last, 7)).padStart(2, '0')}` } : {};
+                    setInsp(await call<Inspect>('inspectSalesApi', { code: pickCodes?.[0], sid: pickBranch || undefined, ...range }));
+                    return '';
+                  })
+                }
+              >
+                확인만 (저장 안 함)
+              </button>
             </div>
           </div>
 
@@ -503,6 +518,13 @@ export function SalesApiAdmin() {
           <p className="small">
             {insp.date}{insp.called ? ` (${insp.called})` : ''} · 계산 {insp.total}건 · 찾은 칸: {FIELD_LABEL.map(([k, l]) => `${l.split(' ')[0]}=${insp.fields[k] ?? '없음'}`).join(' · ')}
           </p>
+          {!!insp.attempts?.length && (
+            <ul className="small insp-tries">
+              {insp.attempts.map((t, i) => (
+                <li key={i}>{t}</li>
+              ))}
+            </ul>
+          )}
           {insp.keys.length > 0 && <p className="muted small">응답 칸: {insp.keys.join(', ')}</p>}
           {insp.sums.length > 0 && (
             <table className="mini-table">

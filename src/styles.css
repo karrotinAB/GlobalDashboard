@@ -6580,3 +6580,5 @@ details.sa-step[open] > summary { margin-bottom: 4px; }
 
 .range-in { display: inline-flex; align-items: center; gap: 4px; }
 .range-in input { width: auto; }
+
+.insp-tries { margin: 4px 0; padding-left: 18px; color: #6b5753; word-break: break-all; }
