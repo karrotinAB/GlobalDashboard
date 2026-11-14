@@ -6959,3 +6959,10 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 /* 달력 ‹ › : 원 정가운데 */
 .cal-nav .cal-arrow { display: inline-grid; place-items: center; padding: 0; line-height: 0; }
 .cal-nav .cal-arrow svg { display: block; }
+/* 휴대폰 팀장님·이사님 홈: 내 카드 위 · 조별 명단 아래 (위아래로) */
+@media (max-width: 600px) {
+  .team.team-leader { grid-template-columns: minmax(0, 1fr) !important; }
+  .team.team-leader > .member-card { min-height: 0; }
+  .team.team-leader .roster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px; }
+  .team.team-leader .roster-tabs { flex-wrap: wrap; gap: 6px; }
+}
