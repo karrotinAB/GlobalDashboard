@@ -6843,3 +6843,25 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .team .mc-char { width: 44px; height: 48px; }
   .team .mc-tasks { flex-direction: column; align-items: center; text-align: center; }
 }
+/* 휴대폰 v2: 위쪽 바는 ☰ 만 · 제목은 본문 위에 크게 · 할일 링은 출퇴근 띠 오른쪽 위 */
+.m-page-title { display: none; }
+@media (max-width: 600px) {
+  .mobile-bar { padding: calc(8px + env(safe-area-inset-top)) 12px 8px; }
+  .mb-menu { display: grid; place-items: center; padding: 0; line-height: 1; font-size: 20px; width: 40px; height: 40px; }
+  .m-page-title { display: flex; align-items: center; gap: 10px; padding: 18px 16px 2px; }
+  .m-page-title h1 { margin: 0; font-family: 'Gowun Batang', serif; font-size: 28px; line-height: 1.2; letter-spacing: -0.5px; min-width: 0; overflow-wrap: anywhere; }
+  .mpt-icon { font-size: 30px; line-height: 1; display: inline-flex; flex: none; }
+  .mpt-icon .jelly { width: 44px; height: auto; }
+  .team .member-card { position: relative; }
+  .team .leave { padding-right: 54px; }
+  .team a.mc-tasks { position: absolute; top: 8px; right: 8px; margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; border-radius: 10px; }
+  .team a.mc-tasks .mc-task-text { display: none; }
+  .team a.mc-tasks svg { width: 40px; height: 40px; }
+  .team a.mc-tasks::after { content: '할일'; font-size: 9.5px; color: #8a7370; }
+}
+@media (max-width: 600px) {
+  main .page-head h1 { display: none; }
+  .m-page-title { padding: 16px 12px 0; gap: 8px; }
+  .mpt-icon .jelly { width: 40px; }
+}
+@media (max-width: 600px) { .m-page-title { padding-left: 0; padding-right: 0; } }
