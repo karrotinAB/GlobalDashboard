@@ -35,6 +35,8 @@ const fmtConv = (n: number, t: 'KRW' | 'USD') => (t === 'USD' ? n.toLocaleString
 const shortConv = (n: number, t: 'KRW' | 'USD') => (t === 'USD' ? (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(0)) : shortAmt(n));
 import type { Company } from '../types';
 import ExportPanel from './ExportPanel';
+import { useIsMobile } from '../lib/useMobile';
+import { CoSelect, LIST, MobileCoList } from './MobilePick';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const store = {
@@ -64,37 +66,47 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
     setMode(m);
     store.set('gd:salesMode', m);
   };
-  const shown = mode === 'share' && !leader ? 'sales' : mode;
+  const mobile = useIsMobile();
+  // 휴대폰: 처음엔 슬라이드 버튼 3개만 → 하나 누르면 업체 목록 (같은 버튼 다시 누르면 목록으로)
+  const [mMode, setMMode] = useState<'sales' | 'export' | 'share' | null>(null);
+  const [mKey, setMKey] = useState(0);
+  const tap = (m: 'sales' | 'export' | 'share') => {
+    if (!mobile) return pick(m);
+    setMMode(m);
+    setMKey((k) => k + 1);
+  };
+  const shown = mobile ? mMode : mode === 'share' && !leader ? 'sales' : mode;
   return (
     <section className="card sales">
       <div className="section-head">
-        <h2>{shown === 'sales' ? '📈 업체별 판매 데이터' : shown === 'export' ? '🚢 업체별 수출 매출' : '🥧 총 수출 비중'}</h2>
-        <div className={`mode-slide ${shown} ${leader ? 'three' : ''}`} role="tablist">
+        <h2>{shown === 'sales' || !shown ? '📈 업체별 판매 데이터' : shown === 'export' ? '🚢 업체별 수출 매출' : '🥧 총 수출 비중'}</h2>
+        <div className={`mode-slide ${shown ?? 'none'} ${leader ? 'three' : ''}`} role="tablist">
           <span className="mode-knob" />
-          <button role="tab" aria-selected={shown === 'sales'} onClick={() => pick('sales')}>
+          <button role="tab" aria-selected={shown === 'sales'} onClick={() => tap('sales')}>
             판매데이터
           </button>
-          <button role="tab" aria-selected={shown === 'export'} onClick={() => pick('export')}>
+          <button role="tab" aria-selected={shown === 'export'} onClick={() => tap('export')}>
             수출매출
           </button>
           {leader && (
-            <button role="tab" aria-selected={shown === 'share'} onClick={() => pick('share')}>
+            <button role="tab" aria-selected={shown === 'share'} onClick={() => tap('share')}>
               비중
             </button>
           )}
         </div>
-        <span className="muted small sales-sub">
+        {shown && <span className="muted small sales-sub">
           {shown === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : shown === 'export' ? '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)' : '그 달 총 수출(출고 + 패킹 중 + 로열티) 중 업체·조별 비중'}
-        </span>
+        </span>}
       </div>
-      {shown === 'sales' ? <SalesView companies={companies} /> : <ExportPanel companies={companies} view={shown === 'share' ? 'pie' : 'table'} />}
+      {!shown ? null : shown === 'sales' ? <SalesView key={mKey} companies={companies} mobile={mobile} /> : <ExportPanel key={mKey} companies={companies} view={shown === 'share' ? 'pie' : 'table'} mobile={mobile} />}
     </section>
   );
 }
 
-function SalesView({ companies }: { companies: Company[] }) {
+function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boolean }) {
   const withCodes = companies.filter((c) => c.storeCodes?.length && c.salesOn);
-  const [coId, setCoId] = useState(() => store.get('gd:salesCo'));
+  // 휴대폰은 매번 업체 목록부터
+  const [coId, setCoId] = useState(() => (mobile ? '' : store.get('gd:salesCo')));
   const co = withCodes.find((c) => c.id === coId);
   const pickCo = (id: string) => {
     const next = id === coId ? '' : id;
@@ -175,9 +187,30 @@ function SalesView({ companies }: { companies: Company[] }) {
     return sum;
   };
 
+  const pickItems = withCodes.map((c) => ({ id: c.id, label: c.name, color: c.color, tag: c.team ? `${c.team}조` : undefined, sub: c.storeCodes!.join(', ') }));
+  const coSelect = (
+    <CoSelect
+      value={coId}
+      items={pickItems}
+      onChange={(v) => {
+        if (v === LIST) {
+          setCoId('');
+          setSel(null);
+        } else choose(v);
+      }}
+    />
+  );
+  if (mobile && !co)
+    return withCodes.length === 0 ? (
+      <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>판매데이터</b>를 켜 주세요.</p>
+    ) : (
+      <MobileCoList items={pickItems} onPick={choose} />
+    );
   return (
     <>
-      {withCodes.length === 0 ? (
+      {mobile ? (
+        (!ready || monthList.length === 0) && <div className="sales-bar">{coSelect}</div>
+      ) : withCodes.length === 0 ? (
         <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>판매데이터</b>를 켜 주세요.</p>
       ) : (
         <>
@@ -246,12 +279,13 @@ function SalesView({ companies }: { companies: Company[] }) {
                   <button disabled={idx >= monthList.length - 1} onClick={() => setSel({ month: monthList[idx + 1], branch: null })} aria-label="다음 달">
                     ▶
                   </button>
-                  {idx !== monthList.length - 1 && (
+                  {!mobile && idx !== monthList.length - 1 && (
                     <button className="link" onClick={() => setSel({ month: monthList[monthList.length - 1], branch: null })}>
                       최근 달
                     </button>
                   )}
                 </div>
+                {mobile && coSelect}
                 {money && money !== target && k === null && (
                   <span className="conv-missing" title="ECOS 환율이 이 달에 없어요">
                     {target === 'USD' ? '달러' : '원화'} 환산 없음 — 설정 › 판매 데이터 API 에서 ECOS 인증키 저장 후 [환율 가져오기 (올해 전체)]
@@ -272,6 +306,54 @@ function SalesView({ companies }: { companies: Company[] }) {
                   </div>
                 )}
                 </div>
+                {mobile ? (
+                  <table className="sales-table vt-table">
+                    <thead>
+                      <tr>
+                        <th className="l">매장명</th>
+                        <th className="r">
+                          금액 {money && <span className="cur-tag">{money}</span>}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="vt-total">
+                        <th className="l">
+                          <b>합계</b>
+                          <span className="muted small"> {ids.length}개 지점</span>
+                        </th>
+                        <td className="r">
+                          <b>
+                            {money ? curSym(money) : ''}
+                            {fullAmt(total(cur.month))}
+                          </b>
+                          {k !== null && <small className="krw">{tSym}{fmtConv(k, target)}</small>}
+                        </td>
+                      </tr>
+                      {ids.map((sid) => {
+                        const kk = krwOf(cur.month, sid);
+                        return (
+                          <tr key={sid} className={cur.branch === sid ? 'on' : ''} onClick={() => setSel({ month: cur.month, branch: cur.branch === sid ? null : sid })}>
+                            <th className="l">
+                              <span className="br-dot" style={{ background: BR_COLORS[branchIds.indexOf(sid) % BR_COLORS.length] }} />
+                              <b>{nameOf(sid) || sid}</b>
+                              <span className="muted small vt-sub">
+                                {sid}
+                                {areaOf(sid) ? ` · ${fmtArea(areaOf(sid)!)}평` : ''}
+                              </span>
+                            </th>
+                            <td className="r">
+                              {money ? curSym(money) : ''}
+                              {fullAmt(total(cur.month, sid))}
+                              {kk !== null && <small className="krw">{tSym}{fmtConv(kk, target)}</small>}
+                              {areaOf(sid) ? <small className="per">평당 {fullAmt(total(cur.month, sid) / areaOf(sid)!)}</small> : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
                 <div className="sales-table-wrap hz-wrap">
                   <table className="sales-table hz-table">
                     <tbody>
@@ -321,6 +403,7 @@ function SalesView({ companies }: { companies: Company[] }) {
                     </tbody>
                   </table>
                 </div>
+                )}
               </>
             );
           })()}
@@ -647,12 +730,14 @@ function WeekChart({
 }) {
   // 지점이 많으면 처음엔 합계 선만 (범례에서 지점을 눌러 켜기)
   const [hide, setHide] = useState<Set<string>>(() => new Set(branches.length > 6 ? branches.map((b) => b.sid) : []));
-  const W = 560;
-  const L = 50;
-  const R = 26;
+  // 휴대폰: 그림 폭을 좁게 잡아서 (화면에 꽉 차게 늘어나니) 선·글씨가 더 크게 보이게
+  const mobile = useIsMobile();
+  const W = mobile ? 380 : 560;
+  const L = mobile ? 46 : 50;
+  const R = mobile ? 24 : 26;
   const top = 44;
-  const bottom = 210;
-  const H = 252;
+  const bottom = mobile ? 236 : 210;
+  const H = mobile ? 278 : 252;
   if (!weeks.length) return <div className="sales-chart muted small">이 달 판매 데이터가 없어요.</div>;
   const series = [
     { key: 'all', name: '합계', color, vals: weeks.map((w) => sumOf(null, w.days)), main: true, b: null as Br | null },

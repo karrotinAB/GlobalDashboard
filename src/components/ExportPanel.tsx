@@ -10,6 +10,7 @@ import { DATA_MODE, useStore } from '../data/store';
 import { physName, DEFAULT_TEAM } from '../lib/team';
 import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
 import { isOrderDone, type Company, type Order } from '../types';
+import { CoSelect, LIST, MobileCoList } from './MobilePick';
 
 export const ROYALTY_RATE = 0.05;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -83,7 +84,9 @@ function useTeamOrders(teams: string[]) {
 
 type Pick = 'ship' | 'pack' | 'royalty' | null;
 
-export default function ExportPanel({ companies, view = 'table' }: { companies: Company[]; view?: 'table' | 'pie' }) {
+export default function ExportPanel({ companies, view = 'table', mobile }: { companies: Company[]; view?: 'table' | 'pie'; mobile?: boolean }) {
+  // 휴대폰 (수출매출): 업체 목록에서 먼저 고르기
+  const [mPicked, setMPicked] = useState(false);
   const { data } = useStore();
   const [month, setMonth] = useState(thisMonth);
   const [coId, setCoId] = useState('');
@@ -241,6 +244,23 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
     { key: 'royalty', n: '③', label: '로열티', k: sum('royalty'), f: sum('royaltyF'), sub: `${m}월 판매 × ${ROYALTY_RATE * 100}% · 판매일 ECOS 환율` },
   ];
 
+  const pickItems = [
+    { id: '', label: '전체 업체' },
+    ...rows.map((r) => ({ id: r.c.id, label: r.c.name, color: r.c.color, tag: hasTeams ? (r.c.team ? `${r.c.team}조` : '내') : undefined, badge: r.c.royalty ? '로열티' : undefined })),
+  ];
+  if (mobile && view === 'table' && !mPicked)
+    return (
+      <div className="export">
+        <MobileCoList
+          items={pickItems}
+          empty={`${m}월 출고·패킹 중 주문이나 로열티 매장이 없어요.`}
+          onPick={(id) => {
+            setCoId(id);
+            setMPicked(true);
+          }}
+        />
+      </div>
+    );
   return (
     <div className="export">
       <div className="export-bar">
@@ -260,7 +280,19 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
             </button>
           )}
         </div>
-        {hasTeams && (
+        {mobile && view === 'table' && (
+          <CoSelect
+            value={coId}
+            items={pickItems}
+            onChange={(v) => {
+              if (v === LIST) {
+                setCoId('');
+                setMPicked(false);
+              } else setCoId(v);
+            }}
+          />
+        )}
+        {!mobile && hasTeams && (
           <div className="seg team-seg">
             <button className={!teamF ? 'on' : ''} onClick={() => (setTeamF(''), setCoId(''))}>
               전체 조
@@ -272,7 +304,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
             ))}
           </div>
         )}
-        <div className="company-chips">
+        {!mobile && <div className="company-chips">
           <button className={`cchip ${!coId ? 'on' : ''}`} onClick={() => setCoId('')}>
             전체
           </button>
@@ -284,7 +316,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
               {r.c.royalty && <span className="tag small royalty-tag">로열티</span>}
             </button>
           ))}
-        </div>
+        </div>}
       </div>
 
       {rows.length === 0 ? (
@@ -296,6 +328,7 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
           period={pieYear ? 'year' : 'month'}
           periodLabel={pieYear ? `${year}년 1월 ~ ${Number(yearMonths[yearMonths.length - 1]?.slice(5) ?? 12)}월` : `${y}년 ${m}월`}
           onPeriod={(p) => setPieYear(p === 'year')}
+          mobile={mobile}
         />
       ) : (
         <>
@@ -308,9 +341,16 @@ export default function ExportPanel({ companies, view = 'table' }: { companies: 
                 onClick={() => c.key !== 'total' && setOpen(open === c.key ? null : c.key)}
               >
                 <span className="ec-label">{c.n ? `${c.n} ${c.label}` : c.label}</span>
-                <Amts krw={won(c.k)} fx={c.f ? fx(c.f, fxCode) : '—'} />
+                {mobile && c.key !== 'total' ? (
+                  <span className="ec-amts-m">
+                    <b>{c.k ? `${shortAmt(c.k)}원` : '0원'}</b>
+                    <small>{c.f ? shortUsd(c.f) : '—'}</small>
+                  </span>
+                ) : (
+                  <Amts krw={won(c.k)} fx={c.f ? fx(c.f, fxCode) : '—'} />
+                )}
                 {/* 설명은 '자세히'를 누르면 (총 금액만 맨 아래 작게) */}
-                {c.key === 'total' ? <span className="ec-sub ec-foot">{c.sub}</span> : <span className="ec-more">{open === c.key ? '접기 ▴' : '자세히 ▾'}</span>}
+                {c.key === 'total' ? <span className="ec-sub ec-foot">{c.sub}</span> : <span className="ec-more">{open === c.key ? '접기 ▴' : mobile ? '자세히' : '자세히 ▾'}</span>}
               </button>
             ))}
           </div>
@@ -677,14 +717,17 @@ export function SharePie({
   period,
   periodLabel,
   onPeriod,
+  mobile,
 }: {
   rows: { c: Company; total: number; totalF: number }[];
   hasTeams: boolean;
   period: 'month' | 'year';
   periodLabel: string;
   onPeriod: (p: 'month' | 'year') => void;
+  mobile?: boolean;
 }) {
   const [by, setBy] = useState<'co' | 'team'>('co');
+  const [curT, setCurT] = useState<'KRW' | 'USD'>('KRW');
   const [hover, setHover] = useState<string | null>(null);
   const items0 =
     by === 'co'
@@ -788,13 +831,24 @@ export function SharePie({
             {hov ? `${shortAmt(hov.k)}원 · ${shortUsd(hov.f)}` : shortUsd(totalF)}
           </text>
         </svg>
-        <table className="mini-table share-table">
+        {mobile && (
+          <div className={`mode-slide small share-cur ${curT === 'KRW' ? 'sales' : 'export'}`} role="tablist">
+            <span className="mode-knob" />
+            <button role="tab" aria-selected={curT === 'KRW'} onClick={() => setCurT('KRW')}>
+              원화
+            </button>
+            <button role="tab" aria-selected={curT === 'USD'} onClick={() => setCurT('USD')}>
+              외화
+            </button>
+          </div>
+        )}
+        <table className={`mini-table share-table ${mobile ? `one ${curT}` : ''}`}>
           <thead>
             <tr>
               <th>{by === 'co' ? '업체' : '조'}</th>
               <th className="r">비중</th>
-              <th className="r">원화</th>
-              <th className="r">외화</th>
+              <th className="r c-krw">원화</th>
+              <th className="r c-usd">외화</th>
             </tr>
           </thead>
           <tbody>
@@ -807,8 +861,8 @@ export function SharePie({
                 <td className="r">
                   <b>{a.pct.toFixed(1)}%</b>
                 </td>
-                <td className="r">{won(a.k)}</td>
-                <td className="r">{a.f ? fx(a.f) : '—'}</td>
+                <td className="r c-krw">{won(a.k)}</td>
+                <td className="r c-usd">{a.f ? fx(a.f) : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -816,10 +870,10 @@ export function SharePie({
             <tr>
               <th>합계</th>
               <td className="r">100%</td>
-              <td className="r">
+              <td className="r c-krw">
                 <b>{won(total)}</b>
               </td>
-              <td className="r">{totalF ? fx(totalF) : '—'}</td>
+              <td className="r c-usd">{totalF ? fx(totalF) : '—'}</td>
             </tr>
           </tfoot>
         </table>

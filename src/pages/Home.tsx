@@ -9,6 +9,7 @@ import { useAccess } from '../components/AuthGate';
 import { attendanceOf, adjustLeave } from '../lib/mem';
 import { isPersonal, TEAMS } from '../lib/team';
 import DeptRoster from '../components/DeptRoster';
+import { useIsMobile } from '../lib/useMobile';
 import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
 import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
 
@@ -16,17 +17,6 @@ const HOME_TZ = 'Asia/Seoul';
 // 휴대폰에서만 쓰는 시계 지도 (지도 데이터는 그때만 불러옴)
 const ClockMap = lazy(() => import('../components/ClockMap'));
 
-function useIsMobile() {
-  const q = '(max-width: 600px)';
-  const [m, setM] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(q);
-    const on = () => setM(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return m;
-}
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 function isValidTz(tz: string): boolean {
