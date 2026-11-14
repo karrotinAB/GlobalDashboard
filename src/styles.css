@@ -6915,3 +6915,8 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .team.compact .mc-top .ring { width: 40px !important; height: 40px !important; }
   .team.compact .mc-name .small { white-space: nowrap; font-size: 10.5px; letter-spacing: -0.3px; }
 }
+/* 링 숫자 세로 정가운데: 한글 폰트는 아래 여백이 커서 숫자가 내려가 보임 → 글자 높이 기준으로 맞춤 */
+.ring-center b { display: block; line-height: 1; text-box: trim-both cap alphabetic; }
+@supports not (text-box: trim-both cap alphabetic) {
+  .ring-center b { transform: translateY(-0.08em); }
+}
