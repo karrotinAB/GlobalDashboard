@@ -9,6 +9,7 @@ import { DEFAULT_TEAM, TEAMS } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
+import { Modal } from '../components/ui';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
@@ -131,15 +132,16 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       {access.email && <ChangePassword />}
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
-        <table className="settings-table">
+        <table className="settings-table members-table">
           <thead>
             <tr>
               <th>이름</th>
-              <th>로그인 이메일 (본인 카드)</th>
-              <th>mem 이름</th>
+              <th className="m-hide">로그인 이메일 (본인 카드)</th>
+              <th className="m-hide">mem 이름</th>
               <th>색</th>
-              <th>순서</th>
-              <th />
+              <th className="m-hide">순서</th>
+              <th className="m-hide" />
+              <th className="m-only">설정</th>
             </tr>
           </thead>
           <tbody>
@@ -316,60 +318,97 @@ function MemberRow({ m, accounts, onSave, onDelete }: { m: Member; accounts: { e
   const [name, setName] = useState(m.name);
   const [memName, setMemName] = useState(m.memName ?? '');
   const [email, setEmail] = useState(m.email ?? '');
+  const [gear, setGear] = useState(false); // 휴대폰: ⚙ 눌러 나머지 설정
   const isAdmin = useAccess().canManage;
+  const nameEl = <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== m.name && onSave({ ...m, name: name.trim() })} />;
+  const emailEl =
+    isAdmin && accounts.length > 0 ? (
+      // 관리자가 저장해 둔 계정 중에서 고르기
+      <select
+        value={m.email ?? ''}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          onSave({ ...m, email: e.target.value || undefined });
+        }}
+      >
+        <option value="">— 연결 안 함 —</option>
+        {m.email && !accounts.some((a) => a.email === m.email) && <option value={m.email}>{m.email} (사용자 목록에 없음)</option>}
+        {accounts.map((a) => (
+          <option key={a.email} value={a.email}>
+            {a.name ? `${a.name} · ${a.email}` : a.email}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <input
+        type="email"
+        value={email}
+        disabled={!isAdmin}
+        placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
+        onChange={(e) => setEmail(e.target.value)}
+        onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
+      />
+    );
+  const memEl = (
+    <input
+      value={memName}
+      placeholder={`비우면 '…${m.name}'로 찾음`}
+      onChange={(e) => setMemName(e.target.value)}
+      onBlur={() => memName.trim() !== (m.memName ?? '') && onSave({ ...m, memName: memName.trim() || undefined })}
+    />
+  );
+  const colorEl = <input type="color" value={m.color} onChange={(e) => onSave({ ...m, color: e.target.value })} />;
+  const orderEl = <input type="number" className="num" value={m.order} onChange={(e) => onSave({ ...m, order: Number(e.target.value) })} />;
+  const delEl = onDelete && (
+    <button className="danger small" onClick={onDelete}>
+      삭제
+    </button>
+  );
   return (
     <tr>
-      <td>
-        <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== m.name && onSave({ ...m, name: name.trim() })} />
-      </td>
-      <td>
-        {isAdmin && accounts.length > 0 ? (
-          // 관리자가 저장해 둔 계정 중에서 고르기
-          <select
-            value={m.email ?? ''}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              onSave({ ...m, email: e.target.value || undefined });
-            }}
-          >
-            <option value="">— 연결 안 함 —</option>
-            {m.email && !accounts.some((a) => a.email === m.email) && <option value={m.email}>{m.email} (사용자 목록에 없음)</option>}
-            {accounts.map((a) => (
-              <option key={a.email} value={a.email}>
-                {a.name ? `${a.name} · ${a.email}` : a.email}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <input
-            type="email"
-            value={email}
-            disabled={!isAdmin}
-            placeholder={isAdmin ? '이 사람의 로그인 이메일' : '관리자만 설정'}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => email.trim().toLowerCase() !== (m.email ?? '') && onSave({ ...m, email: email.trim().toLowerCase() || undefined })}
-          />
-        )}
-      </td>
-      <td>
-        <input
-          value={memName}
-          placeholder={`비우면 '…${m.name}'로 찾음`}
-          onChange={(e) => setMemName(e.target.value)}
-          onBlur={() => memName.trim() !== (m.memName ?? '') && onSave({ ...m, memName: memName.trim() || undefined })}
-        />
-      </td>
-      <td>
-        <input type="color" value={m.color} onChange={(e) => onSave({ ...m, color: e.target.value })} />
-      </td>
-      <td>
-        <input type="number" className="num" value={m.order} onChange={(e) => onSave({ ...m, order: Number(e.target.value) })} />
-      </td>
-      <td>
-        {onDelete && (
-          <button className="danger small" onClick={onDelete}>
-            삭제
-          </button>
+      <td className="c-name">{nameEl}</td>
+      <td className="m-hide">{emailEl}</td>
+      <td className="m-hide">{memEl}</td>
+      <td className="c-color">{colorEl}</td>
+      <td className="m-hide">{orderEl}</td>
+      <td className="m-hide">{delEl}</td>
+      <td className="m-only">
+        <button className="co-gear" title="이 담당자 설정" onClick={() => setGear(true)}>
+          ⚙
+        </button>
+        {gear && (
+          <Modal title={`${m.name} 설정`} onClose={() => setGear(false)}>
+            <div className="mset">
+              <label>
+                <span>이름</span>
+                {nameEl}
+              </label>
+              <label>
+                <span>로그인 이메일 (본인 카드)</span>
+                {emailEl}
+              </label>
+              <label>
+                <span>mem 이름</span>
+                {memEl}
+              </label>
+              <div className="mset-row">
+                <label>
+                  <span>색</span>
+                  {colorEl}
+                </label>
+                <label>
+                  <span>순서</span>
+                  {orderEl}
+                </label>
+              </div>
+            </div>
+            <div className="btn-row" style={{ justifyContent: 'space-between', marginTop: 14 }}>
+              {delEl ?? <span />}
+              <button className="primary" onClick={() => setGear(false)}>
+                닫기
+              </button>
+            </div>
+          </Modal>
         )}
       </td>
     </tr>

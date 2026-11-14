@@ -7020,3 +7020,19 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .card.sales .sales-sub { text-align: left; margin-left: 0; align-self: flex-start; }
   .share-cur { width: max-content; align-self: flex-start; }
 }
+/* 설정 담당자: 휴대폰은 이름 · 색 · ⚙ 만 (나머지는 ⚙ 안에서) */
+.m-only { display: none; }
+.mset { display: flex; flex-direction: column; gap: 10px; }
+.mset label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.mset label > span { font-weight: 600; color: #6b5753; }
+.mset input:not([type='color']), .mset select { width: 100%; box-sizing: border-box; }
+.mset-row { display: flex; gap: 16px; align-items: flex-end; }
+.mset-row .num { width: 80px; }
+@media (max-width: 600px) {
+  .members-table .m-hide { display: none; }
+  .members-table .m-only { display: table-cell; width: 40px; text-align: center; }
+  .members-table { width: 100%; }
+  .members-table .c-name input { width: 100%; min-width: 0; box-sizing: border-box; }
+  .members-table .c-color { width: 56px; }
+}
+.mset .mset-row input.num { width: 90px; }
