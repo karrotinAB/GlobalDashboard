@@ -6865,3 +6865,13 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .mpt-icon .jelly { width: 40px; }
 }
 @media (max-width: 600px) { .m-page-title { padding-left: 0; padding-right: 0; } }
+/* 휴대폰 v3: 페이지 제목은 위쪽 바 가운데 */
+@media (max-width: 600px) {
+  .mobile-bar { display: grid; grid-template-columns: 40px 1fr 40px; }
+  .mb-center { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  .mb-title { flex: 0 1 auto; font-size: 21px; }
+  .mb-icon .jelly { width: 32px; }
+  .mb-right { display: flex; justify-content: flex-end; min-width: 0; }
+  .mobile-bar .mb-right .presence { margin-left: 0; }
+}
+@media (max-width: 600px) { .shell > main { padding-top: 12px; } }

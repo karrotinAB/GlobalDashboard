@@ -113,7 +113,16 @@ export default function App() {
         <button className="mb-menu" onClick={() => setDrawer(true)} aria-label="메뉴 열기">
           ☰
         </button>
-        {mode === 'firestore' && <Presence page={side === 'trade' ? `trade:${page}` : `${viewTeam}:${page}`} />}
+        {/* 페이지 제목: 위쪽 바 가운데 */}
+        <div className="mb-center">
+          <span className="mb-icon" aria-hidden="true">
+            <PageIcon icon={current.icon} />
+          </span>
+          <b className="mb-title">{pageTitle}</b>
+        </div>
+        <span className="mb-right">
+          {mode === 'firestore' && <Presence page={side === 'trade' ? `trade:${page}` : `${viewTeam}:${page}`} />}
+        </span>
       </div>
       {drawer && (
         <div className="drawer-bg" onClick={closeDrawer}>
@@ -228,13 +237,6 @@ export default function App() {
             )}
           </div>
         )}
-        {/* 휴대폰: 페이지 제목은 위쪽 바가 아니라 본문 맨 위에 크게 */}
-        <div className="m-page-title">
-          <span className="mpt-icon" aria-hidden="true">
-            <PageIcon icon={current.icon} />
-          </span>
-          <h1>{pageTitle}</h1>
-        </div>
         <main>
           {loading ? (
             <div className="page muted">불러오는 중…</div>
