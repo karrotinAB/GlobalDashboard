@@ -9,7 +9,6 @@ import { DEFAULT_TEAM, TEAMS } from '../lib/team';
 import AccessAdmin from '../components/AccessAdmin';
 import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
-import SectionPicker from '../components/SectionPicker';
 import { Modal } from '../components/ui';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
@@ -95,7 +94,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
     }
   };
 
-  const pageRef = useRef<HTMLDivElement>(null);
   const loadSample = async () => {
     if (!confirm('기본 담당자(유정·민지·가영)를 넣을까요? 같은 ID는 덮어써요.')) return;
     const s = seedData();
@@ -104,7 +102,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
   };
 
   return (
-    <div className="page" ref={pageRef}>
+    <div className="page">
       {(() => {
         // 접속한 사람 이름: 내 담당자 카드(조·무역사무) → 계정 이름 → 이메일 앞
         const mine = [...members, ...data.tradeMembers].find((m) => !!access.email && m.email?.toLowerCase() === access.email);
@@ -124,8 +122,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           </button>
         )}
       </div>
-      {/* 휴대폰: 설정 항목을 하나씩 */}
-      <SectionPicker root={pageRef} storeKey="gd:settingsSection" />
 
       {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
       {(access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && <TradeMembersSection />}
