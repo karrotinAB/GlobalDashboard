@@ -207,14 +207,14 @@ export default function Calendar() {
 
       <div className="toolbar cal-toolbar">
         <div className="cal-nav">
-          <button onClick={() => move(-1)} title="지난 달">
-            ‹
+          <button className="cal-arrow" onClick={() => move(-1)} title="지난 달" aria-label="지난 달">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
           <b>
             {month.getFullYear()}년 {month.getMonth() + 1}월
           </b>
-          <button onClick={() => move(1)} title="다음 달">
-            ›
+          <button className="cal-arrow" onClick={() => move(1)} title="다음 달" aria-label="다음 달">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
           <button className="cal-today" onClick={() => setMonth(new Date(now.getFullYear(), now.getMonth(), 1))}>
             오늘

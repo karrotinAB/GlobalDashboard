@@ -6956,3 +6956,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .team button.mc-tasks .ring-center b { font-size: 15px; }
   .team button.mc-tasks::after { content: '업무'; font-size: 9.5px; color: #8a7370; }
 }
+/* 달력 ‹ › : 원 정가운데 */
+.cal-nav .cal-arrow { display: inline-grid; place-items: center; padding: 0; line-height: 0; }
+.cal-nav .cal-arrow svg { display: block; }
