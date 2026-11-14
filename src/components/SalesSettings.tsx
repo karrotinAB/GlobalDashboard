@@ -1,4 +1,5 @@
 // 설정: 판매 데이터 — 매장(지점) 평수 입력 + 관리자용 API 연결
+import { useIsMobile } from '../lib/useMobile';
 import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase';
@@ -32,7 +33,11 @@ export function StoreAreaSection() {
     loadBranches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codesSig]);
+  // 휴대폰: 업체를 선택 상자로 하나씩 (길게 쌓이지 않게)
+  const mobile = useIsMobile();
+  const [pickId, setPickId] = useState('');
   if (!own.length) return null;
+  const shownCos = mobile ? own.filter((c) => c.id === (own.some((x) => x.id === pickId) ? pickId : own[0].id)) : own;
   return (
     <section className="card">
       <h2>🏬 매장 설정</h2>
@@ -49,8 +54,19 @@ export function StoreAreaSection() {
         )}
       </p>
       {loading && loading !== 'busy' && <p className="muted small">{loading}</p>}
+      {mobile && (
+        <select className="m-coselect area-pick" value={shownCos[0]?.id ?? ''} onChange={(e) => setPickId(e.target.value)} aria-label="업체 고르기">
+          {own.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+              {c.salesOn ? ' · 판매데이터' : ''}
+              {c.royalty ? ' · 로열티' : ''}
+            </option>
+          ))}
+        </select>
+      )}
       <div className="area-list">
-        {own.map((c) => {
+        {shownCos.map((c) => {
           const seen = new Map<string, string>();
           for (const [sid, name] of Object.entries(branchNames)) if ((c.storeCodes ?? []).some((code) => sid.startsWith(code))) seen.set(sid, name);
           for (const m of months) if ((c.storeCodes ?? []).includes(m.code)) for (const [sid, b] of Object.entries(m.branches)) seen.set(sid, seen.get(sid) || b.name || '');

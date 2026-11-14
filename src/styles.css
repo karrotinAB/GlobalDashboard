@@ -7046,3 +7046,4 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .companies-table .c-name input { width: 100%; min-width: 0; box-sizing: border-box; }
   .companies-table .c-color { width: 56px; }
 }
+.area-pick { width: 100%; margin: 4px 0 10px; }
