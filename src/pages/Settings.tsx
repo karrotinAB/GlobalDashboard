@@ -174,17 +174,18 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           </div>
         )}
         <div className="table-scroll">
-          <table className="settings-table">
+          <table className="settings-table companies-table">
             <thead>
               <tr>
                 {hasMirror && <th title="체크한 업체만 주간 할일·주문 관리·클레임에 보여요">내 담당</th>}
                 <th>업체명</th>
-                <th>나라 (시계 이름)</th>
-                <th>매장코드 (4자리)</th>
-                <th>타임존</th>
+                <th className="m-hide">나라 (시계 이름)</th>
+                <th className="m-hide">매장코드 (4자리)</th>
+                <th className="m-hide">타임존</th>
                 <th>색</th>
-                <th>순서</th>
-                <th />
+                <th className="m-hide">순서</th>
+                <th className="m-hide" />
+                <th className="m-only">설정</th>
               </tr>
             </thead>
             <tbody>
@@ -435,6 +436,7 @@ function CompanyRow({
       </td>
     );
   const [moving, setMoving] = useState(false);
+  const [gear, setGear] = useState(false); // 휴대폰: ⚙ 눌러 나머지 설정
   // 담당 조 바꾸기: 업체와 그 업체의 할일·주문·클레임을 다른 조로 (서버에서 옮김)
   const move = async (to: string) => {
     if (!c.team || to === c.team) return;
@@ -449,6 +451,19 @@ function CompanyRow({
       setMoving(false);
     }
   };
+  const moveEl = (
+    <label className="move-team" title="담당 조를 바꾸면 그 조 대시보드로 옮겨가요 (할일·주문·클레임 포함)">
+      <span className="muted small">담당</span>
+      <select value={c.team} disabled={moving || DATA_MODE === 'local'} onChange={(e) => void move(e.target.value)}>
+        {TEAMS.map((t) => (
+          <option key={t} value={t}>
+            {t}조
+          </option>
+        ))}
+      </select>
+      {moving && <span className="muted small">옮기는 중…</span>}
+    </label>
+  );
   // 팀장님·이사님 화면의 조 업체: 보기만 + 담당 조 바꾸기 (조에서 고치면 여기도 바로 바뀜)
   if (c.team)
     return (
@@ -457,24 +472,49 @@ function CompanyRow({
         <td>
           {c.name} <span className="tag gray small">{c.team}조 업체</span>
         </td>
-        <td>{c.country}</td>
-        <td>{(c.storeCodes ?? []).join(', ')}</td>
-        <td>{c.timezone ?? ''}</td>
+        <td className="m-hide">{c.country}</td>
+        <td className="m-hide">{(c.storeCodes ?? []).join(', ')}</td>
+        <td className="m-hide">{c.timezone ?? ''}</td>
         <td>
           <span className="dot" style={{ background: c.color }} />
         </td>
-        <td colSpan={2}>
-          <label className="move-team" title="담당 조를 바꾸면 그 조 대시보드로 옮겨가요 (할일·주문·클레임 포함)">
-            <span className="muted small">담당</span>
-            <select value={c.team} disabled={moving || DATA_MODE === 'local'} onChange={(e) => void move(e.target.value)}>
-              {TEAMS.map((t) => (
-                <option key={t} value={t}>
-                  {t}조
-                </option>
-              ))}
-            </select>
-            {moving && <span className="muted small">옮기는 중…</span>}
-          </label>
+        <td colSpan={2} className="m-hide">
+          {moveEl}
+        </td>
+        <td className="m-only">
+          <button className="co-gear" title="이 업체 설정" onClick={() => setGear(true)}>
+            ⚙
+          </button>
+          {gear && (
+            <Modal title={`${c.name} (${c.team}조 업체)`} onClose={() => setGear(false)}>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                {c.team}조 업체라 여기서는 보기만 해요 (고치는 건 {c.team}조에서).
+              </p>
+              <div className="mset">
+                <div className="mset-view">
+                  <span>나라 (시계 이름)</span>
+                  <b>{c.country || '—'}</b>
+                </div>
+                <div className="mset-view">
+                  <span>매장코드</span>
+                  <b>{(c.storeCodes ?? []).join(', ') || '—'}</b>
+                </div>
+                <div className="mset-view">
+                  <span>타임존</span>
+                  <b>{c.timezone || '—'}</b>
+                </div>
+                <label>
+                  <span>담당 조 바꾸기</span>
+                  {moveEl}
+                </label>
+              </div>
+              <div className="btn-row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+                <button className="primary" onClick={() => setGear(false)}>
+                  닫기
+                </button>
+              </div>
+            </Modal>
+          )}
         </td>
       </tr>
     );
@@ -486,48 +526,88 @@ function CompanyRow({
     setCodes(list.join(', '));
     if (JSON.stringify(list) !== JSON.stringify(c.storeCodes ?? [])) onSave({ ...c, storeCodes: list.length ? list : undefined });
   };
+  const nameEl = <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== c.name && onSave({ ...c, name: name.trim() })} />;
+  const countryEl = <input value={country} onChange={(e) => setCountry(e.target.value)} onBlur={() => country !== c.country && onSave({ ...c, country })} />;
+  const codesEl = (
+    <input
+      className="store-codes"
+      value={codes}
+      placeholder="예: 8212"
+      inputMode="numeric"
+      onChange={(e) => setCodes(e.target.value)}
+      onBlur={saveCodes}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      title="ERP 매장코드 앞 4자리 (STORE_CODE). 여러 개면 쉼표로"
+    />
+  );
+  const tzEl = (
+    <select value={c.timezone ?? ''} onChange={(e) => onSave({ ...c, timezone: e.target.value || undefined })}>
+      <option value="">(시계 없음)</option>
+      {[...new Set([...(c.timezone ? [c.timezone] : []), ...TIMEZONES])].map((tz) => (
+        <option key={tz} value={tz}>
+          {tz}
+        </option>
+      ))}
+    </select>
+  );
+  const colorEl = <input type="color" value={c.color ?? '#888888'} onChange={(e) => onSave({ ...c, color: e.target.value })} />;
+  const orderEl = <input type="number" className="num" value={c.order} onChange={(e) => onSave({ ...c, order: Number(e.target.value) })} />;
+  const delEl = onDelete && (
+    <button className="danger small" onClick={onDelete}>
+      삭제
+    </button>
+  );
   return (
     <tr>
       {mineCell}
-      <td>
-        <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name !== c.name && onSave({ ...c, name: name.trim() })} />
-      </td>
-      <td>
-        <input value={country} onChange={(e) => setCountry(e.target.value)} onBlur={() => country !== c.country && onSave({ ...c, country })} />
-      </td>
-      <td>
-        <input
-          className="store-codes"
-          value={codes}
-          placeholder="예: 8212"
-          inputMode="numeric"
-          onChange={(e) => setCodes(e.target.value)}
-          onBlur={saveCodes}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          title="ERP 매장코드 앞 4자리 (STORE_CODE). 여러 개면 쉼표로"
-        />
-      </td>
-      <td>
-        <select value={c.timezone ?? ''} onChange={(e) => onSave({ ...c, timezone: e.target.value || undefined })}>
-          <option value="">(시계 없음)</option>
-          {[...new Set([...(c.timezone ? [c.timezone] : []), ...TIMEZONES])].map((tz) => (
-            <option key={tz} value={tz}>
-              {tz}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <input type="color" value={c.color ?? '#888888'} onChange={(e) => onSave({ ...c, color: e.target.value })} />
-      </td>
-      <td>
-        <input type="number" className="num" value={c.order} onChange={(e) => onSave({ ...c, order: Number(e.target.value) })} />
-      </td>
-      <td>
-        {onDelete && (
-          <button className="danger small" onClick={onDelete}>
-            삭제
-          </button>
+      <td className="c-name">{nameEl}</td>
+      <td className="m-hide">{countryEl}</td>
+      <td className="m-hide">{codesEl}</td>
+      <td className="m-hide">{tzEl}</td>
+      <td className="c-color">{colorEl}</td>
+      <td className="m-hide">{orderEl}</td>
+      <td className="m-hide">{delEl}</td>
+      <td className="m-only">
+        <button className="co-gear" title="이 업체 설정" onClick={() => setGear(true)}>
+          ⚙
+        </button>
+        {gear && (
+          <Modal title={`${c.name} 설정`} onClose={() => setGear(false)}>
+            <div className="mset">
+              <label>
+                <span>업체명</span>
+                {nameEl}
+              </label>
+              <label>
+                <span>나라 (시계 이름)</span>
+                {countryEl}
+              </label>
+              <label>
+                <span>매장코드 (4자리 · 여러 개면 쉼표)</span>
+                {codesEl}
+              </label>
+              <label>
+                <span>타임존</span>
+                {tzEl}
+              </label>
+              <div className="mset-row">
+                <label>
+                  <span>색</span>
+                  {colorEl}
+                </label>
+                <label>
+                  <span>순서</span>
+                  {orderEl}
+                </label>
+              </div>
+            </div>
+            <div className="btn-row" style={{ justifyContent: 'space-between', marginTop: 14 }}>
+              {delEl ?? <span />}
+              <button className="primary" onClick={() => setGear(false)}>
+                닫기
+              </button>
+            </div>
+          </Modal>
         )}
       </td>
     </tr>

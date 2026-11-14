@@ -7036,3 +7036,13 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .members-table .c-color { width: 56px; }
 }
 .mset .mset-row input.num { width: 90px; }
+/* 설정 업체 관리: 휴대폰은 (내 담당) · 업체명 · 색 · ⚙ 만 */
+.mset-view { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 6px 0; border-bottom: 1px dashed #eadcd9; }
+.mset-view > span { color: #6b5753; font-weight: 600; }
+@media (max-width: 600px) {
+  .companies-table .m-hide { display: none; }
+  .companies-table .m-only { display: table-cell; width: 40px; text-align: center; }
+  .companies-table { width: 100%; min-width: 0 !important; }
+  .companies-table .c-name input { width: 100%; min-width: 0; box-sizing: border-box; }
+  .companies-table .c-color { width: 56px; }
+}
