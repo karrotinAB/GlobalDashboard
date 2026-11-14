@@ -6920,3 +6920,20 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 @supports not (text-box: trim-both cap alphabetic) {
   .ring-center b { transform: translateY(-0.08em); }
 }
+/* 휴대폰 '지금 몇 시?' 지도 */
+.cmap { position: relative; width: 100%; border-radius: 18px; overflow: hidden; background: #e7eef2; box-shadow: 0 2px 10px rgba(91, 40, 40, 0.08); min-height: 120px; }
+.cmap-svg, .cmap-lines { position: absolute; inset: 0; display: block; }
+.cmap-sea { fill: #e3ecf0; }
+.cmap-land { fill: #f8efe9; stroke: #e2cfc6; stroke-width: 0.25; }
+.cmap-night { fill: rgba(40, 36, 60, 0.16); }
+.cmap-lines line { stroke: #8c6f6a; stroke-width: 1; opacity: 0.55; }
+.cmap-lines circle { fill: #8c2f3c; stroke: #fff; stroke-width: 1.5; }
+.cmap-lines circle.home { fill: #8c2f3c; }
+.cmap-tag { position: absolute; box-sizing: border-box; border-radius: 9px; padding: 3px 6px; display: flex; flex-direction: column; justify-content: center; line-height: 1.05; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14); background: #fff; color: #3b2a28; border: 1px solid #eadcd9; overflow: hidden; }
+.cmap-tag.night { background: #2b2626; color: #fff; border-color: #2b2626; }
+.cmap-tag.home { border: 1.5px solid #8c2f3c; }
+.cmap-tag.holiday { border: 1.5px solid #8e5bd0; }
+.ct-name { font-size: 9.5px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 3px; }
+.ct-hol { font-style: normal; font-size: 8.5px; background: #8e5bd0; color: #fff; border-radius: 4px; padding: 0 3px; }
+.ct-time { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ct-time small { font-size: 8px; margin-left: 2px; opacity: 0.75; font-weight: 600; }

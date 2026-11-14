@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import SalesPanel from '../components/SalesPanel';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
@@ -13,6 +13,20 @@ import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member 
 import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
 
 const HOME_TZ = 'Asia/Seoul';
+// 휴대폰에서만 쓰는 시계 지도 (지도 데이터는 그때만 불러옴)
+const ClockMap = lazy(() => import('../components/ClockMap'));
+
+function useIsMobile() {
+  const q = '(max-width: 600px)';
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(q);
+    const on = () => setM(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return m;
+}
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 function isValidTz(tz: string): boolean {
@@ -655,6 +669,13 @@ export function WorldClocks({ defaults, picked, onSave, where }: { defaults: Clo
 
   const extraHolidays = data.config.find((c) => c.id === 'holidays')?.holidays ?? [];
   const worldHoliday = useWorldHolidays(clocks.flatMap((c) => c.codes), seoul.y, extraHolidays);
+  const mobile = useIsMobile();
+  // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
+  const holidayFor = (c: ClockDef, iso: string) => {
+    const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);
+    if (!hits.length) return undefined;
+    return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
+  };
   return (
     <>
       {/* 세계 시간 */}
@@ -668,6 +689,17 @@ export function WorldClocks({ defaults, picked, onSave, where }: { defaults: Clo
             </button>
           </span>
         </div>
+        {mobile ? (
+          <Suspense fallback={<div className="cmap muted small">지도 불러오는 중…</div>}>
+            <ClockMap
+              now={now}
+              clocks={[
+                { label: '서울', tz: HOME_TZ, home: true, holiday: holidayName(isoOf(seoul)) },
+                ...clocks.map((c) => ({ label: c.label, tz: c.tz, holiday: holidayFor(c, isoOf(tzParts(now, c.tz))) })),
+              ]}
+            />
+          </Suspense>
+        ) : (
         <div className="dclocks">
           <DigitalClock label="서울" tz={HOME_TZ} now={now} home holidayOf={holidayName} />
           {clocks.map((c) => (
@@ -682,15 +714,11 @@ export function WorldClocks({ defaults, picked, onSave, where }: { defaults: Clo
                 if (!hits.length) return undefined;
                 return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
               }}
-              holidayOf={(iso) => {
-                // 같은 시간대에 나라가 여럿이면, 쉬는 나라 이름을 붙여서
-                const hits = c.codes.map((code) => [code, worldHoliday(code, iso)] as const).filter(([, n]) => n);
-                if (!hits.length) return undefined;
-                return c.codes.length > 1 ? hits.map(([code, n]) => `${code} ${n}`).join(' · ') : hits[0][1];
-              }}
+              holidayOf={(iso) => holidayFor(c, iso)}
             />
           ))}
         </div>
+        )}
       </section>
       {pickingClocks && (
         <ClockPicker
