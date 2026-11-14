@@ -7047,3 +7047,8 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .companies-table .c-color { width: 56px; }
 }
 .area-pick { width: 100%; margin: 4px 0 10px; }
+/* 휴대폰 설정: 위 선택 상자로 항목 하나씩 */
+.section-pick { width: 100%; margin: 6px 0 12px; font-size: 15px; padding: 10px 12px; }
+@media (max-width: 600px) {
+  section.card[data-mhide] { display: none !important; }
+}
