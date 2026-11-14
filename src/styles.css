@@ -6948,3 +6948,11 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .companies .cc-todo b { font-size: 16px; }
   .companies .cc-bar { display: none; }
 }
+/* 휴대폰 무역사무 홈: 업무 링도 2조 홈처럼 카드 오른쪽 위 */
+@media (max-width: 600px) {
+  .team button.mc-tasks { position: absolute; top: 8px; right: 8px; margin: 0; padding: 0; border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 1px; border-radius: 10px; font: inherit; cursor: pointer; }
+  .team button.mc-tasks .mc-task-text { display: none; }
+  .team button.mc-tasks .ring { width: 42px !important; height: 42px !important; }
+  .team button.mc-tasks .ring-center b { font-size: 15px; }
+  .team button.mc-tasks::after { content: '업무'; font-size: 9.5px; color: #8a7370; }
+}
