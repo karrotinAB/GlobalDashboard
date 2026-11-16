@@ -7208,3 +7208,8 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rp-filelist a:hover { background: #f4e9e6; text-decoration: underline; }
 .rp-file-ic { opacity: 0.7; }
 .rp-file-dl { color: #8c2f3c; font-size: 12px; margin-left: 2px; }
+/* 보고방: 게시글 본문은 바탕 그대로 (흰 칸은 답변 쓰는 칸만) */
+.rp-body { background: transparent; border: 0; padding: 4px 2px 6px; }
+.rp-reply { background: transparent; }
+.rp-reply.leader { background: transparent; }
+.rp-reply-box textarea { background: #fff; }
