@@ -7123,3 +7123,20 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .exp-sub button { font-size: 12.5px; }
 
 .ab-ext { font-weight: 800; color: #3b2a28; }
+
+/* 주소록: 표 한 장 (구분 칸 합치기) · 칸 누르면 복사 */
+.ab-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ab-top .ab-search { flex: 1 1 240px; width: auto; }
+.ab-wrap { overflow-x: auto; max-height: 68vh; overflow-y: auto; border: 1px solid #d9d0ce; border-radius: 4px; }
+.ab-table { width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; }
+.ab-table th, .ab-table td { border: 1px solid #ddd5d3; padding: 10px 14px; text-align: center; vertical-align: middle; white-space: nowrap; }
+.ab-table thead th { background: #f4f2f1; font-weight: 600; color: #3b2a28; position: sticky; top: 0; z-index: 1; }
+.ab-table th.ab-g { width: 110px; background: #fff; font-weight: 500; }
+.ab-table thead th.ab-g { background: #f4f2f1; font-weight: 600; }
+.ab-table td.ab-name { font-weight: 500; }
+.ab-table td.ab-cell { cursor: copy; position: relative; transition: background 0.15s; font-variant-numeric: tabular-nums; }
+.ab-table td.ab-cell:hover { background: #fbf4f2; }
+.ab-table td.ab-cell.done { background: #e6f4ea; }
+.ab-table td.ab-empty { color: #c5b8b5; }
+.ab-toast { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: #2f6b3c; background: #e6f4ea; padding: 0 4px; }
+.ab-table .ab-ext { font-weight: 800; }

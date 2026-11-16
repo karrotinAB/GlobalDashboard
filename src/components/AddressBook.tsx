@@ -123,60 +123,61 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
       </>
     );
   };
-  const cp = (v?: string, boldTail = false) =>
+  // 칸 자체를 누르면 복사 (복사된 칸은 잠깐 초록)
+  const cell = (key: string, v?: string, boldTail = false) =>
     v ? (
-      <button type="button" className={`ab-copy ${copied === v ? 'done' : ''}`} onClick={() => void copy(v)} title="누르면 복사">
-        <span>{boldTail ? tail(v) : v}</span>
-        <span className="ab-copied">{copied === v ? '복사됨 ✓' : '⧉'}</span>
-      </button>
+      <td key={key} className={`ab-cell ${copied === v ? 'done' : ''}`} onClick={() => void copy(v)} title="누르면 복사">
+        {boldTail ? tail(v) : v}
+        {copied === v && <span className="ab-toast">복사됨 ✓</span>}
+      </td>
     ) : (
-      <span className="muted">—</span>
+      <td key={key} className="ab-empty">
+        —
+      </td>
     );
+  const groups = GROUPS.map((g) => ({ g, list: people.filter((p) => g.match(p) && hit(p)).sort((a, b) => a.name.localeCompare(b.name, 'ko')) })).filter((x) => x.list.length);
   return (
     <Modal title="📇 주소록" onClose={onClose} wide>
-      <input className="search ab-search" autoFocus placeholder="🔍 이름 · 이메일 · 번호" value={q} onChange={(e) => setQ(e.target.value)} />
-      <p className="muted small ab-hint">이메일·번호를 누르면 복사돼요</p>
+      <div className="ab-top">
+        <input className="search ab-search" autoFocus placeholder="🔍 이름 · 이메일 · 번호" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="muted small">이메일·번호 칸을 누르면 복사돼요</span>
+      </div>
       {DATA_MODE === 'local' && <p className="muted small">로컬 모드에서는 주소록이 없어요.</p>}
       {roles === null && <p className="muted small">불러오는 중…</p>}
       {error && <p className="warn small">주소록을 못 불러왔어요 — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)</p>}
-      <div className="ab-groups">
-        {GROUPS.map((g) => {
-          const list = people.filter((p) => g.match(p) && hit(p)).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-          if (!list.length) return null;
-          return (
-            <section key={g.key} className="ab-group">
-              <h3>
-                {g.label} <span className="muted small">{list.length}명</span>
-              </h3>
-              <div className="sales-table-wrap">
-                <table className="mini-table ab-table">
-                  <thead>
-                    <tr>
-                      <th>이름</th>
-                      <th>이메일</th>
-                      <th>회사번호</th>
-                      <th>개인번호</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {list.map((p) => (
-                      <tr key={p.email}>
-                        <td>
-                          <b>{p.name}</b>
-                        </td>
-                        <td>{cp(p.email)}</td>
-                        <td>{cp(p.office, true)}</td>
-                        <td>{cp(p.mobile)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })}
-        {roles !== null && !people.some(hit) && DATA_MODE !== 'local' && <p className="muted small">맞는 사람이 없어요.</p>}
-      </div>
+      {groups.length > 0 && (
+        <div className="ab-wrap">
+          <table className="ab-table">
+            <thead>
+              <tr>
+                <th className="ab-g">구분</th>
+                <th>담당자</th>
+                <th>회사번호</th>
+                <th>개인번호</th>
+                <th>이메일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.flatMap(({ g, list }) =>
+                list.map((p, i) => (
+                  <tr key={p.email} className={i === 0 ? 'ab-first' : ''}>
+                    {i === 0 && (
+                      <th className="ab-g" rowSpan={list.length}>
+                        {g.label}
+                      </th>
+                    )}
+                    <td className="ab-name">{p.name}</td>
+                    {cell('o', p.office, true)}
+                    {cell('m', p.mobile)}
+                    {cell('e', p.email)}
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {roles !== null && !groups.length && DATA_MODE !== 'local' && <p className="muted small">맞는 사람이 없어요.</p>}
     </Modal>
   );
 }
