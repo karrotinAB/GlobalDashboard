@@ -247,28 +247,47 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
   return (
     <div className="rp-detail">
       {r.body ? <div className="rp-body memo-rich-view" dangerouslySetInnerHTML={{ __html: memoHtml(r.body) }} /> : <div className="rp-body muted">내용 없음</div>}
-      {(r.files ?? []).length > 0 && (
+      {/* 사진은 네모 썸네일 (누르면 크게), 파일은 한 줄 이름 (누르면 내려받기) */}
+      {(r.files ?? []).some(isImageFile) && (
         <div className="rq-files view rp-files">
-          {r.files!.map((f, i) => (
+          {r.files!.filter(isImageFile).map((f, i) => (
             <a
               key={i}
               className="rq-thumb"
               href={f.url}
-              target="_blank"
-              rel="noreferrer"
               title={f.name}
-              download={isImageFile(f) ? undefined : f.name}
               onClick={(e) => {
                 e.preventDefault();
-                // 사진은 크게 보기, 나머지 파일은 바로 내려받기
-                if (isImageFile(f)) setZoom(f);
-                else void downloadFile(f);
+                setZoom(f);
               }}
             >
-              {isImageFile(f) ? <img src={f.url} alt={f.name} /> : <span>⬇ {f.name}</span>}
+              <img src={f.url} alt={f.name} />
             </a>
           ))}
         </div>
+      )}
+      {(r.files ?? []).some((f) => !isImageFile(f)) && (
+        <ul className="rp-filelist">
+          {r.files!
+            .filter((f) => !isImageFile(f))
+            .map((f, i) => (
+              <li key={i}>
+                <a
+                  href={f.url}
+                  download={f.name}
+                  title="누르면 내려받기"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void downloadFile(f);
+                  }}
+                >
+                  <span className="rp-file-ic">📎</span>
+                  {f.name}
+                  <span className="rp-file-dl">⬇</span>
+                </a>
+              </li>
+            ))}
+        </ul>
       )}
       {zoom && <ImageZoom f={zoom} onClose={() => setZoom(null)} />}
       {(canEdit || canDelete) && (
