@@ -8,7 +8,7 @@ import RichEditor from '../components/RichEditor';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
-import { uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
+import { downloadFile, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
 
 const when = (iso?: string) => {
   if (!iso) return '';
@@ -254,14 +254,15 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
               target="_blank"
               rel="noreferrer"
               title={f.name}
+              download={isImageFile(f) ? undefined : f.name}
               onClick={(e) => {
-                if (isImageFile(f)) {
-                  e.preventDefault();
-                  setZoom(f);
-                }
+                e.preventDefault();
+                // 사진은 크게 보기, 나머지 파일은 바로 내려받기
+                if (isImageFile(f)) setZoom(f);
+                else void downloadFile(f);
               }}
             >
-              {isImageFile(f) ? <img src={f.url} alt={f.name} /> : <span>📄 {f.name}</span>}
+              {isImageFile(f) ? <img src={f.url} alt={f.name} /> : <span>⬇ {f.name}</span>}
             </a>
           ))}
         </div>

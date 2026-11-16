@@ -23,8 +23,38 @@ export async function uploadReportFile(reportId: string, file: File): Promise<Re
   const name = file.name || `사진-${Date.now()}.png`;
   const path = `reports/${reportId}/${Date.now()}-${name.replace(/[^\w.\-가-힣]/g, '_')}`;
   const r = storageRef(storage, path);
-  await uploadBytes(r, file);
+  // 사진이 아닌 파일은 누르면 열리지 않고 바로 내려받아지게 (원래 파일 이름으로)
+  const image = (file.type || '').startsWith('image/');
+  await uploadBytes(r, file, image ? undefined : { contentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(name)}` });
   return { name, url: await getDownloadURL(r), path };
+}
+
+/** 파일 내려받기: 원래 이름으로 저장 (안 되면 새 창으로 열기) */
+export async function downloadFile(f: RequestFile) {
+  try {
+    const res = await fetch(f.url);
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch {
+    // 저장소가 바로 받기를 막으면: PDF 는 새 창, 엑셀·워드 등은 이 창에서 받기 (브라우저가 내려받음)
+    if (/\.pdf$/i.test(f.name)) window.open(f.url, '_blank', 'noopener');
+    else {
+      const a = document.createElement('a');
+      a.href = f.url;
+      a.download = f.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  }
 }
 
 export type CheckRole = 'lead' | 'director';
