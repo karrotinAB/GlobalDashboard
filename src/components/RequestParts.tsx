@@ -370,7 +370,6 @@ export function NewRequest({
   };
   return (
     <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide headExtra={<HeadFields d={d} set={set} showMissing={tried} longOk={isTrade} />}>
-      {!isTrade && <SameDayNotice />}
       <Fields d={d} set={set} reqId={id} team={team} trade={trade} side={side} showMissing={tried} />
       <div className="rq-actions">
         {tried && missing.length > 0 && <span className="rq-missing-msg">필수 칸을 채워 주세요: {missing.join(', ')}</span>}
