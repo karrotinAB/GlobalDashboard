@@ -7455,3 +7455,13 @@ td.c-people { min-width: 120px; }
 .rq-day-card.today .rq-day-head { color: #8c2f3c; }
 .rq-day-card.long .rq-day-head { color: #5b3a8a; }
 .rq-day-card .rq-table thead th { padding-top: 4px; }
+
+/* 주간 할일: 무역사무 노트 버튼 */
+.trade-note-btn { flex: none; border: 1px solid #eadcd9; background: #fff; border-radius: 8px; height: 26px; padding: 0 7px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+.trade-note-btn:hover { background: #f6eeec; }
+.trade-note-btn.empty { opacity: 0.45; }
+.tn-n { font-size: 11px; font-weight: 700; color: #fff; background: #6b3fa0; border-radius: 999px; padding: 0 5px; }
+.tn-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.tn-list li { display: flex; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 8px; background: #fbf6f4; }
+.tn-text { flex: 1; }
+.tn-dot { color: #b09590; }

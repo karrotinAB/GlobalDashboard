@@ -1,3 +1,4 @@
+import { coKey, useTradeMemos, type MemoItem } from '../lib/tradeMemos';
 import { isPersonal } from '../lib/team';
 import { useMirrorClaims } from '../lib/teamClaims';
 import { setReportCheck, useSpaceCheckRole } from '../lib/reports';
@@ -7,7 +8,7 @@ import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import type { Company, Member, Task } from '../types';
-import { characterSrc, charOf, CompanyDot, Empty, Ring } from '../components/ui';
+import { characterSrc, charOf, CompanyDot, Empty, Modal, Ring } from '../components/ui';
 import { useAccess } from '../components/AuthGate';
 import OrderLinkPicker from '../components/OrderLinkPicker';
 import { AddCompany, AddTaskRow, AssigneeCell, CompanyMemo, DueCell, EditableText, NumCell, RowMenu } from '../components/SheetCells';
@@ -52,6 +53,7 @@ export default function Todos() {
     );
   };
   const access = useAccess();
+  const { memos: tradeMemos } = useTradeMemos(); // 무역사무 업체 메모 (체크 안 한 것만 보여줌)
   // 보고 확인 할일: 이 대시보드 주인의 확인 칸 (팀장님/이사님 · 관리자가 볼 때도)
   const { roles: people } = usePeople(isPersonal(access.viewTeam) && access.role === 'admin');
   const checkRole = useSpaceCheckRole(access.role, access.viewTeam, people);
@@ -423,6 +425,12 @@ export default function Todos() {
                     }
                   />
                 )}
+                {g.company && (
+                  <TradeNoteBtn
+                    name={g.company.name}
+                    items={(tradeMemos[coKey(g.company.team ?? access.viewTeam, g.company.id)]?.items ?? []).filter((x) => !x.done)}
+                  />
+                )}
                 {g.company &&
                   (() => {
                     // 이 업체 클레임: 환급 안 된 게 있으면 빨간 버튼
@@ -685,5 +693,46 @@ function SummaryTable({
         </button>
       ))}
     </div>
+  );
+}
+
+/** 업체 메모 옆 📒: 무역사무가 이 업체에 남긴 메모 중 아직 체크 안 한 것 (보기만) */
+function TradeNoteBtn({ name, items }: { name: string; items: MemoItem[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className={`trade-note-btn ${items.length ? '' : 'empty'}`}
+        draggable={false}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={() => setOpen(true)}
+        title={items.length ? `무역사무 노트 ${items.length}개` : '무역사무 노트 없음'}
+      >
+        📒{items.length > 0 && <span className="tn-n">{items.length}</span>}
+      </button>
+      {open && (
+        <Modal title={`무역사무 노트 · ${name}`} onClose={() => setOpen(false)}>
+          <p className="muted small" style={{ marginTop: 0 }}>
+            무역사무가 이 업체에 대해 남긴 메모 중 아직 처리(체크)하지 않은 것이에요. 고치는 건 무역사무 페이지 › 업체 메모에서 해요.
+          </p>
+          {items.length === 0 ? (
+            <p className="muted small">남은 무역사무 노트가 없어요 🍵</p>
+          ) : (
+            <ul className="tn-list">
+              {items.map((x) => (
+                <li key={x.id}>
+                  <span className="tn-dot">☐</span>
+                  <span className="tn-text">{x.text}</span>
+                  <span className="muted small">
+                    {x.by} {new Date(x.at).getMonth() + 1}/{new Date(x.at).getDate()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Modal>
+      )}
+    </>
   );
 }
