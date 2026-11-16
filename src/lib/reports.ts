@@ -4,6 +4,28 @@ import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE } from '../data/store';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { storage } from '../firebase';
+import type { RequestFile } from '../types';
+
+/** 보고에 붙이는 사진·파일 (reports/{보고id}/…) — 로컬 모드는 1.5MB 까지 브라우저에 */
+export async function uploadReportFile(reportId: string, file: File): Promise<RequestFile> {
+  if (DATA_MODE === 'local') {
+    if (file.size > 1.5 * 1024 * 1024) throw new Error('로컬 모드에서는 1.5MB 이하만 넣을 수 있어요');
+    const url = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result));
+      fr.onerror = () => rej(fr.error);
+      fr.readAsDataURL(file);
+    });
+    return { name: file.name, url };
+  }
+  const name = file.name || `사진-${Date.now()}.png`;
+  const path = `reports/${reportId}/${Date.now()}-${name.replace(/[^\w.\-가-힣]/g, '_')}`;
+  const r = storageRef(storage, path);
+  await uploadBytes(r, file);
+  return { name, url: await getDownloadURL(r), path };
+}
 
 export type CheckRole = 'lead' | 'director';
 export interface ReportCheck {
@@ -30,6 +52,7 @@ export interface Report {
   updatedAt?: string;
   checks?: Partial<Record<CheckRole, ReportCheck>>;
   replies?: ReportReply[];
+  files?: RequestFile[]; // 사진 · 파일
 }
 
 export const CHECK_LABEL: Record<CheckRole, string> = { lead: '팀장님', director: '이사님' };

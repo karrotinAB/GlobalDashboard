@@ -21,10 +21,10 @@ export function StatusTag({ s }: { s: RequestStatus }) {
 
 /** 사진 넣기: 파일 고르기 + 붙여넣기(Ctrl+V) */
 /** 사진이면 true (창 안에서 크게 보기) */
-const isImageFile = (f: RequestFile) => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name) || f.url.startsWith('data:image');
+export const isImageFile = (f: RequestFile) => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name) || f.url.startsWith('data:image');
 
 /** 사진 크게 보기 (새 창 말고 이 화면 위에) — 바깥·✕·Esc 로 닫기 */
-function ImageZoom({ f, onClose }: { f: RequestFile; onClose: () => void }) {
+export function ImageZoom({ f, onClose }: { f: RequestFile; onClose: () => void }) {
   // 확대: Ctrl(⌘) + / - / 0, Ctrl+휠, 아래 버튼 — 브라우저 화면 확대 대신 사진만
   const [scale, setScale] = useState(1);
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
@@ -98,7 +98,7 @@ function ImageZoom({ f, onClose }: { f: RequestFile; onClose: () => void }) {
   );
 }
 
-function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile[]; onChange: (f: RequestFile[]) => void }) {
+export function FileBox({ reqId, files, onChange, uploader }: { reqId: string; files: RequestFile[]; onChange: (f: RequestFile[]) => void; uploader?: (f: File) => Promise<RequestFile> }) {
   const [zoom, setZoom] = useState<RequestFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -108,7 +108,7 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
     setErr('');
     try {
       const up: RequestFile[] = [];
-      for (const f of list) up.push(await uploadRequestFile(reqId, f));
+      for (const f of list) up.push(await (uploader ? uploader(f) : uploadRequestFile(reqId, f)));
       onChange([...files, ...up]);
     } catch (e) {
       setErr((e as Error).message);

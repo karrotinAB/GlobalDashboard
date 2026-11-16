@@ -4,7 +4,11 @@ import { useAccess } from '../components/AuthGate';
 import { useStore } from '../data/store';
 import { isPersonal, TEAMS } from '../lib/team';
 import { uid } from '../lib/date';
-import { CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
+import RichEditor from '../components/RichEditor';
+import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
+import { memoHtml } from '../lib/richtext';
+import type { RequestFile } from '../types';
+import { uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
 
 const when = (iso?: string) => {
   if (!iso) return '';
@@ -22,7 +26,7 @@ export default function Reports() {
     data.members.find((m) => !!access.email && m.email?.toLowerCase() === access.email)?.name ?? access.accountName ?? (access.email ? access.email.split('@')[0] : '나');
   const [teamF, setTeamF] = useState('');
   const [onlyOpen, setOnlyOpen] = useState(false);
-  const [writing, setWriting] = useState(false);
+  const [writing, setWriting] = useState<string | null>(null); // 새로 쓰는 보고 id (파일을 그 아래에 올림)
   // 주소로 온 보고 (#/reports?r=id) 는 펼쳐서
   const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('r'));
   useEffect(() => {
@@ -55,7 +59,7 @@ export default function Reports() {
             : `${access.viewLabel} 보고는 우리 조원과 팀장님·이사님만 봐요. 제목을 누르면 내용이 펼쳐져요.`}
         </p>
         {canWrite && (
-          <button className="primary" onClick={() => setWriting(true)}>
+          <button className="primary" onClick={() => setWriting(uid())}>
             ＋ 보고 쓰기
           </button>
         )}
@@ -63,11 +67,12 @@ export default function Reports() {
 
       {writing && (
         <ReportForm
-          onCancel={() => setWriting(false)}
-          onSave={(title, body) => {
+          id={writing}
+          onCancel={() => setWriting(null)}
+          onSave={(title, body, files) => {
             const now = new Date().toISOString();
-            void saveReport({ id: uid(), team: access.viewTeam, title, body, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
-            setWriting(false);
+            void saveReport({ id: writing, team: access.viewTeam, title, body, files, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
+            setWriting(null);
           }}
         />
       )}
@@ -176,16 +181,30 @@ export default function Reports() {
   );
 }
 
-function ReportForm({ init, onSave, onCancel }: { init?: { title: string; body: string }; onSave: (title: string, body: string) => void; onCancel: () => void }) {
+function ReportForm({
+  id,
+  init,
+  onSave,
+  onCancel,
+}: {
+  id: string;
+  init?: { title: string; body: string; files?: RequestFile[] };
+  onSave: (title: string, body: string, files: RequestFile[]) => void;
+  onCancel: () => void;
+}) {
   const [title, setTitle] = useState(init?.title ?? '');
   const [body, setBody] = useState(init?.body ?? '');
+  const [files, setFiles] = useState<RequestFile[]>(init?.files ?? []);
+  const submit = () => title.trim() && onSave(title.trim(), body, files);
   return (
     <div className="card rp-form">
       <input className="rp-form-title" autoFocus placeholder="제목" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <textarea className="rp-form-body" rows={8} placeholder="보고 내용을 자유롭게 적어 주세요" value={body} onChange={(e) => setBody(e.target.value)} />
+      <RichEditor initial={init?.body} onChange={setBody} placeholder="보고 내용을 자유롭게 적어 주세요 (Ctrl+Enter 로 올리기)" onCtrlEnter={submit} />
+      <div className="rp-files-label muted small">사진 · 파일 (캡처한 사진은 아래 칸을 누르고 Ctrl+V 로 붙여넣기)</div>
+      <FileBox reqId={id} files={files} onChange={setFiles} uploader={(f) => uploadReportFile(id, f)} />
       <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onCancel}>취소</button>
-        <button className="primary" disabled={!title.trim()} onClick={() => onSave(title.trim(), body)}>
+        <button className="primary" disabled={!title.trim()} onClick={submit}>
           {init ? '저장' : '올리기'}
         </button>
       </div>
@@ -197,13 +216,15 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
   const access = useAccess();
   const [editing, setEditing] = useState(false);
   const [reply, setReply] = useState('');
+  const [zoom, setZoom] = useState<RequestFile | null>(null);
   if (editing)
     return (
       <ReportForm
-        init={{ title: r.title, body: r.body }}
+        id={r.id}
+        init={{ title: r.title, body: r.body, files: r.files }}
         onCancel={() => setEditing(false)}
-        onSave={(title, body) => {
-          void saveReport({ ...r, title, body, updatedAt: new Date().toISOString() });
+        onSave={(title, body, files) => {
+          void saveReport({ ...r, title, body, files, updatedAt: new Date().toISOString() });
           setEditing(false);
         }}
       />
@@ -219,7 +240,30 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
   };
   return (
     <div className="rp-detail">
-      <div className="rp-body">{r.body || <span className="muted">내용 없음</span>}</div>
+      {r.body ? <div className="rp-body memo-rich-view" dangerouslySetInnerHTML={{ __html: memoHtml(r.body) }} /> : <div className="rp-body muted">내용 없음</div>}
+      {(r.files ?? []).length > 0 && (
+        <div className="rq-files view rp-files">
+          {r.files!.map((f, i) => (
+            <a
+              key={i}
+              className="rq-thumb"
+              href={f.url}
+              target="_blank"
+              rel="noreferrer"
+              title={f.name}
+              onClick={(e) => {
+                if (isImageFile(f)) {
+                  e.preventDefault();
+                  setZoom(f);
+                }
+              }}
+            >
+              {isImageFile(f) ? <img src={f.url} alt={f.name} /> : <span>📄 {f.name}</span>}
+            </a>
+          ))}
+        </div>
+      )}
+      {zoom && <ImageZoom f={zoom} onClose={() => setZoom(null)} />}
       {(canEdit || canDelete) && (
         <div className="rp-actions">
           {canEdit && (
@@ -251,6 +295,8 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
             )}
           </div>
         ))}
+        {/* 답변은 팀장님·이사님만 */}
+        {isLeaderRole(access.role) && (
         <div className="rp-reply-box">
           <textarea
             rows={2}
@@ -263,6 +309,7 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
             답변
           </button>
         </div>
+        )}
       </div>
     </div>
   );

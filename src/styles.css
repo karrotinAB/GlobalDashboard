@@ -7189,3 +7189,11 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tabs .tab-report { margin-left: auto; }
 .tabs .tab-report + .tab-request { margin-left: 8px; }
 .rp-card > p.muted { text-align: center; padding: 18px 12px; margin: 0; }
+
+/* 보고방 글쓰기: 게시판처럼 */
+.rich-editor { border: 1px solid #eadcd9; border-radius: 12px; overflow: hidden; background: #fff; }
+.rich-editor .memo-toolbar { border-bottom: 1px solid #f1e6e3; border-radius: 0; margin: 0; }
+.rich-editor .memo-area { border: 0; border-radius: 0; outline: none; padding: 12px 14px; }
+.rp-files-label { margin-top: 4px; }
+.rp-files { margin-top: 8px; }
+.memo-rich-view ul { margin: 4px 0; padding-left: 20px; }
