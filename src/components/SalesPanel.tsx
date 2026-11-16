@@ -1299,12 +1299,9 @@ function CompareView({
     const vals = months.map((m) => valOf(c, m));
     const ok = vals.filter((v): v is number => typeof v === 'number');
     // 그래프 점 위 글씨: 원화 · 달러 둘 다
-    const krw = months.map((m) => valOf(c, m, 'KRW'));
-    const usd = months.map((m) => valOf(c, m, 'USD'));
-    // (매장 평균이면 위 두 값도 매장 1곳당)
     const raw = months.map((m) => valOf(c, m, target, false));
     const cnt = months.map((m) => storesOf(c, m));
-    return { c, vals, krw, usd, raw, cnt, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
+    return { c, vals, raw, cnt, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
   });
   const grand = rows.reduce((a, r) => a + r.total, 0);
   // 매장 평균일 때 맨 아래 줄: 그 달 전체 판매 ÷ 전체 매장 수
@@ -1323,7 +1320,7 @@ function CompareView({
   const W = mobile ? 380 : 1000;
   const L = mobile ? 46 : 56;
   const R = 16;
-  const top = mobile ? 24 : 44;
+  const top = mobile ? 24 : 32;
   const bottom = mobile ? 210 : 240;
   const H = bottom + 30;
   const shown = rows.filter((r) => !hide.has(r.c.id));
@@ -1410,6 +1407,7 @@ function CompareView({
                   title="눌러서 숨기기/보이기"
                 >
                   <span className="lg-line" style={{ background: r.c.color ?? '#999', height: 3 }} />
+                  {r.c.team && <span className="team-tag">{r.c.team}조</span>}
                   {r.c.name}
                 </button>
               ))}
@@ -1436,11 +1434,8 @@ function CompareView({
                           </title>
                         </circle>
                         {!mobile && (
-                          <text x={x(i)} y={y(v) - 19} textAnchor="middle" className="sc-val cmp-val" style={{ fill: r.c.color ?? '#3b2a28' }}>
-                            {typeof r.krw[i] === 'number' ? `₩${shortAmt(r.krw[i] as number)}` : '₩—'}
-                            <tspan x={x(i)} dy={10} className="sc-conv">
-                              {typeof r.usd[i] === 'number' ? `$${shortConv(r.usd[i] as number, 'USD')}` : '$—'}
-                            </tspan>
+                          <text x={x(i)} y={y(v) - 9} textAnchor="middle" className="sc-val cmp-val" style={{ fill: r.c.color ?? '#3b2a28' }}>
+                            {short(v)}
                           </text>
                         )}
                       </g>
@@ -1470,6 +1465,7 @@ function CompareView({
                   <tr key={r.c.id}>
                     <th className="l">
                       <span className="br-dot" style={{ background: r.c.color ?? '#999' }} />
+                      {r.c.team && <span className="team-tag">{r.c.team}조</span>}
                       <b>{r.c.name}</b>
                       {r.missing && <span className="muted small vt-sub">환율 없는 달은 빠짐</span>}
                     </th>
@@ -1499,6 +1495,7 @@ function CompareView({
                     <tr key={r.c.id}>
                       <th className="l">
                         <span className="br-dot" style={{ background: r.c.color ?? '#999' }} />
+                        {r.c.team && <span className="team-tag">{r.c.team}조</span>}
                         {r.c.name}
                       </th>
                       {dataIdx.map((i) => {
