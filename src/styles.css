@@ -7618,3 +7618,4 @@ td.c-people { min-width: 120px; }
   .task-table td.c-more { align-self: center; }
   .task-table td.c-title .title-wrap { padding-left: 0; margin-left: 0; }
 }
+.ov-inline.ov-all { margin: 0 0 14px; border-top: 0; padding-top: 0; }

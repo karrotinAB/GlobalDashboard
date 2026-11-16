@@ -55,8 +55,10 @@ export default function Overview() {
   const [only, setOnlyState] = useState(''); // '' = 모든 조
   const [co, setCo] = useState(''); // '조:업체id' — 고른 업체만
   const [who, setWho] = useState(''); // 조를 골랐을 때 조원 한 명만
+  const [allOpen, setAllOpen] = useState(false); // 휴대폰: '모든 조'를 누르면 필터 바로 아래에 모든 조 내용
   const setOnly = (v: string | ((x: string) => string)) => {
     setOnlyState(v);
+    setAllOpen(false);
     setCo('');
     setWho('');
   };
@@ -104,7 +106,15 @@ export default function Overview() {
           ))}
         </div>
         <div className="rq-chips">
-          <button className={`cchip ${!only ? 'on' : ''}`} onClick={() => setOnly('')}>
+          <button
+            className={`cchip ${!only && (!isMobile || allOpen) ? 'on' : ''}`}
+            onClick={() => {
+              const next = !(allOpen && !only);
+              setOnly('');
+              if (view === 'trade') setView('todos');
+              setAllOpen(next);
+            }}
+          >
             모든 조
           </button>
           {TEAMS.map((t) => (
@@ -195,6 +205,7 @@ export default function Overview() {
       </div>
 
       {isMobile && toolbar}
+      {isMobile && allOpen && !mobileOpen && <div className="ov-inline ov-all">{detail}</div>}
       {/* 조별 요약 카드 */}
       <div className="ov-cards">
         {teams.map((t) => (
@@ -229,7 +240,7 @@ export default function Overview() {
         {below('trade')}
       </div>
 
-      {!mobileOpen && detail}
+      {!isMobile && detail}
     </div>
   );
 }
