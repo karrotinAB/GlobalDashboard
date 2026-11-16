@@ -7496,3 +7496,8 @@ td.c-people { min-width: 120px; }
 
 .tr-reset { border: 1px solid var(--line); background: #fff; color: #8c2f3c; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }
 .tr-reset:hover { background: #fbeeee; }
+
+/* 보고방: 확인 완료 · 고치기/지우기 오른쪽 */
+.rp-actions-right { margin-left: auto; display: inline-flex; gap: 12px; align-items: center; padding-right: 8px; }
+.rp-done-tag { font-size: 11px; font-weight: 700; color: #2f6b2a; background: #e4f3e1; border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+.rp-row.all-checked .rp-title-btn { color: var(--mut); }

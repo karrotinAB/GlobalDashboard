@@ -162,9 +162,12 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                 const open = openId === r.id;
                 const unseen = leaderView ? !!myCheck && isUnseenLeader(r, myCheck, access.email) : isUnseen(r, access.email);
                 const fresh = leaderView && myCheck && needsCheck(r, myCheck) && !r.checks?.[myCheck];
+                // 확인자로 고른 사람이 모두 확인하면 '확인 완료'
+                const need = (['lead', 'director'] as CheckRole[]).filter((k) => needsCheck(r, k));
+                const allChecked = need.length > 0 && need.every((k) => r.checks?.[k]);
                 return (
                   <Fragment key={r.id}>
-                    <tr className={`rp-row ${open ? 'open' : ''}`}>
+                    <tr className={`rp-row ${open ? 'open' : ''} ${allChecked ? 'all-checked' : ''}`}>
                       {leaderView && (
                         <td className="rp-team">
                           <span className="team-tag">{teamName(r.team)}</span>
@@ -183,6 +186,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                           {(r.replies ?? []).length > 0 && <span className="rp-n">💬 {r.replies!.length}</span>}
                           {unseen && <span className="rp-new">{leaderView ? 'NEW' : '새 답변'}</span>}
                           {fresh && <span className="rp-new blue">확인 전</span>}
+                          {allChecked && <span className="rp-done-tag">✅ 확인 완료</span>}
                         </button>
                       </td>
                       <td className="rp-who">{nameOf(r.authorEmail, r.authorName)}</td>
@@ -367,17 +371,20 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
           <button className="link small" onClick={() => setReplying((v) => !v)}>
             ↳ 답글쓰기
           </button>
-          {canEdit && (
-            <button className="link small" onClick={() => setEditing(true)}>
-              ✎ 고치기
-            </button>
-          )}
-          {canDelete && (
-            <button className="link small danger-text" onClick={() => confirm(`"${r.title}" 보고를 지울까요?`) && void deleteReport(r.id)}>
-              🗑 지우기
-            </button>
-          )}
           {r.updatedAt && <span className="muted small">고침 {when(r.updatedAt)}</span>}
+          {/* 고치기 · 지우기는 맨 오른쪽 */}
+          <span className="rp-actions-right">
+            {canEdit && (
+              <button className="link small" onClick={() => setEditing(true)}>
+                ✎ 고치기
+              </button>
+            )}
+            {canDelete && (
+              <button className="link small danger-text" onClick={() => confirm(`"${r.title}" 보고를 지울까요?`) && void deleteReport(r.id)}>
+                🗑 지우기
+              </button>
+            )}
+          </span>
         </div>
       )}
       <div className="rp-replies">
