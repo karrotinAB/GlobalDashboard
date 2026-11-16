@@ -62,6 +62,11 @@ service cloud.firestore {
       allow delete: if isAdmin() || ((isTeam() || isTrade()) && resource.data.get('authorEmail', '') == myEmail());
     }
 
+    // 번역 사전 (한글 → 영어): 대시보드 사용자 모두 읽고 넣고 고침
+    match /dict/{id} {
+      allow read, write: if isAny();
+    }
+
     // 주소록 번호 (회사번호 · 개인번호): 로그인한 모두 읽기, 관리자만 저장
     match /contacts/{email} {
       allow read: if isAny();

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import AddressBook from './components/AddressBook';
 import TradeExport from './pages/TradeExport';
 import Reports from './pages/Reports';
+import Translate from './pages/Translate';
+import ProfileMenu from './components/ProfileMenu';
 import ReportTaskSync from './components/ReportTaskSync';
 import { useReportAlert } from './lib/reports';
 import { useStore } from './data/store';
@@ -37,6 +39,7 @@ const PAGES = [
   { key: 'twork', label: '업무', icon: '📋' },
   { key: 'texport', label: '수출매출', icon: '🚢' },
   { key: 'treports', label: '보고방', icon: '📑' },
+  { key: 'translate', label: '번역', icon: '🌐' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
 ] as const;
@@ -63,7 +66,7 @@ export default function App() {
   // '조 현황' 탭: 팀장님·이사님 대시보드에만 (관리자는 팀장님·이사님 대시보드를 볼 때만)
   const canOverview = leader || ((role === 'admin' || role === null) && isPersonal(viewTeam));
   const page: PageKey = tradeOnly
-    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar'
+    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate'
       ? hashPage
       : 'thome'
     : isTradePage(hashPage) && !canTrade
@@ -207,6 +210,9 @@ export default function App() {
                   Global Opening Prep ↗
                 </a>
               )}
+              <a href="#/translate" className={page === 'translate' ? 'active' : ''}>
+                🌐 번역
+              </a>
               <a href="#/settings" className={page === 'settings' ? 'active' : ''}>
                 ⚙️ 설정
               </a>
@@ -232,14 +238,11 @@ export default function App() {
           </a>
         )}
         {mode === 'firestore' && <AddressBook className="top-btn" />}
-        <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
-          ⚙️ 설정
+        {/* 설정 자리: 번역 · 설정·로그아웃은 프로필 동그라미 안으로 */}
+        <a href="#/translate" className={`top-btn ${page === 'translate' ? 'active' : ''}`} title="제품명 번역 · 사전">
+          🌐 번역
         </a>
-        {mode === 'firestore' && (
-          <button className="top-btn" onClick={() => confirm('로그아웃할까요?') && logout()}>
-            로그아웃
-          </button>
-        )}
+        <ProfileMenu />
       </div>
       <div className="shell">
         <div className="page-icon" aria-hidden="true">
@@ -326,6 +329,8 @@ export default function App() {
             <TradeExport />
           ) : page === 'reports' && !tradeOnly ? (
             <Reports />
+          ) : page === 'translate' ? (
+            <Translate />
           ) : page === 'treports' ? (
             <Reports key="trade" space="trade" />
           ) : (
