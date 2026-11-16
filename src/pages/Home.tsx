@@ -164,18 +164,7 @@ export default function Home({ go }: { go: (page: string) => void }) {
   const todayAtt = new Map(data.attendance.filter((a) => a.date === todayIso).map((a) => [a.memberId, a]));
   const [editing, setEditing] = useState<Member | null>(null);
 
-  const defaultClocks = useMemo(() => {
-    const map = new Map<string, { names: string[]; codes: string[]; color?: string }>();
-    for (const c of companies) {
-      if (!c.timezone || !isValidTz(c.timezone) || c.timezone === HOME_TZ) continue;
-      const e = map.get(c.timezone) ?? { names: [], codes: [], color: c.color };
-      e.names.push(c.country || c.name);
-      const code = countryCode(c.country || c.name, c.timezone);
-      if (code) e.codes.push(code);
-      map.set(c.timezone, e);
-    }
-    return [...map.entries()].map(([tz, v]) => ({ tz, label: [...new Set(v.names)].join(' · '), codes: [...new Set(v.codes)], color: v.color }));
-  }, [companies]);
+  const defaultClocks = useMemo(() => clockDefaultsOf(companies), [companies]);
 
   // 시계는 계정마다 따로 고름: 내 카드(members.clocks)에 저장, 카드가 없으면 이 브라우저에
   const myCard = members.find((m) => !!access.email && m.email?.toLowerCase() === access.email);
@@ -639,6 +628,19 @@ export function Hero({ title }: { title: string }) {
 export { CharacterPicker, LeaveBand };
 
 type ClockDef = { tz: string; label: string; codes: string[]; color?: string };
+/** 업체 타임존 → 기본 시계 (같은 시간대는 하나로, 이름은 나라들) */
+export function clockDefaultsOf(companies: { timezone?: string; country?: string; name: string; color?: string }[]): ClockDef[] {
+  const map = new Map<string, { names: string[]; codes: string[]; color?: string }>();
+  for (const c of companies) {
+    if (!c.timezone || !isValidTz(c.timezone) || c.timezone === HOME_TZ) continue;
+    const e = map.get(c.timezone) ?? { names: [], codes: [], color: c.color };
+    e.names.push(c.country || c.name);
+    const code = countryCode(c.country || c.name, c.timezone);
+    if (code) e.codes.push(code);
+    map.set(c.timezone, e);
+  }
+  return [...map.entries()].map(([tz, v]) => ({ tz, label: [...new Set(v.names)].join(' · '), codes: [...new Set(v.codes)], color: v.color }));
+}
 /** 🌍 지금 몇 시? — 서울 + 고른 시계 (나라 공휴일·기념일 포함). 2조 홈·무역사무 홈 같이 씀 */
 export function WorldClocks({ defaults, picked, onSave, where }: { defaults: ClockDef[]; picked?: ClockPick[]; onSave: (l: ClockPick[] | undefined) => void; where: string }) {
   const { data } = useStore();

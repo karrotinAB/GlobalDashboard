@@ -1,7 +1,7 @@
 // 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 담당자별 업무 (시계 없음)
-import { useStore } from '../data/store';
-import { useState, type CSSProperties } from 'react';
-import { CharacterPicker, Hero, LeaveBand, WorldClocks } from './Home';
+import { useSpaceData, useStore } from '../data/store';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { CharacterPicker, clockDefaultsOf, Hero, LeaveBand, WorldClocks } from './Home';
 import { Avatar, characterSrc, Ring } from '../components/ui';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
 import { ago, isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
@@ -26,6 +26,11 @@ export default function TradeHome() {
       return undefined;
     }
   });
+  // 기본 시계: 1·2·3조 업체 나라 (무역사무는 모든 조 업체를 다룸)
+  const co1 = useSpaceData('1', ['companies']).data.companies;
+  const co2 = useSpaceData('2', ['companies']).data.companies;
+  const co3 = useSpaceData('3', ['companies']).data.companies;
+  const tradeDefaults = useMemo(() => clockDefaultsOf([...(co1 ?? []), ...(co2 ?? []), ...(co3 ?? [])]), [co1, co2, co3]);
   const load = workload(data.requests, trade, todayIso);
   const open = sortRequests(data.requests.filter(isOpen));
   const columns: { id: string; member?: Member; list: TradeRequest[] }[] = [
@@ -81,8 +86,8 @@ export default function TradeHome() {
 
       {/* 세계 시간: 출근 상태(우리 팀 오늘) 밑에 */}
       <WorldClocks
-        defaults={[]}
-        picked={myTrade ? myTrade.clocks : tradeLocalClocks}
+        defaults={tradeDefaults}
+        picked={myTrade?.clocks ?? tradeLocalClocks}
         onSave={(list) => {
           if (myTrade) save('tradeMembers', { ...myTrade, clocks: list });
           else {
