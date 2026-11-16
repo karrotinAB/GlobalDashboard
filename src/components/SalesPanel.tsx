@@ -1240,17 +1240,37 @@ function CompareView({
     const coOf = new Map<string, Company>();
     for (const c of companies) for (const code of c.storeCodes ?? []) coOf.set(code, c);
     const m = new Map<string, Map<string, Record<string, number>>>();
+    const cnt = new Map<string, Map<string, Set<string>>>();
     for (const d of docs) {
       const c = coOf.get(d.code);
       if (!c) continue;
       const mm = m.get(c.id) ?? new Map<string, Record<string, number>>();
       const days = { ...(mm.get(d.month) ?? {}) };
-      for (const b of Object.values(d.branches)) for (const [dd, v] of Object.entries(b.days ?? {})) days[dd] = (days[dd] ?? 0) + v;
+      const cm = cnt.get(c.id) ?? new Map<string, Set<string>>();
+      const set = cm.get(d.month) ?? new Set<string>();
+      for (const [sid, b] of Object.entries(d.branches)) {
+        let any = false;
+        for (const [dd, v] of Object.entries(b.days ?? {})) {
+          days[dd] = (days[dd] ?? 0) + v;
+          if (v) any = true;
+        }
+        if (any) set.add(sid);
+      }
       mm.set(d.month, days);
       m.set(c.id, mm);
+      cm.set(d.month, set);
+      cnt.set(c.id, cm);
     }
-    return m;
+    return { days: m, stores: cnt };
   }, [docs, companies]);
+  // 비교 기준: 업체 합계 / 매장 평균 (그 달 판매가 있는 매장 수로 나눔)
+  const [per, setPer] = useState<'total' | 'avg'>(() => (store.get('gd:cmpPer') === 'avg' ? 'avg' : 'total'));
+  const pickPer = (v: 'total' | 'avg') => {
+    setPer(v);
+    store.set('gd:cmpPer', v);
+  };
+  const avg = per === 'avg';
+  const storesOf = (c: Company, m: string) => byCo.stores.get(c.id)?.get(m)?.size ?? 0;
   const allMonths = [...new Set(docs.map((d) => d.month))].sort();
   const years = [...new Set(allMonths.map((m) => m.slice(0, 4)))];
   const [yr, setYr] = useState<string | null>(null);
@@ -1259,8 +1279,8 @@ function CompareView({
   const fx = useFxRates([...companies.map((c) => c.salesCurrency ?? ''), 'USD'], allMonths.length ? [prevMonth(allMonths[0]), ...allMonths] : []);
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
   // 업체·달 → 환산 금액 (환율이 하루라도 없으면 null)
-  const valOf = (c: Company, m: string, t: 'KRW' | 'USD' = target): number | null | undefined => {
-    const days = byCo.get(c.id)?.get(m);
+  const valOf = (c: Company, m: string, t: 'KRW' | 'USD' = target, perStore = avg): number | null | undefined => {
+    const days = byCo.days.get(c.id)?.get(m);
     if (!days) return undefined;
     const conv = makeConv(fx, c.salesCurrency, t);
     let sum = 0;
@@ -1268,6 +1288,10 @@ function CompareView({
       const r = conv(`${m}-${dd}`, v);
       if (r === null) return null;
       sum += r;
+    }
+    if (perStore) {
+      const n = storesOf(c, m);
+      return n ? sum / n : undefined;
     }
     return sum;
   };
@@ -1277,9 +1301,19 @@ function CompareView({
     // 그래프 점 위 글씨: 원화 · 달러 둘 다
     const krw = months.map((m) => valOf(c, m, 'KRW'));
     const usd = months.map((m) => valOf(c, m, 'USD'));
-    return { c, vals, krw, usd, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
+    // (매장 평균이면 위 두 값도 매장 1곳당)
+    const raw = months.map((m) => valOf(c, m, target, false));
+    const cnt = months.map((m) => storesOf(c, m));
+    return { c, vals, krw, usd, raw, cnt, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
   });
   const grand = rows.reduce((a, r) => a + r.total, 0);
+  // 매장 평균일 때 맨 아래 줄: 그 달 전체 판매 ÷ 전체 매장 수
+  const allAvg = (i: number) => {
+    const sum = rows.reduce((a, r) => a + (typeof r.raw[i] === 'number' ? (r.raw[i] as number) : 0), 0);
+    const n = rows.reduce((a, r) => a + (typeof r.raw[i] === 'number' ? r.cnt[i] : 0), 0);
+    return n ? sum / n : 0;
+  };
+  const lastCnt = (r: { cnt: number[] }) => [...r.cnt].reverse().find((n) => n > 0) ?? 0;
   // 표: 데이터가 있는 달만 칸으로
   const dataIdx = months.map((_, i) => i).filter((i) => rows.some((r) => r.vals[i] !== undefined));
   const tSym = target === 'USD' ? '$' : '₩';
@@ -1334,13 +1368,30 @@ function CompareView({
             </button>
           </div>
         </div>
+        <div className={`mode-slide small ${avg ? 'export' : 'sales'}`} role="tablist" title="매장 평균 = 그 달 판매가 있는 매장 수로 나눈 금액">
+          <span className="mode-knob" />
+          <button role="tab" aria-selected={!avg} onClick={() => pickPer('total')}>
+            업체 합계
+          </button>
+          <button role="tab" aria-selected={avg} onClick={() => pickPer('avg')}>
+            매장 평균
+          </button>
+        </div>
       </div>
       {!ready ? (
         <p className="muted small">불러오는 중…</p>
       ) : (
         <>
           <p className="muted small year-sum">
-            {year}년 판매데이터 업체 {companies.length}곳 합계 <b className="ink">{tSym}{fmtConv(grand, target)}</b> · 판매일 환율로 {target === 'KRW' ? '원화' : '달러'} 환산
+            {avg ? (
+              <>
+                {year}년 <b className="ink">매장 1곳당</b> 월 판매 비교 · 그 달 판매가 있는 매장 수로 나눔 · 판매일 환율로 {target === 'KRW' ? '원화' : '달러'} 환산
+              </>
+            ) : (
+              <>
+                {year}년 판매데이터 업체 {companies.length}곳 합계 <b className="ink">{tSym}{fmtConv(grand, target)}</b> · 판매일 환율로 {target === 'KRW' ? '원화' : '달러'} 환산
+              </>
+            )}
           </p>
           <div className="sales-chart">
             <div className="chart-legend">
@@ -1410,8 +1461,8 @@ function CompareView({
               <thead>
                 <tr>
                   <th className="l">업체</th>
-                  <th className="r">{year}년 합계</th>
-                  <th className="r">비중</th>
+                  <th className="r">{avg ? '매장당 연 합계' : `${year}년 합계`}</th>
+                  <th className="r">{avg ? '매장 수' : '비중'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1423,7 +1474,7 @@ function CompareView({
                       {r.missing && <span className="muted small vt-sub">환율 없는 달은 빠짐</span>}
                     </th>
                     <td className="r">{r.total ? `${tSym}${fmtConv(r.total, target)}` : '—'}</td>
-                    <td className="r">{grand ? `${((r.total / grand) * 100).toFixed(1)}%` : '—'}</td>
+                    <td className="r">{avg ? `${lastCnt(r)}곳` : grand ? `${((r.total / grand) * 100).toFixed(1)}%` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1439,8 +1490,8 @@ function CompareView({
                         {i + 1}월
                       </th>
                     ))}
-                    <th className="r">합계</th>
-                    <th className="r">비중</th>
+                    <th className="r">{avg ? '매장당 연 합계' : '합계'}</th>
+                    <th className="r">{avg ? '매장 수' : '비중'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1454,26 +1505,27 @@ function CompareView({
                         const v = r.vals[i];
                         return (
                           <td key={i} className="r">
-                            {v === undefined ? <span className="muted">—</span> : v === null ? <span className="warn small">환율 없음</span> : `${tSym}${fmtConv(v, target)}`}
+                            {v === undefined ? <span className="muted">—</span> : v === null ? <span className="warn small">환율 없음</span> : `${tSym}${fmtConv(Math.round(v), target)}`}
+                            {avg && v !== undefined && <small className="krw">{r.cnt[i]}곳</small>}
                           </td>
                         );
                       })}
                       <td className="r">
-                        <b>{r.total ? `${tSym}${fmtConv(r.total, target)}` : '—'}</b>
+                        <b>{r.total ? `${tSym}${fmtConv(Math.round(r.total), target)}` : '—'}</b>
                       </td>
-                      <td className="r">{grand ? `${((r.total / grand) * 100).toFixed(1)}%` : '—'}</td>
+                      <td className="r">{avg ? `${lastCnt(r)}곳` : grand ? `${((r.total / grand) * 100).toFixed(1)}%` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <th className="l">합계</th>
+                    <th className="l">{avg ? '전체 매장 평균' : '합계'}</th>
                     {dataIdx.map((i) => (
                       <td key={i} className="r">
                         <b>
                           {tSym}
                           {fmtConv(
-                            rows.reduce((a, r) => a + (typeof r.vals[i] === 'number' ? (r.vals[i] as number) : 0), 0),
+                            Math.round(avg ? allAvg(i) : rows.reduce((a, r) => a + (typeof r.vals[i] === 'number' ? (r.vals[i] as number) : 0), 0)),
                             target,
                           )}
                         </b>
@@ -1482,10 +1534,10 @@ function CompareView({
                     <td className="r">
                       <b>
                         {tSym}
-                        {fmtConv(grand, target)}
+                        {fmtConv(Math.round(avg ? dataIdx.reduce((a, i) => a + allAvg(i), 0) : grand), target)}
                       </b>
                     </td>
-                    <td className="r">100%</td>
+                    <td className="r">{avg ? `${rows.reduce((a, r) => a + lastCnt(r), 0)}곳` : '100%'}</td>
                   </tr>
                 </tfoot>
               </table>
