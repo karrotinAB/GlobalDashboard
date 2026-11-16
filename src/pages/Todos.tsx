@@ -153,10 +153,9 @@ export default function Todos() {
       // 정해 둔 업체 순서는 그대로, 남은 할일이 없는 업체만 아래로
       const hasLeft = (g: Group) => g.rows.some((r) => !r.doneInWeek);
       out.sort((a, b) => Number(hasLeft(b)) - Number(hasLeft(a)));
-      // 팀장님·이사님: 보고 확인 할일은 조별 '보고방' 칸으로 (맨 위)
-      const reportGroups: Group[] = ['1', '2', '3', 'trade']
-        .map((t) => ({ key: `__report${t}`, title: `📑 ${t === 'trade' ? '무역사무' : `${t}조`} 보고방`, color: '#8c2f3c', rows: sortRows(filtered.filter((r) => r.task.reportId && (r.task.reportTeam ?? '') === t)) }))
-        .filter((g) => g.rows.length);
+      // 팀장님·이사님: 보고 확인 할일은 '보고방' 칸 하나로 (맨 위, 제목에 조 이름)
+      const reportRows = sortRows(filtered.filter((r) => r.task.reportId));
+      const reportGroups: Group[] = reportRows.length ? [{ key: '__report', title: '📑 보고방', color: '#8c2f3c', rows: reportRows }] : [];
       const etc = filtered.filter((r) => !r.task.reportId && (!r.task.companyId || !companyById.has(r.task.companyId)));
       out.unshift(...reportGroups);
       if (etc.length) out.push({ key: '__etc', title: '기타 / 업체 없음', rows: sortRows(etc) });
