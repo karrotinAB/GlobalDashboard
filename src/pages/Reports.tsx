@@ -9,7 +9,7 @@ import { usePeople } from '../components/AddressBook';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
-import { downloadFile, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
+import { downloadFile, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
 
 const when = (iso?: string) => {
   if (!iso) return '';
@@ -77,7 +77,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
   };
   const shown = (list ?? []).filter((r) => {
     if (teamF && r.team !== teamF) return false;
-    if (onlyOpen && myCheck && r.checks?.[myCheck]) return false;
+    if (onlyOpen && myCheck && (!needsCheck(r, myCheck) || r.checks?.[myCheck])) return false;
     const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return true;
     const h = hay(r);
@@ -111,9 +111,9 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
         <ReportForm
           id={writing}
           onCancel={() => setWriting(null)}
-          onSave={(title, body, files) => {
+          onSave={(title, body, files, to) => {
             const now = new Date().toISOString();
-            void saveReport({ id: writing, team: myTeam, title, body, files, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
+            void saveReport({ id: writing, team: myTeam, title, body, files, to, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
             setWriting(null);
           }}
         />
@@ -161,7 +161,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
               {shown.map((r) => {
                 const open = openId === r.id;
                 const unseen = !leaderView && isUnseen(r, access.email);
-                const fresh = leaderView && myCheck && !r.checks?.[myCheck];
+                const fresh = leaderView && myCheck && needsCheck(r, myCheck) && !r.checks?.[myCheck];
                 return (
                   <Fragment key={r.id}>
                     <tr className={`rp-row ${open ? 'open' : ''}`}>
@@ -190,6 +190,13 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                       {(['lead', 'director'] as CheckRole[]).map((k) => {
                         const c = r.checks?.[k];
                         const mine = myCheck === k || access.role === 'admin'; // 관리자는 두 칸 다
+                        // 확인자로 안 고른 칸은 비워 둠
+                        if (!needsCheck(r, k) && !c)
+                          return (
+                            <td key={k} className="rp-chk rp-chk-off" title={`${CHECK_LABEL[k]} 확인 없음`}>
+                              <span className="rp-chk-none" />
+                            </td>
+                          );
                         return (
                           <td key={k} className={`rp-chk ${c ? 'on' : ''}`}>
                             {/* 확인한 사람 이름만 (누르면 날짜·시간) */}
@@ -235,23 +242,38 @@ function ReportForm({
   onCancel,
 }: {
   id: string;
-  init?: { title: string; body: string; files?: RequestFile[] };
-  onSave: (title: string, body: string, files: RequestFile[]) => void;
+  init?: { title: string; body: string; files?: RequestFile[]; to?: CheckRole[] };
+  onSave: (title: string, body: string, files: RequestFile[], to: CheckRole[]) => void;
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState(init?.title ?? '');
   const [body, setBody] = useState(init?.body ?? '');
   const [files, setFiles] = useState<RequestFile[]>(init?.files ?? []);
-  const submit = () => title.trim() && onSave(title.trim(), body, files);
+  // 확인자: 팀장님 · 이사님 (둘 다 가능). 체크한 분의 주간 할일에만 올라가고, 그분 확인란만 생김
+  const [to, setTo] = useState<CheckRole[]>(init?.to ?? ['lead', 'director']);
+  const flip = (k: CheckRole) => setTo((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]));
+  const submit = () => title.trim() && to.length > 0 && onSave(title.trim(), body, files, (['lead', 'director'] as CheckRole[]).filter((k) => to.includes(k)));
   return (
     <div className="card rp-form">
-      <input className="rp-form-title" autoFocus placeholder="제목" value={title} onChange={(e) => setTitle(e.target.value)} />
+      <div className="rp-form-top">
+        <input className="rp-form-title" autoFocus placeholder="제목" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="rp-to" title="확인받을 분 (체크한 분의 주간 할일에만 올라가요)">
+          <span className="muted small">확인자</span>
+          {(['lead', 'director'] as CheckRole[]).map((k) => (
+            <label key={k} className={`rp-to-opt ${to.includes(k) ? 'on' : ''}`}>
+              <input type="checkbox" checked={to.includes(k)} onChange={() => flip(k)} />
+              {CHECK_LABEL[k]}
+            </label>
+          ))}
+        </div>
+      </div>
       <RichEditor initial={init?.body} onChange={setBody} placeholder="보고 내용을 자유롭게 적어 주세요 (Ctrl+Enter 로 올리기)" onCtrlEnter={submit} />
       <div className="rp-files-label muted small">사진 · 파일 (캡처한 사진은 아래 칸을 누르고 Ctrl+V 로 붙여넣기)</div>
       <FileBox reqId={id} files={files} onChange={setFiles} uploader={(f) => uploadReportFile(id, f)} />
       <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onCancel}>취소</button>
-        <button className="primary" disabled={!title.trim()} onClick={submit}>
+        {!to.length && <span className="warn small">확인자를 한 분 이상 골라 주세요</span>}
+        <button className="primary" disabled={!title.trim() || !to.length} onClick={submit}>
           {init ? '저장' : '올리기'}
         </button>
       </div>
@@ -269,10 +291,10 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
     return (
       <ReportForm
         id={r.id}
-        init={{ title: r.title, body: r.body, files: r.files }}
+        init={{ title: r.title, body: r.body, files: r.files, to: r.to }}
         onCancel={() => setEditing(false)}
-        onSave={(title, body, files) => {
-          void saveReport({ ...r, title, body, files, updatedAt: new Date().toISOString() });
+        onSave={(title, body, files, to) => {
+          void saveReport({ ...r, title, body, files, to, updatedAt: new Date().toISOString() });
           setEditing(false);
         }}
       />

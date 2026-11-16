@@ -81,12 +81,15 @@ export interface Report {
   createdAt: string;
   updatedAt?: string;
   checks?: Partial<Record<CheckRole, ReportCheck>>;
+  to?: CheckRole[]; // 확인자 (팀장님 · 이사님). 없으면 둘 다 (예전 보고)
   replies?: ReportReply[];
   files?: RequestFile[]; // 사진 · 파일
 }
 
 export const CHECK_LABEL: Record<CheckRole, string> = { lead: '팀장님', director: '이사님' };
 export const isLeaderRole = (r?: string | null): r is CheckRole => r === 'lead' || r === 'director';
+/** 이 보고의 확인자인가 (to 가 없으면 둘 다) */
+export const needsCheck = (r: { to?: CheckRole[] }, k: CheckRole) => !r.to || r.to.includes(k);
 
 const LOCAL_KEY = 'gd:reports';
 const readLocal = (): Report[] => {

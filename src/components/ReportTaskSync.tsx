@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAccess } from './AuthGate';
 import { useStore } from '../data/store';
 import { isPersonal } from '../lib/team';
-import { isLeaderRole, useReports, useSpaceCheckRole } from '../lib/reports';
+import { isLeaderRole, needsCheck, useReports, useSpaceCheckRole } from '../lib/reports';
 import { usePeople } from './AddressBook';
 import { today, uid } from '../lib/date';
 import type { Task } from '../types';
@@ -17,7 +17,7 @@ export default function ReportTaskSync() {
   const role = useSpaceCheckRole(myRole, viewTeam, roles);
   const on = personal && !!role;
   const reports = useReports(on ? null : undefined);
-  const { data, save, loading } = useStore();
+  const { data, save, remove, loading } = useStore();
   const busy = useRef(new Set<string>());
   useEffect(() => {
     if (!on || loading || !reports || !isLeaderRole(role)) return;
@@ -27,6 +27,12 @@ export default function ReportTaskSync() {
     let order = Math.max(0, ...data.tasks.map((t) => t.order));
     const newly: string[] = [];
     for (const r of reports) {
+      // 이 분이 확인자인 보고만 (확인자에서 빠지면 아직 안 한 할일은 지움)
+      if (!needsCheck(r, role)) {
+        const t0 = byReport.get(r.id);
+        if (t0 && !t0.done) remove('tasks', t0.id);
+        continue;
+      }
       const check = r.checks?.[role];
       const title = `${r.team === 'trade' ? '무역사무' : `${r.team}조`}의 보고 확인하기: ${r.title}`;
       const t = byReport.get(r.id);
@@ -55,6 +61,6 @@ export default function ReportTaskSync() {
       if (t.done !== done || t.title !== title) save('tasks', { ...t, title, done, doneAt: done ? check!.at.slice(0, 10) : undefined });
     }
     if (newly.length) save('config', { ...(cfg ?? { id: 'reportTasks' }), reportIds: [...handled, ...newly] });
-  }, [on, loading, reports, data.tasks, data.config, role, save]);
+  }, [on, loading, reports, data.tasks, data.config, role, save, remove]);
   return null;
 }

@@ -7347,3 +7347,11 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rp-src-filter button { cursor: pointer; font: inherit; }
 .rp-src-filter > button:first-child { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid #e3d3cf; background: #fff; color: #6b5753; }
 .rp-src-filter button.on { box-shadow: 0 0 0 2px #8c2f3c inset; }
+
+/* 보고 쓰기: 확인자 고르기 */
+.rp-form-top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.rp-form-top .rp-form-title { flex: 1 1 320px; }
+.rp-to { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #eadcd9; border-radius: 10px; background: #fff; }
+.rp-to-opt { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 3px 8px; border-radius: 8px; cursor: pointer; }
+.rp-to-opt.on { background: #f4e9e6; font-weight: 600; color: #8c2f3c; }
+.rp-table td.rp-chk-off { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(180, 160, 155, 0.08) 6px 12px); }
