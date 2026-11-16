@@ -1353,6 +1353,15 @@ function CompareView({
           </button>
         </div>
         {coSelect}
+        <div className={`mode-slide small ${avg ? 'export' : 'sales'}`} role="tablist" title="매장 평균 = 그 달 판매가 있는 매장 수로 나눈 금액">
+          <span className="mode-knob" />
+          <button role="tab" aria-selected={!avg} onClick={() => pickPer('total')}>
+            업체 합계
+          </button>
+          <button role="tab" aria-selected={avg} onClick={() => pickPer('avg')}>
+            매장 평균
+          </button>
+        </div>
         <div className="conv-pick">
           <span className="muted small">비교 통화</span>
           <div className={`mode-slide small ${target === 'KRW' ? 'sales' : 'export'}`} role="tablist">
@@ -1364,15 +1373,6 @@ function CompareView({
               외화 USD
             </button>
           </div>
-        </div>
-        <div className={`mode-slide small ${avg ? 'export' : 'sales'}`} role="tablist" title="매장 평균 = 그 달 판매가 있는 매장 수로 나눈 금액">
-          <span className="mode-knob" />
-          <button role="tab" aria-selected={!avg} onClick={() => pickPer('total')}>
-            업체 합계
-          </button>
-          <button role="tab" aria-selected={avg} onClick={() => pickPer('avg')}>
-            매장 평균
-          </button>
         </div>
       </div>
       {!ready ? (
