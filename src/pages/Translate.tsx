@@ -1,5 +1,6 @@
 // 번역: [번역] 엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
+import { useNameOf } from '../components/AddressBook';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 // 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 자동 저장:
@@ -511,6 +512,7 @@ function TranslateTab() {
 
 function DictTab() {
   const { email, accountName } = useAccess();
+  const nameOf = useNameOf(); // 넣은 사람: 이메일 대신 이름 두 글자
   const { list } = useDictMap();
   const [q, setQ] = useState('');
   const [ko, setKo] = useState('');
@@ -603,7 +605,7 @@ function DictTab() {
                     </button>
                   )}
                 </td>
-                <td className="muted small">{e.by ?? ''}</td>
+                <td className="muted small">{e.by ? (e.by.includes('@') ? nameOf(e.by) : nameOf(undefined, e.by)) : ''}</td>
                 <td>
                   <button className="icon-btn" title="지우기" onClick={() => confirm(`'${e.ko}' 를 사전에서 지울까요?`) && void deleteDict(e.id)}>
                     ✕
