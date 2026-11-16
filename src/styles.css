@@ -7074,3 +7074,12 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 
 .cmp-val { font-size: 10.5px; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
 .cmp-val .sc-conv { font-size: 9px; }
+
+/* 사진 크게 보기 (요청 첨부) */
+.img-zoom { position: fixed; inset: 0; z-index: 1000; background: rgba(20, 12, 12, 0.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 16px; cursor: zoom-out; animation: zoom-in 0.15s ease-out; }
+@keyframes zoom-in { from { opacity: 0; } to { opacity: 1; } }
+.img-zoom img { max-width: min(96vw, 1400px); max-height: calc(100vh - 110px); object-fit: contain; border-radius: 8px; background: #fff; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4); cursor: default; }
+.img-zoom-bar { display: flex; align-items: center; gap: 14px; color: #fff; font-size: 13px; cursor: default; max-width: 96vw; }
+.img-zoom-name { opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.img-zoom-bar a { color: #fff; opacity: 0.9; white-space: nowrap; }
+.img-zoom-bar button { border: 0; background: rgba(255, 255, 255, 0.16); color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 16px; cursor: pointer; flex: none; }

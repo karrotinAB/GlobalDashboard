@@ -1,5 +1,5 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
-import { useState, type ClipboardEvent, type CSSProperties } from 'react';
+import { useEffect, useState, type ClipboardEvent, type CSSProperties } from 'react';
 import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
 import { useSpaceData, useStore } from '../data/store';
 import { isLeader, useAccess } from './AuthGate';
@@ -20,7 +20,34 @@ export function StatusTag({ s }: { s: RequestStatus }) {
 }
 
 /** 사진 넣기: 파일 고르기 + 붙여넣기(Ctrl+V) */
+/** 사진이면 true (창 안에서 크게 보기) */
+const isImageFile = (f: RequestFile) => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name) || f.url.startsWith('data:image');
+
+/** 사진 크게 보기 (새 창 말고 이 화면 위에) — 바깥·✕·Esc 로 닫기 */
+function ImageZoom({ f, onClose }: { f: RequestFile; onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), onClose());
+    window.addEventListener('keydown', k, true);
+    return () => window.removeEventListener('keydown', k, true);
+  }, [onClose]);
+  return (
+    <div className="img-zoom" onClick={onClose} role="dialog" aria-label={f.name}>
+      <img src={f.url} alt={f.name} onClick={(e) => e.stopPropagation()} />
+      <div className="img-zoom-bar" onClick={(e) => e.stopPropagation()}>
+        <span className="img-zoom-name">{f.name}</span>
+        <a href={f.url} target="_blank" rel="noreferrer">
+          원본 새 창 ↗
+        </a>
+        <button onClick={onClose} aria-label="닫기">
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile[]; onChange: (f: RequestFile[]) => void }) {
+  const [zoom, setZoom] = useState<RequestFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const add = async (list: File[]) => {
@@ -46,10 +73,22 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
   };
   return (
     <div className="rq-files" onPaste={onPaste} tabIndex={0}>
+      {zoom && <ImageZoom f={zoom} onClose={() => setZoom(null)} />}
       {files.map((f, i) => (
         <div key={f.url + i} className="rq-thumb">
-          <a href={f.url} target="_blank" rel="noreferrer" title={f.name}>
-            {/\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name) || f.url.startsWith('data:image') ? <img src={f.url} alt={f.name} /> : <span>📄 {f.name}</span>}
+          <a
+            href={f.url}
+            target="_blank"
+            rel="noreferrer"
+            title={f.name}
+            onClick={(e) => {
+              if (isImageFile(f)) {
+                e.preventDefault();
+                setZoom(f);
+              }
+            }}
+          >
+            {isImageFile(f) ? <img src={f.url} alt={f.name} /> : <span>📄 {f.name}</span>}
           </a>
           <button
             className="rq-thumb-x"
@@ -403,6 +442,7 @@ export function RequestDetail({
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [zoom, setZoom] = useState<RequestFile | null>(null); // 사진 크게 보기
   const [linkingOrder, setLinkingOrder] = useState(false);
   const [d, setD] = useState<Draft>(r);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
@@ -469,11 +509,25 @@ export function RequestDetail({
           ) : (
             <p className="muted small">자세한 내용 없음</p>
           )}
+          {zoom && <ImageZoom f={zoom} onClose={() => setZoom(null)} />}
           {(r.files ?? []).length > 0 && (
             <div className="rq-files view">
               {r.files!.map((f, i) => (
-                <a key={i} className="rq-thumb" href={f.url} target="_blank" rel="noreferrer" title={f.name}>
-                  {/\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name) || f.url.startsWith('data:image') ? <img src={f.url} alt={f.name} /> : <span>📄 {f.name}</span>}
+                <a
+                  key={i}
+                  className="rq-thumb"
+                  href={f.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={f.name}
+                  onClick={(e) => {
+                    if (isImageFile(f)) {
+                      e.preventDefault();
+                      setZoom(f);
+                    }
+                  }}
+                >
+                  {isImageFile(f) ? <img src={f.url} alt={f.name} /> : <span>📄 {f.name}</span>}
                 </a>
               ))}
             </div>
