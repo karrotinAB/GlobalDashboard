@@ -5,6 +5,7 @@ import { useStore } from '../data/store';
 import { isPersonal, TEAMS } from '../lib/team';
 import { uid } from '../lib/date';
 import RichEditor from '../components/RichEditor';
+import { usePeople } from '../components/AddressBook';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
@@ -24,8 +25,20 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
   const teamName = (t: string) => (t === 'trade' ? '무역사무' : `${t}조`);
   const myCheck: CheckRole | null = isLeaderRole(access.role) ? access.role : null;
   const list = useReports(leaderView ? null : myTeam);
-  const myName =
-    data.members.find((m) => !!access.email && m.email?.toLowerCase() === access.email)?.name ?? access.accountName ?? (access.email ? access.email.split('@')[0] : '나');
+  // 이름은 계정 이름으로 (주소록 이름 → 사용자 목록 이름 → 담당자 카드 → 저장된 이름 → 이메일 앞)
+  const { roles, contacts } = usePeople();
+  const nameOf = (email?: string, fallback?: string) => {
+    const e = email?.toLowerCase();
+    if (!e) return fallback ?? '';
+    return (
+      contacts[e]?.name ||
+      roles?.find((r) => r.email === e)?.name ||
+      [...data.members, ...data.tradeMembers].find((m) => m.email?.toLowerCase() === e)?.name ||
+      fallback ||
+      e.split('@')[0]
+    );
+  };
+  const myName = nameOf(access.email, access.accountName) || '나';
   const [teamF, setTeamF] = useState('');
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [writing, setWriting] = useState<string | null>(null); // 새로 쓰는 보고 id (파일을 그 아래에 올림)
@@ -144,7 +157,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                           {fresh && <span className="rp-new blue">확인 전</span>}
                         </button>
                       </td>
-                      <td className="rp-who">{r.authorName ?? ''}</td>
+                      <td className="rp-who">{nameOf(r.authorEmail, r.authorName)}</td>
                       <td className="rp-date">{when(r.createdAt)}</td>
                       {(['lead', 'director'] as CheckRole[]).map((k) => {
                         const c = r.checks?.[k];
@@ -170,7 +183,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                         {/* 내용은 제목 칸 아래부터 확인란 앞까지 */}
                         {leaderView && <td className="rp-pad" />}
                         <td colSpan={3}>
-                          <ReportDetail r={r} myName={myName} canEdit={access.role === 'admin' || (!!access.email && r.authorEmail === access.email)} canDelete={access.role === 'admin' || (!!access.email && r.authorEmail === access.email)} />
+                          <ReportDetail r={r} myName={myName} nameOf={nameOf} canEdit={access.role === 'admin' || (!!access.email && r.authorEmail === access.email)} canDelete={access.role === 'admin' || (!!access.email && r.authorEmail === access.email)} />
                         </td>
                         <td className="rp-pad" colSpan={2} />
                       </tr>
@@ -217,7 +230,7 @@ function ReportForm({
   );
 }
 
-function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: string; canEdit: boolean; canDelete: boolean }) {
+function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; myName: string; nameOf: (email?: string, fallback?: string) => string; canEdit: boolean; canDelete: boolean }) {
   const access = useAccess();
   const [editing, setEditing] = useState(false);
   const [reply, setReply] = useState('');
@@ -312,7 +325,7 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
               ↳
             </span>
             <span className="rp-reply-who">
-              {x.name}
+              {nameOf(x.email, x.name)}
               {isLeaderRole(x.role) && <span className="rp-role">{CHECK_LABEL[x.role]}</span>}
             </span>
             <span className="rp-reply-text">{x.text}</span>
