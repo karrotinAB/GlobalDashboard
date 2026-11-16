@@ -308,6 +308,9 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
       <div className="rp-replies">
         {(r.replies ?? []).map((x) => (
           <div key={x.id} className={`rp-reply ${isLeaderRole(x.role) ? 'leader' : ''}`}>
+            <span className="rp-reply-arrow" aria-hidden="true">
+              ↳
+            </span>
             <span className="rp-reply-who">
               {x.name}
               {isLeaderRole(x.role) && <span className="rp-role">{CHECK_LABEL[x.role]}</span>}
