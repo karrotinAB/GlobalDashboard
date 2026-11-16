@@ -7656,3 +7656,9 @@ td.c-people { min-width: 120px; }
   .task-table td.c-due { font-size: 12px; letter-spacing: -0.3px; overflow: visible; }
   .task-table td.c-more { padding-left: 2px !important; }
 }
+@media (max-width: 600px) {
+  /* 바로가기와 ⋯ 를 위아래로 쌓아서 담당 칸을 침범하지 않게 */
+  .task-table td.c-more { flex-direction: column; justify-content: center; align-items: center; justify-self: end; width: 32px !important; overflow: visible; gap: 2px; }
+  .task-table td.c-more .row-menu > button { padding: 0 4px; line-height: 1; height: 18px; }
+  .task-table tr { column-gap: 8px; }
+}
