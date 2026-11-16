@@ -7582,3 +7582,39 @@ td.c-people { min-width: 120px; }
   .ov-toolbar .seg { display: flex; width: 100%; min-width: 0; }
   .ov-toolbar .seg button { flex: 1 1 auto; min-width: 0; padding: 7px 6px; font-size: 13px; white-space: nowrap; }
 }
+
+/* 휴대폰 주간 할일 줄: [완료 체크] 업무 ...... [마감일] [담당]  (번호·반복 버튼은 빼고)
+                     비고                         [⋯]          */
+@media (max-width: 600px) {
+  .task-table tr {
+    grid-template-columns: 30px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'check title due who'
+      'check note note more';
+    padding: 8px 8px 8px 6px;
+    column-gap: 8px;
+  }
+  .task-table td.c-num { display: none; }
+  .task-table .repeat-btn { display: none; }
+  .task-table td.c-check { grid-area: check; justify-self: start; align-self: center; }
+  .task-table td.c-check input { width: 20px; height: 20px; margin: 0; }
+  .task-table td.c-due { grid-area: due; justify-self: end; font-size: 13px; white-space: nowrap; }
+  .task-table td.c-who { grid-area: who; justify-self: end; max-width: 34vw; }
+  .task-table td.c-who > * { flex-wrap: wrap; justify-content: flex-end; }
+  .task-table td.c-more { grid-area: more; justify-self: end; }
+  .task-table td.c-note { grid-area: note; }
+}
+@media (max-width: 600px) {
+  .task-table tr {
+    grid-template-columns: 26px minmax(0, 1fr) auto auto 22px;
+    grid-template-areas:
+      'check title due who more'
+      'check note note note note';
+    column-gap: 6px;
+    row-gap: 0;
+    padding: 6px 4px 6px 8px;
+  }
+  .task-table td.c-check { align-self: start; padding-top: 5px !important; }
+  .task-table td.c-more { align-self: center; }
+  .task-table td.c-title .title-wrap { padding-left: 0; margin-left: 0; }
+}
