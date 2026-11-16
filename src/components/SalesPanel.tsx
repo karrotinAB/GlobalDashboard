@@ -60,11 +60,11 @@ const store = {
 };
 
 /** 판매데이터 ↔ 수출매출 슬라이드 버튼 */
-export default function SalesPanel({ companies: myCos }: { companies: Company[] }) {
-  // 볼 조 고르기: 팀장님·이사님은 전체 조가 기본, 각 조는 자기 조가 기본 (다른 조·전체도 볼 수 있음)
+export default function SalesPanel({ companies: myCos, allTeams }: { companies: Company[]; allTeams?: boolean }) {
+  // 볼 조 고르기: 팀장님·이사님·무역사무(allTeams)는 전체 조가 기본, 각 조는 자기 조가 기본 (다른 조·전체도 볼 수 있음)
   const { viewTeam } = useAccess();
-  const leaderSpace = isPersonal(viewTeam);
-  const scopeKey = `gd:salesScope:${viewTeam}`;
+  const leaderSpace = isPersonal(viewTeam) || !!allTeams; // 업체에 조 표시가 이미 붙어 있는 화면
+  const scopeKey = `gd:salesScope:${allTeams ? 'trade' : viewTeam}`;
   const [scope, setScope] = useState<string>(() => store.get(scopeKey) || (leaderSpace ? 'all' : viewTeam));
   const pickScope = (v: string) => {
     setScope(v);
@@ -93,29 +93,34 @@ export default function SalesPanel({ companies: myCos }: { companies: Company[] 
       ))}
     </select>
   );
-  // 세 번째 '비중' (총 수출 파이 차트) — 모든 조 (팀장님·이사님 화면은 조별 보기도)
-  const leader = true;
+  // 탭: 판매데이터 / 수출매출 (비중은 수출매출 안에서 [수출 금액 | 비중])
   const saved = store.get('gd:salesMode');
-  const [mode, setMode] = useState<'sales' | 'export' | 'share'>(() => (saved === 'export' ? 'export' : saved === 'share' && leader ? 'share' : 'sales'));
-  const pick = (m: 'sales' | 'export' | 'share') => {
+  const [mode, setMode] = useState<'sales' | 'export'>(() => (saved === 'export' || saved === 'share' ? 'export' : 'sales'));
+  const [expView, setExpView] = useState<'table' | 'pie'>(() => (store.get('gd:expView') === 'pie' || saved === 'share' ? 'pie' : 'table'));
+  const pickExpView = (v: 'table' | 'pie') => {
+    setExpView(v);
+    store.set('gd:expView', v);
+  };
+  const pick = (m: 'sales' | 'export') => {
     setMode(m);
     store.set('gd:salesMode', m);
   };
   const mobile = useIsMobile();
-  // 휴대폰: 처음엔 슬라이드 버튼 3개만 → 하나 누르면 업체 목록 (같은 버튼 다시 누르면 목록으로)
-  const [mMode, setMMode] = useState<'sales' | 'export' | 'share' | null>(null);
+  // 휴대폰: 처음엔 슬라이드 버튼만 → 하나 누르면 업체 목록 (같은 버튼 다시 누르면 목록으로)
+  const [mMode, setMMode] = useState<'sales' | 'export' | null>(null);
   const [mKey, setMKey] = useState(0);
-  const tap = (m: 'sales' | 'export' | 'share') => {
+  const tap = (m: 'sales' | 'export') => {
     if (!mobile) return pick(m);
     setMMode(m);
     setMKey((k) => k + 1);
   };
-  const shown = mobile ? mMode : mode === 'share' && !leader ? 'sales' : mode;
+  const shown = mobile ? mMode : mode;
+  const pie = shown === 'export' && expView === 'pie';
   return (
     <section className="card sales">
       <div className="section-head">
-        <h2>{shown === 'sales' || !shown ? '📈 업체별 판매 데이터' : shown === 'export' ? '🚢 업체별 수출 매출' : '🥧 총 수출 비중'}</h2>
-        <div className={`mode-slide ${shown ?? 'none'} ${leader ? 'three' : ''}`} role="tablist">
+        <h2>{shown === 'export' ? (pie ? '🥧 총 수출 비중' : '🚢 업체별 수출 매출') : '📈 업체별 판매 데이터'}</h2>
+        <div className={`mode-slide ${shown ?? 'none'}`} role="tablist">
           <span className="mode-knob" />
           <button role="tab" aria-selected={shown === 'sales'} onClick={() => tap('sales')}>
             판매데이터
@@ -123,18 +128,29 @@ export default function SalesPanel({ companies: myCos }: { companies: Company[] 
           <button role="tab" aria-selected={shown === 'export'} onClick={() => tap('export')}>
             수출매출
           </button>
-          {leader && (
-            <button role="tab" aria-selected={shown === 'share'} onClick={() => tap('share')}>
-              비중
-            </button>
-          )}
         </div>
         {(!mobile || shown) && scopeBox}
-        {shown && <span className="muted small sales-sub">
-          {shown === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : shown === 'export' ? '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)' : '그 달 총 수출(출고 + 패킹 중 + 로열티) 중 업체·조별 비중'}
-        </span>}
+        {shown === 'export' && (
+          <div className="seg exp-sub">
+            <button className={!pie ? 'on' : ''} onClick={() => pickExpView('table')}>
+              수출 금액
+            </button>
+            <button className={pie ? 'on' : ''} onClick={() => pickExpView('pie')}>
+              비중
+            </button>
+          </div>
+        )}
+        {shown && (
+          <span className="muted small sales-sub">
+            {shown === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : pie ? '그 달 총 수출(출고 + 패킹 중 + 로열티) 중 업체·조별 비중' : '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)'}
+          </span>
+        )}
       </div>
-      {!shown ? null : shown === 'sales' ? <SalesView key={`${mKey}-${scope}`} companies={companies} mobile={mobile} /> : <ExportPanel key={`${mKey}-${scope}`} companies={companies} view={shown === 'share' ? 'pie' : 'table'} mobile={mobile} hideTeamSeg />}
+      {!shown ? null : shown === 'sales' ? (
+        <SalesView key={`${mKey}-${scope}`} companies={companies} mobile={mobile} />
+      ) : (
+        <ExportPanel key={`${mKey}-${scope}-${expView}`} companies={companies} view={pie ? 'pie' : 'table'} mobile={mobile} hideTeamSeg />
+      )}
     </section>
   );
 }

@@ -7118,3 +7118,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .drawer-ab { border-top: 0; margin-top: auto; padding-top: 0; }
 .drawer-ab + .drawer-foot { margin-top: 0; }
 .drawer-ab button { width: 100%; }
+
+/* 수출매출 안: [수출 금액 | 비중] */
+.exp-sub button { font-size: 12.5px; }

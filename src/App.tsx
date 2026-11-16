@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AddressBook from './components/AddressBook';
+import TradeExport from './pages/TradeExport';
 import { useStore } from './data/store';
 import { Cover } from './components/ui';
 import { isLeader, logout, useAccess } from './components/AuthGate';
@@ -30,6 +31,7 @@ const PAGES = [
   // 무역사무 페이지 (무역사무 계정 + 관리자)
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
+  { key: 'texport', label: '수출매출', icon: '🚢' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
 ] as const;
@@ -38,7 +40,7 @@ const GOP_URL = 'https://karrotinab.github.io/Global-Opening-Prep/';
 // 달력은 탭이 아니라 홈 제목 줄 오른쪽 버튼으로 (#/calendar)
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
 const TRADE_TABS: PageKey[] = ['thome', 'twork'];
-const isTradePage = (p: PageKey) => TRADE_TABS.includes(p);
+const isTradePage = (p: PageKey) => TRADE_TABS.includes(p) || p === 'texport';
 
 function readHash(): PageKey {
   const h = window.location.hash.replace('#/', '').replace('#', '').split('?')[0];
@@ -156,6 +158,14 @@ export default function App() {
                   무역사무요청
                 </a>
               )}
+              {side === 'trade' && (
+                <a href="#/texport" className={page === 'texport' ? 'active' : ''}>
+                  <span className="tab-icon" aria-hidden="true">
+                    🚢
+                  </span>
+                  수출매출
+                </a>
+              )}
             </nav>
             {mode === 'firestore' && (
               <div className="drawer-foot drawer-ab">
@@ -221,6 +231,11 @@ export default function App() {
               <span aria-hidden="true">📨</span> 무역사무요청
             </a>
           )}
+          {side === 'trade' && (
+            <a href="#/texport" className={`tab-request ${page === 'texport' ? 'active' : ''}`} title="1·2·3조 판매 데이터 · 수출 매출 · 비중">
+              <span aria-hidden="true">🚢</span> 수출매출
+            </a>
+          )}
           {mode === 'firestore' ? (
             <Presence page={side === 'trade' ? `trade:${page}` : `${viewTeam}:${page}`} />
           ) : (
@@ -267,6 +282,8 @@ export default function App() {
             <TradeHome />
           ) : page === 'twork' ? (
             <RequestBoard key="trade" side="trade" />
+          ) : page === 'texport' ? (
+            <TradeExport />
           ) : (
             <Settings side={side} />
           )}
