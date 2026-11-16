@@ -7619,3 +7619,14 @@ td.c-people { min-width: 120px; }
   .task-table td.c-title .title-wrap { padding-left: 0; margin-left: 0; }
 }
 .ov-inline.ov-all { margin: 0 0 14px; border-top: 0; padding-top: 0; }
+/* 휴대폰 주간 할일 (담당자별·마감순): 업무 위에 업체 이름 작게 */
+@media (max-width: 600px) {
+  .task-table tr {
+    grid-template-areas:
+      '. co co co co'
+      'check title due who more'
+      'check note note note note';
+  }
+  .task-table td.c-company { display: block; grid-area: co; font-size: 11.5px; color: var(--mut); line-height: 1.2; padding: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-table td.c-company .dot, .task-table td.c-company .company-dot { width: 7px; height: 7px; }
+}
