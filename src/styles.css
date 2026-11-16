@@ -7083,3 +7083,10 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .img-zoom-name { opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .img-zoom-bar a { color: #fff; opacity: 0.9; white-space: nowrap; }
 .img-zoom-bar button { border: 0; background: rgba(255, 255, 255, 0.16); color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 16px; cursor: pointer; flex: none; }
+
+/* 요청에 연결된 묶음 주문: 처음엔 이름만 */
+.rq-bundle-fold { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; padding: 10px 12px; border: 1px solid #eadcd9; border-left: 4px solid var(--c); border-radius: 10px; background: #fff; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.rq-bundle-fold:hover { background: #fbf6f4; }
+.rq-bundle-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
+.rq-bundle-more { margin-left: auto; color: #8c2f3c; font-size: 12.5px; font-weight: 600; }
+.rq-bundle-close { display: block; margin: 0 0 4px auto; }

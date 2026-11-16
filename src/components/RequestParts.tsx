@@ -285,6 +285,11 @@ function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' 
   const list = link.bundleId ? orders.filter((o) => o.bundle?.id === link.bundleId) : orders.filter((o) => o.id === link.orderId);
   const won = (n?: number) => (n !== undefined ? `₩${Math.round(n).toLocaleString()}` : '-');
   const usd = (n?: number) => (n !== undefined ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-');
+  // 묶음은 처음엔 이름만 — 눌러야 주문 표가 펼쳐짐
+  const [open, setOpen] = useState(!link.bundleId);
+  const bundle = list[0]?.bundle;
+  const sumK = list.reduce((a, o) => a + (o.amountKRW ?? 0), 0);
+  const doneN = list.filter((o) => isOrderDone(o)).length;
   return (
     <div className="rq-linked">
       <div className="rq-linked-head">
@@ -294,8 +299,22 @@ function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' 
         <p className="muted small">불러오는 중…</p>
       ) : list.length === 0 ? (
         <p className="muted small">{space.error ? '주문을 볼 권한이 없어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat)' : '주문이 지워졌거나 묶음이 풀렸어요.'}</p>
+      ) : !open ? (
+        <button className="rq-bundle-fold" onClick={() => setOpen(true)} style={{ '--c': bundle?.color ?? '#8c2f3c' } as CSSProperties}>
+          <span className="rq-bundle-dot" />
+          <b>{bundle?.name || '묶음 주문'}</b>
+          <span className="muted small">
+            주문 {list.length}개 · 완료 {doneN} · {won(sumK)}
+          </span>
+          <span className="rq-bundle-more">주문 보기 ▾</span>
+        </button>
       ) : (
         <div className="sales-table-wrap">
+          {link.bundleId && (
+            <button className="link small rq-bundle-close" onClick={() => setOpen(false)}>
+              ▴ 접기
+            </button>
+          )}
           <table className="mini-table rq-linked-table">
             <thead>
               <tr>
