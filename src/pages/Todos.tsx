@@ -147,6 +147,8 @@ export default function Todos() {
   }, [weekRows, memberFilter, companyFilter, status, q, companyById]);
 
   const [linking, setLinking] = useState<Task | null>(null); // 주문 연결하기 창
+  const [reportF, setReportF] = useState(''); // 보고방 칸: 어느 조 보고만 볼지
+  const reportTeams = [...new Set(data.tasks.filter((t) => t.reportId && t.reportTeam).map((t) => t.reportTeam!))].sort((a, b) => (a === 'trade' ? 1 : b === 'trade' ? -1 : a.localeCompare(b)));
   const groups = useMemo((): Group[] => {
     const sortRows = (rows: typeof filtered) => [...rows].sort((a, b) => a.task.order - b.task.order);
     if (groupBy === 'company') {
@@ -161,8 +163,12 @@ export default function Todos() {
       const hasLeft = (g: Group) => g.rows.some((r) => !r.doneInWeek);
       out.sort((a, b) => Number(hasLeft(b)) - Number(hasLeft(a)));
       // 팀장님·이사님: 보고 확인 할일은 '보고방' 칸 하나로 (맨 위, 제목에 조 이름)
-      const reportRows = sortRows(filtered.filter((r) => r.task.reportId));
-      const reportGroups: Group[] = reportRows.length ? [{ key: '__report', title: '📑 보고방', color: '#8c2f3c', rows: reportRows }] : [];
+      // 보고방 칸 하나 안에서: 1조 → 2조 → 3조 → 무역사무 순, 위 칩으로 한 곳만 볼 수도
+      const teamRank = (t?: string) => (t === 'trade' ? 9 : Number(t ?? 8));
+      const reportRows = sortRows(filtered.filter((r) => r.task.reportId && (!reportF || (r.task.reportTeam ?? '') === reportF))).sort(
+        (a, b) => teamRank(a.task.reportTeam) - teamRank(b.task.reportTeam),
+      );
+      const reportGroups: Group[] = reportRows.length || reportF ? [{ key: '__report', title: '📑 보고방', color: '#8c2f3c', rows: reportRows }] : [];
       const etc = filtered.filter((r) => !r.task.reportId && (!r.task.companyId || !companyById.has(r.task.companyId)));
       out.unshift(...reportGroups);
       if (etc.length) out.push({ key: '__etc', title: '기타 / 업체 없음', rows: sortRows(etc) });
@@ -205,7 +211,7 @@ export default function Todos() {
         title: k === 'done' ? '완료' : labels[k],
         rows: [...rows].sort((a, b) => (a.task.dueDate ?? '9999').localeCompare(b.task.dueDate ?? '9999')),
       }));
-  }, [groupBy, filtered, companies, members, companyById, memberFilter, companyFilter, status, q, todayIso]);
+  }, [groupBy, filtered, companies, members, companyById, memberFilter, companyFilter, status, q, todayIso, reportF]);
 
   const toggleDone = (t: Task) => {
     if (readOnly) return;
@@ -385,6 +391,18 @@ export default function Todos() {
                 )}
                 {g.company && <CompanyDot color={g.color} />}
                 <h2>{g.title}</h2>
+                {g.key === '__report' && reportTeams.length > 1 && (
+                  <span className="rp-src-filter">
+                    <button className={!reportF ? 'on' : ''} onClick={() => setReportF('')}>
+                      전체
+                    </button>
+                    {reportTeams.map((t) => (
+                      <button key={t} className={`rp-src t-${t} ${reportF === t ? 'on' : ''}`} onClick={() => setReportF(reportF === t ? '' : t)}>
+                        {t === 'trade' ? '무역사무' : `${t}조`}
+                      </button>
+                    ))}
+                  </span>
+                )}
                 {g.company?.team && <span className="tag gray small">{g.company.team}조 업체</span>}
                 <span className="muted small">
                   {g.rows.filter((r) => !r.doneInWeek).length} 남음 / {g.rows.length}
@@ -521,6 +539,11 @@ export default function Todos() {
                         )}
                         <td className="c-title">
                           <div className="title-wrap">
+                            {task.reportId && task.reportTeam && (
+                              <span className={`rp-src t-${task.reportTeam}`} title={task.reportTeam === 'trade' ? '무역사무 보고' : `${task.reportTeam}조 보고`}>
+                                {task.reportTeam === 'trade' ? '무역사무' : `${task.reportTeam}조`}
+                              </span>
+                            )}
                             <EditableText value={task.title} oneLine expand disabled={readOnly} onSave={(v) => v && patch({ title: v })} />
                             <button
                               type="button"

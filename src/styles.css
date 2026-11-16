@@ -7336,3 +7336,14 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tr-row-q { flex: 0 1 260px; }
 
 .tr-saved { color: #2f6b3c; font-weight: 600; }
+
+/* 주간 할일 보고방 칸: 어디서 온 보고인지 */
+.rp-src { flex: none; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 0; white-space: nowrap; background: #eee; color: #555; }
+.rp-src.t-1 { background: #e3eefc; color: #2f5d9a; }
+.rp-src.t-2 { background: #fbe4e7; color: #8c2f3c; }
+.rp-src.t-3 { background: #e4f3e6; color: #2f6b3c; }
+.rp-src.t-trade { background: #f1e7fb; color: #6b3fa0; }
+.rp-src-filter { display: inline-flex; gap: 4px; margin-left: 6px; flex-wrap: wrap; }
+.rp-src-filter button { cursor: pointer; font: inherit; }
+.rp-src-filter > button:first-child { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid #e3d3cf; background: #fff; color: #6b5753; }
+.rp-src-filter button.on { box-shadow: 0 0 0 2px #8c2f3c inset; }
