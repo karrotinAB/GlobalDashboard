@@ -107,7 +107,7 @@ export default function TradeHome() {
       {/* 새로 들어온 업무: 아직 '요청됨' 인 것 중 최근 7일, 최신순 */}
       <section className="section">
         <div className="section-head">
-          <h2>🆕 새로 들어온 업무</h2>
+          <h2>📬 새로 들어온 업무</h2>
           <span className="muted small">아직 시작 안 한 최근 4일 요청 · 누르면 자세히</span>
         </div>
         {fresh.length === 0 ? (
