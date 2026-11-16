@@ -146,15 +146,21 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
         ) : shown.length === 0 ? (
           <p className="muted small">{list.length ? (q.trim() ? `'${q.trim()}' 에 맞는 보고가 없어요.` : '조건에 맞는 보고가 없어요.') : '아직 올라온 보고가 없어요.'}</p>
         ) : (
-          <table className="rp-table">
+          <table className={`rp-table ${leaderView && myCheck ? `rp-mine-${myCheck}` : ''}`}>
             <thead>
               <tr>
                 {leaderView && <th className="rp-team">조</th>}
                 <th className="rp-title">제목</th>
                 <th className="rp-who">작성자</th>
                 <th className="rp-date">올린 날</th>
-                <th className="rp-chk">팀장님 확인</th>
-                <th className="rp-chk">이사님 확인</th>
+                <th className="rp-chk rp-c-lead">
+                  <span className="rp-th-long">팀장님 확인</span>
+                  <span className="rp-th-short">팀장님</span>
+                </th>
+                <th className="rp-chk rp-c-director">
+                  <span className="rp-th-long">이사님 확인</span>
+                  <span className="rp-th-short">이사님</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -182,6 +188,8 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                           }}
                         >
                           <span className="rp-caret">{open ? '▾' : '▸'}</span>
+                          {/* 휴대폰: 제목 옆에 어느 조 보고인지 */}
+                          <span className={`rp-src rp-title-team t-${r.team}`}>{teamName(r.team)}</span>
                           {r.title}
                           {(r.replies ?? []).length > 0 && <span className="rp-n">💬 {r.replies!.length}</span>}
                           {unseen && <span className="rp-new">{leaderView ? 'NEW' : '새 답변'}</span>}
@@ -197,12 +205,14 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                         // 확인자로 안 고른 칸은 비워 둠
                         if (!needsCheck(r, k) && !c)
                           return (
-                            <td key={k} className="rp-chk rp-chk-off" title={`${CHECK_LABEL[k]} 확인 없음`}>
+                            <td key={k} className={`rp-chk rp-chk-off rp-c-${k}`} title={`${CHECK_LABEL[k]} 확인 없음`}>
                               <span className="rp-chk-none" />
                             </td>
                           );
                         return (
-                          <td key={k} className={`rp-chk ${c ? 'on' : ''}`}>
+                          <td key={k} className={`rp-chk rp-c-${k} ${c ? 'on' : ''}`}>
+                            {/* 휴대폰: 체크칸만 (내 칸은 누를 수 있음) */}
+                            <input className="rp-chk-mobile" type="checkbox" checked={!!c} disabled={!mine} onChange={() => toggleCheck(r, k)} title={c ? `${shortName(nameOf(c.email, c.by))} ${when(c.at)}` : `${CHECK_LABEL[k]} 확인`} />
                             {/* 확인한 사람 이름만 (누르면 날짜·시간) */}
                             {mine ? (
                               <span className="rp-chk-label">

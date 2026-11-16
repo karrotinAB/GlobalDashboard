@@ -7536,3 +7536,16 @@ td.c-people { min-width: 120px; }
   .team.compact .mc-top .ring { grid-area: rg; justify-self: center; position: static; width: 52px !important; height: 52px !important; }
   .team.compact .mc-top .ring-center b { font-size: 16px; }
 }
+
+/* 보고방: 휴대폰은 확인칸을 체크박스로만 · 팀장님/이사님 화면은 내 칸만 · 제목 옆 조 표시 */
+.rp-th-short, .rp-chk-mobile, .rp-title-team { display: none; }
+@media (max-width: 600px) {
+  .rp-th-long { display: none; }
+  .rp-th-short { display: inline; }
+  .rp-table .rp-team, .rp-table .rp-who, .rp-table .rp-date { display: none; }
+  .rp-title-team { display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .rp-table th.rp-chk, .rp-table td.rp-chk { width: 46px; min-width: 46px; padding-left: 2px; padding-right: 2px; text-align: center; }
+  .rp-table td.rp-chk > *:not(.rp-chk-mobile):not(.rp-chk-none) { display: none !important; }
+  .rp-chk-mobile { display: inline-block; width: 20px; height: 20px; margin: 0; }
+  .rp-mine-lead .rp-c-director, .rp-mine-director .rp-c-lead { display: none; }
+}
