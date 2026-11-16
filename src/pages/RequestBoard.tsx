@@ -1,6 +1,9 @@
 // 무역사무 요청 목록
 //  side='team'  : 2조 '무역사무요청' 탭 — 새 요청, 무역사무 담당자별 남은 업무, 기본은 내 요청만
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
+import PeoplePicker, { type PersonOpt } from '../components/PeoplePicker';
+import { usePeople } from '../components/AddressBook';
+import { assigneesOf, peopleOptions } from '../lib/trade';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest, TRADE_TAGS, tradeTagLabel, type TradeTag } from '../types';
 import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel, teamTagClass } from '../lib/trade';
@@ -32,7 +35,16 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const [workType, setWorkType] = useState('');
   const [showReq, setShowReq] = useState(false);
   const [status, setStatus] = useState<'' | RequestStatus>('');
-  const [tagF, setTagF] = useState(''); // 구분 거르기: '' 전체 · usa · finance · docs · '-' 미지정
+  const [tagF, setTagF] = useState('');
+  // 처리자: 대시보드 사용자 누구나 여러 명 (무역사무 카드도)
+  const { roles, contacts } = usePeople();
+  const people = useMemo(() => peopleOptions(roles, contacts, trade, team), [roles, contacts, trade, team]);
+  const assigneeMatch = (r: TradeRequest, id: string) => {
+    const list = assigneesOf(r, trade);
+    if (id === '-') return list.length === 0;
+    const m = trade.find((x) => x.id === id);
+    return r.assigneeId === id || list.includes(`tm:${id}`) || (!!m?.email && list.includes(m.email.toLowerCase()));
+  }; // 구분 거르기: '' 전체 · usa · finance · docs · '-' 미지정
   const [query, setQuery] = useState('');
   const [year, setYear] = useState(todayIso.slice(0, 4));
   const [month, setMonth] = useState(todayIso.slice(5, 7));
@@ -61,7 +73,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           if (!d.startsWith(year)) return false;
           if (month && d.slice(5, 7) !== month) return false;
         }
-        if (assignee && (assignee === '-' ? !!r.assigneeId : r.assigneeId !== assignee)) return false;
+        if (assignee && !assigneeMatch(r, assignee)) return false;
         if (requester && r.requesterId !== requester) return false;
         if (workType && r.workType !== workType) return false;
         if (status && r.status !== status) return false;
@@ -82,14 +94,17 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           (r) =>
             r.status === 'done' &&
             r.doneAt === todayIso &&
-            (!assignee || (assignee === '-' ? !r.assigneeId : r.assigneeId === assignee)) &&
+            (!assignee || assigneeMatch(r, assignee)) &&
             (!requester || r.requesterId === requester) &&
             (!workType || r.workType === workType),
         ),
       )
     : [];
-  const todayRows = byDay ? rows.filter((r) => planOf(r) && planOf(r) <= todayIso) : [];
-  const laterRows = byDay ? [...rows.filter((r) => !planOf(r) || planOf(r) > todayIso)].sort((a, b) => (planOf(a) || '9999').localeCompare(planOf(b) || '9999')) : [];
+  // 장기 업무는 따로 '장기' 칸으로
+  const longRows = byDay ? rows.filter((r) => r.longTerm) : [];
+  const shortRows = byDay ? rows.filter((r) => !r.longTerm) : [];
+  const todayRows = byDay ? shortRows.filter((r) => planOf(r) && planOf(r) <= todayIso) : [];
+  const laterRows = byDay ? [...shortRows.filter((r) => !planOf(r) || planOf(r) > todayIso)].sort((a, b) => (planOf(a) || '9999').localeCompare(planOf(b) || '9999')) : [];
   // 엑셀: 지금 보이는 (필터 건) 업무 그대로
   const exportRows = byDay ? [...todayRows, ...doneToday, ...laterRows] : rows;
   const downloadExcel = async () => {
@@ -108,7 +123,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         '요청 조': r.teamName ?? (r.team ? `${r.team}조` : ''),
         요청자: nameOf(team, r.requesterId) || r.requesterName || '',
         의뢰일: r.requestedAt,
-        처리자: nameOf(trade, r.assigneeId),
+        처리자: assigneesOf(r, trade).map((k) => people.find((p) => p.key === k)?.name ?? k.split('@')[0]).join(', '),
         완료일: r.doneAt ?? '',
         매장번호: r.storeCode ?? '',
         주문일자: r.orderDate ? `${r.orderDate}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${r.orderDateTo}` : ''}` : '',
@@ -303,7 +318,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
             )}
             {!byDay &&
               rows.map((r) => (
-                <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
               ))}
             {byDay && (
               <>
@@ -319,10 +334,10 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                   </tr>
                 )}
                 {todayRows.map((r) => (
-                  <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
                 ))}
                 {doneToday.map((r) => (
-                  <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} doneToday onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} doneToday onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
                 ))}
                 <tr className="rq-group later">
                   <td colSpan={10}>
@@ -336,7 +351,21 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                   </tr>
                 )}
                 {laterRows.map((r) => (
-                  <Row key={r.id} r={r} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                ))}
+                <tr className="rq-group long">
+                  <td colSpan={10}>
+                    📌 장기 업무 <b>{longRows.length}</b>
+                    <span className="muted small"> · 세부 업무로 나눠서 오래 하는 일 (진행률 100% 가 되면 완료)</span>
+                  </td>
+                </tr>
+                {longRows.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="muted small pad">장기 업무가 없어요</td>
+                  </tr>
+                )}
+                {longRows.map((r) => (
+                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
                 ))}
               </>
             )}
@@ -371,6 +400,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
 
 function Row({
   r,
+  people,
   side,
   myTeam,
   team,
@@ -382,6 +412,7 @@ function Row({
   onPatch,
 }: {
   r: TradeRequest;
+  people: PersonOpt[];
   side: 'team' | 'trade';
   myTeam: string; // 지금 보는 조 (다른 조 요청이면 조 표시)
   team: Member[];
@@ -395,7 +426,6 @@ function Row({
   const edit = side === 'trade';
   const overdue = isOpen(r) && r.dueDate && r.dueDate < todayIso;
   const requester = team.find((m) => m.id === r.requesterId);
-  const assignee = trade.find((m) => m.id === r.assigneeId);
   const subs = r.longTerm ? r.subtasks ?? [] : [];
   return (
     <>
@@ -465,15 +495,17 @@ function Row({
         )}
       </td>
       <td className="c-d">{dot(r.requestedAt)}</td>
-      <td className="c-who">
-        <select className={`cell-select ${assignee ? '' : 'unset'}`} value={r.assigneeId ?? ''} onChange={(e) => onPatch({ assigneeId: e.target.value || undefined })}>
-          <option value="">미정</option>
-          {trade.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
+      <td className="c-who c-people">
+        <PeoplePicker
+          value={assigneesOf(r, trade)}
+          people={people}
+          readOnly={!edit}
+          onChange={(v) => {
+            // 무역사무 카드가 있는 사람 중 첫 사람을 '주 처리자'로 (담당자별 업무량 카드용)
+            const first = v.map((k) => trade.find((m) => `tm:${m.id}` === k || (!!m.email && m.email.toLowerCase() === k))).find(Boolean);
+            onPatch({ assignees: v, assigneeId: first?.id });
+          }}
+        />
       </td>
       {done && <td className="c-d">{dot(r.doneAt)}</td>}
     </tr>

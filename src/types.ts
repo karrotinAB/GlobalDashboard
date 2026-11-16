@@ -270,6 +270,7 @@ export interface TradeRequest {
   eta?: string; // 처리 예상일
   status: RequestStatus;
   assigneeId?: string; // 무역사무 담당자(tradeMembers) id
+  assignees?: string[]; // 처리자 여러 명 (대시보드 사용자 이메일 · 이메일 없는 무역사무 카드는 'tm:카드id')
   doneAt?: string; // 완료(또는 취소)한 날 YYYY-MM-DD
   log?: RequestLog[];
   createdAt: string;

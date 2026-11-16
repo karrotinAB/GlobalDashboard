@@ -193,3 +193,26 @@ export const teamTagClass = (r: TradeRequest) => {
   const t = teamOfRequest(r);
   return t === 'trade' ? 'self' : /^p/.test(t) ? 'lead' : `t${t}`;
 };
+
+/** 처리자 목록 (예전 요청은 assigneeId 한 명) */
+export function assigneesOf(r: TradeRequest, trade: Member[]): string[] {
+  if (r.assignees) return r.assignees;
+  const m = trade.find((x) => x.id === r.assigneeId);
+  return m ? [m.email ? m.email.toLowerCase() : `tm:${m.id}`] : [];
+}
+
+/** 처리자 고르기 목록: 대시보드 사용자 전부 (무역사무 · 1~3조 · 팀장님 · 이사님) + 이메일 없는 무역사무 카드 */
+export function peopleOptions(
+  roles: { email: string; role: string; name?: string; team?: string }[] | null,
+  contacts: Record<string, { name?: string }>,
+  trade: Member[],
+  team: Member[],
+): { key: string; name: string; group?: string }[] {
+  const cardName = (e: string) => [...trade, ...team].find((m) => m.email?.toLowerCase() === e)?.name;
+  const groupOf = (r: { role: string; team?: string }) =>
+    r.role === 'trade' ? '무역사무' : r.role === 'lead' ? '팀장님' : r.role === 'director' ? '이사님' : `${r.team ?? '2'}조`;
+  const order = ['무역사무', '1조', '2조', '3조', '팀장님', '이사님'];
+  const list = (roles ?? []).map((r) => ({ key: r.email, name: contacts[r.email]?.name || r.name || cardName(r.email) || r.email.split('@')[0], group: groupOf(r) }));
+  for (const m of trade) if (!m.email || !list.some((x) => x.key === m.email!.toLowerCase())) list.push({ key: m.email ? m.email.toLowerCase() : `tm:${m.id}`, name: m.name, group: '무역사무' });
+  return list.sort((a, b) => order.indexOf(a.group ?? '') - order.indexOf(b.group ?? '') || a.name.localeCompare(b.name, 'ko'));
+}

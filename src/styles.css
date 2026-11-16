@@ -7373,3 +7373,20 @@ td.c-st .rq-tag, td.c-st .rq-tag-sel { display: block; margin-top: 4px; }
 
 .tw-more { display: block; text-align: center; font-size: 12px; color: #8c2f3c; padding: 6px 0 2px; text-decoration: none; }
 .tw-more:hover { text-decoration: underline; }
+
+/* 처리자 여러 명 */
+td.c-people { min-width: 120px; }
+.pp { position: relative; display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.pp-empty { font-size: 12px; color: #b8a5a1; }
+.pp-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; padding: 1px 4px 1px 8px; border-radius: 999px; background: #f1e7fb; color: #5b3a8a; white-space: nowrap; }
+.pp-chip button { border: 0; background: none; color: inherit; opacity: 0.55; cursor: pointer; font-size: 10px; padding: 0 2px; }
+.pp-chip button:hover { opacity: 1; }
+.pp-add { border: 1px dashed #c9b3ad; background: #fff; color: #8c2f3c; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; line-height: 1; padding: 0; cursor: pointer; }
+.pp-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; width: 200px; background: #fff; border: 1px solid #e6dad7; border-radius: 10px; box-shadow: 0 8px 24px rgba(60, 30, 30, 0.16); padding: 6px; }
+.pp-menu input { width: 100%; box-sizing: border-box; margin-bottom: 4px; }
+.pp-list { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; }
+.pp-list button { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.pp-list button:hover { background: #f6eeec; }
+.pp-group { font-size: 11px; color: #8a7470; font-weight: 700; padding: 6px 8px 2px; }
+
+.rq-group.long td { background: #f6f0fc; color: #5b3a8a; }
