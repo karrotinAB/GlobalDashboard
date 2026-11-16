@@ -61,7 +61,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
 }
 import { useAccess } from '../components/AuthGate';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
-import { catKey, catLabel, makeRecommender, saveCategories, savePicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
+import { catKey, catLabel, makeRecommender, saveCategories, savePicks, clearPicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
 
@@ -289,6 +289,16 @@ function TranslateTab() {
     setCatSel((x) => ({ ...x, [v.row.r]: key }));
     if (key && v.ko) void savePicks([{ ko: v.ko, cat: key }], accountName ?? email);
   };
+  // 자동 적용 초기화: 고른 기록(모두 같이 씀) 지우고 이 파일에서 고른 것도 비움
+  const resetAuto = async () => {
+    if (!confirm(`지금까지 고른 분류 기록 ${picks.length}개를 모두 지울까요?\n(모든 사람이 같이 쓰는 기록이에요. 이 파일에서 고른 분류도 비워지고, 추천·자동 적용은 앞으로 고르는 걸로 다시 쌓여요)`)) return;
+    try {
+      await clearPicks();
+      setCatSel({});
+    } catch (e) {
+      alert(`지우지 못했어요: ${(e as Error).message}`);
+    }
+  };
   const applyAllSuggestions = () => {
     const next: Record<number, string> = {};
     const save: { ko: string; cat: string }[] = [];
@@ -385,6 +395,11 @@ function TranslateTab() {
             {catCols.length > 0 && !!cats?.length && (
               <button className="tr-sug-all" onClick={applyAllSuggestions} title="지금 화면에 보이는 줄(검색 결과 · 이 페이지)에만 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
                 ✨ 이 페이지 추천 분류 넣기
+              </button>
+            )}
+            {catCols.length > 0 && (
+              <button className="tr-reset" onClick={resetAuto} title="지금까지 고른 분류 기록을 모두 지우고, 이 파일에서 고른 분류도 비워요. 추천·자동 적용은 앞으로 고르는 걸로 다시 쌓여요.">
+                ↺ 자동 적용 초기화
               </button>
             )}
             {catCols.length > 0 && !cats?.length && <span className="warn small">분류 탭에서 분류표 엑셀을 먼저 올려 주세요</span>}

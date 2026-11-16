@@ -7493,3 +7493,6 @@ td.c-people { min-width: 120px; }
 .cat-opt:hover { background: #f6eeec; }
 .cat-opt.on { background: #e4f3e1; font-weight: 600; }
 .cat-opt.clear { color: #8c2f3c; }
+
+.tr-reset { border: 1px solid var(--line); background: #fff; color: #8c2f3c; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }
+.tr-reset:hover { background: #fbeeee; }

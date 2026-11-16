@@ -2,7 +2,7 @@
 //   transCfg/categories: { rows: Cat[], at, by }   (분류 탭에서 엑셀로 올림)
 //   catPicks/{제품명}: { ko, cat: '대분류코드-중분류코드', at, by }   (번역 탭에서 고를 때마다)
 import { useEffect, useState } from 'react';
-import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE } from '../data/store';
 import { dictId } from './dict';
@@ -169,4 +169,15 @@ export function makeRecommender(examples: { ko: string; cat: string }[]) {
     if (!top || top[1].best < 0.3) return null;
     return { cat: top[0], score: Math.min(1, top[1].best), like: top[1].like, exact: false };
   };
+}
+
+/** 고른 기록 모두 지우기 (자동 적용 · 추천을 처음부터 다시 쌓기) */
+export async function clearPicks() {
+  if (DATA_MODE === 'local') return lsSet('gd:catPicks', [], 'gd-catpicks');
+  const snap = await getDocs(collection(db, 'catPicks'));
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const b = writeBatch(db);
+    snap.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
+    await b.commit();
+  }
 }
