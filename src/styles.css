@@ -7188,3 +7188,4 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 }
 .tabs .tab-report { margin-left: auto; }
 .tabs .tab-report + .tab-request { margin-left: 8px; }
+.rp-card > p.muted { text-align: center; padding: 18px 12px; margin: 0; }
