@@ -1,5 +1,5 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
-import { useEffect, useState, type ClipboardEvent, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type CSSProperties } from 'react';
 import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
 import { useSpaceData, useStore } from '../data/store';
 import { isLeader, useAccess } from './AuthGate';
@@ -25,16 +25,68 @@ const isImageFile = (f: RequestFile) => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f.na
 
 /** 사진 크게 보기 (새 창 말고 이 화면 위에) — 바깥·✕·Esc 로 닫기 */
 function ImageZoom({ f, onClose }: { f: RequestFile; onClose: () => void }) {
+  // 확대: Ctrl(⌘) + / - / 0, Ctrl+휠, 아래 버튼 — 브라우저 화면 확대 대신 사진만
+  const [scale, setScale] = useState(1);
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const zoomBy = (k: number) => setScale((x) => Math.min(8, Math.max(0.2, Math.round(x * k * 100) / 100)));
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), onClose());
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === '+' || e.key === '=') zoomBy(1.25);
+      else if (e.key === '-' || e.key === '_') zoomBy(1 / 1.25);
+      else if (e.key === '0') setScale(1);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
     window.addEventListener('keydown', k, true);
-    return () => window.removeEventListener('keydown', k, true);
+    const el = stage.current;
+    const w = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      zoomBy(e.deltaY < 0 ? 1.15 : 1 / 1.15);
+    };
+    el?.addEventListener('wheel', w, { passive: false });
+    return () => {
+      window.removeEventListener('keydown', k, true);
+      el?.removeEventListener('wheel', w);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
+  // 화면에 맞는 크기 × 확대 배율
+  const fit = nat ? Math.min(1, (window.innerWidth * 0.96) / nat.w, (window.innerHeight - 110) / nat.h) : 1;
+  const width = nat ? Math.round(nat.w * fit * scale) : undefined;
   return (
-    <div className="img-zoom" onClick={onClose} role="dialog" aria-label={f.name}>
-      <img src={f.url} alt={f.name} onClick={(e) => e.stopPropagation()} />
-      <div className="img-zoom-bar" onClick={(e) => e.stopPropagation()}>
+    <div className="img-zoom" role="dialog" aria-label={f.name}>
+      <div className="img-zoom-stage" ref={stage} onClick={onClose}>
+        <img
+          src={f.url}
+          alt={f.name}
+          style={width ? { width, maxWidth: 'none', maxHeight: 'none' } : undefined}
+          onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={() => setScale((x) => (x === 1 ? 2 : 1))}
+        />
+      </div>
+      <div className="img-zoom-bar">
         <span className="img-zoom-name">{f.name}</span>
+        <span className="img-zoom-ctl">
+          <button onClick={() => zoomBy(1 / 1.25)} aria-label="축소" title="축소 (Ctrl -)">
+            −
+          </button>
+          <button className="pct" onClick={() => setScale(1)} title="화면에 맞추기 (Ctrl 0)">
+            {Math.round(scale * 100)}%
+          </button>
+          <button onClick={() => zoomBy(1.25)} aria-label="확대" title="확대 (Ctrl +)">
+            +
+          </button>
+        </span>
         <a href={f.url} target="_blank" rel="noreferrer">
           원본 새 창 ↗
         </a>
