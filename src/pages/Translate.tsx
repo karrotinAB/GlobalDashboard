@@ -18,6 +18,22 @@ const TARGETS = [
 ] as const;
 type TKey = (typeof TARGETS)[number]['key'];
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, '').toLowerCase();
+/** 머리줄 칸 이름 → 어떤 칸인지 (비슷하면 찾음: [F9]수출 대분류 · 수출 대분류명 · 영어 제품명 …) */
+const classify = (raw: unknown): TKey | 'koName' | 'code' | null => {
+  const h = norm(raw).replace(/\[[^\]]*\]|\([^)]*\)|[*:·]/g, '');
+  if (!h) return null;
+  const eng = /영문|영어|eng|english/.test(h);
+  const named = /명$|이름|name/.test(h);
+  for (const [lv, code, name, en] of [
+    ['대분류', 'mainCode', 'mainName', 'mainEn'],
+    ['중분류', 'subCode', 'subName', 'subEn'],
+  ] as const) {
+    if (h.includes(lv)) return eng ? en : named ? name : code;
+  }
+  if (/제품명|상품명|품명|productname|itemname/.test(h)) return eng ? 'enName' : 'koName';
+  if (/제품코드|상품코드|품번|바코드|itemcode/.test(h)) return 'code';
+  return null;
+};
 
 interface Sheet {
   fileName: string;
@@ -78,18 +94,13 @@ function TranslateTab() {
       for (const sn of wb.SheetNames) {
         const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sn], { header: 1, defval: '', raw: false });
         for (let h = 0; h < Math.min(aoa.length, 15); h++) {
-          const hs = (aoa[h] ?? []).map(norm);
+          // 칸 이름이 비슷하면 찾음 (띄어쓰기 · [F9] 같은 앞 글자 · 영어/영문 차이 무시). 같은 종류는 처음 나온 칸
           const col: Sheet['col'] = {};
-          for (const t of TARGETS) {
-            const i = hs.findIndex((x) => (t.names as readonly string[]).map(norm).includes(x));
-            if (i >= 0) col[t.key] = i;
-          }
-          if (Object.keys(col).length < 2) continue;
-          // 한글 제품명 칸: '제품명' · '상품명' (영문 아닌 것)
-          const ko = hs.findIndex((x) => /(제품명|상품명|품명)$/.test(x) && !x.includes('영문'));
-          if (ko >= 0) col.koName = ko;
-          const code = hs.findIndex((x) => /(제품코드|상품코드|품번|바코드)/.test(x));
-          if (code >= 0) col.code = code;
+          (aoa[h] ?? []).forEach((x, i) => {
+            const k = classify(x);
+            if (k && col[k] === undefined) col[k] = i;
+          });
+          if (TARGETS.filter((t) => col[t.key] !== undefined).length < 2) continue;
           const rows = aoa
             .slice(h + 1)
             .map((cells, i) => ({ r: h + 1 + i, cells }))
@@ -99,7 +110,7 @@ function TranslateTab() {
           return;
         }
       }
-      setErr("머리줄에서 '수출대분류', '영문 제품명' 같은 칸을 못 찾았어요. 칸 이름을 확인해 주세요.");
+      setErr("머리줄에서 '수출 대분류', '영어 제품명' 같은 칸을 못 찾았어요. 칸 이름에 '대분류' · '중분류' · '제품명' 이 들어가 있는지 확인해 주세요.");
     } catch (e) {
       setErr(`엑셀을 못 읽었어요: ${(e as Error).message}`);
     }
