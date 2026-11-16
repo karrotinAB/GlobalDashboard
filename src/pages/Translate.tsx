@@ -1,6 +1,16 @@
 // 번역: [번역] 엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+
+// 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 다른 탭·페이지에 다녀와도 그대로
+const keep: Record<string, unknown> = {};
+function useKept<T>(key: string, init: T): [T, Dispatch<SetStateAction<T>>] {
+  const [v, setV] = useState<T>(() => (key in keep ? (keep[key] as T) : init));
+  useEffect(() => {
+    keep[key] = v;
+  }, [key, v]);
+  return [v, setV];
+}
 import { useAccess } from '../components/AuthGate';
 import { deleteDict, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, makeRecommender, saveCategories, savePicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
@@ -47,7 +57,7 @@ interface Sheet {
 }
 
 export default function Translate() {
-  const [tab, setTab] = useState<Tab>('translate');
+  const [tab, setTab] = useKept<Tab>('tab', 'translate');
   return (
     <div className="page">
       <div className="page-head">
@@ -82,11 +92,12 @@ function useDictMap() {
 function TranslateTab() {
   const { email, accountName } = useAccess();
   const { list, map, keys } = useDictMap();
-  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [sheet, setSheet] = useKept<Sheet | null>('sheet', null);
   const [err, setErr] = useState('');
-  const [edits, setEdits] = useState<Record<number, string>>({}); // 줄 → 직접 고친 영문 제품명
-  const [newWords, setNewWords] = useState<Record<string, string>>({});
-  const [onlyTodo, setOnlyTodo] = useState(true);
+  const [edits, setEdits] = useKept<Record<number, string>>('edits', {}); // 줄 → 직접 고친 영문 제품명
+  const [newWords, setNewWords] = useKept<Record<string, string>>('newWords', {});
+  const [onlyTodo, setOnlyTodo] = useKept('onlyTodo', true);
+  const [saveMsg, setSaveMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async (f: File) => {
@@ -111,6 +122,7 @@ function TranslateTab() {
             .filter((x) => x.cells.some((c) => String(c ?? '').trim()));
           setSheet({ fileName: f.name, sheetName: sn, headerRow: h, headers: (aoa[h] ?? []).map((x) => String(x ?? '')), col, rows, wb });
           setEdits({});
+          setCatSel({});
           return;
         }
       }
@@ -162,7 +174,7 @@ function TranslateTab() {
     return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, picks]);
-  const [catSel, setCatSel] = useState<Record<number, string>>({}); // 줄 → 고른 분류
+  const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
   const sugOf = (v: (typeof view)[number]) => (v.ko && needCat(v) ? recommend(v.ko) : null);
   // 같은 제품명으로 고른 적 있으면 바로 그 분류
@@ -204,13 +216,20 @@ function TranslateTab() {
     );
   };
 
+  // 채운 단어만 먼저 저장 (안 채운 칸은 그대로 남겨 둠)
   const addWords = async () => {
     const list = Object.entries(newWords)
       .filter(([, en]) => en.trim())
       .map(([ko, en]) => ({ ko, en }));
     if (!list.length) return;
-    await saveDict(list, accountName ?? email);
-    setNewWords({});
+    try {
+      await saveDict(list, accountName ?? email);
+      setNewWords((w) => Object.fromEntries(Object.entries(w).filter(([k]) => !list.some((x) => x.ko === k))));
+      setSaveMsg(`${list.length}개 단어를 사전에 넣었어요 ✓`);
+    } catch (e) {
+      setSaveMsg(`사전에 못 넣었어요: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`);
+    }
+    window.setTimeout(() => setSaveMsg(''), 4000);
   };
 
   const download = async () => {
@@ -282,7 +301,8 @@ function TranslateTab() {
         <div className="card tr-unknown">
           <div className="tr-unknown-head">
             <b>사전에 없는 단어 {unknownAll.length}개</b>
-            <span className="muted small">영어를 채우고 [사전에 추가]를 누르면 바로 다시 번역돼요</span>
+            <span className="muted small">아는 단어만 채워도 돼요 — 채운 것만 사전에 들어가고 바로 다시 번역돼요</span>
+            {saveMsg && <span className="small tr-save-msg">{saveMsg}</span>}
             <button className="primary" disabled={!Object.values(newWords).some((x) => x.trim())} onClick={() => void addWords()}>
               사전에 추가
             </button>
