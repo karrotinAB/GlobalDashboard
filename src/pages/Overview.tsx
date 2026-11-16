@@ -299,6 +299,9 @@ function TodosView({ teams, monday, todayIso, q }: { teams: TeamData[]; monday: 
                         return (
                           <li key={task.id} className={doneInWeek ? 'done' : ''}>
                             <span className="ov-task">{task.title}</span>
+                            {task.dueDate && !doneInWeek && (
+                              <span className={`due-pill ov-due due-${ds}`}>{ds === 'overdue' ? `${shortDate(task.dueDate)} 지남` : ds === 'today' ? '오늘' : shortDate(task.dueDate)}</span>
+                            )}
                             <span className="ov-who">
                               {task.assigneeIds.map((id) => {
                                 const m = nameOf(id);
@@ -309,9 +312,6 @@ function TodosView({ teams, monday, todayIso, q }: { teams: TeamData[]; monday: 
                                 ) : null;
                               })}
                             </span>
-                            {task.dueDate && !doneInWeek && (
-                              <span className={`due-pill ov-due due-${ds}`}>{ds === 'overdue' ? `${shortDate(task.dueDate)} 지남` : ds === 'today' ? '오늘' : shortDate(task.dueDate)}</span>
-                            )}
                             {doneInWeek && <span className="tag green small">완료</span>}
                           </li>
                         );
