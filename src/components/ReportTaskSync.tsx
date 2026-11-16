@@ -6,7 +6,7 @@ import { useStore } from '../data/store';
 import { isPersonal } from '../lib/team';
 import { isLeaderRole, needsCheck, useReports, useSpaceCheckRole } from '../lib/reports';
 import { usePeople } from './AddressBook';
-import { today, uid } from '../lib/date';
+import { today } from '../lib/date';
 import type { Task } from '../types';
 
 export default function ReportTaskSync() {
@@ -23,7 +23,15 @@ export default function ReportTaskSync() {
     if (!on || loading || !reports || !isLeaderRole(role)) return;
     const cfg = data.config.find((c) => c.id === 'reportTasks');
     const handled = new Set(cfg?.reportIds ?? []);
-    const byReport = new Map(data.tasks.filter((t) => t.reportId).map((t) => [t.reportId!, t]));
+    // 같은 보고 할일이 둘 이상이면 (두 기기에서 동시에 만든 경우) 하나만 남김 — 완료된 것 우선
+    const byReport = new Map<string, Task>();
+    for (const t of data.tasks.filter((x) => x.reportId).sort((a, b) => Number(!!b.done) - Number(!!a.done) || a.order - b.order)) {
+      if (!byReport.has(t.reportId!)) byReport.set(t.reportId!, t);
+      else if (!busy.current.has(`rm:${t.id}`)) {
+        busy.current.add(`rm:${t.id}`);
+        remove('tasks', t.id);
+      }
+    }
     let order = Math.max(0, ...data.tasks.map((t) => t.order));
     const newly: string[] = [];
     for (const r of reports) {
@@ -47,7 +55,7 @@ export default function ReportTaskSync() {
         newly.push(r.id);
         if (again) newly.push(reKey);
         const task: Task = {
-          id: uid(),
+          id: `rp_${r.id}${again ? '_re' : ''}`, // 정해진 id: 여러 기기에서 동시에 만들어도 하나로 겹침
           companyId: null,
           title,
           assigneeIds: [],

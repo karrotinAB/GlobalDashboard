@@ -7630,3 +7630,13 @@ td.c-people { min-width: 120px; }
   .task-table td.c-company { display: block; grid-area: co; font-size: 11.5px; color: var(--mut); line-height: 1.2; padding: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table td.c-company .dot, .task-table td.c-company .company-dot { width: 7px; height: 7px; }
 }
+/* 연결한 주문·보고 바로가기: 컴퓨터는 비고 끝, 휴대폰은 ⋯ 자리 */
+.links-d, .links-m { display: inline-flex; gap: 4px; align-items: center; flex: none; }
+.links-m { display: none; }
+@media (max-width: 600px) {
+  .links-d { display: none; }
+  .task-table td.c-more { display: flex !important; align-items: center; gap: 4px; }
+  .links-m { display: inline-flex; }
+  .links-m:empty { display: none; }
+  .task-table tr { grid-template-columns: 26px minmax(0, 1fr) auto auto auto; }
+}

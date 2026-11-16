@@ -502,6 +502,31 @@ export default function Todos() {
                       : task.bundleId
                         ? `연결된 묶음: ${linked.bundle?.name || '묶음'} (주문 ${bundleOrders.length}개) — 눌러서 주문 관리로`
                         : `연결된 주문: ${linked.name}${linked.orderDate ? ` (${linked.orderDate.replace(/-/g, '.')})` : ''} — 눌러서 주문 관리로`;
+                    // 연결한 보고 · 주문 바로가기 (비고 끝, 휴대폰은 ⋯ 자리)
+                    const links = (
+                      <>
+                            {task.reportId && (
+                              <a className="order-link report-link" href={`#/reports?r=${task.reportId}`} title="보고방에서 이 보고 보기">
+                                📑↗
+                              </a>
+                            )}
+                            {task.linkedReportId && (
+                              <a className="order-link report-link" href={`#/reports?r=${task.linkedReportId}`} title="연결한 보고 — 눌러서 보고방으로">
+                                📑↗
+                              </a>
+                            )}
+                            {linked && (
+                              <a
+                                className="order-link"
+                                href={`#/orders?c=${linked.companyId ?? ''}&o=${linked.id}${task.bundleId ? `&b=${task.bundleId}` : ''}`}
+                                title={linkTitle}
+                                style={task.bundleId && linked.bundle ? ({ '--c': linked.bundle.color } as CSSProperties) : undefined}
+                              >
+                                {task.bundleId ? '⧉↗' : '↗'}
+                              </a>
+                            )}
+                      </>
+                    );
                     return (
                       <tr
                         key={task.id}
@@ -587,29 +612,12 @@ export default function Todos() {
                         <td className="c-note">
                           <div className="note-wrap">
                             <EditableText value={task.note ?? ''} oneLine expand placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
-                            {task.reportId && (
-                              <a className="order-link report-link" href={`#/reports?r=${task.reportId}`} title="보고방에서 이 보고 보기">
-                                📑↗
-                              </a>
-                            )}
-                            {task.linkedReportId && (
-                              <a className="order-link report-link" href={`#/reports?r=${task.linkedReportId}`} title="연결한 보고 — 눌러서 보고방으로">
-                                📑↗
-                              </a>
-                            )}
-                            {linked && (
-                              <a
-                                className="order-link"
-                                href={`#/orders?c=${linked.companyId ?? ''}&o=${linked.id}${task.bundleId ? `&b=${task.bundleId}` : ''}`}
-                                title={linkTitle}
-                                style={task.bundleId && linked.bundle ? ({ '--c': linked.bundle.color } as CSSProperties) : undefined}
-                              >
-                                {task.bundleId ? '⧉↗' : '↗'}
-                              </a>
-                            )}
+                            <span className="links-d">{links}</span>
                           </div>
                         </td>
                         <td className="c-more">
+                          {/* 휴대폰: 연결한 주문·보고는 ⋯ 자리에 */}
+                          <span className="links-m">{links}</span>
                           {!readOnly && (
                             <RowMenu
                               important={!!task.important}
