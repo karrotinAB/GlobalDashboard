@@ -93,49 +93,54 @@ export default function SalesPanel({ companies: myCos, allTeams }: { companies: 
       ))}
     </select>
   );
-  // 탭: 판매데이터 / 수출매출 (비중은 수출매출 안에서 [수출 금액 | 비중])
+  // 탭: 각 조·팀장님·이사님 = 판매데이터 / 수출매출 / 비중
+  //      무역사무(allTeams) = 판매데이터 / 수출매출 (비중은 수출매출 안에서 [수출 금액 | 비중])
+  const twoTabs = !!allTeams;
+  type Mode = 'sales' | 'export' | 'share';
   const saved = store.get('gd:salesMode');
-  const [mode, setMode] = useState<'sales' | 'export'>(() => (saved === 'export' || saved === 'share' ? 'export' : 'sales'));
-  const [expView, setExpView] = useState<'table' | 'pie'>(() => (store.get('gd:expView') === 'pie' || saved === 'share' ? 'pie' : 'table'));
-  const pickExpView = (v: 'table' | 'pie') => {
-    setExpView(v);
-    store.set('gd:expView', v);
-  };
-  const pick = (m: 'sales' | 'export') => {
+  const [mode, setMode] = useState<Mode>(() => (saved === 'export' || saved === 'share' ? saved : 'sales'));
+  const pick = (m: Mode) => {
     setMode(m);
     store.set('gd:salesMode', m);
   };
   const mobile = useIsMobile();
   // 휴대폰: 처음엔 슬라이드 버튼만 → 하나 누르면 업체 목록 (같은 버튼 다시 누르면 목록으로)
-  const [mMode, setMMode] = useState<'sales' | 'export' | null>(null);
+  const [mMode, setMMode] = useState<Mode | null>(null);
   const [mKey, setMKey] = useState(0);
-  const tap = (m: 'sales' | 'export') => {
+  const tap = (m: Mode) => {
     if (!mobile) return pick(m);
     setMMode(m);
     setMKey((k) => k + 1);
   };
   const shown = mobile ? mMode : mode;
-  const pie = shown === 'export' && expView === 'pie';
+  const pie = shown === 'share';
+  // 두 탭일 때 슬라이드에서는 비중도 '수출매출'로 보임
+  const slideOn = twoTabs && shown === 'share' ? 'export' : shown;
   return (
     <section className="card sales">
       <div className="section-head">
-        <h2>{shown === 'export' ? (pie ? '🥧 총 수출 비중' : '🚢 업체별 수출 매출') : '📈 업체별 판매 데이터'}</h2>
-        <div className={`mode-slide ${shown ?? 'none'}`} role="tablist">
+        <h2>{shown === 'export' ? '🚢 업체별 수출 매출' : shown === 'share' ? '🥧 총 수출 비중' : '📈 업체별 판매 데이터'}</h2>
+        <div className={`mode-slide ${slideOn ?? 'none'} ${twoTabs ? '' : 'three'}`} role="tablist">
           <span className="mode-knob" />
-          <button role="tab" aria-selected={shown === 'sales'} onClick={() => tap('sales')}>
+          <button role="tab" aria-selected={slideOn === 'sales'} onClick={() => tap('sales')}>
             판매데이터
           </button>
-          <button role="tab" aria-selected={shown === 'export'} onClick={() => tap('export')}>
+          <button role="tab" aria-selected={slideOn === 'export'} onClick={() => tap(twoTabs && shown === 'share' ? 'share' : 'export')}>
             수출매출
           </button>
+          {!twoTabs && (
+            <button role="tab" aria-selected={shown === 'share'} onClick={() => tap('share')}>
+              비중
+            </button>
+          )}
         </div>
         {(!mobile || shown) && scopeBox}
-        {shown === 'export' && (
+        {twoTabs && (shown === 'export' || shown === 'share') && (
           <div className="seg exp-sub">
-            <button className={!pie ? 'on' : ''} onClick={() => pickExpView('table')}>
+            <button className={!pie ? 'on' : ''} onClick={() => tap('export')}>
               수출 금액
             </button>
-            <button className={pie ? 'on' : ''} onClick={() => pickExpView('pie')}>
+            <button className={pie ? 'on' : ''} onClick={() => tap('share')}>
               비중
             </button>
           </div>
@@ -149,7 +154,7 @@ export default function SalesPanel({ companies: myCos, allTeams }: { companies: 
       {!shown ? null : shown === 'sales' ? (
         <SalesView key={`${mKey}-${scope}`} companies={companies} mobile={mobile} />
       ) : (
-        <ExportPanel key={`${mKey}-${scope}-${expView}`} companies={companies} view={pie ? 'pie' : 'table'} mobile={mobile} hideTeamSeg />
+        <ExportPanel key={`${mKey}-${scope}-${shown}`} companies={companies} view={pie ? 'pie' : 'table'} mobile={mobile} hideTeamSeg />
       )}
     </section>
   );
