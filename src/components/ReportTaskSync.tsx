@@ -23,7 +23,7 @@ export default function ReportTaskSync() {
     const newly: string[] = [];
     for (const r of reports) {
       const check = r.checks?.[role];
-      const title = `${r.team}조의 보고 확인하기: ${r.title}`;
+      const title = `${r.team === 'trade' ? '무역사무' : `${r.team}조`}의 보고 확인하기: ${r.title}`;
       const t = byReport.get(r.id);
       if (!t) {
         // 처음 보는 보고만 (지운 할일은 다시 안 만듦)

@@ -17,8 +17,8 @@ service firebase.storage {
     }
     // 보고방 사진·파일 (조원 · 팀장님 · 이사님 · 관리자)
     match /reports/{reportId}/{file} {
-      allow read, delete: if isTeam();
-      allow create: if isTeam() && request.resource.size < 20 * 1024 * 1024;
+      allow read, delete: if isAny();
+      allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
     }
     match /claims/{claimId}/{file} {
       allow read, delete: if isTeam();

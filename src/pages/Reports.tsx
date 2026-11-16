@@ -16,12 +16,14 @@ const when = (iso?: string) => {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-export default function Reports() {
+export default function Reports({ space }: { space?: 'trade' } = {}) {
   const access = useAccess();
   const { data } = useStore();
-  const leaderView = isPersonal(access.viewTeam); // 팀장님·이사님 화면: 모든 조
+  const leaderView = !space && isPersonal(access.viewTeam); // 팀장님·이사님 화면: 모든 조 + 무역사무
+  const myTeam = space ?? access.viewTeam; // 이 보고방 ('1'·'2'·'3' 또는 'trade')
+  const teamName = (t: string) => (t === 'trade' ? '무역사무' : `${t}조`);
   const myCheck: CheckRole | null = isLeaderRole(access.role) ? access.role : null;
-  const list = useReports(leaderView ? null : access.viewTeam);
+  const list = useReports(leaderView ? null : myTeam);
   const myName =
     data.members.find((m) => !!access.email && m.email?.toLowerCase() === access.email)?.name ?? access.accountName ?? (access.email ? access.email.split('@')[0] : '나');
   const [teamF, setTeamF] = useState('');
@@ -41,7 +43,7 @@ export default function Reports() {
     () => (list ?? []).filter((r) => (!teamF || r.team === teamF) && (!onlyOpen || !myCheck || !r.checks?.[myCheck])),
     [list, teamF, onlyOpen, myCheck],
   );
-  const canWrite = !leaderView && access.role !== 'trade';
+  const canWrite = !leaderView && (space === 'trade' ? access.role === 'trade' || access.role === 'admin' || access.role === null : access.role !== 'trade');
   const toggleCheck = (r: Report, k: CheckRole) => {
     const checks = { ...(r.checks ?? {}) };
     if (checks[k]) delete checks[k];
@@ -55,8 +57,8 @@ export default function Reports() {
         <h1>보고방</h1>
         <p className="muted">
           {leaderView
-            ? '1·2·3조에서 올라온 보고예요. 제목을 누르면 내용이 펼쳐져요 · 확인란에 체크하면 업무 관리(주간 할일)의 할일도 완료돼요.'
-            : `${access.viewLabel} 보고는 우리 조원과 팀장님·이사님만 봐요. 제목을 누르면 내용이 펼쳐져요.`}
+            ? '1·2·3조 · 무역사무에서 올라온 보고예요. 제목을 누르면 내용이 펼쳐져요 · 확인란에 체크하면 업무 관리(주간 할일)의 할일도 완료돼요.'
+            : `${space === 'trade' ? '무역사무' : access.viewLabel} 보고는 ${space === 'trade' ? '무역사무 팀원' : '우리 조원'}과 팀장님·이사님만 봐요. 제목을 누르면 내용이 펼쳐져요.`}
         </p>
         {canWrite && (
           <button className="primary" onClick={() => setWriting(uid())}>
@@ -71,7 +73,7 @@ export default function Reports() {
           onCancel={() => setWriting(null)}
           onSave={(title, body, files) => {
             const now = new Date().toISOString();
-            void saveReport({ id: writing, team: access.viewTeam, title, body, files, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
+            void saveReport({ id: writing, team: myTeam, title, body, files, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
             setWriting(null);
           }}
         />
@@ -83,9 +85,9 @@ export default function Reports() {
             <button className={!teamF ? 'on' : ''} onClick={() => setTeamF('')}>
               전체 조
             </button>
-            {TEAMS.map((t) => (
+            {[...TEAMS, 'trade'].map((t) => (
               <button key={t} className={teamF === t ? 'on' : ''} onClick={() => setTeamF(teamF === t ? '' : t)}>
-                {t}조
+                {teamName(t)}
               </button>
             ))}
           </div>
@@ -124,7 +126,7 @@ export default function Reports() {
                     <tr className={`rp-row ${open ? 'open' : ''}`}>
                       {leaderView && (
                         <td className="rp-team">
-                          <span className="team-tag">{r.team}조</span>
+                          <span className="team-tag">{teamName(r.team)}</span>
                         </td>
                       )}
                       <td className="rp-title">

@@ -154,8 +154,8 @@ export default function Todos() {
       const hasLeft = (g: Group) => g.rows.some((r) => !r.doneInWeek);
       out.sort((a, b) => Number(hasLeft(b)) - Number(hasLeft(a)));
       // 팀장님·이사님: 보고 확인 할일은 조별 '보고방' 칸으로 (맨 위)
-      const reportGroups: Group[] = ['1', '2', '3']
-        .map((t) => ({ key: `__report${t}`, title: `📑 ${t}조 보고방`, color: '#8c2f3c', rows: sortRows(filtered.filter((r) => r.task.reportId && (r.task.reportTeam ?? '') === t)) }))
+      const reportGroups: Group[] = ['1', '2', '3', 'trade']
+        .map((t) => ({ key: `__report${t}`, title: `📑 ${t === 'trade' ? '무역사무' : `${t}조`} 보고방`, color: '#8c2f3c', rows: sortRows(filtered.filter((r) => r.task.reportId && (r.task.reportTeam ?? '') === t)) }))
         .filter((g) => g.rows.length);
       const etc = filtered.filter((r) => !r.task.reportId && (!r.task.companyId || !companyById.has(r.task.companyId)));
       out.unshift(...reportGroups);

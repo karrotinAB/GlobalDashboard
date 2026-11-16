@@ -52,11 +52,14 @@ service cloud.firestore {
 
     // 보고방: 그 조 조원 + 팀장님·이사님 + 관리자. 쓰기는 그 조 조원(자기 조 보고), 확인·답변은 팀장님·이사님도
     match /reports/{id} {
-      allow read: if isAdmin() || isLeader() || (isTeam() && resource.data.team == myTeam());
-      allow create: if isAdmin() || (isTeam() && request.resource.data.team == myTeam());
+      allow read: if isAdmin() || isLeader() || (isTeam() && resource.data.team == myTeam())
+        || (isTrade() && resource.data.team == 'trade');
+      allow create: if isAdmin() || (isTeam() && request.resource.data.team == myTeam())
+        || (isTrade() && request.resource.data.team == 'trade');
       allow update: if isAdmin() || isLeader()
-        || (isTeam() && resource.data.team == myTeam() && request.resource.data.team == resource.data.team);
-      allow delete: if isAdmin() || (isTeam() && resource.data.get('authorEmail', '') == myEmail());
+        || (isTeam() && resource.data.team == myTeam() && request.resource.data.team == resource.data.team)
+        || (isTrade() && resource.data.team == 'trade' && request.resource.data.team == 'trade');
+      allow delete: if isAdmin() || ((isTeam() || isTrade()) && resource.data.get('authorEmail', '') == myEmail());
     }
 
     // 주소록 번호 (회사번호 · 개인번호): 로그인한 모두 읽기, 관리자만 저장

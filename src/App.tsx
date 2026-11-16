@@ -36,6 +36,7 @@ const PAGES = [
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
   { key: 'texport', label: '수출매출', icon: '🚢' },
+  { key: 'treports', label: '보고방', icon: '📑' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
 ] as const;
@@ -44,7 +45,7 @@ const GOP_URL = 'https://karrotinab.github.io/Global-Opening-Prep/';
 // 달력은 탭이 아니라 홈 제목 줄 오른쪽 버튼으로 (#/calendar)
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
 const TRADE_TABS: PageKey[] = ['thome', 'twork'];
-const isTradePage = (p: PageKey) => TRADE_TABS.includes(p) || p === 'texport';
+const isTradePage = (p: PageKey) => TRADE_TABS.includes(p) || p === 'texport' || p === 'treports';
 
 function readHash(): PageKey {
   const h = window.location.hash.replace('#/', '').replace('#', '').split('?')[0];
@@ -107,6 +108,7 @@ export default function App() {
   const [drawer, setDrawer] = useState(false);
   // 보고방 빨간 점: 우리 조 보고에 팀장님·이사님 새 답변 (조 화면에서만)
   const reportAlert = useReportAlert(viewTeam, !tradeOnly && !isPersonal(viewTeam));
+  const tradeReportAlert = useReportAlert('trade', canTrade && !leader);
   const go = (p: string) => {
     window.location.hash = `/${p}`;
   };
@@ -172,6 +174,15 @@ export default function App() {
                     📨
                   </span>
                   무역사무요청
+                </a>
+              )}
+              {side === 'trade' && (
+                <a href="#/treports" className={page === 'treports' ? 'active' : ''}>
+                  <span className="tab-icon" aria-hidden="true">
+                    📑
+                  </span>
+                  보고방
+                  {tradeReportAlert && <span className="tab-dot" />}
                 </a>
               )}
               {side === 'trade' && (
@@ -254,6 +265,12 @@ export default function App() {
             </a>
           )}
           {side === 'trade' && (
+            <a href="#/treports" className={`tab-request tab-report ${page === 'treports' ? 'active' : ''}`} title="무역사무 보고방 (무역사무 · 팀장님 · 이사님)">
+              <span aria-hidden="true">📑</span> 보고방
+              {tradeReportAlert && <span className="tab-dot" title="팀장님·이사님 새 답변" />}
+            </a>
+          )}
+          {side === 'trade' && (
             <a href="#/texport" className={`tab-request ${page === 'texport' ? 'active' : ''}`} title="1·2·3조 판매 데이터 · 수출 매출 · 비중">
               <span aria-hidden="true">🚢</span> 수출매출
             </a>
@@ -308,6 +325,8 @@ export default function App() {
             <TradeExport />
           ) : page === 'reports' && !tradeOnly ? (
             <Reports />
+          ) : page === 'treports' ? (
+            <Reports key="trade" space="trade" />
           ) : (
             <Settings side={side} />
           )}
