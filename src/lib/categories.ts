@@ -133,16 +133,28 @@ export interface Suggestion {
 
 /** 예시들(고른 기록 + 이 파일에서 이미 분류가 채워진 줄)로 이 제품의 분류를 추천 */
 export function makeRecommender(examples: { ko: string; cat: string }[]) {
-  const ex = examples.filter((e) => e.ko && e.cat).map((e) => ({ ...e, g: gramsOf(e.ko), k: e.ko.trim() }));
+  // 같은 제품명은 하나로 (마지막 것)
+  const uniq = new Map(examples.filter((e) => e.ko && e.cat).map((e) => [e.ko.trim(), e.cat]));
+  const ex = [...uniq.entries()].map(([k, cat]) => ({ k, cat, g: gramsOf(k) }));
   const exact = new Map(ex.map((e) => [e.k, e.cat]));
+  // 글자 묶음 → 예시 번호 (흔한 묶음은 건너뜀)
+  const index = new Map<string, number[]>();
+  ex.forEach((e, i) => e.g.forEach((x) => index.set(x, [...(index.get(x) ?? []), i])));
   return (name: string): Suggestion | null => {
     const k = name.trim();
     if (!k) return null;
     if (exact.has(k)) return { cat: exact.get(k)!, score: 1, like: k, exact: true };
     const g = gramsOf(k);
+    // 겹치는 글자 묶음이 있는 예시만 후보로
+    const cand = new Set<number>();
+    for (const x of g) {
+      const l = index.get(x);
+      if (l && l.length < 800) for (const i of l) cand.add(i);
+    }
     // 분류마다 비슷한 예시 점수를 더하고 (가장 비슷한 것 위주), 제일 높은 분류
     const by = new Map<string, { score: number; best: number; like: string }>();
-    for (const e of ex) {
+    for (const i of cand) {
+      const e = ex[i];
       const s = sim(g, e.g);
       if (s < 0.2) continue;
       const cur = by.get(e.cat) ?? { score: 0, best: 0, like: '' };

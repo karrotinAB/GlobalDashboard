@@ -66,6 +66,17 @@ export async function deleteDict(id: string) {
 }
 
 const HANGUL = /[가-힣]/;
+// 사전 단어를 첫 글자별로 묶어 둠 (긴 단어부터) — 제품이 많아도 빠르게
+const firstCache = new WeakMap<string[], Map<string, string[]>>();
+const byFirst = (keys: string[]) => {
+  let m = firstCache.get(keys);
+  if (!m) {
+    m = new Map();
+    for (const k of keys) m.set(k[0], [...(m.get(k[0]) ?? []), k]);
+    firstCache.set(keys, m);
+  }
+  return m;
+};
 export type Piece = { text: string; en?: string; unknown?: boolean };
 
 /**
@@ -94,7 +105,7 @@ export function translate(name: string, dict: Map<string, string>, keys: string[
     };
     while (i < tok.length) {
       const rest = tok.slice(i);
-      const k = keys.find((key) => rest.startsWith(key));
+      const k = (byFirst(keys).get(rest[0]) ?? []).find((key) => rest.startsWith(key));
       if (k) {
         flush();
         pieces.push({ text: k, en: dict.get(k) });

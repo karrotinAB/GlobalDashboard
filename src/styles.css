@@ -7323,3 +7323,9 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tr-cut { background: #ffe1a6; color: #8a5a00; border-radius: 3px; padding: 0 2px; text-decoration: line-through; text-decoration-color: rgba(138, 90, 0, 0.5); }
 
 .tr-save-msg { color: #2f6b3c; font-weight: 600; }
+
+/* 번역: 단어 찾기 · 더 보기 · 표 넘기기 */
+.tr-unknown-q { flex: 0 1 200px; }
+.tr-more { margin-top: 8px; }
+.tr-pager { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 10px; }
+.tr-pager button { padding: 4px 12px; }

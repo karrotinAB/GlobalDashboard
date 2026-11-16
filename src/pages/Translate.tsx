@@ -28,6 +28,7 @@ const TARGETS = [
   { key: 'enName', label: '영문 제품명', names: ['영문제품명', '영문상품명', '제품영문명', '상품영문명'] },
 ] as const;
 type TKey = (typeof TARGETS)[number]['key'];
+const PAGE = 100; // 표는 100줄씩
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, '').toLowerCase();
 /** 머리줄 칸 이름 → 어떤 칸인지 (비슷하면 찾음: [F9]수출 대분류 · 수출 대분류명 · 영어 제품명 …) */
 const classify = (raw: unknown): TKey | 'koName' | 'code' | null => {
@@ -95,9 +96,8 @@ function TranslateTab() {
   const [sheet, setSheet] = useKept<Sheet | null>('sheet', null);
   const [err, setErr] = useState('');
   const [edits, setEdits] = useKept<Record<number, string>>('edits', {}); // 줄 → 직접 고친 영문 제품명
-  const [newWords, setNewWords] = useKept<Record<string, string>>('newWords', {});
   const [onlyTodo, setOnlyTodo] = useKept('onlyTodo', true);
-  const [saveMsg, setSaveMsg] = useState('');
+  const [page0, setPage] = useKept('page', 0);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async (f: File) => {
@@ -123,6 +123,7 @@ function TranslateTab() {
           setSheet({ fileName: f.name, sheetName: sn, headerRow: h, headers: (aoa[h] ?? []).map((x) => String(x ?? '')), col, rows, wb });
           setEdits({});
           setCatSel({});
+          setPage(0);
           return;
         }
       }
@@ -147,9 +148,10 @@ function TranslateTab() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet, map, keys]);
-  const todo = view.filter((v) => v.empty.length);
+  const todo = useMemo(() => view.filter((v) => v.empty.length), [view]);
   const shown = onlyTodo ? todo : view;
-  const needEn = todo.filter((v) => v.empty.includes('enName'));
+  const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
+  const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
     const c = new Map<string, number>();
     for (const v of needEn) for (const u of v.tr.unknown) c.set(u, (c.get(u) ?? 0) + 1);
@@ -176,7 +178,12 @@ function TranslateTab() {
   }, [view, picks]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
-  const sugOf = (v: (typeof view)[number]) => (v.ko && needCat(v) ? recommend(v.ko) : null);
+  const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
+  const sugOf = (v: (typeof view)[number]) => {
+    if (!v.ko || !needCat(v)) return null;
+    if (!sugCache.has(v.row.r)) sugCache.set(v.row.r, recommend(v.ko));
+    return sugCache.get(v.row.r)!;
+  };
   // 같은 제품명으로 고른 적 있으면 바로 그 분류
   const chosen = (v: (typeof view)[number]) => {
     if (catSel[v.row.r] !== undefined) return catSel[v.row.r];
@@ -202,35 +209,7 @@ function TranslateTab() {
     if (save.length) void savePicks(save, accountName ?? email);
   };
   const catValue = (c: Cat, k: string) => (k === 'mainCode' ? c.mainCode : k === 'mainName' ? c.mainName : k === 'mainEn' ? c.mainEn : k === 'subCode' ? c.subCode : k === 'subName' ? c.subName : k === 'subEn' ? c.subEn : '');
-  // 모르는 단어를 누르면: 그 단어가 나온 제품명들 (잘못 끊어 읽지 않았는지 확인용)
-  const [peek, setPeek] = useState<string | null>(null);
-  const peekRows = peek ? needEn.filter((v) => v.tr.unknown.includes(peek)) : [];
-  const mark = (name: string, w: string) => {
-    const i = name.indexOf(w);
-    return i < 0 ? name : (
-      <>
-        {name.slice(0, i)}
-        <mark>{w}</mark>
-        {name.slice(i + w.length)}
-      </>
-    );
-  };
 
-  // 채운 단어만 먼저 저장 (안 채운 칸은 그대로 남겨 둠)
-  const addWords = async () => {
-    const list = Object.entries(newWords)
-      .filter(([, en]) => en.trim())
-      .map(([ko, en]) => ({ ko, en }));
-    if (!list.length) return;
-    try {
-      await saveDict(list, accountName ?? email);
-      setNewWords((w) => Object.fromEntries(Object.entries(w).filter(([k]) => !list.some((x) => x.ko === k))));
-      setSaveMsg(`${list.length}개 단어를 사전에 넣었어요 ✓`);
-    } catch (e) {
-      setSaveMsg(`사전에 못 넣었어요: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`);
-    }
-    window.setTimeout(() => setSaveMsg(''), 4000);
-  };
 
   const download = async () => {
     if (!sheet) return;
@@ -297,53 +276,13 @@ function TranslateTab() {
       {err && <p className="warn small">{err}</p>}
       {list === null && <p className="muted small">사전 불러오는 중…</p>}
 
-      {sheet && unknownAll.length > 0 && (
-        <div className="card tr-unknown">
-          <div className="tr-unknown-head">
-            <b>사전에 없는 단어 {unknownAll.length}개</b>
-            <span className="muted small">아는 단어만 채워도 돼요 — 채운 것만 사전에 들어가고 바로 다시 번역돼요</span>
-            {saveMsg && <span className="small tr-save-msg">{saveMsg}</span>}
-            <button className="primary" disabled={!Object.values(newWords).some((x) => x.trim())} onClick={() => void addWords()}>
-              사전에 추가
-            </button>
-          </div>
-          <div className="tr-unknown-list">
-            {unknownAll.map(([ko, n]) => (
-              <label key={ko} className={`tr-word ${peek === ko ? 'on' : ''}`}>
-                <button type="button" className="tr-ko tr-ko-btn" onClick={() => setPeek(peek === ko ? null : ko)} title="어느 제품명에서 나왔는지 보기">
-                  {ko}
-                </button>
-                <span className="muted small">{n}줄</span>
-                <input placeholder="영어" value={newWords[ko] ?? ''} onChange={(e) => setNewWords((w) => ({ ...w, [ko]: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && void addWords()} />
-              </label>
-            ))}
-          </div>
-          {peek && (
-            <div className="tr-peek">
-              <div className="tr-peek-head">
-                <b>'{peek}'</b> 가 나온 제품명 {peekRows.length}개
-                <button className="icon-btn" onClick={() => setPeek(null)} aria-label="닫기">
-                  ✕
-                </button>
-              </div>
-              <ul>
-                {peekRows.slice(0, 50).map((v) => (
-                  <li key={v.row.r}>
-                    <span className="muted small">{v.row.r + 1}줄</span> {mark(v.ko, peek)}
-                    <span className="muted small"> → {v.tr.en}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+      {sheet && unknownAll.length > 0 && <UnknownWords words={unknownAll} rowsOf={(w) => needEn.filter((v) => v.tr.unknown.includes(w)).map((v) => ({ r: v.row.r, ko: v.ko, en: v.tr.en }))} />}
 
       {sheet && (
         <div className="card tr-rows">
           <div className="tr-rows-head">
             <label className="check-line small">
-              <input type="checkbox" checked={onlyTodo} onChange={(e) => setOnlyTodo(e.target.checked)} /> 빈 칸 있는 줄만
+              <input type="checkbox" checked={onlyTodo} onChange={(e) => (setOnlyTodo(e.target.checked), setPage(0))} /> 빈 칸 있는 줄만
             </label>
             <span className="muted small">{shown.length}줄</span>
             {catCols.length > 0 && !!cats?.length && (
@@ -368,7 +307,7 @@ function TranslateTab() {
                 </tr>
               </thead>
               <tbody>
-                {shown.slice(0, 500).map((v) => {
+                {shown.slice(page * PAGE, page * PAGE + PAGE).map((v) => {
                   const enEmpty = v.empty.includes('enName');
                   const en = enOf(v);
                   const left = /\[[^\]]+\]/.test(en);
@@ -443,7 +382,20 @@ function TranslateTab() {
                 })}
               </tbody>
             </table>
-            {shown.length > 500 && <p className="muted small">처음 500줄만 보여요 (받는 엑셀에는 전부 들어가요)</p>}
+            {shown.length > PAGE && (
+              <div className="tr-pager">
+                <button disabled={page === 0} onClick={() => setPage(page - 1)}>
+                  ◀
+                </button>
+                <span className="small">
+                  {page * PAGE + 1}–{Math.min(shown.length, (page + 1) * PAGE)} / {shown.length}줄
+                </span>
+                <button disabled={(page + 1) * PAGE >= shown.length} onClick={() => setPage(page + 1)}>
+                  ▶
+                </button>
+                <span className="muted small">(받는 엑셀에는 전부 들어가요)</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -654,6 +606,92 @@ function CatsTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 사전에 없는 단어: 많이 나온 순 · 찾기 · 80개씩 더 보기. 채운 것만 사전에 저장 (입력해도 표는 다시 안 그림) */
+function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w: string) => { r: number; ko: string; en: string }[] }) {
+  const { email, accountName } = useAccess();
+  const [newWords, setNewWords] = useKept<Record<string, string>>('newWords', {});
+  const [saveMsg, setSaveMsg] = useState('');
+  const [q, setQ] = useState('');
+  const [more, setMore] = useState(1);
+  const [peek, setPeek] = useState<string | null>(null);
+  const STEP = 80;
+  const nq = q.trim();
+  const list = nq ? words.filter(([w]) => w.includes(nq)) : words;
+  const filled = Object.values(newWords).filter((x) => x.trim()).length;
+  const addWords = async () => {
+    const items = Object.entries(newWords)
+      .filter(([, en]) => en.trim())
+      .map(([ko, en]) => ({ ko, en }));
+    if (!items.length) return;
+    try {
+      await saveDict(items, accountName ?? email);
+      setNewWords((w) => Object.fromEntries(Object.entries(w).filter(([k]) => !items.some((x) => x.ko === k))));
+      setSaveMsg(`${items.length}개 단어를 사전에 넣었어요 ✓`);
+    } catch (e) {
+      setSaveMsg(`사전에 못 넣었어요: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`);
+    }
+    window.setTimeout(() => setSaveMsg(''), 4000);
+  };
+  const peekRows = peek ? rowsOf(peek) : [];
+  const mark = (name: string, w: string) => {
+    const i = name.indexOf(w);
+    return i < 0 ? name : (
+      <>
+        {name.slice(0, i)}
+        <mark>{w}</mark>
+        {name.slice(i + w.length)}
+      </>
+    );
+  };
+  return (
+    <div className="card tr-unknown">
+      <div className="tr-unknown-head">
+        <b>사전에 없는 단어 {words.length}개</b>
+        <input className="search tr-unknown-q" placeholder="🔍 단어 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="muted small">아는 단어만 채워도 돼요 — 채운 것만 사전에 들어가고 바로 다시 번역돼요</span>
+        {saveMsg && <span className="small tr-save-msg">{saveMsg}</span>}
+        <button className="primary" disabled={!filled} onClick={() => void addWords()}>
+          사전에 추가{filled ? ` (${filled})` : ''}
+        </button>
+      </div>
+      <div className="tr-unknown-list">
+        {list.slice(0, STEP * more).map(([ko, n]) => (
+          <label key={ko} className={`tr-word ${peek === ko ? 'on' : ''}`}>
+            <button type="button" className="tr-ko tr-ko-btn" onClick={() => setPeek(peek === ko ? null : ko)} title="어느 제품명에서 나왔는지 보기">
+              {ko}
+            </button>
+            <span className="muted small">{n}줄</span>
+            <input placeholder="영어" value={newWords[ko] ?? ''} onChange={(e) => setNewWords((w) => ({ ...w, [ko]: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && void addWords()} />
+          </label>
+        ))}
+      </div>
+      {list.length > STEP * more && (
+        <button className="link small tr-more" onClick={() => setMore(more + 1)}>
+          더 보기 ({list.length - STEP * more}개 더)
+        </button>
+      )}
+      {peek && (
+        <div className="tr-peek">
+          <div className="tr-peek-head">
+            <b>'{peek}'</b> 가 나온 제품명 {peekRows.length}개
+            <button className="icon-btn" onClick={() => setPeek(null)} aria-label="닫기">
+              ✕
+            </button>
+          </div>
+          <ul>
+            {peekRows.slice(0, 50).map((v) => (
+              <li key={v.r}>
+                <span className="muted small">{v.r + 1}줄</span> {mark(v.ko, peek)}
+                <span className="muted small"> → {v.en}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
