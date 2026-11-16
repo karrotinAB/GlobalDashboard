@@ -829,66 +829,52 @@ function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w
   );
 }
 
-/** 수출 분류 고르기: 눌러서 열고 검색 (코드 · 대분류 · 중분류 · 영문) */
+/** 수출 분류 고르기: 원래 고르기 상자 그대로 + 🔍 누르면 찾을 말로 목록 줄이기 (코드 · 대분류 · 중분류 · 영문) */
 function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cur?: Cat; groups: [string, Cat[]][]; disabled: boolean; onPick: (k: string) => void }) {
-  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [q, setQ] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const hit = (c: Cat) => {
     const h = `${c.mainCode} ${c.mainName} ${c.mainEn} ${c.subCode} ${c.subName} ${c.subEn} ${catKey(c)}`.toLowerCase();
     return words.every((w) => h.includes(w));
   };
   const list = groups.map(([g, l]) => [g, words.length ? l.filter(hit) : l] as const).filter(([, l]) => l.length);
-  const pick = (k: string) => {
-    onPick(k);
-    setOpen(false);
-    setQ('');
-  };
+  const n = list.reduce((a, [, l]) => a + l.length, 0);
   return (
-    <div className="cat-pick" ref={ref}>
-      <button type="button" className={`cat-pick-btn ${value ? 'set' : ''}`} disabled={disabled} title={disabled ? '분류 탭에서 분류표를 먼저 올려 주세요' : ''} onClick={() => setOpen((o) => !o)}>
-        <span>{cur ? catLabel(cur) : disabled ? '분류표 없음' : '분류 고르기'}</span>
-        <span className="muted">▾</span>
-      </button>
-      {open && (
-        <div className="cat-pop">
-          <input
-            autoFocus
-            className="search"
-            placeholder="🔍 분류 찾기 (이름 · 코드 · 영문)"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setOpen(false);
-              if (e.key === 'Enter' && list[0]?.[1][0]) pick(catKey(list[0][1][0]));
-            }}
-          />
-          <div className="cat-pop-list">
-            {value && (
-              <button className="cat-opt clear" onClick={() => pick('')}>
-                ✕ 고른 분류 지우기
-              </button>
-            )}
-            {list.map(([g, l]) => (
-              <div key={g}>
-                <div className="cat-grp">{g}</div>
-                {l.map((c) => (
-                  <button key={catKey(c)} className={`cat-opt ${catKey(c) === value ? 'on' : ''}`} onClick={() => pick(catKey(c))}>
-                    {c.subName} <span className="muted small">{c.subCode}{c.subEn ? ` · ${c.subEn}` : ''}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-            {!list.length && <p className="muted small" style={{ padding: 8 }}>맞는 분류가 없어요</p>}
-          </div>
-        </div>
+    <div className="cat-pick">
+      <div className="cat-pick-row">
+        <select value={value} onChange={(e) => (onPick(e.target.value), setSearching(false), setQ(''))} className={value ? 'set' : ''} disabled={disabled} title={disabled ? '분류 탭에서 분류표를 먼저 올려 주세요' : ''}>
+          <option value="">{disabled ? '분류표 없음' : words.length ? `찾은 분류 ${n}개 — 골라 주세요` : '분류 고르기'}</option>
+          {/* 찾는 중이라도 지금 고른 건 보이게 */}
+          {cur && words.length > 0 && !hit(cur) && <option value={value}>{catLabel(cur)}</option>}
+          {list.map(([g, l]) => (
+            <optgroup key={g} label={g}>
+              {l.map((c) => (
+                <option key={catKey(c)} value={catKey(c)}>
+                  {catLabel(c)}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {!disabled && (
+          <button type="button" className={`cat-q-btn ${searching || q ? 'on' : ''}`} title="분류 찾기" onClick={() => (searching ? (setSearching(false), setQ('')) : setSearching(true))}>
+            🔍
+          </button>
+        )}
+      </div>
+      {searching && (
+        <input
+          autoFocus
+          className="cat-q"
+          placeholder="찾을 분류 (이름 · 코드 · 영문) — Enter 로 첫 번째 고르기"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') (setSearching(false), setQ(''));
+            if (e.key === 'Enter' && list[0]?.[1][0]) (onPick(catKey(list[0][1][0])), setSearching(false), setQ(''));
+          }}
+        />
       )}
     </div>
   );

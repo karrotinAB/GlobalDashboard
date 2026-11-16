@@ -7479,20 +7479,14 @@ td.c-people { min-width: 120px; }
 .tr-cut:hover { filter: brightness(0.95); }
 .tr-cut.kept { background: #e4f3e1; color: #2f6b2a; text-decoration: none; outline: 1px dashed #8cc485; }
 
-/* 번역: 검색되는 수출 분류 고르기 */
-.cat-pick { position: relative; width: 100%; max-width: 260px; }
-.cat-pick-btn { width: 100%; display: flex; justify-content: space-between; gap: 6px; align-items: center; text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 5px 8px; font-size: 12.5px; cursor: pointer; }
-.cat-pick-btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cat-pick-btn.set { background: #f1f8f2; border-color: #bfdcc5; }
-.cat-pick-btn:disabled { opacity: 0.6; cursor: default; }
-.cat-pop { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: 320px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(60, 30, 30, 0.16); padding: 8px; }
-.cat-pop .search { width: 100%; margin-bottom: 6px; }
-.cat-pop-list { max-height: 300px; overflow-y: auto; }
-.cat-grp { font-size: 11px; font-weight: 700; color: var(--mut); padding: 6px 6px 2px; }
-.cat-opt { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 5px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-.cat-opt:hover { background: #f6eeec; }
-.cat-opt.on { background: #e4f3e1; font-weight: 600; }
-.cat-opt.clear { color: #8c2f3c; }
+/* 번역: 수출 분류 고르기 (원래 상자 + 🔍 찾기) */
+.cat-pick { width: 100%; max-width: 290px; }
+.cat-pick-row { display: flex; gap: 4px; align-items: center; }
+.cat-pick-row select { flex: 1; min-width: 0; }
+.cat-pick-row select.set { background: #f1f8f2; border-color: #bfdcc5; }
+.cat-q-btn { flex: none; border: 1px solid var(--line); background: #fff; border-radius: 8px; width: 28px; height: 28px; font-size: 12px; cursor: pointer; padding: 0; }
+.cat-q-btn.on { background: #f6eeec; border-color: #d9b9b3; }
+.cat-q { width: 100%; margin-top: 4px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; }
 
 .tr-reset { border: 1px solid var(--line); background: #fff; color: #8c2f3c; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }
 .tr-reset:hover { background: #fbeeee; }
