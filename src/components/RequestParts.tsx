@@ -178,7 +178,7 @@ export function SameDayNotice() {
 }
 
 /** 필수: 마감일 · 우선순위 · 작업유형 (창 제목 오른쪽) */
-function HeadFields({ d, set, showMissing, longOk }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean; longOk?: boolean }) {
+function HeadFields({ d, set, showMissing, longOk, dueLocked }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean; longOk?: boolean; dueLocked?: boolean }) {
   const miss = (v: unknown) => (showMissing && !v ? 'missing' : '');
   // 당일 마감은 무역사무 담당자·팀장님·이사님만 (나머지는 팀장님 확인 후 의뢰)
   const { role } = useAccess();
@@ -193,12 +193,16 @@ function HeadFields({ d, set, showMissing, longOk }: { d: Draft; set: (p: Partia
       )}
       <div className={`rq-f req ${miss(d.dueDate)}`}>
         <span>마감일 *</span>
-        <DateInput
+        {dueLocked ? (
+          <span className="rq-due-locked" title="마감일은 요청한 사람만 바꿀 수 있어요">{d.dueDate ? d.dueDate.replace(/-/g, '.') : '-'} 🔒</span>
+        ) : (
+          <DateInput
           value={d.dueDate}
           placeholder="예: 20261110"
           reject={(v) => (v === today() && !canToday ? SAME_DAY_MSG : null)}
           onChange={(v) => set({ dueDate: v })}
         />
+        )}
       </div>
       <label className={`rq-f req ${miss(d.priority)}`}>
         <span>우선순위 *</span>
@@ -513,6 +517,10 @@ export function RequestDetail({
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const access = useAccess();
+  // 마감일은 요청을 쓴 사람만 (무역사무가 직접 넣은 업무는 넣은 사람) · 관리자는 가능
+  const author = (r.createdByEmail || r.requesterEmail || '').toLowerCase();
+  const canEditDue = access.role === 'admin' || (!!access.email && !!author && author === access.email) || (!author && access.role !== 'trade');
   const [zoom, setZoom] = useState<RequestFile | null>(null); // 사진 크게 보기
   const [linkingOrder, setLinkingOrder] = useState(false);
   const [d, setD] = useState<Draft>(r);
@@ -549,7 +557,7 @@ export function RequestDetail({
 
       {editing ? (
         <>
-          <HeadFields d={d} set={set} longOk={side === 'trade'} />
+          <HeadFields d={d} set={set} longOk={side === 'trade'} dueLocked={!canEditDue} />
           <Fields d={d} set={set} reqId={r.id} team={team} trade={trade} side={side} />
           <div className="rq-actions">
             <button

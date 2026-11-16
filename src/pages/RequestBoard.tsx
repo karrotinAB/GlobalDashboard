@@ -55,7 +55,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const everything = data.requests;
   const all = useMemo(
     // 조 화면: 기본은 우리 조 요청만. 무역사무 담당자를 누르면 그 사람이 맡은 다른 조 요청까지
-    () => (side === 'team' && (!assignee || assignee === '-') ? everything.filter((r) => teamOfRequest(r) === access.viewTeam) : everything),
+    () => (side === 'team' && !assignee ? everything.filter((r) => teamOfRequest(r) === access.viewTeam) : everything),
     [everything, side, access.viewTeam, assignee],
   );
   const years = useMemo(
@@ -463,8 +463,17 @@ function Row({
       <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
-          {r.title}{r.longTerm && <span className="rq-long-tag" title="장기 업무 진행률">📌 {r.progress ?? 0}%</span>}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
-          {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
+          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
+          {!r.longTerm && (side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
+          {r.longTerm && (
+            <span className="rq-long-line">
+              {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
+              <span className="rq-long-bar" title="장기 업무 진행률">
+                <span style={{ width: `${Math.min(100, r.progress ?? 0)}%` }} />
+              </span>
+              <b className="rq-long-pct">{r.progress ?? 0}%</b>
+            </span>
+          )}
           {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
           {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
         </button>

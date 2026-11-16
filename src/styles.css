@@ -7390,3 +7390,13 @@ td.c-people { min-width: 120px; }
 .pp-group { font-size: 11px; color: #8a7470; font-weight: 700; padding: 6px 8px 2px; }
 
 .rq-group.long td { background: #f6f0fc; color: #5b3a8a; }
+
+/* 장기 업무: 제목 아래 줄 — 요청한 곳 · 진행률 막대 · % */
+.rq-long-line { display: flex; align-items: center; gap: 8px; margin-top: 4px; width: 100%; }
+.rq-long-bar { flex: 0 1 220px; height: 7px; border-radius: 999px; background: #eee3f7; overflow: hidden; }
+.rq-long-bar > span { display: block; height: 100%; background: #8e5bd0; border-radius: 999px; }
+.rq-long-pct { font-size: 12px; color: #6b3fa0; }
+.rq-title { flex-wrap: wrap; }
+.rq-due-locked { font-size: 13px; padding: 6px 8px; color: #6b5753; white-space: nowrap; }
+
+.rq-long-line .rq-team, .rq-long-pct { white-space: nowrap; flex: none; }
