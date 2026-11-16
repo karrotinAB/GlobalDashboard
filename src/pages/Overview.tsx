@@ -1,6 +1,7 @@
 // 조 현황 (팀장님·이사님·관리자): 1~3조의 이번 주 할일 · 주문 · 클레임을 한눈에 (읽기 전용)
 // 조 대시보드에 '들어가는' 게 아니라, 모든 조 정보를 한 화면에서 확인하는 용도
-import { useMemo, useState, type CSSProperties } from 'react';
+import { Fragment, useMemo, useState, type CSSProperties } from 'react';
+import { useIsMobile } from '../lib/useMobile';
 import { useSpaceData, useStore } from '../data/store';
 import { isOpen, sortRequests, teamOfRequest, requestSideLabel, teamTagClass, workload } from '../lib/trade';
 import { PriorityTag, StatusTag } from '../components/RequestParts';
@@ -59,6 +60,7 @@ export default function Overview() {
     setCo('');
     setWho('');
   };
+  const isMobile = useIsMobile();
   const [q, setQ] = useState('');
   const [tradeWho, setTradeWho] = useState(''); // 무역사무: 담당자 한 명만
   const todayIso = today();
@@ -83,44 +85,9 @@ export default function Overview() {
   const picked = who ? byCompany.map((t) => ({ ...t, tasks: t.tasks.filter((x) => x.assigneeIds.includes(who)) })) : byCompany;
   const oneTeam = only ? teams.find((t) => t.team === only) : undefined;
 
-  return (
-    <div className="page">
-      <div className="page-head">
-        <h1>조 현황</h1>
-        <p className="muted">1~3조의 이번 주 할일 · 주문 · 클레임을 한 화면에서 봐요. 여기서는 보기만 해요 (수정은 각 조에서).</p>
-      </div>
-
-      {/* 조별 요약 카드 */}
-      <div className="ov-cards">
-        {teams.map((t) => (
-          <TeamCard
-            key={t.team}
-            t={t}
-            monday={monday}
-            todayIso={todayIso}
-            on={only === t.team && view !== 'trade'}
-            onClick={() => {
-              // 무역사무를 보고 있었으면 이 조 할일로
-              if (view === 'trade') {
-                setView('todos');
-                setOnly(t.team);
-              } else setOnly((v) => (v === t.team ? '' : t.team));
-            }}
-          />
-        ))}
-        <TradeCard
-          requests={data.requests}
-          people={tradePeople}
-          todayIso={todayIso}
-          on={view === 'trade'}
-          onClick={() => {
-            setView((v) => (v === 'trade' ? 'todos' : 'trade'));
-            setOnly('');
-            setTradeWho('');
-          }}
-        />
-      </div>
-
+  // 휴대폰: 조(또는 무역사무) 카드를 누르면 그 카드 바로 아래에 내용이 펼쳐짐
+  const detail = (
+    <>
       <div className="toolbar ov-toolbar">
         <div className="seg">
           {(
@@ -210,6 +177,54 @@ export default function Overview() {
       {view === 'orders' && <OrdersView teams={picked} q={q} />}
       {view === 'claims' && <ClaimsView teams={picked} q={q} />}
       {view === 'trade' && <TradeView requests={data.requests} people={tradePeople} only={only} who={tradeWho} q={q} todayIso={todayIso} />}
+    </>
+  );
+  const mobileOpen = isMobile && (!!only || view === 'trade');
+  const openKey = view === 'trade' ? 'trade' : only;
+  const below = (k: string) => mobileOpen && openKey === k && <div className="ov-inline">{detail}</div>;
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <h1>조 현황</h1>
+        <p className="muted">1~3조의 이번 주 할일 · 주문 · 클레임을 한 화면에서 봐요. 여기서는 보기만 해요 (수정은 각 조에서).</p>
+      </div>
+
+      {/* 조별 요약 카드 */}
+      <div className="ov-cards">
+        {teams.map((t) => (
+          <Fragment key={t.team}>
+            <TeamCard
+            t={t}
+            monday={monday}
+            todayIso={todayIso}
+            on={only === t.team && view !== 'trade'}
+            onClick={() => {
+              // 무역사무를 보고 있었으면 이 조 할일로
+              if (view === 'trade') {
+                setView('todos');
+                setOnly(t.team);
+              } else setOnly((v) => (v === t.team ? '' : t.team));
+            }}
+          />
+            {below(t.team)}
+          </Fragment>
+        ))}
+        <TradeCard
+          requests={data.requests}
+          people={tradePeople}
+          todayIso={todayIso}
+          on={view === 'trade'}
+          onClick={() => {
+            setView((v) => (v === 'trade' ? 'todos' : 'trade'));
+            setOnly('');
+            setTradeWho('');
+          }}
+        />
+        {below('trade')}
+      </div>
+
+      {!mobileOpen && detail}
     </div>
   );
 }

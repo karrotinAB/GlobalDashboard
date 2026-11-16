@@ -7549,3 +7549,20 @@ td.c-people { min-width: 120px; }
   .rp-chk-mobile { display: inline-block; width: 20px; height: 20px; margin: 0; }
   .rp-mine-lead .rp-c-director, .rp-mine-director .rp-c-lead { display: none; }
 }
+
+/* 휴대폰: 무역사무 담당자 카드(세 칸)도 같은 모양으로 — 긴 설명은 줄바꿈, 처리자 미정 카드 맞춤 */
+@media (max-width: 600px) {
+  .team.compact .member-card { min-width: 0; overflow: hidden; }
+  .team.compact .mc-top { max-width: 100%; }
+  .team.compact .mc-name .muted { white-space: normal !important; line-height: 1.35; word-break: keep-all; }
+  .trade-sum .member-card.unassigned { padding: 10px 6px 8px; }
+  .trade-sum .unassigned .tw-q.big { grid-area: ch; width: 26px; height: 26px; font-size: 14px; }
+  .trade-sum .unassigned .mc-name b { font-size: 13px; }
+  .trade-sum .unassigned .un-num { grid-area: rg; justify-self: center; height: 52px; display: flex; align-items: center; justify-content: center; margin-left: 0; font-size: 26px; }
+}
+@media (max-width: 600px) {
+  .team.compact .mc-mini-char, .trade-sum .unassigned .tw-q.big { justify-self: end; }
+  .team.compact .mc-name b { justify-self: start; }
+}
+/* 휴대폰 조 현황: 누른 조 카드 바로 아래 펼침 */
+.ov-inline { grid-column: 1 / -1; min-width: 0; margin: -4px 0 6px; padding: 10px 0 4px; border-top: 2px solid #8c2f3c33; }
