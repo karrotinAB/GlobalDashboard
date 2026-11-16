@@ -146,7 +146,7 @@ export default function Reports() {
                       <td className="rp-date">{when(r.createdAt)}</td>
                       {(['lead', 'director'] as CheckRole[]).map((k) => {
                         const c = r.checks?.[k];
-                        const mine = myCheck === k;
+                        const mine = myCheck === k || access.role === 'admin'; // 관리자는 두 칸 다
                         return (
                           <td key={k} className={`rp-chk ${c ? 'on' : ''}`}>
                             {mine ? (
@@ -237,6 +237,7 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
       replies: [...(r.replies ?? []), { id: uid(), name: myName, email: access.email || undefined, role: access.role ?? undefined, text, at: new Date().toISOString() }],
     });
     setReply('');
+    markSeen(r); // 내가 쓴 답변은 알림 안 띄움
   };
   return (
     <div className="rp-detail">
@@ -295,8 +296,8 @@ function ReportDetail({ r, myName, canEdit, canDelete }: { r: Report; myName: st
             )}
           </div>
         ))}
-        {/* 답변은 팀장님·이사님만 */}
-        {isLeaderRole(access.role) && (
+        {/* 답변은 팀장님·이사님 (+ 관리자) */}
+        {(isLeaderRole(access.role) || access.role === 'admin') && (
         <div className="rp-reply-box">
           <textarea
             rows={2}

@@ -118,7 +118,7 @@ export async function deleteReport(id: string) {
 const seenKey = (id: string) => `gd:reportSeen:${id}`;
 export const lastLeaderReply = (r: Report) =>
   (r.replies ?? [])
-    .filter((x) => isLeaderRole(x.role))
+    .filter((x) => isLeaderRole(x.role) || x.role === 'admin')
     .map((x) => x.at)
     .sort()
     .pop();

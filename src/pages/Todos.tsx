@@ -153,7 +153,12 @@ export default function Todos() {
       // 정해 둔 업체 순서는 그대로, 남은 할일이 없는 업체만 아래로
       const hasLeft = (g: Group) => g.rows.some((r) => !r.doneInWeek);
       out.sort((a, b) => Number(hasLeft(b)) - Number(hasLeft(a)));
-      const etc = filtered.filter((r) => !r.task.companyId || !companyById.has(r.task.companyId));
+      // 팀장님·이사님: 보고 확인 할일은 조별 '보고방' 칸으로 (맨 위)
+      const reportGroups: Group[] = ['1', '2', '3']
+        .map((t) => ({ key: `__report${t}`, title: `📑 ${t}조 보고방`, color: '#8c2f3c', rows: sortRows(filtered.filter((r) => r.task.reportId && (r.task.reportTeam ?? '') === t)) }))
+        .filter((g) => g.rows.length);
+      const etc = filtered.filter((r) => !r.task.reportId && (!r.task.companyId || !companyById.has(r.task.companyId)));
+      out.unshift(...reportGroups);
       if (etc.length) out.push({ key: '__etc', title: '기타 / 업체 없음', rows: sortRows(etc) });
       // 필터가 걸려 있으면 빈 업체는 숨김
       const anyFilter = memberFilter || companyFilter || status !== 'all' || q;
@@ -318,7 +323,7 @@ export default function Todos() {
           const showCompany = groupBy !== 'company';
           const colSpan = showCompany ? 8 : 7;
           const taskMovable = !readOnly && groupBy === 'company';
-          const canAdd = !readOnly && groupBy !== 'due';
+          const canAdd = !readOnly && groupBy !== 'due' && !g.key.startsWith('__report'); // 보고방 칸은 보고에서 자동으로만
           const movable = !readOnly && groupBy === 'company' && !!g.company && !companyFilter;
           const cid = g.company?.id ?? '';
           return (
