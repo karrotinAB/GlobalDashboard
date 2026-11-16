@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AddressBook from './components/AddressBook';
 import TradeExport from './pages/TradeExport';
 import Reports from './pages/Reports';
+import TradeMemo from './pages/TradeMemo';
 import Translate from './pages/Translate';
 import ProfileMenu from './components/ProfileMenu';
 import ReportTaskSync from './components/ReportTaskSync';
@@ -37,6 +38,7 @@ const PAGES = [
   // 무역사무 페이지 (무역사무 계정 + 관리자)
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
+  { key: 'tmemo', label: '업체 메모', icon: '📝' },
   { key: 'texport', label: '수출매출', icon: '🚢' },
   { key: 'treports', label: '보고방', icon: '📑' },
   { key: 'translate', label: '번역', icon: '🌐' },
@@ -47,7 +49,7 @@ type PageKey = (typeof PAGES)[number]['key'] | 'import';
 const GOP_URL = 'https://karrotinab.github.io/Global-Opening-Prep/';
 // 달력은 탭이 아니라 홈 제목 줄 오른쪽 버튼으로 (#/calendar)
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'claims'];
-const TRADE_TABS: PageKey[] = ['thome', 'twork'];
+const TRADE_TABS: PageKey[] = ['thome', 'twork', 'tmemo'];
 const isTradePage = (p: PageKey) => TRADE_TABS.includes(p) || p === 'texport' || p === 'treports';
 
 function readHash(): PageKey {
@@ -111,7 +113,8 @@ export default function App() {
   const [drawer, setDrawer] = useState(false);
   // 보고방 빨간 점: 우리 조 보고에 팀장님·이사님 새 답변 (조 화면에서만)
   const { email: myEmail } = useAccess();
-  const reportAlert = useReportAlert(viewTeam, !tradeOnly && !isPersonal(viewTeam), myEmail);
+  const leaderRole = role === 'lead' || role === 'director' ? role : null;
+  const reportAlert = useReportAlert(isPersonal(viewTeam) ? null : viewTeam, !tradeOnly && (!isPersonal(viewTeam) || !!leaderRole), myEmail, isPersonal(viewTeam) ? leaderRole : null);
   const tradeReportAlert = useReportAlert('trade', canTrade && !leader, myEmail);
   const go = (p: string) => {
     window.location.hash = `/${p}`;
@@ -325,6 +328,8 @@ export default function App() {
             <TradeHome />
           ) : page === 'twork' ? (
             <RequestBoard key="trade" side="trade" />
+          ) : page === 'tmemo' ? (
+            <TradeMemo />
           ) : page === 'texport' ? (
             <TradeExport />
           ) : page === 'reports' && !tradeOnly ? (

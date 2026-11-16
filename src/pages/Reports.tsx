@@ -9,7 +9,7 @@ import { usePeople } from '../components/AddressBook';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
-import { downloadFile, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
+import { downloadFile, isUnseenLeader, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
 
 const when = (iso?: string) => {
   if (!iso) return '';
@@ -160,7 +160,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
             <tbody>
               {shown.map((r) => {
                 const open = openId === r.id;
-                const unseen = !leaderView && isUnseen(r, access.email);
+                const unseen = leaderView ? !!myCheck && isUnseenLeader(r, myCheck, access.email) : isUnseen(r, access.email);
                 const fresh = leaderView && myCheck && needsCheck(r, myCheck) && !r.checks?.[myCheck];
                 return (
                   <Fragment key={r.id}>
@@ -175,13 +175,13 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                           className="rp-title-btn"
                           onClick={() => {
                             setOpenId(open ? null : r.id);
-                            if (!open && !leaderView) markSeen(r);
+                            if (!open) markSeen(r); // 열어 보면 알림 꺼짐
                           }}
                         >
                           <span className="rp-caret">{open ? '▾' : '▸'}</span>
                           {r.title}
                           {(r.replies ?? []).length > 0 && <span className="rp-n">💬 {r.replies!.length}</span>}
-                          {unseen && <span className="rp-new">새 답변</span>}
+                          {unseen && <span className="rp-new">{leaderView ? 'NEW' : '새 답변'}</span>}
                           {fresh && <span className="rp-new blue">확인 전</span>}
                         </button>
                       </td>

@@ -179,8 +179,23 @@ export function markSeen(r: Report) {
   window.dispatchEvent(new Event('gd-reports-seen'));
 }
 
-/** 탭 위 빨간 점: 내 조 보고에 안 본 팀장님·이사님 답변·확인이 있으면 */
-export function useReportAlert(team: string | null, enabled: boolean, myEmail?: string) {
+/** 팀장님·이사님 쪽 알림: 내가 확인자인 보고가 새로 올라왔거나 다른 사람이 답글을 달았는데 아직 안 열어 본 것 */
+export function isUnseenLeader(r: Report, role: CheckRole, myEmail?: string) {
+  if (!needsCheck(r, role)) return false;
+  const me = (myEmail ?? '').toLowerCase();
+  const last = [r.createdAt, r.updatedAt ?? '', ...(r.replies ?? []).filter((x) => (x.email ?? '').toLowerCase() !== me).map((x) => x.at)].sort().pop() ?? '';
+  // 이미 확인 체크한 보고는 그 뒤에 생긴 것만
+  const checked = r.checks?.[role]?.at ?? '';
+  try {
+    const seen = localStorage.getItem(seenKey(r.id)) ?? '';
+    return (seen > checked ? seen : checked) < last;
+  } catch {
+    return checked < last;
+  }
+}
+
+/** 탭 위 빨간 점: (조) 내 조 보고에 안 본 팀장님·이사님 답변·확인 / (팀장님·이사님 leaderRole) 새 보고·답글 */
+export function useReportAlert(team: string | null, enabled: boolean, myEmail?: string, leaderRole?: CheckRole | null) {
   const list = useReports(enabled ? team : undefined);
   const [, bump] = useState(0);
   useEffect(() => {
@@ -188,7 +203,7 @@ export function useReportAlert(team: string | null, enabled: boolean, myEmail?: 
     window.addEventListener('gd-reports-seen', h);
     return () => window.removeEventListener('gd-reports-seen', h);
   }, []);
-  return enabled && !!list?.some((r) => isUnseen(r, myEmail));
+  return enabled && !!list?.some((r) => (leaderRole ? isUnseenLeader(r, leaderRole, myEmail) : isUnseen(r, myEmail)));
 }
 
 /** 보고 하나의 확인 체크 켜기/끄기 (주간 할일의 '보고 확인하기' 체크에서) */

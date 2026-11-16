@@ -2,9 +2,11 @@
 import { useSpaceData, useStore } from '../data/store';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { CharacterPicker, clockDefaultsOf, Hero, LeaveBand, WorldClocks } from './Home';
-import { Avatar, characterSrc, Ring } from '../components/ui';
+import { characterSrc, Modal, Ring } from '../components/ui';
+import { useAllTeamCompanies } from './TradeMemo';
+import { coKey, saveCoMemo, saveMemoOrder, useTradeMemos } from '../lib/tradeMemos';
 import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestParts';
-import { ago, isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
+import { isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
 import { attendanceOf, adjustLeave } from '../lib/mem';
 import { TRADE_TAGS, type Attendance, type ClockPick, type Member, type TradeRequest } from '../types';
@@ -40,12 +42,6 @@ export default function TradeHome() {
     { id: '-', label: '구분 없음', list: byDue(open.filter((r) => !r.tag)) },
   ];
   const detail = data.requests.find((r) => r.id === openId);
-  // 새로 들어온 업무: 최근 4일 (주말 포함) 안에 올라온, 아직 시작 안 한 것
-  const weekAgo = new Date(Date.now() - 4 * 86400000).toISOString();
-  const fresh = data.requests
-    .filter((r) => r.status === 'requested' && r.createdAt >= weekAgo)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 8);
   const mine = (m: Member) => access.role === null || (!!m.email && m.email.toLowerCase() === access.email);
   const iHaveCard = trade.some((m) => m.email?.toLowerCase() === access.email);
   const todayAtt = new Map(data.attendance.filter((a) => a.date === todayIso).map((a) => [a.memberId, a]));
@@ -106,39 +102,8 @@ export default function TradeHome() {
         where={myTrade ? `${myTrade.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'}
       />
 
-      {/* 새로 들어온 업무: 아직 '요청됨' 인 것 중 최근 7일, 최신순 */}
-      <section className="section">
-        <div className="section-head">
-          <h2>📬 새로 들어온 업무</h2>
-          <span className="muted small">아직 시작 안 한 최근 4일 요청 · 누르면 자세히</span>
-        </div>
-        {fresh.length === 0 ? (
-          <p className="muted small">새로 들어온 업무가 없어요 🍵</p>
-        ) : (
-          <div className="tw-new">
-            {fresh.map((r) => {
-              const who = team.find((m) => m.id === r.requesterId);
-              const as = trade.find((m) => m.id === r.assigneeId);
-              return (
-                <button key={r.id} className="tw-new-card" style={{ '--c': who?.color } as CSSProperties} onClick={() => setOpenId(r.id)}>
-                  <span className="tw-item-top">
-                    <PriorityTag p={r.priority} />
-                    {r.workType && <span className="tag gray small">{r.workType}</span>}
-                    <span className="tw-ago">{ago(r.createdAt)}</span>
-                  </span>
-                  <span className="tw-title">{r.title}{r.longTerm && <span className="rq-long-tag" title="장기 업무 진행률">📌 {r.progress ?? 0}%</span>}{r.orderLink && <span title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}</span>
-                  <span className="tw-new-foot">
-                    {who?.character ? <img src={characterSrc(who.character)} alt="" /> : who && <Avatar member={who} size={22} />}
-                    <span>{who ? memberLabel(who) : '무역사무'}</span>
-                    {r.dueDate && <span className={`tw-due ${r.dueDate < todayIso ? 'overdue' : r.dueDate === todayIso ? 'today' : ''}`}>마감 {dot(r.dueDate)}</span>}
-                    <span className={`tw-as ${as ? '' : 'none'}`}>{as ? `→ ${as.name}` : '처리자 미정'}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      {/* 업체 주요 메모: 체크 안 한 무역사무 메모가 있는 업체 4곳 · 업체마다 5개 */}
+      <HomeMemos />
 
       <section className="section">
         <div className="section-head">
@@ -318,5 +283,130 @@ function TradeCard({
         </span>
       </button>
     </div>
+  );
+}
+
+/** 무역사무 홈: 업체 주요 메모 (업체 4곳 · 업체마다 체크 안 한 메모 5개). 4곳이 넘으면 ⚙ 로 먼저 보일 순서 */
+function HomeMemos() {
+  const cos = useAllTeamCompanies();
+  const { memos, order } = useTradeMemos();
+  const [sorting, setSorting] = useState(false);
+  const withMemo = cos
+    .map((c) => ({ c, k: coKey(c.team, c.id), m: memos[coKey(c.team, c.id)] }))
+    .filter((x) => x.m?.items.some((i) => !i.done));
+  // 정해 둔 순서 먼저, 나머지는 최근에 고친 순
+  const rank = (k: string) => (order.includes(k) ? order.indexOf(k) : 1000);
+  const sorted = [...withMemo].sort((a, b) => rank(a.k) - rank(b.k) || (b.m?.updatedAt ?? '').localeCompare(a.m?.updatedAt ?? ''));
+  const shown = sorted.slice(0, 4);
+  const toggle = (k: string, id: string) => {
+    const items = memos[k]?.items ?? [];
+    void saveCoMemo(
+      k,
+      items.map((y) => (y.id === id ? { ...y, done: !y.done, doneAt: !y.done ? new Date().toISOString() : undefined } : y)),
+    );
+  };
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2>📝 업체 주요 메모</h2>
+        <span className="muted small">
+          체크 안 한 메모가 있는 업체 {withMemo.length}곳{withMemo.length > 4 ? ' 중 4곳' : ''} · 체크하면 사라져요 ·{' '}
+          <a href="#/tmemo" className="link small">
+            업체 메모 →
+          </a>
+          {withMemo.length > 4 && (
+            <>
+              {' '}
+              ·{' '}
+              <button className="link small" onClick={() => setSorting(true)}>
+                ⚙ 먼저 보일 업체
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+      {!shown.length ? (
+        <p className="muted small">업체 메모가 없어요. 위쪽 [업체 메모] 탭에서 업체마다 메모를 남길 수 있어요 🍵</p>
+      ) : (
+        <div className="tw-new hm-grid">
+          {shown.map(({ c, k, m }) => {
+            const open = (m?.items ?? []).filter((i) => !i.done);
+            return (
+              <div key={k} className="tw-new-card hm-card" style={{ '--c': c.color } as CSSProperties}>
+                <a className="hm-head" href={`#/tmemo?c=${k}`} title="업체 메모에서 보기">
+                  <span className="dot" style={{ background: c.color }} />
+                  <b>{c.name}</b>
+                  <span className="team-tag">{c.team}조</span>
+                  <span className="tm-n">{open.length}</span>
+                </a>
+                <ul className="hm-items">
+                  {open.slice(0, 5).map((x) => (
+                    <li key={x.id}>
+                      <label>
+                        <input type="checkbox" checked={false} onChange={() => toggle(k, x.id)} />
+                        <span>{x.text}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {open.length > 5 && (
+                  <a className="tw-more" href={`#/tmemo?c=${k}`}>
+                    + {open.length - 5}개 더
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {sorting && <MemoOrder items={sorted.map((x) => ({ k: x.k, name: x.c.name, team: x.c.team }))} onClose={() => setSorting(false)} />}
+    </section>
+  );
+}
+
+/** 먼저 보일 업체 순서 (위 4곳이 홈에 보여요) */
+function MemoOrder({ items, onClose }: { items: { k: string; name: string; team: string }[]; onClose: () => void }) {
+  const [list, setList] = useState(items);
+  const move = (i: number, d: number) =>
+    setList((l) => {
+      const n = [...l];
+      const j = i + d;
+      if (j < 0 || j >= n.length) return l;
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
+  return (
+    <Modal title="먼저 보일 업체" onClose={onClose}>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        위에서 4곳이 무역사무 홈에 보여요. 메모를 다 체크한 업체는 홈에서 빠져요.
+      </p>
+      <ol className="hm-order">
+        {list.map((x, i) => (
+          <li key={x.k} className={i < 4 ? 'top' : ''}>
+            <span className="team-tag">{x.team}조</span> {x.name}
+            <span className="hm-order-btns">
+              <button className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0}>
+                ▲
+              </button>
+              <button className="icon-btn" onClick={() => move(i, 1)} disabled={i === list.length - 1}>
+                ▼
+              </button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+        <button onClick={onClose}>닫기</button>
+        <button
+          className="primary"
+          onClick={() => {
+            void saveMemoOrder(list.map((x) => x.k));
+            onClose();
+          }}
+        >
+          저장
+        </button>
+      </div>
+    </Modal>
   );
 }
