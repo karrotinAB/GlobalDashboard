@@ -7309,3 +7309,15 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tr-peek-head .icon-btn { margin-left: auto; }
 .tr-peek ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; max-height: 260px; overflow-y: auto; }
 .tr-peek mark { background: #fff0a8; padding: 0 2px; border-radius: 3px; }
+
+/* 번역: 수출 분류 고르기 · 추천 */
+.tr-cat { min-width: 230px; }
+.tr-cat select { width: 100%; max-width: 260px; }
+.tr-cat select.set { background: #f1f8f2; border-color: #bfdcc5; }
+.tr-sug { display: block; margin-top: 4px; border: 1px dashed #c9b3ad; background: #fffaf0; color: #7a4a0c; font: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 8px; cursor: pointer; text-align: left; max-width: 260px; }
+.tr-sug:hover { background: #fff2d6; }
+.tr-sug-all { margin-left: auto; }
+.tr-table td.tr-filled { color: #2f6b3c; font-weight: 600; background: #f3faf4; font-size: 12px; }
+
+/* 번역: 영문에서 뺀 괄호 부분 */
+.tr-cut { background: #ffe1a6; color: #8a5a00; border-radius: 3px; padding: 0 2px; text-decoration: line-through; text-decoration-color: rgba(138, 90, 0, 0.5); }

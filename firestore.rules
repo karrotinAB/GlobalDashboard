@@ -66,6 +66,13 @@ service cloud.firestore {
     match /dict/{id} {
       allow read, write: if isAny();
     }
+    // 번역: 수출 분류표 (transCfg/categories) · 고른 분류 기록 (추천에 씀)
+    match /transCfg/{id} {
+      allow read, write: if isAny();
+    }
+    match /catPicks/{id} {
+      allow read, write: if isAny();
+    }
 
     // 주소록 번호 (회사번호 · 개인번호): 로그인한 모두 읽기, 관리자만 저장
     match /contacts/{email} {

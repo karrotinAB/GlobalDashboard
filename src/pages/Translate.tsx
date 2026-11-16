@@ -3,8 +3,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { deleteDict, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
+import { catKey, catLabel, makeRecommender, saveCategories, savePicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
 
-type Tab = 'translate' | 'dict';
+type Tab = 'translate' | 'dict' | 'cats';
 
 // 엑셀에서 찾을 칸 (띄어쓰기 무시하고 비교)
 const TARGETS = [
@@ -60,8 +61,11 @@ export default function Translate() {
         <button className={tab === 'dict' ? 'on' : ''} onClick={() => setTab('dict')}>
           📖 사전
         </button>
+        <button className={tab === 'cats' ? 'on' : ''} onClick={() => setTab('cats')}>
+          🗂 분류
+        </button>
       </div>
-      {tab === 'translate' ? <TranslateTab /> : <DictTab />}
+      {tab === 'translate' ? <TranslateTab /> : tab === 'dict' ? <DictTab /> : <CatsTab />}
     </div>
   );
 }
@@ -123,8 +127,11 @@ function TranslateTab() {
     return sheet.rows.map((row) => {
       const empty = TARGETS.filter((t) => sheet.col[t.key] !== undefined && !cell(row, t.key)).map((t) => t.key);
       const ko = cell(row, 'koName');
-      const tr = ko ? translate(ko, map, keys) : { en: '', unknown: [] as string[], pieces: [] };
-      return { row, empty, ko, tr };
+      // 영어로 옮길 땐 ( ) 괄호와 그 안 내용은 빼고 번역 (한글 제품명은 그대로, 뺀 부분은 화면에 표시)
+      const cut: string[] = ko.match(/\([^()]*\)|（[^（）]*）/g) ?? [];
+      const koEn = cut.length ? ko.replace(/\([^()]*\)|（[^（）]*）/g, ' ').replace(/\s{2,}/g, ' ').trim() : ko;
+      const tr = koEn ? translate(koEn, map, keys) : { en: '', unknown: [] as string[], pieces: [] };
+      return { row, empty, ko, tr, cut };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet, map, keys]);
@@ -137,6 +144,52 @@ function TranslateTab() {
     return [...c.entries()].sort((a, b) => b[1] - a[1]);
   }, [needEn]);
   const enOf = (v: (typeof view)[number]) => edits[v.row.r] ?? v.tr.en;
+
+  // 수출 분류: 분류표 · 고른 기록 · 이 파일에서 이미 채워진 줄로 추천
+  const { rows: cats } = useCategories();
+  const picks = useCatPicks();
+  const catByKey = useMemo(() => new Map((cats ?? []).map((c) => [catKey(c), c])), [cats]);
+  const catGroups = useMemo(() => {
+    const g = new Map<string, Cat[]>();
+    for (const c of cats ?? []) g.set(`${c.mainCode} ${c.mainName}`, [...(g.get(`${c.mainCode} ${c.mainName}`) ?? []), c]);
+    return [...g.entries()];
+  }, [cats]);
+  const catCols = TARGETS.filter((t) => t.key !== 'enName' && sheet?.col[t.key] !== undefined);
+  const recommend = useMemo(() => {
+    const inFile = view
+      .filter((v) => v.ko && cell(v.row, 'mainCode') && cell(v.row, 'subCode'))
+      .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}` }));
+    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat }))]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, picks]);
+  const [catSel, setCatSel] = useState<Record<number, string>>({}); // 줄 → 고른 분류
+  const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
+  const sugOf = (v: (typeof view)[number]) => (v.ko && needCat(v) ? recommend(v.ko) : null);
+  // 같은 제품명으로 고른 적 있으면 바로 그 분류
+  const chosen = (v: (typeof view)[number]) => {
+    if (catSel[v.row.r] !== undefined) return catSel[v.row.r];
+    const sg = sugOf(v);
+    return sg?.exact && catByKey.has(sg.cat) ? sg.cat : '';
+  };
+  const pickCat = (v: (typeof view)[number], key: string) => {
+    setCatSel((x) => ({ ...x, [v.row.r]: key }));
+    if (key && v.ko) void savePicks([{ ko: v.ko, cat: key }], accountName ?? email);
+  };
+  const applyAllSuggestions = () => {
+    const next: Record<number, string> = {};
+    const save: { ko: string; cat: string }[] = [];
+    for (const v of todo) {
+      if (!needCat(v) || chosen(v)) continue;
+      const sg = sugOf(v);
+      if (sg && catByKey.has(sg.cat)) {
+        next[v.row.r] = sg.cat;
+        save.push({ ko: v.ko, cat: sg.cat });
+      }
+    }
+    setCatSel((x) => ({ ...x, ...next }));
+    if (save.length) void savePicks(save, accountName ?? email);
+  };
+  const catValue = (c: Cat, k: string) => (k === 'mainCode' ? c.mainCode : k === 'mainName' ? c.mainName : k === 'mainEn' ? c.mainEn : k === 'subCode' ? c.subCode : k === 'subName' ? c.subName : k === 'subEn' ? c.subEn : '');
   // 모르는 단어를 누르면: 그 단어가 나온 제품명들 (잘못 끊어 읽지 않았는지 확인용)
   const [peek, setPeek] = useState<string | null>(null);
   const peekRows = peek ? needEn.filter((v) => v.tr.unknown.includes(peek)) : [];
@@ -166,16 +219,30 @@ function TranslateTab() {
     const wb = sheet.wb as import('xlsx').WorkBook;
     const ws = wb.Sheets[sheet.sheetName];
     const c = sheet.col.enName;
-    if (c === undefined) return;
     let n = 0;
-    for (const v of needEn) {
-      const en = enOf(v);
-      if (!en || /\[[^\]]+\]/.test(en)) continue; // 모르는 단어가 남은 건 비워 둠
-      ws[XLSX.utils.encode_cell({ r: v.row.r, c })] = { t: 's', v: en };
-      n++;
+    if (c !== undefined)
+      for (const v of needEn) {
+        const en = enOf(v);
+        if (!en || /\[[^\]]+\]/.test(en)) continue; // 모르는 단어가 남은 건 비워 둠
+        ws[XLSX.utils.encode_cell({ r: v.row.r, c })] = { t: 's', v: en };
+        n++;
+      }
+    // 고른 수출 분류: 빈 칸만 채움 (코드는 글자로 — 01 의 0 이 안 없어지게)
+    let nc = 0;
+    let maxC = c ?? 0;
+    for (const v of todo) {
+      const cat = catByKey.get(chosen(v));
+      if (!cat) continue;
+      for (const t of catCols) {
+        if (!v.empty.includes(t.key)) continue;
+        const col = sheet.col[t.key]!;
+        ws[XLSX.utils.encode_cell({ r: v.row.r, c: col })] = { t: 's', v: catValue(cat, t.key) };
+        maxC = Math.max(maxC, col);
+      }
+      nc++;
     }
     const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
-    if (range.e.c < c) range.e.c = c;
+    if (range.e.c < maxC) range.e.c = maxC;
     ws['!ref'] = XLSX.utils.encode_range(range);
     const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const url = URL.createObjectURL(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -184,7 +251,7 @@ function TranslateTab() {
     a.download = sheet.fileName.replace(/(\.xlsx?|\.csv)?$/i, '_번역.xlsx');
     a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-    alert(`영문 제품명 ${n}줄을 채워서 받았어요. (모르는 단어가 남은 줄은 비워 뒀어요)`);
+    alert(`영문 제품명 ${n}줄 · 수출 분류 ${nc}줄을 채워서 받았어요. (모르는 단어가 남은 영문 제품명, 분류를 안 고른 줄은 비워 뒀어요)`);
   };
 
   return (
@@ -202,7 +269,7 @@ function TranslateTab() {
         ) : (
           <span className="muted small">찾는 칸: {TARGETS.map((t) => t.label).join(' · ')} (+ 한글 제품명)</span>
         )}
-        {sheet && sheet.col.enName !== undefined && (
+        {sheet && (
           <button className="tr-dl" onClick={() => void download()}>
             ⬇ 채운 엑셀 받기
           </button>
@@ -259,6 +326,12 @@ function TranslateTab() {
               <input type="checkbox" checked={onlyTodo} onChange={(e) => setOnlyTodo(e.target.checked)} /> 빈 칸 있는 줄만
             </label>
             <span className="muted small">{shown.length}줄</span>
+            {catCols.length > 0 && !!cats?.length && (
+              <button className="tr-sug-all" onClick={applyAllSuggestions} title="추천이 있는 줄에 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
+                ✨ 추천 분류 모두 넣기
+              </button>
+            )}
+            {catCols.length > 0 && !cats?.length && <span className="warn small">분류 탭에서 분류표 엑셀을 먼저 올려 주세요</span>}
           </div>
           <div className="tr-table-wrap">
             <table className="tr-table">
@@ -268,7 +341,8 @@ function TranslateTab() {
                   {sheet.col.code !== undefined && <th>코드</th>}
                   <th>제품명</th>
                   <th>영문 제품명</th>
-                  {TARGETS.filter((t) => t.key !== 'enName' && sheet.col[t.key] !== undefined).map((t) => (
+                  {catCols.length > 0 && <th>수출 분류 고르기</th>}
+                  {catCols.map((t) => (
                     <th key={t.key}>{t.label}</th>
                   ))}
                 </tr>
@@ -282,7 +356,19 @@ function TranslateTab() {
                     <tr key={v.row.r}>
                       <td className="muted">{v.row.r + 1}</td>
                       {sheet.col.code !== undefined && <td className="tr-code">{cell(v.row, 'code')}</td>}
-                      <td className="tr-ko-name">{v.ko}</td>
+                      <td className="tr-ko-name">
+                        {v.cut.length
+                          ? v.ko.split(/(\([^()]*\)|（[^（）]*）)/).map((part, i) =>
+                              v.cut.includes(part) ? (
+                                <mark key={i} className="tr-cut" title="영문 번역에서 뺀 부분">
+                                  {part}
+                                </mark>
+                              ) : (
+                                part
+                              ),
+                            )
+                          : v.ko}
+                      </td>
                       <td className={`tr-en ${enEmpty ? (left ? 'part' : 'auto') : ''}`}>
                         {enEmpty ? (
                           <input value={en} onChange={(e) => setEdits((x) => ({ ...x, [v.row.r]: e.target.value }))} title={left ? '[ ] 안의 단어가 사전에 없어요' : '사전으로 자동 번역'} />
@@ -290,11 +376,48 @@ function TranslateTab() {
                           cell(v.row, 'enName')
                         )}
                       </td>
-                      {TARGETS.filter((t) => t.key !== 'enName' && sheet.col[t.key] !== undefined).map((t) => (
-                        <td key={t.key} className={v.empty.includes(t.key) ? 'tr-empty' : ''}>
-                          {cell(v.row, t.key) || '비어 있음'}
+                      {catCols.length > 0 && (
+                        <td className="tr-cat">
+                          {needCat(v) ? (
+                            (() => {
+                              const val = chosen(v);
+                              const sg = !val ? sugOf(v) : null;
+                              const sc = sg && catByKey.get(sg.cat);
+                              return (
+                                <>
+                                  <select value={val} onChange={(e) => pickCat(v, e.target.value)} className={val ? 'set' : ''} disabled={!cats?.length} title={cats?.length ? '' : '분류 탭에서 분류표를 먼저 올려 주세요'}>
+                                    <option value="">{cats?.length ? '분류 고르기' : '분류표 없음'}</option>
+                                    {catGroups.map(([g, list]) => (
+                                      <optgroup key={g} label={g}>
+                                        {list.map((c) => (
+                                          <option key={catKey(c)} value={catKey(c)}>
+                                            {catLabel(c)}
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    ))}
+                                  </select>
+                                  {sc && (
+                                    <button className="tr-sug" onClick={() => pickCat(v, sg!.cat)} title={`비슷한 제품: ${sg!.like}`}>
+                                      추천: {catLabel(sc)} <span className="muted">· 비슷: {sg!.like.length > 18 ? `${sg!.like.slice(0, 18)}…` : sg!.like}</span>
+                                    </button>
+                                  )}
+                                </>
+                              );
+                            })()
+                          ) : (
+                            <span className="muted small">채워져 있음</span>
+                          )}
                         </td>
-                      ))}
+                      )}
+                      {catCols.map((t) => {
+                        const cat = v.empty.includes(t.key) ? catByKey.get(chosen(v)) : undefined;
+                        return (
+                          <td key={t.key} className={v.empty.includes(t.key) ? (cat ? 'tr-filled' : 'tr-empty') : ''}>
+                            {cat ? catValue(cat, t.key) : cell(v.row, t.key) || '비어 있음'}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}
@@ -413,6 +536,105 @@ function DictTab() {
             )}
           </tbody>
         </table>
+      )}
+    </div>
+  );
+}
+
+/** 분류 탭: 수출 대분류·중분류 표 (엑셀로 올림) + 고른 기록 수 */
+function CatsTab() {
+  const { email, accountName } = useAccess();
+  const { rows, meta } = useCategories();
+  const picks = useCatPicks();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [msg, setMsg] = useState('');
+  const [q, setQ] = useState('');
+  const upload = async (f: File) => {
+    setMsg('');
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: false });
+      // 머리줄: '대분류' · '중분류' 가 들어간 칸
+      let h = -1;
+      const col: Record<string, number> = {};
+      for (let i = 0; i < Math.min(aoa.length, 10) && h < 0; i++) {
+        const hs = (aoa[i] ?? []).map((x) => norm(x));
+        const find = (lv: string, kind: 'code' | 'name' | 'en') =>
+          hs.findIndex((x) => x.includes(lv) && (kind === 'en' ? /영문|영어|eng/.test(x) : kind === 'code' ? /코드|code/.test(x) : /명$|name$/.test(x) && !/영문|영어|eng/.test(x)));
+        const m = { mainCode: find('대분류', 'code'), mainName: find('대분류', 'name'), mainEn: find('대분류', 'en'), subCode: find('중분류', 'code'), subName: find('중분류', 'name'), subEn: find('중분류', 'en') };
+        if (m.mainCode >= 0 && m.subCode >= 0 && m.subName >= 0) {
+          h = i;
+          Object.assign(col, m);
+        }
+      }
+      if (h < 0) return setMsg("머리줄에서 '대분류코드' · '중분류코드' · '중분류명' 칸을 못 찾았어요.");
+      const get = (r: unknown[], k: string) => (col[k] >= 0 ? String(r[col[k]] ?? '').trim() : '');
+      const list: Cat[] = aoa
+        .slice(h + 1)
+        .map((r) => ({ mainCode: get(r, 'mainCode'), mainName: get(r, 'mainName'), mainEn: get(r, 'mainEn'), subCode: get(r, 'subCode'), subName: get(r, 'subName'), subEn: get(r, 'subEn') }))
+        .filter((c) => /^\d+$/.test(c.mainCode) && /^\d+$/.test(c.subCode)); // 영어 머리줄 같은 건 빼고
+      if (!list.length) return setMsg('분류 줄을 못 찾았어요.');
+      await saveCategories(list, accountName ?? email);
+      setMsg(`분류 ${list.length}개를 저장했어요 ✓ (대분류 ${new Set(list.map((c) => c.mainCode)).size}개)`);
+    } catch (e) {
+      setMsg(`엑셀을 못 읽었어요: ${(e as Error).message}`);
+    }
+  };
+  const nq = q.trim().toLowerCase();
+  const shown = (rows ?? []).filter((c) => !nq || `${c.mainName} ${c.mainEn} ${c.subName} ${c.subEn} ${c.mainCode}-${c.subCode}`.toLowerCase().includes(nq));
+  const pickCount = (k: string) => picks.filter((p) => p.cat === k).length;
+  return (
+    <div className="card tr-dict">
+      <div className="tr-dict-tools">
+        <input className="search" placeholder="🔍 분류 이름 · 영문 · 코드" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="muted small">
+          {(rows ?? []).length}개 분류 · 고른 기록 {picks.length}개{meta.at ? ` · 올린 날 ${new Date(meta.at).toLocaleDateString('ko-KR')}` : ''}
+        </span>
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
+        <button className="primary" onClick={() => fileRef.current?.click()} title="대분류코드 · 대분류명 · 대분류 영문명 · 중분류코드 · 중분류명 · 중분류 영문명">
+          📤 분류표 엑셀 올리기
+        </button>
+      </div>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        올리면 전체가 새 분류표로 바뀌어요. 번역 탭에서 줄마다 분류를 고르면 기록이 남고, 다음에 비슷한 제품명이 나오면 그 분류를 추천해요.
+      </p>
+      {msg && <p className="small">{msg}</p>}
+      {rows === null ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : !rows.length ? (
+        <p className="muted small">아직 분류표가 없어요. [분류표 엑셀 올리기]로 넣어 주세요.</p>
+      ) : (
+        <div className="tr-table-wrap">
+          <table className="tr-table">
+            <thead>
+              <tr>
+                <th>대분류</th>
+                <th>대분류명</th>
+                <th>대분류 영문명</th>
+                <th>중분류</th>
+                <th>중분류명</th>
+                <th>중분류 영문명</th>
+                <th>고른 횟수</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((c) => (
+                <tr key={catKey(c)}>
+                  <td className="tr-code">{c.mainCode}</td>
+                  <td>{c.mainName}</td>
+                  <td className="muted">{c.mainEn}</td>
+                  <td className="tr-code">{c.subCode}</td>
+                  <td>
+                    <b>{c.subName}</b>
+                  </td>
+                  <td className="muted">{c.subEn}</td>
+                  <td className="muted small">{pickCount(catKey(c)) || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
