@@ -22,11 +22,14 @@ export default function ProfileMenu() {
       window.removeEventListener('keydown', esc);
     };
   }, [open]);
-  const initial = name.replace(/^[가-힣](?=[가-힣]{2}$)/, '').slice(0, 2);
   return (
     <div className="profile" ref={box}>
-      <button className="profile-btn" style={{ background: card?.color ?? '#8c2f3c' }} onClick={() => setOpen((v) => !v)} title={`${name}${email ? ` · ${email}` : ''}`} aria-label="내 계정">
-        {initial}
+      <button className={`profile-btn ${open ? 'on' : ''}`} onClick={() => setOpen((v) => !v)} title={`${name}${email ? ` · ${email}` : ''}`} aria-label="내 계정">
+        {/* 사람 모양 */}
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M4.5 20c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
       </button>
       {open && (
         <div className="profile-menu" role="menu">

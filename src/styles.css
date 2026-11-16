@@ -7297,3 +7297,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tr-dict-add input { flex: 1 1 160px; max-width: 260px; }
 .tr-en-btn { border: 0; background: none; font: inherit; color: inherit; cursor: text; padding: 2px 4px; border-radius: 4px; text-align: left; }
 .tr-en-btn:hover { background: #f6eeec; }
+/* 프로필: 사람 모양 아이콘 (위쪽 버튼들과 같은 모양) */
+.profile-btn { background: rgba(255, 255, 255, 0.75); color: #5b3a36; border: 1px solid rgba(255, 255, 255, 0.9); display: inline-grid; place-items: center; box-shadow: 0 1px 4px rgba(91, 40, 40, 0.12); }
+.profile-btn:hover, .profile-btn.on { background: #fff; }
