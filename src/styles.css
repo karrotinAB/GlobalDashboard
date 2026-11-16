@@ -7255,3 +7255,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rp-detail .rp-replies:empty { display: none; }
 .rp-actions button.link:first-child { font-weight: 600; }
 @media (max-width: 600px) { .rp-detail .rp-replies { padding-left: 8px; } }
+
+.rp-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rp-search { flex: 1 1 260px; max-width: 420px; }

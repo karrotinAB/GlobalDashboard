@@ -1,5 +1,5 @@
 // 보고방: 조원이 쓰고 (제목만 보이고 누르면 내용), 팀장님·이사님이 각자 확인 체크 + 답변
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useState, type CSSProperties } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { useStore } from '../data/store';
 import { isPersonal, TEAMS } from '../lib/team';
@@ -54,10 +54,35 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
     window.addEventListener('hashchange', h);
     return () => window.removeEventListener('hashchange', h);
   }, []);
-  const shown = useMemo(
-    () => (list ?? []).filter((r) => (!teamF || r.team === teamF) && (!onlyOpen || !myCheck || !r.checks?.[myCheck])),
-    [list, teamF, onlyOpen, myCheck],
-  );
+  // 검색: 제목 · 내용 · 답글 · 첨부 이름 · 작성자 · 작성 날짜 (11/16, 2026-11-16, 2026.11.16, 11월 16일 …)
+  const [q, setQ] = useState('');
+  const hay = (r: Report) => {
+    const d = new Date(r.createdAt);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const dd = d.getDate();
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
+    return [
+      r.title,
+      text(r.body ?? ''),
+      ...(r.replies ?? []).map((x) => `${x.text} ${nameOf(x.email, x.name)}`),
+      ...(r.files ?? []).map((f) => f.name),
+      nameOf(r.authorEmail, r.authorName),
+      teamName(r.team),
+      `${m}/${dd} ${p2(m)}/${p2(dd)} ${y}-${p2(m)}-${p2(dd)} ${y}.${p2(m)}.${p2(dd)} ${y}.${m}.${dd} ${String(y).slice(2)}.${p2(m)}.${p2(dd)} ${m}월 ${dd}일 ${m}월${dd}일 ${y}${p2(m)}${p2(dd)}`,
+    ]
+      .join(' ')
+      .toLowerCase();
+  };
+  const shown = (list ?? []).filter((r) => {
+    if (teamF && r.team !== teamF) return false;
+    if (onlyOpen && myCheck && r.checks?.[myCheck]) return false;
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const h = hay(r);
+    return words.every((w) => h.includes(w)); // 여러 단어는 모두 들어간 것만
+  });
   const canWrite = !leaderView && (space === 'trade' ? access.role === 'trade' || access.role === 'admin' || access.role === null : access.role !== 'trade');
   const toggleCheck = (r: Report, k: CheckRole) => {
     const checks = { ...(r.checks ?? {}) };
@@ -94,8 +119,9 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
         />
       )}
 
-      {leaderView && (
-        <div className="toolbar rp-tools">
+      <div className="toolbar rp-tools">
+        <input className="search rp-search" placeholder="🔍 제목 · 내용 · 작성자 · 날짜 (예: 11/16)" value={q} onChange={(e) => setQ(e.target.value)} />
+        {leaderView && (
           <div className="seg">
             <button className={!teamF ? 'on' : ''} onClick={() => setTeamF('')}>
               전체 조
@@ -106,19 +132,19 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
               </button>
             ))}
           </div>
-          {myCheck && (
-            <label className="check-line small">
-              <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> 내가 확인 안 한 것만
-            </label>
-          )}
-        </div>
-      )}
+        )}
+        {leaderView && myCheck && (
+          <label className="check-line small">
+            <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> 내가 확인 안 한 것만
+          </label>
+        )}
+      </div>
 
       <section className="card rp-card">
         {list === null ? (
           <p className="muted small">불러오는 중…</p>
         ) : shown.length === 0 ? (
-          <p className="muted small">{list.length ? '조건에 맞는 보고가 없어요.' : '아직 올라온 보고가 없어요.'}</p>
+          <p className="muted small">{list.length ? (q.trim() ? `'${q.trim()}' 에 맞는 보고가 없어요.` : '조건에 맞는 보고가 없어요.') : '아직 올라온 보고가 없어요.'}</p>
         ) : (
           <table className="rp-table">
             <thead>
