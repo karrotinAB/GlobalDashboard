@@ -52,6 +52,8 @@ export interface Task {
   num?: string; // 직접 정한 번호 (예: 1-1). 없으면 업체 안에서 자동 번호
   orderId?: string; // 연결한 주문 (비고 끝 ↗ 로 주문 관리의 그 주문으로)
   bundleId?: string; // 연결한 주문 묶음 (↗ 로 그 묶음으로)
+  reportId?: string; // 보고방 보고 (팀장님·이사님 '보고 확인하기' 할일)
+  reportTeam?: string;
   order: number;
   createdAt: string; // YYYY-MM-DD
 }
@@ -152,6 +154,8 @@ export interface ConfigDoc {
   at?: string;
   // id = 'myCompanies': 팀장님·이사님 '내 담당' 업체 (주간 할일·주문·클레임에 보이는 업체)
   companyIds?: string[];
+  // id = 'reportTasks': 팀장님·이사님 — 할일로 이미 만든 보고 (지운 할일은 다시 안 만듦)
+  reportIds?: string[];
   // id = 'holidays': 공휴일 서비스에 없는 나라별 휴일 (관리자가 설정에서 추가)
   holidays?: ExtraHoliday[];
 }

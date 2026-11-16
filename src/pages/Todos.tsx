@@ -1,3 +1,4 @@
+import { isLeaderRole, setReportCheck } from '../lib/reports';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
@@ -197,6 +198,11 @@ export default function Todos() {
 
   const toggleDone = (t: Task) => {
     if (readOnly) return;
+    // 보고 확인 할일: 보고방 확인 체크를 바꾸면 할일도 따라 바뀜
+    if (t.reportId && isLeaderRole(access.role)) {
+      void setReportCheck(t.reportId, access.role, !t.done, access.accountName ?? access.email.split('@')[0], access.email || undefined);
+      return;
+    }
     // 반복 할일은 '오늘 완료했는지'로 판단 (어제 완료 → 오늘은 다시 체크할 수 있음)
     const doneNow = t.repeat ? t.done && t.doneAt === todayIso : t.done;
     save('tasks', doneNow ? { ...t, done: false, doneAt: undefined } : { ...t, done: true, doneAt: todayIso });
@@ -528,6 +534,11 @@ export default function Todos() {
                         <td className="c-note">
                           <div className="note-wrap">
                             <EditableText value={task.note ?? ''} oneLine expand placeholder="비고" disabled={readOnly} onSave={(v) => patch({ note: v || undefined })} />
+                            {task.reportId && (
+                              <a className="order-link report-link" href={`#/reports?r=${task.reportId}`} title="보고방에서 이 보고 보기">
+                                📑↗
+                              </a>
+                            )}
                             {linked && (
                               <a
                                 className="order-link"

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import AddressBook from './components/AddressBook';
 import TradeExport from './pages/TradeExport';
+import Reports from './pages/Reports';
+import ReportTaskSync from './components/ReportTaskSync';
+import { useReportAlert } from './lib/reports';
 import { useStore } from './data/store';
 import { Cover } from './components/ui';
 import { isLeader, logout, useAccess } from './components/AuthGate';
@@ -28,6 +31,7 @@ const PAGES = [
   { key: 'claims', label: '클레임', icon: '🧾' },
   { key: 'settings', label: '설정', icon: '⚙️' },
   { key: 'requests', label: '무역사무요청', icon: '📨' },
+  { key: 'reports', label: '보고방', icon: '📑' },
   // 무역사무 페이지 (무역사무 계정 + 관리자)
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
@@ -101,6 +105,8 @@ export default function App() {
   }, []);
 
   const [drawer, setDrawer] = useState(false);
+  // 보고방 빨간 점: 우리 조 보고에 팀장님·이사님 새 답변 (조 화면에서만)
+  const reportAlert = useReportAlert(viewTeam, !tradeOnly && !isPersonal(viewTeam));
   const go = (p: string) => {
     window.location.hash = `/${p}`;
   };
@@ -112,6 +118,7 @@ export default function App() {
   return (
     <div className="app">
       <ExtensionBridge />
+      <ReportTaskSync />
       <div className="mobile-bar">
         <button className="mb-menu" onClick={() => setDrawer(true)} aria-label="메뉴 열기">
           ☰
@@ -150,6 +157,15 @@ export default function App() {
                   {p.label}
                 </a>
               ))}
+              {side === 'team' && (
+                <a href="#/reports" className={page === 'reports' ? 'active' : ''}>
+                  <span className="tab-icon" aria-hidden="true">
+                    📑
+                  </span>
+                  보고방
+                  {reportAlert && <span className="tab-dot" />}
+                </a>
+              )}
               {side === 'team' && (
                 <a href="#/requests" className={page === 'requests' ? 'active' : ''}>
                   <span className="tab-icon" aria-hidden="true">
@@ -227,6 +243,12 @@ export default function App() {
             </a>
           ))}
           {side === 'team' && (
+            <a href="#/reports" className={`tab-request tab-report ${page === 'reports' ? 'active' : ''}`} title="보고방 (우리 조 · 팀장님 · 이사님)">
+              <span aria-hidden="true">📑</span> 보고방
+              {reportAlert && <span className="tab-dot" title="팀장님·이사님 새 답변" />}
+            </a>
+          )}
+          {side === 'team' && (
             <a href="#/requests" className={`tab-request ${page === 'requests' ? 'active' : ''}`} title="무역사무에 업무 요청하기">
               <span aria-hidden="true">📨</span> 무역사무요청
             </a>
@@ -284,6 +306,8 @@ export default function App() {
             <RequestBoard key="trade" side="trade" />
           ) : page === 'texport' ? (
             <TradeExport />
+          ) : page === 'reports' && !tradeOnly ? (
+            <Reports />
           ) : (
             <Settings side={side} />
           )}

@@ -7142,3 +7142,49 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .ab-table .ab-ext { font-weight: 800; }
 
 .name-input { width: 110px; }
+
+/* 보고방 */
+.tab-report { position: relative; }
+.tab-dot { position: absolute; top: 3px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: #e0352b; box-shadow: 0 0 0 2px #fff; }
+.drawer-nav a { position: relative; }
+.drawer-nav .tab-dot { position: static; display: inline-block; margin-left: 4px; }
+.rp-tools { margin-bottom: 10px; }
+.rp-card { padding: 6px 0; overflow-x: auto; }
+.rp-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rp-table th { text-align: left; font-size: 12.5px; color: #8a7470; font-weight: 600; padding: 8px 12px; border-bottom: 1px solid #eadcd9; white-space: nowrap; }
+.rp-table td { padding: 8px 12px; border-bottom: 1px solid #f1e6e3; vertical-align: middle; }
+.rp-table .rp-chk, .rp-table th.rp-chk { text-align: center; width: 110px; white-space: nowrap; font-size: 12.5px; }
+.rp-table td.rp-chk.on { color: #2f6b3c; font-weight: 600; background: #f1f8f2; }
+.rp-table .rp-who, .rp-table .rp-date { white-space: nowrap; color: #6b5753; font-size: 13px; width: 1%; }
+.rp-table .rp-team { width: 1%; }
+.rp-title-btn { border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 2px 0; font-weight: 600; }
+.rp-title-btn:hover { color: #8c2f3c; }
+.rp-caret { color: #b8a5a1; width: 12px; }
+.rp-n { font-size: 11.5px; color: #8a7470; font-weight: 500; }
+.rp-new { font-size: 11px; font-weight: 700; color: #fff; background: #e0352b; border-radius: 999px; padding: 1px 7px; }
+.rp-new.blue { background: #3b7dd8; }
+.rp-row.open td { background: #fbf6f4; }
+.rp-detail-row > td { background: #fbf6f4; padding: 4px 16px 14px 34px; }
+.rp-body { white-space: pre-wrap; line-height: 1.6; background: #fff; border: 1px solid #eadcd9; border-radius: 10px; padding: 12px 14px; }
+.rp-actions { display: flex; gap: 12px; align-items: center; margin: 6px 0 0; }
+.danger-text { color: #b03a2e !important; }
+.rp-replies { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.rp-reply { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 7px 10px; border-radius: 10px; background: #fff; border: 1px solid #f1e6e3; }
+.rp-reply.leader { border-color: #f3cf95; background: #fff8ec; }
+.rp-reply-who { font-weight: 700; font-size: 13px; display: inline-flex; gap: 4px; align-items: center; }
+.rp-role { font-size: 10.5px; background: #8c2f3c; color: #fff; border-radius: 999px; padding: 0 6px; font-weight: 600; }
+.rp-reply-text { white-space: pre-wrap; flex: 1 1 200px; }
+.rp-reply-box { display: flex; gap: 8px; align-items: flex-end; }
+.rp-reply-box textarea { flex: 1; resize: vertical; }
+.rp-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.rp-form-title { font-size: 15px; font-weight: 600; }
+.rp-form-body { resize: vertical; line-height: 1.5; }
+.rp-chk-label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.report-link { text-decoration: none; }
+@media (max-width: 600px) {
+  .rp-table .rp-who, .rp-table .rp-date { display: none; }
+  .rp-table .rp-chk { width: 64px; font-size: 11px; }
+  .rp-detail-row > td { padding-left: 12px; }
+}
+.tabs .tab-report { margin-left: auto; }
+.tabs .tab-report + .tab-request { margin-left: 8px; }
