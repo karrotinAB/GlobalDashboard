@@ -38,7 +38,8 @@ export default function TradeHome() {
     { id: '-', list: open.filter((r) => !r.assigneeId) },
   ];
   const detail = data.requests.find((r) => r.id === openId);
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  // 새로 들어온 업무: 최근 4일 (주말 포함) 안에 올라온, 아직 시작 안 한 것
+  const weekAgo = new Date(Date.now() - 4 * 86400000).toISOString();
   const fresh = data.requests
     .filter((r) => r.status === 'requested' && r.createdAt >= weekAgo)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -107,7 +108,7 @@ export default function TradeHome() {
       <section className="section">
         <div className="section-head">
           <h2>🆕 새로 들어온 업무</h2>
-          <span className="muted small">아직 시작 안 한 최근 7일 요청 · 누르면 자세히</span>
+          <span className="muted small">아직 시작 안 한 최근 4일 요청 · 누르면 자세히</span>
         </div>
         {fresh.length === 0 ? (
           <p className="muted small">새로 들어온 업무가 없어요 🍵</p>

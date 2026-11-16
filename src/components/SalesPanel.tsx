@@ -39,6 +39,7 @@ import { useIsMobile } from '../lib/useMobile';
 import { CoSelect, LIST, MobileCoList } from './MobilePick';
 
 const pad = (n: number) => String(n).padStart(2, '0');
+const CMP = '__cmp'; // 업체 비교 (업체 고르기 자리)
 const store = {
   get: (k: string) => {
     try {
@@ -141,6 +142,13 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
     }
   };
   const [sel, setSel] = useState<{ month: string; branch: string | null } | null>(null);
+  // 보기: 월별 (그 달 주·일) / 연간 (그 해 1~12월)
+  const [span, setSpan] = useState<'month' | 'year'>(() => (store.get('gd:salesSpan') === 'year' ? 'year' : 'month'));
+  const pickSpan = (v: 'month' | 'year') => {
+    setSpan(v);
+    store.set('gd:salesSpan', v);
+  };
+  const [yr, setYr] = useState<string | null>(null);
 
   // 월 → 지점 → 데이터 (매장코드가 여러 개여도 한데 모음)
   const byMonth = useMemo(() => {
@@ -148,7 +156,7 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
     for (const doc of months) m.set(doc.month, { ...(m.get(doc.month) ?? {}), ...doc.branches });
     return m;
   }, [months]);
-  const monthList = [...byMonth.keys()].sort().slice(-12);
+  const monthList = [...byMonth.keys()].sort();
   const branchIds = [...new Set(monthList.flatMap((m) => Object.keys(byMonth.get(m) ?? {})))].sort();
   const nameOf = (sid: string) => {
     if (branchNames[sid]) return branchNames[sid];
@@ -187,7 +195,11 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
     return sum;
   };
 
-  const pickItems = withCodes.map((c) => ({ id: c.id, label: c.name, color: c.color, tag: c.team ? `${c.team}조` : undefined, sub: c.storeCodes!.join(', ') }));
+  const pickItems = [
+    ...(withCodes.length > 1 ? [{ id: CMP, label: '📊 업체 비교', sub: '원화·달러로 바꿔서 같이' }] : []),
+    ...withCodes.map((c) => ({ id: c.id, label: c.name, color: c.color, tag: c.team ? `${c.team}조` : undefined, sub: c.storeCodes!.join(', ') })),
+  ];
+  const comparing = coId === CMP && withCodes.length > 1;
   const coSelect = (
     <CoSelect
       value={coId}
@@ -200,7 +212,7 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
       }}
     />
   );
-  if (mobile && !co)
+  if (mobile && !co && !comparing)
     return withCodes.length === 0 ? (
       <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>판매데이터</b>를 켜 주세요.</p>
     ) : (
@@ -209,7 +221,7 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
   return (
     <>
       {mobile ? (
-        (!ready || monthList.length === 0) && <div className="sales-bar">{coSelect}</div>
+        !comparing && (!ready || monthList.length === 0) && <div className="sales-bar">{coSelect}</div>
       ) : withCodes.length === 0 ? (
         <p className="muted small">판매 데이터를 수집 중인 업체가 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>판매데이터</b>를 켜 주세요.</p>
       ) : (
@@ -244,6 +256,11 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
           )}
         </div>
         <div className="company-chips">
+          {withCodes.length > 1 && (
+            <button className={`cchip cmp-chip ${comparing ? 'on' : ''}`} onClick={() => pickCo(CMP)}>
+              📊 업체 비교
+            </button>
+          )}
           {withCodes.map((c) => (
             <button key={c.id} className={`cchip ${coId === c.id ? 'on' : ''}`} onClick={() => pickCo(c.id)}>
               <span className="dot" style={{ background: c.color }} />
@@ -255,6 +272,7 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
         </>
       )}
 
+      {comparing && <CompareView companies={withCodes} mobile={!!mobile} coSelect={mobile ? coSelect : null} target={target} onTarget={pickTarget} />}
       {co && !ready && <p className="muted small">불러오는 중…</p>}
       {co && ready && monthList.length === 0 && <p className="muted small">아직 들어온 판매 데이터가 없어요 (매장코드 {co.storeCodes!.join(', ')}).</p>}
 
@@ -266,9 +284,32 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
             const [cy, cm] = cur.month.split('-').map(Number);
             const ids = branchIds.filter((sid) => total(cur.month, sid));
             const k = krwOf(cur.month);
+            const years = [...new Set(monthList.map((m) => m.slice(0, 4)))];
+            const curYear = yr && years.includes(yr) ? yr : cur.month.slice(0, 4);
+            const yIdx = years.indexOf(curYear);
             return (
               <>
                 <div className="sales-bar">
+                <div className={`mode-slide small span-pick ${span === 'month' ? 'sales' : 'export'}`} role="tablist">
+                  <span className="mode-knob" />
+                  <button role="tab" aria-selected={span === 'month'} onClick={() => pickSpan('month')}>
+                    월별
+                  </button>
+                  <button role="tab" aria-selected={span === 'year'} onClick={() => pickSpan('year')}>
+                    연간
+                  </button>
+                </div>
+                {span === 'year' ? (
+                  <div className="month-nav">
+                    <button disabled={yIdx <= 0} onClick={() => setYr(years[yIdx - 1])} aria-label="이전 해">
+                      ◀
+                    </button>
+                    <b>{curYear}년</b>
+                    <button disabled={yIdx >= years.length - 1} onClick={() => setYr(years[yIdx + 1])} aria-label="다음 해">
+                      ▶
+                    </button>
+                  </div>
+                ) : (
                 <div className="month-nav">
                   <button disabled={idx <= 0} onClick={() => setSel({ month: monthList[idx - 1], branch: null })} aria-label="이전 달">
                     ◀
@@ -285,6 +326,7 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
                     </button>
                   )}
                 </div>
+                )}
                 {mobile && coSelect}
                 {money && money !== target && k === null && (
                   <span className="conv-missing" title="ECOS 환율이 이 달에 없어요">
@@ -306,7 +348,26 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
                   </div>
                 )}
                 </div>
-                {mobile ? (
+                {span === 'year' ? (
+                  <YearView
+                    year={curYear}
+                    branchIds={branchIds}
+                    total={total}
+                    krwOf={krwOf}
+                    nameOf={(sid) => nameOf(sid) || sid}
+                    colorOf={(sid) => BR_COLORS[branchIds.indexOf(sid) % BR_COLORS.length]}
+                    color={co.color ?? '#8c2f3c'}
+                    money={money}
+                    target={target}
+                    tSym={tSym}
+                    mobile={!!mobile}
+                    has={(m) => byMonth.has(m)}
+                    onPickMonth={(m) => {
+                      setSel({ month: m, branch: null });
+                      pickSpan('month');
+                    }}
+                  />
+                ) : mobile ? (
                   <table className="sales-table vt-table">
                     <thead>
                       <tr>
@@ -408,7 +469,7 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
             );
           })()}
 
-          {cur && (
+          {cur && span === 'month' && (
             <MonthDetail
               key={cur.month}
               month={cur.month}
@@ -941,6 +1002,478 @@ function MonthCalendar({
       <p className="muted small">
         <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일 (주말에 포함) · 주 이름이나 그래프의 점을 누르면 그 주 자세히
       </p>
+    </div>
+  );
+}
+
+/** 연간 보기: 그 해 1~12월 판매 (합계 + 지점 선 그래프 · 월별 표, 달을 누르면 그 달 월별 보기로) */
+function YearView({
+  year,
+  branchIds,
+  total,
+  krwOf,
+  nameOf,
+  colorOf,
+  color,
+  money,
+  target,
+  tSym,
+  mobile,
+  has,
+  onPickMonth,
+}: {
+  year: string;
+  branchIds: string[];
+  total: (m: string, sid?: string) => number;
+  krwOf: (m: string, sid?: string) => number | null;
+  nameOf: (sid: string) => string;
+  colorOf: (sid: string) => string;
+  color: string;
+  money?: string;
+  target: 'KRW' | 'USD';
+  tSym: string;
+  mobile: boolean;
+  has: (m: string) => boolean;
+  onPickMonth: (m: string) => void;
+}) {
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
+  const withData = months.filter(has);
+  const ids = branchIds.filter((sid) => withData.some((m) => total(m, sid)));
+  const [hide, setHide] = useState<Set<string>>(() => new Set(ids.length > 6 ? ids : []));
+  const sym = money ? curSym(money) : '';
+  const yearTotal = withData.reduce((a, m) => a + total(m), 0);
+  const convs = withData.map((m) => krwOf(m));
+  const yearConv = convs.length && convs.every((x) => x !== null) ? convs.reduce((a, x) => a + (x ?? 0), 0) : null;
+  const avg = withData.length ? yearTotal / withData.length : 0;
+  // 그래프 (월별 합계 + 지점)
+  const W = mobile ? 380 : 1000;
+  const L = mobile ? 46 : 54;
+  const R = 16;
+  const top = 30;
+  const bottom = mobile ? 210 : 200;
+  const H = bottom + 30;
+  const series = [
+    { key: 'all', name: '합계', color, vals: months.map((m) => (has(m) ? total(m) : null)), main: true },
+    ...(ids.length > 1 ? ids.map((sid) => ({ key: sid, name: nameOf(sid), color: colorOf(sid), vals: months.map((m) => (has(m) ? total(m, sid) : null)), main: false })) : []),
+  ].filter((x) => !hide.has(x.key));
+  const max = Math.max(1, ...series.flatMap((x) => x.vals.filter((v): v is number => v !== null)));
+  const x = (i: number) => L + (i * (W - L - R)) / 11;
+  const y = (v: number) => bottom - (v / max) * (bottom - top);
+  const path = (vals: (number | null)[]) => {
+    let d = '';
+    let pen = false;
+    vals.forEach((v, i) => {
+      if (v === null) {
+        pen = false;
+        return;
+      }
+      d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+      pen = true;
+    });
+    return d;
+  };
+  const toggle = (k: string) =>
+    setHide((h) => {
+      const n = new Set(h);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+  if (!withData.length) return <p className="muted small">{year}년 판매 데이터가 없어요.</p>;
+  return (
+    <div className="sales-year">
+      <p className="muted small year-sum">
+        {year}년 합계{' '}
+        <b className="ink">
+          {sym}
+          {fullAmt(yearTotal)}
+        </b>
+        {money ? ` ${money}` : ''}
+        {yearConv !== null && (
+          <>
+            {' '}≈ <b className="ink">{tSym}{fmtConv(yearConv, target)}</b>
+          </>
+        )}{' '}
+        · {withData.length}개월 · 월평균 {sym}
+        {fullAmt(Math.round(avg))}
+      </p>
+      <div className="sales-chart">
+        <div className="chart-legend">
+          {[{ key: 'all', name: '합계', color }, ...(ids.length > 1 ? ids.map((sid) => ({ key: sid, name: nameOf(sid), color: colorOf(sid) })) : [])].map((l) => (
+            <button key={l.key} className={`lg ${hide.has(l.key) ? 'off' : ''}`} onClick={() => toggle(l.key)} title="눌러서 숨기기/보이기">
+              <span className="lg-line" style={{ background: l.color, height: l.key === 'all' ? 3 : 2 }} />
+              {l.name}
+            </button>
+          ))}
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${year}년 월별 판매 금액`}>
+          {[0, 0.5, 1].map((g) => (
+            <g key={g}>
+              <line x1={L} x2={W - R} y1={y(max * g)} y2={y(max * g)} className="sc-grid" />
+              <text x={L - 6} y={y(max * g) + 4} className="sc-axis" textAnchor="end">
+                {sym}
+                {sm(max * g)}
+              </text>
+            </g>
+          ))}
+          {series.map((sr) => (
+            <g key={sr.key}>
+              <path d={path(sr.vals)} fill="none" stroke={sr.color} strokeWidth={sr.main ? 5 : 2} strokeLinejoin="round" strokeLinecap="round" opacity={sr.main ? 0.45 : 0.95} />
+              {sr.vals.map((v, i) =>
+                v === null ? null : (
+                  <circle key={i} cx={x(i)} cy={y(v)} r={sr.main ? 4 : 2.6} fill="#fff" stroke={sr.color} strokeWidth={sr.main ? 2 : 1.5} className="yr-pt" onClick={() => onPickMonth(months[i])}>
+                    <title>
+                      {sr.name} {i + 1}월: {sym}
+                      {fullAmt(v)} (누르면 그 달 보기)
+                    </title>
+                  </circle>
+                ),
+              )}
+              {sr.main &&
+                !mobile &&
+                sr.vals.map((v, i) =>
+                  v === null ? null : (
+                    <text key={`t${i}`} x={x(i)} y={y(v) - 9} textAnchor="middle" className="sc-val">
+                      {sym}
+                      {sm(v)}
+                    </text>
+                  ),
+                )}
+            </g>
+          ))}
+          {months.map((m, i) => (
+            <text key={m} x={x(i)} y={bottom + 18} textAnchor="middle" className="sc-wk">
+              {i + 1}월
+            </text>
+          ))}
+        </svg>
+      </div>
+      <div className="sales-table-wrap">
+        <table className="sales-table yr-table">
+          <thead>
+            <tr>
+              <th className="l">월</th>
+              <th className="r">
+                합계 {money && <span className="cur-tag">{money}</span>}
+              </th>
+              {!mobile &&
+                ids.map((sid) => (
+                  <th key={sid} className="r">
+                    <span className="br-dot" style={{ background: colorOf(sid) }} />
+                    {nameOf(sid)}
+                  </th>
+                ))}
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m, i) => {
+              const ok = has(m);
+              const kk = ok ? krwOf(m) : null;
+              return (
+                <tr key={m} className={ok ? 'yr-row' : 'yr-empty'} onClick={() => ok && onPickMonth(m)} title={ok ? '누르면 그 달 월별 보기' : undefined}>
+                  <th className="l">{i + 1}월</th>
+                  <td className="r">
+                    {ok ? (
+                      <>
+                        <b>
+                          {sym}
+                          {fullAmt(total(m))}
+                        </b>
+                        {kk !== null && <small className="krw">{tSym}{fmtConv(kk, target)}</small>}
+                      </>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                  {!mobile &&
+                    ids.map((sid) => (
+                      <td key={sid} className="r">
+                        {ok && total(m, sid) ? `${sym}${fullAmt(total(m, sid))}` : <span className="muted">—</span>}
+                      </td>
+                    ))}
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th className="l">합계</th>
+              <td className="r">
+                <b>
+                  {sym}
+                  {fullAmt(yearTotal)}
+                </b>
+                {yearConv !== null && <small className="krw">{tSym}{fmtConv(yearConv, target)}</small>}
+              </td>
+              {!mobile &&
+                ids.map((sid) => (
+                  <td key={sid} className="r">
+                    {sym}
+                    {fullAmt(withData.reduce((a, m) => a + total(m, sid), 0))}
+                  </td>
+                ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** 업체 비교: 판매데이터 업체들을 원화(또는 달러)로 바꿔서 그 해 월별로 같이 보기 */
+function CompareView({
+  companies,
+  mobile,
+  coSelect,
+  target,
+  onTarget,
+}: {
+  companies: Company[];
+  mobile: boolean;
+  coSelect: React.ReactNode;
+  target: 'KRW' | 'USD';
+  onTarget: (t: 'KRW' | 'USD') => void;
+}) {
+  const { months: docs, ready } = useSales(companies.flatMap((c) => c.storeCodes ?? []));
+  // 업체 → 달 → 날 → 금액 (지점 합)
+  const byCo = useMemo(() => {
+    const coOf = new Map<string, Company>();
+    for (const c of companies) for (const code of c.storeCodes ?? []) coOf.set(code, c);
+    const m = new Map<string, Map<string, Record<string, number>>>();
+    for (const d of docs) {
+      const c = coOf.get(d.code);
+      if (!c) continue;
+      const mm = m.get(c.id) ?? new Map<string, Record<string, number>>();
+      const days = { ...(mm.get(d.month) ?? {}) };
+      for (const b of Object.values(d.branches)) for (const [dd, v] of Object.entries(b.days ?? {})) days[dd] = (days[dd] ?? 0) + v;
+      mm.set(d.month, days);
+      m.set(c.id, mm);
+    }
+    return m;
+  }, [docs, companies]);
+  const allMonths = [...new Set(docs.map((d) => d.month))].sort();
+  const years = [...new Set(allMonths.map((m) => m.slice(0, 4)))];
+  const [yr, setYr] = useState<string | null>(null);
+  const year = yr && years.includes(yr) ? yr : years[years.length - 1] ?? String(new Date().getFullYear());
+  const yIdx = years.indexOf(year);
+  const fx = useFxRates([...companies.map((c) => c.salesCurrency ?? ''), 'USD'], allMonths.length ? [prevMonth(allMonths[0]), ...allMonths] : []);
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
+  // 업체·달 → 환산 금액 (환율이 하루라도 없으면 null)
+  const valOf = (c: Company, m: string): number | null | undefined => {
+    const days = byCo.get(c.id)?.get(m);
+    if (!days) return undefined;
+    const conv = makeConv(fx, c.salesCurrency, target);
+    let sum = 0;
+    for (const [dd, v] of Object.entries(days)) {
+      const r = conv(`${m}-${dd}`, v);
+      if (r === null) return null;
+      sum += r;
+    }
+    return sum;
+  };
+  const rows = companies.map((c) => {
+    const vals = months.map((m) => valOf(c, m));
+    const ok = vals.filter((v): v is number => typeof v === 'number');
+    return { c, vals, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
+  });
+  const grand = rows.reduce((a, r) => a + r.total, 0);
+  const tSym = target === 'USD' ? '$' : '₩';
+  const short = (n: number) => `${tSym}${shortConv(n, target)}`;
+  const [hide, setHide] = useState<Set<string>>(new Set());
+  // 그래프
+  const W = mobile ? 380 : 1000;
+  const L = mobile ? 46 : 56;
+  const R = 16;
+  const top = 24;
+  const bottom = mobile ? 210 : 200;
+  const H = bottom + 30;
+  const shown = rows.filter((r) => !hide.has(r.c.id));
+  const max = Math.max(1, ...shown.flatMap((r) => r.vals.filter((v): v is number => typeof v === 'number')));
+  const x = (i: number) => L + (i * (W - L - R)) / 11;
+  const y = (v: number) => bottom - (v / max) * (bottom - top);
+  const path = (vals: (number | null | undefined)[]) => {
+    let d = '';
+    let pen = false;
+    vals.forEach((v, i) => {
+      if (typeof v !== 'number') {
+        pen = false;
+        return;
+      }
+      d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+      pen = true;
+    });
+    return d;
+  };
+  return (
+    <div className="sales-compare">
+      <div className="sales-bar">
+        <div className="month-nav">
+          <button disabled={yIdx <= 0} onClick={() => setYr(years[yIdx - 1])} aria-label="이전 해">
+            ◀
+          </button>
+          <b>{year}년</b>
+          <button disabled={yIdx >= years.length - 1} onClick={() => setYr(years[yIdx + 1])} aria-label="다음 해">
+            ▶
+          </button>
+        </div>
+        {coSelect}
+        <div className="conv-pick">
+          <span className="muted small">비교 통화</span>
+          <div className={`mode-slide small ${target === 'KRW' ? 'sales' : 'export'}`} role="tablist">
+            <span className="mode-knob" />
+            <button role="tab" aria-selected={target === 'KRW'} onClick={() => onTarget('KRW')}>
+              원화 KRW
+            </button>
+            <button role="tab" aria-selected={target === 'USD'} onClick={() => onTarget('USD')}>
+              외화 USD
+            </button>
+          </div>
+        </div>
+      </div>
+      {!ready ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : (
+        <>
+          <p className="muted small year-sum">
+            {year}년 판매데이터 업체 {companies.length}곳 합계 <b className="ink">{tSym}{fmtConv(grand, target)}</b> · 판매일 환율로 {target === 'KRW' ? '원화' : '달러'} 환산
+          </p>
+          <div className="sales-chart">
+            <div className="chart-legend">
+              {rows.map((r) => (
+                <button
+                  key={r.c.id}
+                  className={`lg ${hide.has(r.c.id) ? 'off' : ''}`}
+                  onClick={() =>
+                    setHide((h) => {
+                      const n = new Set(h);
+                      if (n.has(r.c.id)) n.delete(r.c.id);
+                      else n.add(r.c.id);
+                      return n;
+                    })
+                  }
+                  title="눌러서 숨기기/보이기"
+                >
+                  <span className="lg-line" style={{ background: r.c.color ?? '#999', height: 3 }} />
+                  {r.c.name}
+                </button>
+              ))}
+            </div>
+            <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${year}년 업체별 월 판매 비교`}>
+              {[0, 0.5, 1].map((g) => (
+                <g key={g}>
+                  <line x1={L} x2={W - R} y1={y(max * g)} y2={y(max * g)} className="sc-grid" />
+                  <text x={L - 6} y={y(max * g) + 4} className="sc-axis" textAnchor="end">
+                    {short(max * g)}
+                  </text>
+                </g>
+              ))}
+              {shown.map((r) => (
+                <g key={r.c.id}>
+                  <path d={path(r.vals)} fill="none" stroke={r.c.color ?? '#999'} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+                  {r.vals.map((v, i) =>
+                    typeof v === 'number' ? (
+                      <circle key={i} cx={x(i)} cy={y(v)} r={3} fill="#fff" stroke={r.c.color ?? '#999'} strokeWidth={1.8}>
+                        <title>
+                          {r.c.name} {i + 1}월: {tSym}
+                          {fmtConv(v, target)}
+                        </title>
+                      </circle>
+                    ) : null,
+                  )}
+                </g>
+              ))}
+              {months.map((m, i) => (
+                <text key={m} x={x(i)} y={bottom + 18} textAnchor="middle" className="sc-wk">
+                  {i + 1}월
+                </text>
+              ))}
+            </svg>
+          </div>
+          {/* 휴대폰: 업체별 연 합계 · 비중 / 컴퓨터: 월 × 업체 표 */}
+          {mobile ? (
+            <table className="sales-table vt-table cmp-table">
+              <thead>
+                <tr>
+                  <th className="l">업체</th>
+                  <th className="r">{year}년 합계</th>
+                  <th className="r">비중</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...rows].sort((a, b) => b.total - a.total).map((r) => (
+                  <tr key={r.c.id}>
+                    <th className="l">
+                      <span className="br-dot" style={{ background: r.c.color ?? '#999' }} />
+                      <b>{r.c.name}</b>
+                      {r.missing && <span className="muted small vt-sub">환율 없는 달은 빠짐</span>}
+                    </th>
+                    <td className="r">{r.total ? `${tSym}${fmtConv(r.total, target)}` : '—'}</td>
+                    <td className="r">{grand ? `${((r.total / grand) * 100).toFixed(1)}%` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="sales-table-wrap">
+              <table className="sales-table yr-table cmp-table">
+                <thead>
+                  <tr>
+                    <th className="l">월</th>
+                    {rows.map((r) => (
+                      <th key={r.c.id} className="r">
+                        <span className="br-dot" style={{ background: r.c.color ?? '#999' }} />
+                        {r.c.name}
+                      </th>
+                    ))}
+                    <th className="r">합계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {months.map((m, i) => {
+                    const vals = rows.map((r) => r.vals[i]);
+                    if (vals.every((v) => v === undefined)) return null;
+                    const sum = vals.reduce<number>((a, v) => a + (typeof v === 'number' ? v : 0), 0);
+                    return (
+                      <tr key={m}>
+                        <th className="l">{i + 1}월</th>
+                        {vals.map((v, j) => (
+                          <td key={rows[j].c.id} className="r">
+                            {v === undefined ? <span className="muted">—</span> : v === null ? <span className="warn small">환율 없음</span> : `${tSym}${fmtConv(v, target)}`}
+                          </td>
+                        ))}
+                        <td className="r">
+                          <b>
+                            {tSym}
+                            {fmtConv(sum, target)}
+                          </b>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th className="l">합계</th>
+                    {rows.map((r) => (
+                      <td key={r.c.id} className="r">
+                        <b>{r.total ? `${tSym}${fmtConv(r.total, target)}` : '—'}</b>
+                        {grand ? <small className="krw">{((r.total / grand) * 100).toFixed(1)}%</small> : null}
+                      </td>
+                    ))}
+                    <td className="r">
+                      <b>
+                        {tSym}
+                        {fmtConv(grand, target)}
+                      </b>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+          {rows.some((r) => !r.c.salesCurrency) && <p className="warn small">판매 통화를 안 고른 업체는 환산이 안 돼서 빠져요 — 설정 › 매장 설정 ⚙ 에서 통화를 골라 주세요.</p>}
+        </>
+      )}
     </div>
   );
 }
