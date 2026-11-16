@@ -1,3 +1,4 @@
+import { useMirrorClaims } from '../lib/teamClaims';
 import { useMemo, useRef, useState } from 'react';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
@@ -33,6 +34,7 @@ export default function Claims() {
   // 팀장님·이사님: '내 담당'에서 뺀 업체라도 클레임이 있으면 계속 보이고, ＋ 업체 추가에서 모든 업체(1~3조 포함)를 고를 수 있게
   //  (클레임 있는 업체는 칩으로, 나머지는 ＋ 업체 추가 목록에)
   const { companies, companyById } = useLookups();
+  const allClaims = [...data.claims, ...useMirrorClaims(companies)]; // 조 업체 클레임도 (칩·숫자)
   // 주문 관리의 [클레임] 버튼으로 오면 #/claims?c=업체id
   const [companyFilter, setCompanyFilterState] = useState(() => {
     const fromLink = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c');
@@ -189,9 +191,9 @@ export default function Claims() {
           </p>
           <CompanyPicker
             companies={companies}
-            hasData={(c) => data.claims.some((x) => x.companyId === c.id)}
+            hasData={(c) => allClaims.some((x) => x.companyId === c.id)}
             badge={(c) => {
-              const open = data.claims.filter((x) => x.companyId === c.id && !x.refunded).length;
+              const open = allClaims.filter((x) => x.companyId === c.id && !x.refunded).length;
               return open > 0 && <span className="cchip-n red">{open}</span>;
             }}
             onPick={(id) => setCompanyFilter(id)}
@@ -219,7 +221,7 @@ export default function Claims() {
         {showCompanies && !sheet && (
           <CompanyPicker
             companies={companies}
-            hasData={(c) => data.claims.some((x) => x.companyId === c.id)}
+            hasData={(c) => allClaims.some((x) => x.companyId === c.id)}
             onPick={(id) => {
               setCompanyFilter(id);
               setShowCompanies(false);

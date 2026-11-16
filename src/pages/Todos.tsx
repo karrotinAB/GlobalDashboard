@@ -1,3 +1,4 @@
+import { useMirrorClaims } from '../lib/teamClaims';
 import { isLeaderRole, setReportCheck } from '../lib/reports';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
@@ -17,6 +18,7 @@ type Group = { key: string; title: string; color?: string; company?: Company; me
 export default function Todos() {
   const { data, save, saveMany, remove } = useStore();
   const { members, myCompanies: companies, memberById, companyById } = useLookups();
+  const mirrorClaims = useMirrorClaims(companies); // 팀장님·이사님: 조 업체 클레임 (환급 안 된 건 수)
   const todayIso = today();
   const thisMonday = weekStart(todayIso);
 
@@ -401,7 +403,7 @@ export default function Todos() {
                 {g.company &&
                   (() => {
                     // 이 업체 클레임: 환급 안 된 게 있으면 빨간 버튼
-                    const open = data.claims.filter((c) => c.companyId === g.company!.id && !c.refunded).length;
+                    const open = [...data.claims, ...mirrorClaims].filter((c) => c.companyId === g.company!.id && !c.refunded).length;
                     return (
                       <a
                         className={`claim-link small-link ${open ? 'open' : ''}`}
