@@ -7221,3 +7221,16 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 /* 보고방 답변: ↳ 화살표 + 본문보다 조금 오른쪽 */
 .rp-replies { margin-left: 22px; }
 .rp-reply-arrow { color: #b09590; font-weight: 700; margin-right: -2px; }
+/* 보고방 펼친 화면 정리: 본문은 제목 글자 줄에 맞춰 안쪽, 답변은 그보다 더 안쪽 */
+.rp-detail { padding: 8px 0 6px 26px; }
+.rp-detail .rp-body { border-left: 3px solid #d8bfba !important; border-radius: 0 !important; padding: 2px 0 2px 16px !important; margin: 0; line-height: 1.75; font-size: 14.5px; }
+.rp-detail .rp-filelist { margin: 10px 0 0 14px; }
+.rp-detail .rp-files { margin-left: 19px; }
+.rp-detail .rp-actions { margin: 10px 0 0 19px; }
+.rp-detail .rp-replies { margin: 14px 0 0 64px; gap: 8px; }
+.rp-detail .rp-reply { border-radius: 8px; padding: 8px 12px; }
+.rp-detail .rp-reply-box { margin-top: 2px; }
+@media (max-width: 600px) {
+  .rp-detail { padding-left: 4px; }
+  .rp-detail .rp-replies { margin-left: 24px; }
+}
