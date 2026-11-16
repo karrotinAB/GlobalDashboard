@@ -310,7 +310,7 @@ function TodosView({ teams, monday, todayIso, q }: { teams: TeamData[]; monday: 
                               })}
                             </span>
                             {task.dueDate && !doneInWeek && (
-                              <span className={`due-pill due-${ds}`}>{ds === 'overdue' ? `${shortDate(task.dueDate)} 지남` : ds === 'today' ? '오늘' : shortDate(task.dueDate)}</span>
+                              <span className={`due-pill ov-due due-${ds}`}>{ds === 'overdue' ? `${shortDate(task.dueDate)} 지남` : ds === 'today' ? '오늘' : shortDate(task.dueDate)}</span>
                             )}
                             {doneInWeek && <span className="tag green small">완료</span>}
                           </li>

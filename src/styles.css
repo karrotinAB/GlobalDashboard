@@ -7213,3 +7213,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rp-reply { background: transparent; }
 .rp-reply.leader { background: transparent; }
 .rp-reply-box textarea { background: #fff; }
+/* 조 현황 업무 마감: 원 없이 글씨만 (지남·오늘은 빨간 글씨) */
+.due-pill.ov-due { background: none !important; border: 0 !important; padding: 0 2px; border-radius: 0; font-weight: 700; color: #6b5753; box-shadow: none; }
+.due-pill.ov-due.due-overdue, .due-pill.ov-due.due-today { color: #d0342c; }
