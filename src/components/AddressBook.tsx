@@ -105,10 +105,28 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
     setCopied(text);
     window.setTimeout(() => setCopied((c) => (c === text ? '' : c)), 1500);
   };
-  const cp = (v?: string) =>
+  // 회사번호는 마지막 세 자리(내선)를 굵게: 02-520-6044 → 02-520-6<b>044</b>
+  const tail = (v: string) => {
+    const m = v.match(/^(.*?)(\d)(\D*)(\d)(\D*)(\d)(\D*)$/);
+    if (!m) return v;
+    return (
+      <>
+        {m[1]}
+        <b className="ab-ext">
+          {m[2]}
+          {m[3]}
+          {m[4]}
+          {m[5]}
+          {m[6]}
+        </b>
+        {m[7]}
+      </>
+    );
+  };
+  const cp = (v?: string, boldTail = false) =>
     v ? (
       <button type="button" className={`ab-copy ${copied === v ? 'done' : ''}`} onClick={() => void copy(v)} title="누르면 복사">
-        {v}
+        <span>{boldTail ? tail(v) : v}</span>
         <span className="ab-copied">{copied === v ? '복사됨 ✓' : '⧉'}</span>
       </button>
     ) : (
@@ -147,7 +165,7 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
                           <b>{p.name}</b>
                         </td>
                         <td>{cp(p.email)}</td>
-                        <td>{cp(p.office)}</td>
+                        <td>{cp(p.office, true)}</td>
                         <td>{cp(p.mobile)}</td>
                       </tr>
                     ))}
