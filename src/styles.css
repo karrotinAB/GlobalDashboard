@@ -7650,3 +7650,9 @@ td.c-people { min-width: 120px; }
   .task-table td.c-more { justify-self: center; justify-content: center; }
   .task-table td.c-more .links-m { flex-direction: column; gap: 3px; }
 }
+@media (max-width: 600px) {
+  .task-table tr { grid-template-columns: 24px minmax(0, 1fr) 46px 54px 32px; column-gap: 6px; }
+  .task-table td.c-due, .task-table td.c-due * { white-space: nowrap !important; word-break: keep-all; }
+  .task-table td.c-due { font-size: 12px; letter-spacing: -0.3px; overflow: visible; }
+  .task-table td.c-more { padding-left: 2px !important; }
+}
