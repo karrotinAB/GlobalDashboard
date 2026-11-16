@@ -39,6 +39,15 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   // 처리자: 대시보드 사용자 누구나 여러 명 (무역사무 카드도)
   const { roles, contacts } = usePeople();
   const people = useMemo(() => peopleOptions(roles, contacts, trade, team), [roles, contacts, trade, team]);
+  // 이 조 사람들 이메일 (담당자 카드 + 대시보드 사용자 중 이 조)
+  const teamEmails = useMemo(
+    () =>
+      new Set([
+        ...team.map((m) => m.email?.toLowerCase()).filter((e): e is string => !!e),
+        ...(roles ?? []).filter((r) => (r.role === 'member' || r.role === 'admin') && (r.team ?? '2') === access.viewTeam).map((r) => r.email),
+      ]),
+    [team, roles, access.viewTeam],
+  );
   const assigneeMatch = (r: TradeRequest, id: string) => {
     const list = assigneesOf(r, trade);
     if (id === '-') return list.length === 0;
@@ -55,8 +64,12 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const everything = data.requests;
   const all = useMemo(
     // 조 화면: 기본은 우리 조 요청만. 무역사무 담당자를 누르면 그 사람이 맡은 다른 조 요청까지
-    () => (side === 'team' && !assignee ? everything.filter((r) => teamOfRequest(r) === access.viewTeam) : everything),
-    [everything, side, access.viewTeam, assignee],
+    // + 우리 조 사람이 처리자로 들어간 다른 곳 요청도 (같이 처리하는 업무)
+    () =>
+      side === 'team' && !assignee
+        ? everything.filter((r) => teamOfRequest(r) === access.viewTeam || (r.assignees ?? []).some((k) => teamEmails.has(k)))
+        : everything,
+    [everything, side, access.viewTeam, assignee, teamEmails],
   );
   const years = useMemo(
     () => [...new Set([todayIso.slice(0, 4), ...all.map((r) => (r.doneAt ?? r.requestedAt).slice(0, 4))])].sort().reverse(),

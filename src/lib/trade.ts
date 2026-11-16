@@ -212,7 +212,9 @@ export function peopleOptions(
   const groupOf = (r: { role: string; team?: string }) =>
     r.role === 'trade' ? '무역사무' : r.role === 'lead' ? '팀장님' : r.role === 'director' ? '이사님' : `${r.team ?? '2'}조`;
   const order = ['무역사무', '1조', '2조', '3조', '팀장님', '이사님'];
-  const list = (roles ?? []).map((r) => ({ key: r.email, name: contacts[r.email]?.name || r.name || cardName(r.email) || r.email.split('@')[0], group: groupOf(r) }));
-  for (const m of trade) if (!m.email || !list.some((x) => x.key === m.email!.toLowerCase())) list.push({ key: m.email ? m.email.toLowerCase() : `tm:${m.id}`, name: m.name, group: '무역사무' });
+  // 이름은 성 빼고 (세 글자 한글 이름: 박문정 → 문정)
+  const short = (n: string) => (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
+  const list = (roles ?? []).map((r) => ({ key: r.email, name: short(contacts[r.email]?.name || r.name || cardName(r.email) || r.email.split('@')[0]), group: groupOf(r) }));
+  for (const m of trade) if (!m.email || !list.some((x) => x.key === m.email!.toLowerCase())) list.push({ key: m.email ? m.email.toLowerCase() : `tm:${m.id}`, name: short(m.name), group: '무역사무' });
   return list.sort((a, b) => order.indexOf(a.group ?? '') - order.indexOf(b.group ?? '') || a.name.localeCompare(b.name, 'ko'));
 }
