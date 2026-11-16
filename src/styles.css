@@ -7578,3 +7578,7 @@ td.c-people { min-width: 120px; }
   .page-head:has(.todo-co-m) .week-nav { width: 100%; max-width: 100%; min-width: 0; gap: 6px; }
   .week-nav .todo-co-m { flex: 1 1 0; max-width: none; width: auto; height: 40px; font-size: 13px; padding: 0 6px; }
 }
+@media (max-width: 600px) {
+  .ov-toolbar .seg { display: flex; width: 100%; min-width: 0; }
+  .ov-toolbar .seg button { flex: 1 1 auto; min-width: 0; padding: 7px 6px; font-size: 13px; white-space: nowrap; }
+}

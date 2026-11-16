@@ -86,8 +86,8 @@ export default function Overview() {
   const oneTeam = only ? teams.find((t) => t.team === only) : undefined;
 
   // 휴대폰: 조(또는 무역사무) 카드를 누르면 그 카드 바로 아래에 내용이 펼쳐짐
-  const detail = (
-    <>
+  // 필터 줄 (휴대폰에서는 조 카드들 위로)
+  const toolbar = (
       <div className="toolbar ov-toolbar">
         <div className="seg">
           {(
@@ -115,6 +115,10 @@ export default function Overview() {
         </div>
         <input className="search" placeholder="🔍 업체 · 할일 · 주문 · 클레임 이름" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
+  );
+  const detail = (
+    <>
+      {!isMobile && toolbar}
 
       {teams.some((t) => t.error) && (
         <p className="muted small">일부 조 정보를 못 읽었어요 (보안 규칙을 올렸는지 확인해 주세요): {teams.filter((t) => t.error).map((t) => t.label).join(', ')}</p>
@@ -190,6 +194,7 @@ export default function Overview() {
         <p className="muted">1~3조의 이번 주 할일 · 주문 · 클레임을 한 화면에서 봐요. 여기서는 보기만 해요 (수정은 각 조에서).</p>
       </div>
 
+      {isMobile && toolbar}
       {/* 조별 요약 카드 */}
       <div className="ov-cards">
         {teams.map((t) => (
