@@ -175,7 +175,7 @@ export async function syncSalesDates(db, cfg, apiKey, dates, codes, { fetchImpl 
           if (!a) continue;
           abbrToId[a.toUpperCase()] = sid;
           if (isAbbr(a)) (abbrsOf[code] ??= []).push([a, sid]);
-          else errors.push(`${sid}: 지점 이름 '${a}' 은 약자로 못 써서 건너뜀 — 설정 › 매장 평수에서 약자를 직접 넣어 주세요`);
+          // 약자로 못 쓰는 지점 이름(회사 이름·'동부' 같은 것)은 조용히 건너뜀 — 필요하면 설정 › 매장 설정에서 약자를 직접 넣으면 됨
         }
       } catch {
         /* 지점 목록 없어도 진행 */

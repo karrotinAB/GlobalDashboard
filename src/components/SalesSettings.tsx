@@ -274,8 +274,11 @@ export function SalesApiAdmin() {
     return '';
   });
   const set = (p: Partial<Cfg>) => setCfg((c) => (c ? { ...c, ...p } : c));
+  // '약자로 못 써서 건너뜀' (회사 이름·동부/서부 같은 지점)은 늘 무시
+  const ignoreErr = (e: string) => e.includes('약자로 못 써서 건너뜀');
+  const errs = (status?.errors ?? []).filter((e) => !ignoreErr(e));
   const syncMsg = (r: { rows?: number; docs?: number; errors?: string[]; skipped?: string }) =>
-    r.skipped ? r.skipped : `가져왔어요 ✓ 계산 ${r.rows ?? 0}건 → ${r.docs ?? 0}개 매장·월 갱신${r.errors?.length ? `\n문제: ${r.errors.join('\n')}` : ''}`;
+    r.skipped ? r.skipped : `가져왔어요 ✓ 계산 ${r.rows ?? 0}건 → ${r.docs ?? 0}개 매장·월 갱신${r.errors?.filter((e) => !ignoreErr(e)).length ? `\n문제: ${r.errors.filter((e) => !ignoreErr(e)).join('\n')}` : ''}`;
 
   return (
     <section className="card">
@@ -290,11 +293,11 @@ export function SalesApiAdmin() {
           마지막 가져오기: {status.at ? new Date(status.at).toLocaleString() : '-'} {status.skipped ? `· ${status.skipped}` : `· 계산 ${status.rows ?? 0}건`}
         </p>
       )}
-      {!!status?.errors?.length && (
+      {!!errs.length && (
         <details className="status-errors" open>
-          <summary className="small">문제 {status.errors.length}개 보기</summary>
+          <summary className="small">문제 {errs.length}개 보기</summary>
           <ul className="small">
-            {status.errors.map((e, i) => (
+            {errs.map((e, i) => (
               <li key={i}>{e}</li>
             ))}
           </ul>
