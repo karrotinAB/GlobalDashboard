@@ -167,9 +167,12 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                     </tr>
                     {open && (
                       <tr className="rp-detail-row">
-                        <td colSpan={leaderView ? 6 : 5}>
+                        {/* 내용은 제목 칸 아래부터 확인란 앞까지 */}
+                        {leaderView && <td className="rp-pad" />}
+                        <td colSpan={3}>
                           <ReportDetail r={r} myName={myName} canEdit={!!access.email && r.authorEmail === access.email} canDelete={access.role === 'admin' || (!!access.email && r.authorEmail === access.email)} />
                         </td>
+                        <td className="rp-pad" colSpan={2} />
                       </tr>
                     )}
                   </Fragment>

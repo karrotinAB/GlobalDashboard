@@ -7199,3 +7199,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .memo-rich-view ul { margin: 4px 0; padding-left: 20px; }
 /* 보는 중: 초록 점 없이 이름 동그라미만 */
 .pres-dot::after { display: none; }
+.rp-detail-row > td { padding-left: 12px; padding-right: 12px; }
+.rp-detail-row > td.rp-pad { padding: 0; }
+@media (max-width: 600px) { .rp-detail-row > td.rp-pad { display: none; } .rp-detail-row > td { padding-left: 8px; } }
