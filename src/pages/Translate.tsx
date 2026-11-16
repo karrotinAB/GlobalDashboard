@@ -186,6 +186,7 @@ function TranslateTab() {
           if (fresh) {
             setEdits({});
             setKeepParen({});
+            setCodePre('');
             setCatSel({});
             setPage(0);
           }
@@ -236,8 +237,19 @@ function TranslateTab() {
   const todo = useMemo(() => view.filter((v) => v.empty.length), [view]);
   // 표 검색: 제품명 · 코드 · 영문 제품명 (띄어 쓰면 모두 들어간 것만)
   const [rowQ, setRowQ] = useKept('rowQ', '');
+  const [codePre, setCodePre] = useKept('codePre', ''); // 제품코드 앞 2자리
+  const codePres = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const v of onlyTodo ? todo : view) {
+      const code = cell(v.row, 'code');
+      if (code.length >= 2) c.set(code.slice(0, 2), (c.get(code.slice(0, 2)) ?? 0) + 1);
+    }
+    return [...c.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlyTodo, todo, view]);
   const shown = useMemo(() => {
-    const base = onlyTodo ? todo : view;
+    const base0 = onlyTodo ? todo : view;
+    const base = codePre ? base0.filter((v) => cell(v.row, 'code').startsWith(codePre)) : base0;
     const words = rowQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return base;
     return base.filter((v) => {
@@ -245,7 +257,7 @@ function TranslateTab() {
       return words.every((w) => h.includes(w));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onlyTodo, todo, view, rowQ]);
+  }, [onlyTodo, todo, view, rowQ, codePre]);
   const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
   const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
@@ -392,6 +404,17 @@ function TranslateTab() {
               <input type="checkbox" checked={onlyTodo} onChange={(e) => (setOnlyTodo(e.target.checked), setPage(0))} /> 빈 칸 있는 줄만
             </label>
             <input className="search tr-row-q" placeholder="🔍 제품명 · 코드로 찾기" value={rowQ} onChange={(e) => (setRowQ(e.target.value), setPage(0))} />
+            {sheet.col.code !== undefined && codePres.length > 0 && (
+              <select className={`tr-code-pre ${codePre ? 'set' : ''}`} value={codePre} onChange={(e) => (setCodePre(e.target.value), setPage(0))} title="제품코드 앞 2자리로 거르기">
+                <option value="">코드 앞자리 전체</option>
+                {codePres.map(([k, n]) => (
+                  <option key={k} value={k}>
+                    {k}… ({n}줄)
+                  </option>
+                ))}
+                {codePre && !codePres.some(([k]) => k === codePre) && <option value={codePre}>{codePre}… (0줄)</option>}
+              </select>
+            )}
             <span className="muted small">{shown.length}줄</span>
             {catCols.length > 0 && !!cats?.length && (
               <button className="tr-sug-all" onClick={applyAllSuggestions} title="지금 화면에 보이는 줄(검색 결과 · 이 페이지)에만 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
@@ -831,52 +854,88 @@ function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w
   );
 }
 
-/** 수출 분류 고르기: 원래 고르기 상자 그대로 + 🔍 누르면 찾을 말로 목록 줄이기 (코드 · 대분류 · 중분류 · 영문) */
+/** 수출 분류 고르기: 고르기 상자 모양 그대로, 열면 맨 위에 검색칸 (코드 · 대분류 · 중분류 · 영문) */
 function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cur?: Cat; groups: [string, Cat[]][]; disabled: boolean; onPick: (k: string) => void }) {
-  const [searching, setSearching] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number; up: boolean } | null>(null);
   const [q, setQ] = useState('');
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const close = () => (setPos(null), setQ(''));
+  useEffect(() => {
+    if (!pos) return;
+    const down = (e: MouseEvent) => !pop.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node) && close();
+    const scroll = (e: Event) => !pop.current?.contains(e.target as Node) && close();
+    document.addEventListener('mousedown', down);
+    window.addEventListener('scroll', scroll, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', down);
+      window.removeEventListener('scroll', scroll, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [pos]);
+  // 고른 분류가 보이게 스크롤
+  useEffect(() => {
+    if (pos) pop.current?.querySelector('.cat-opt.on')?.scrollIntoView({ block: 'center' });
+  }, [pos]);
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const hit = (c: Cat) => {
     const h = `${c.mainCode} ${c.mainName} ${c.mainEn} ${c.subCode} ${c.subName} ${c.subEn} ${catKey(c)}`.toLowerCase();
     return words.every((w) => h.includes(w));
   };
   const list = groups.map(([g, l]) => [g, words.length ? l.filter(hit) : l] as const).filter(([, l]) => l.length);
-  const n = list.reduce((a, [, l]) => a + l.length, 0);
+  const pick = (k: string) => {
+    onPick(k);
+    close();
+  };
+  const openIt = () => {
+    if (pos) return close();
+    const r = btn.current!.getBoundingClientRect();
+    const up = window.innerHeight - r.bottom < 360 && r.top > window.innerHeight - r.bottom;
+    setPos({ left: r.left, top: up ? r.top : r.bottom, width: Math.max(r.width, 240), up });
+  };
   return (
     <div className="cat-pick">
-      <div className="cat-pick-row">
-        <select value={value} onChange={(e) => (onPick(e.target.value), setSearching(false), setQ(''))} className={value ? 'set' : ''} disabled={disabled} title={disabled ? '분류 탭에서 분류표를 먼저 올려 주세요' : ''}>
-          <option value="">{disabled ? '분류표 없음' : words.length ? `찾은 분류 ${n}개 — 골라 주세요` : '분류 고르기'}</option>
-          {/* 찾는 중이라도 지금 고른 건 보이게 */}
-          {cur && words.length > 0 && !hit(cur) && <option value={value}>{catLabel(cur)}</option>}
-          {list.map(([g, l]) => (
-            <optgroup key={g} label={g}>
-              {l.map((c) => (
-                <option key={catKey(c)} value={catKey(c)}>
-                  {catLabel(c)}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        {!disabled && (
-          <button type="button" className={`cat-q-btn ${searching || q ? 'on' : ''}`} title="분류 찾기" onClick={() => (searching ? (setSearching(false), setQ('')) : setSearching(true))}>
-            🔍
-          </button>
-        )}
-      </div>
-      {searching && (
-        <input
-          autoFocus
-          className="cat-q"
-          placeholder="찾을 분류 (이름 · 코드 · 영문) — Enter 로 첫 번째 고르기"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') (setSearching(false), setQ(''));
-            if (e.key === 'Enter' && list[0]?.[1][0]) (onPick(catKey(list[0][1][0])), setSearching(false), setQ(''));
-          }}
-        />
+      <button ref={btn} type="button" className={`cat-pick-btn ${value ? 'set' : ''}`} disabled={disabled} title={disabled ? '분류 탭에서 분류표를 먼저 올려 주세요' : ''} onClick={openIt}>
+        <span>{cur ? catLabel(cur) : disabled ? '분류표 없음' : '분류 고르기'}</span>
+        <span className="cat-caret">⌄</span>
+      </button>
+      {pos && (
+        <div
+          ref={pop}
+          className={`cat-pop ${pos.up ? 'up' : ''}`}
+          style={{ left: pos.left, width: pos.width, ...(pos.up ? { bottom: window.innerHeight - pos.top + 2 } : { top: pos.top + 2 }) }}
+        >
+          <input
+            autoFocus
+            className="cat-q"
+            placeholder="🔍 분류 찾기"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') close();
+              if (e.key === 'Enter' && list[0]?.[1][0]) pick(catKey(list[0][1][0]));
+            }}
+          />
+          <div className="cat-pop-list">
+            {!words.length && (
+              <button className={`cat-opt none ${!value ? 'on' : ''}`} onClick={() => pick('')}>
+                분류 고르기
+              </button>
+            )}
+            {list.map(([g, l]) => (
+              <div key={g}>
+                <div className="cat-grp">{g}</div>
+                {l.map((c) => (
+                  <button key={catKey(c)} className={`cat-opt ${catKey(c) === value ? 'on' : ''}`} onClick={() => pick(catKey(c))}>
+                    {catLabel(c)}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {!list.length && <div className="cat-empty">맞는 분류가 없어요</div>}
+          </div>
+        </div>
       )}
     </div>
   );
