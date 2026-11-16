@@ -292,8 +292,8 @@ function TranslateTab() {
   const applyAllSuggestions = () => {
     const next: Record<number, string> = {};
     const save: { ko: string; cat: string }[] = [];
-    // 검색 중이면 찾은 줄에만
-    for (const v of shown) {
+    // 지금 보고 있는 쪽(검색 결과 · 페이지)에 보이는 줄에만
+    for (const v of shown.slice(page * PAGE, page * PAGE + PAGE)) {
       if (!needCat(v) || chosen(v)) continue;
       const sg = sugOf(v);
       if (sg && catByKey.has(sg.cat)) {
@@ -383,8 +383,8 @@ function TranslateTab() {
             <input className="search tr-row-q" placeholder="🔍 제품명 · 코드로 찾기" value={rowQ} onChange={(e) => (setRowQ(e.target.value), setPage(0))} />
             <span className="muted small">{shown.length}줄</span>
             {catCols.length > 0 && !!cats?.length && (
-              <button className="tr-sug-all" onClick={applyAllSuggestions} title="추천이 있는 줄에 추천 분류를 한꺼번에 넣어요 (검색 중이면 찾은 줄에만 · 고른 기록에도 남음)">
-                ✨ 추천 분류 모두 넣기
+              <button className="tr-sug-all" onClick={applyAllSuggestions} title="지금 화면에 보이는 줄(검색 결과 · 이 페이지)에만 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
+                ✨ 이 페이지 추천 분류 넣기
               </button>
             )}
             {catCols.length > 0 && !cats?.length && <span className="warn small">분류 탭에서 분류표 엑셀을 먼저 올려 주세요</span>}
