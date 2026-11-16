@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { usePeople } from './AddressBook';
 import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { db, firebaseConfig } from '../firebase';
@@ -45,6 +46,7 @@ export default function AccessAdmin() {
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const { contacts } = usePeople(); // 주소록 번호 (contacts/{이메일})
 
   useEffect(
     () =>
@@ -131,6 +133,8 @@ export default function AccessAdmin() {
             <th>이름</th>
             <th>권한</th>
             <th>조</th>
+            <th>회사번호</th>
+            <th>개인번호</th>
             <th />
           </tr>
         </thead>
@@ -171,6 +175,12 @@ export default function AccessAdmin() {
                       ))}
                     </select>
                   )}
+                </td>
+                <td>
+                  <PhoneInput email={r.email} field="office" value={contacts[r.email]?.office} onError={setMsg} />
+                </td>
+                <td>
+                  <PhoneInput email={r.email} field="mobile" value={contacts[r.email]?.mobile} onError={setMsg} />
                 </td>
                 <td>
                   {!self && (
@@ -220,5 +230,26 @@ export default function AccessAdmin() {
       </form>
       {msg && <p className="small" style={{ marginBottom: 0 }}>{msg}</p>}
     </section>
+  );
+}
+
+/** 주소록 번호 칸: 칸에서 나가면 저장 (contacts/{이메일}) */
+function PhoneInput({ email, field, value, onError }: { email: string; field: 'office' | 'mobile'; value?: string; onError: (m: string) => void }) {
+  const [v, setV] = useState(value ?? '');
+  useEffect(() => setV(value ?? ''), [value]);
+  return (
+    <input
+      className="phone-input"
+      value={v}
+      inputMode="tel"
+      placeholder={field === 'office' ? '02-…' : '010-…'}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        const t = v.trim();
+        if (t === (value ?? '')) return;
+        setDoc(doc(db, 'contacts', email), { [field]: t }, { merge: true }).catch((e) => onError(`번호 저장 실패: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`));
+      }}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
   );
 }

@@ -7101,3 +7101,20 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 
 /* 판매·수출 패널: 볼 조 고르기 */
 .scope-pick { padding: 5px 10px; border-radius: 999px; border: 1px solid #e3d3cf; background: #fff; font: inherit; font-size: 13px; font-weight: 600; color: inherit; cursor: pointer; }
+
+/* 주소록 */
+.ab-search { width: 100%; box-sizing: border-box; }
+.ab-hint { margin: 6px 0 4px; }
+.ab-groups { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.ab-group h3 { margin: 0 0 6px; font-size: 15px; }
+.ab-table { width: 100%; }
+.ab-table td, .ab-table th { white-space: nowrap; }
+.ab-copy { border: 0; background: none; font: inherit; color: inherit; padding: 2px 6px; margin: -2px -6px; border-radius: 6px; cursor: copy; display: inline-flex; align-items: center; gap: 6px; }
+.ab-copy:hover { background: #f4e9e6; }
+.ab-copied { font-size: 11px; color: #b8a5a1; }
+.ab-copy.done { background: #e9f5ec; }
+.ab-copy.done .ab-copied { color: #2f6b3c; font-weight: 700; }
+.phone-input { width: 120px; }
+.drawer-ab { border-top: 0; margin-top: auto; padding-top: 0; }
+.drawer-ab + .drawer-foot { margin-top: 0; }
+.drawer-ab button { width: 100%; }

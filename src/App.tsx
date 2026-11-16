@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AddressBook from './components/AddressBook';
 import { useStore } from './data/store';
 import { Cover } from './components/ui';
 import { isLeader, logout, useAccess } from './components/AuthGate';
@@ -156,6 +157,11 @@ export default function App() {
                 </a>
               )}
             </nav>
+            {mode === 'firestore' && (
+              <div className="drawer-foot drawer-ab">
+                <AddressBook />
+              </div>
+            )}
             <div className="drawer-foot" onClick={closeDrawer}>
               {!tradeOnly && canTrade && <a href={side === 'trade' ? '#/home' : '#/thome'}>{side === 'trade' ? `← ${viewLabel} 페이지` : '무역사무 페이지 →'}</a>}
               {role !== 'admin' && role !== null && (
@@ -187,6 +193,7 @@ export default function App() {
             Global Opening Prep ↗
           </a>
         )}
+        {mode === 'firestore' && <AddressBook className="top-btn" />}
         <a href="#/settings" className={`top-btn ${page === 'settings' ? 'active' : ''}`} title="설정">
           ⚙️ 설정
         </a>

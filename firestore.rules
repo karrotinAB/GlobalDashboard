@@ -50,9 +50,15 @@ service cloud.firestore {
     // 이 공간의 관리자: 관리자, 또는 자기 개인 공간의 팀장님·이사님
     function ownsSpace(col) { return isAdmin() || (isLeader() && mySpace() != '' && teamTag(col) == mySpace()); }
 
+    // 주소록 번호 (회사번호 · 개인번호): 로그인한 모두 읽기, 관리자만 저장
+    match /contacts/{email} {
+      allow read: if isAny();
+      allow write: if isAdmin();
+    }
+
     match /roles/{email} {
       // 내 권한은 나도 볼 수 있어야 '권한 없음' 화면을 띄움
-      allow read: if signedIn() && (email == myEmail() || isTeam());
+      allow read: if signedIn() && (email == myEmail() || isAny());
       // 관리자만 추가·변경·삭제. 내 권한은 내가 못 바꿈 (실수로 관리자가 0명 되는 것 방지)
       allow create, update: if isAdmin() && email != myEmail()
         && email == email.lower()
