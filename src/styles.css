@@ -7473,3 +7473,8 @@ td.c-people { min-width: 120px; }
 .rq-day-card .rq-table th:first-child, .rq-day-card .rq-table td:first-child { padding-left: 18px; }
 .rq-day-card .rq-table tr:last-child td { border-bottom: 0; }
 @media (max-width: 600px) { .rq-day-note { display: none; } }
+
+/* 번역: 뺀 괄호 누르면 살리기 */
+.tr-cut { cursor: pointer; }
+.tr-cut:hover { filter: brightness(0.95); }
+.tr-cut.kept { background: #e4f3e1; color: #2f6b2a; text-decoration: none; outline: 1px dashed #8cc485; }

@@ -144,6 +144,7 @@ function TranslateTab() {
   const [sheet, setSheet] = useKept<Sheet | null>('sheet', null);
   const [err, setErr] = useState('');
   const [edits, setEdits] = useKept<Record<number, string>>('edits', {}); // 줄 → 직접 고친 영문 제품명
+  const [keepParen, setKeepParen] = useKept<Record<number, string[]>>('keepParen', {}); // 줄 → 빼지 말고 번역할 괄호
   const [onlyTodo, setOnlyTodo] = useKept('onlyTodo', true);
   const [page0, setPage] = useKept('page', 0);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -183,6 +184,7 @@ function TranslateTab() {
           setSheet({ fileName: f.name, sheetName: sn, headerRow: h, headers: (aoa[h] ?? []).map((x) => String(x ?? '')), col, rows, wb });
           if (fresh) {
             setEdits({});
+            setKeepParen({});
             setCatSel({});
             setPage(0);
           }
@@ -203,13 +205,33 @@ function TranslateTab() {
       const empty = TARGETS.filter((t) => sheet.col[t.key] !== undefined && !cell(row, t.key)).map((t) => t.key);
       const ko = cell(row, 'koName');
       // 영어로 옮길 땐 ( ) 괄호와 그 안 내용은 빼고 번역 (한글 제품명은 그대로, 뺀 부분은 화면에 표시)
-      const cut: string[] = ko.match(/\([^()]*\)|（[^（）]*）/g) ?? [];
-      const koEn = cut.length ? ko.replace(/\([^()]*\)|（[^（）]*）/g, ' ').replace(/\s{2,}/g, ' ').trim() : ko;
+      //   노란 부분을 누르면 살려서 같이 번역 (keepParen)
+      const kept = keepParen[row.r] ?? [];
+      const parens: string[] = ko.match(/\([^()]*\)|（[^（）]*）/g) ?? [];
+      const cut = parens.filter((x) => !kept.includes(x));
+      const koEn = cut.length ? ko.replace(/\([^()]*\)|（[^（）]*）/g, (m) => (kept.includes(m) ? m : ' ')).replace(/\s{2,}/g, ' ').trim() : ko;
       const tr = koEn ? translate(koEn, map, keys) : { en: '', unknown: [] as string[], pieces: [] };
-      return { row, empty, ko, tr, cut };
+      return { row, empty, ko, tr, cut, parens };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet, map, keys]);
+  }, [sheet, map, keys, keepParen]);
+  // 괄호 살리기/다시 빼기 (그 줄에 직접 고친 영문은 지우고 새로 번역)
+  const toggleParen = (r: number, part: string) => {
+    setKeepParen((x) => {
+      const cur = x[r] ?? [];
+      const next = cur.includes(part) ? cur.filter((y) => y !== part) : [...cur, part];
+      const o = { ...x };
+      if (next.length) o[r] = next;
+      else delete o[r];
+      return o;
+    });
+    setEdits((x) => {
+      if (!(r in x)) return x;
+      const o = { ...x };
+      delete o[r];
+      return o;
+    });
+  };
   const todo = useMemo(() => view.filter((v) => v.empty.length), [view]);
   // 표 검색: 제품명 · 코드 · 영문 제품명 (띄어 쓰면 모두 들어간 것만)
   const [rowQ, setRowQ] = useKept('rowQ', '');
@@ -391,10 +413,15 @@ function TranslateTab() {
                       <td className="muted">{v.row.r + 1}</td>
                       {sheet.col.code !== undefined && <td className="tr-code">{cell(v.row, 'code')}</td>}
                       <td className="tr-ko-name">
-                        {v.cut.length
+                        {v.parens.length
                           ? v.ko.split(/(\([^()]*\)|（[^（）]*）)/).map((part, i) =>
-                              v.cut.includes(part) ? (
-                                <mark key={i} className="tr-cut" title="영문 번역에서 뺀 부분">
+                              v.parens.includes(part) ? (
+                                <mark
+                                  key={i}
+                                  className={v.cut.includes(part) ? 'tr-cut' : 'tr-cut kept'}
+                                  title={v.cut.includes(part) ? '영문 번역에서 뺀 부분 — 누르면 살려서 같이 번역해요' : '같이 번역 중 — 누르면 다시 빼요'}
+                                  onClick={() => toggleParen(v.row.r, part)}
+                                >
                                   {part}
                                 </mark>
                               ) : (
