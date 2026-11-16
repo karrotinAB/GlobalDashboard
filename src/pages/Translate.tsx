@@ -137,6 +137,19 @@ function TranslateTab() {
     return [...c.entries()].sort((a, b) => b[1] - a[1]);
   }, [needEn]);
   const enOf = (v: (typeof view)[number]) => edits[v.row.r] ?? v.tr.en;
+  // 모르는 단어를 누르면: 그 단어가 나온 제품명들 (잘못 끊어 읽지 않았는지 확인용)
+  const [peek, setPeek] = useState<string | null>(null);
+  const peekRows = peek ? needEn.filter((v) => v.tr.unknown.includes(peek)) : [];
+  const mark = (name: string, w: string) => {
+    const i = name.indexOf(w);
+    return i < 0 ? name : (
+      <>
+        {name.slice(0, i)}
+        <mark>{w}</mark>
+        {name.slice(i + w.length)}
+      </>
+    );
+  };
 
   const addWords = async () => {
     const list = Object.entries(newWords)
@@ -209,13 +222,33 @@ function TranslateTab() {
           </div>
           <div className="tr-unknown-list">
             {unknownAll.map(([ko, n]) => (
-              <label key={ko} className="tr-word">
-                <span className="tr-ko">{ko}</span>
+              <label key={ko} className={`tr-word ${peek === ko ? 'on' : ''}`}>
+                <button type="button" className="tr-ko tr-ko-btn" onClick={() => setPeek(peek === ko ? null : ko)} title="어느 제품명에서 나왔는지 보기">
+                  {ko}
+                </button>
                 <span className="muted small">{n}줄</span>
                 <input placeholder="영어" value={newWords[ko] ?? ''} onChange={(e) => setNewWords((w) => ({ ...w, [ko]: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && void addWords()} />
               </label>
             ))}
           </div>
+          {peek && (
+            <div className="tr-peek">
+              <div className="tr-peek-head">
+                <b>'{peek}'</b> 가 나온 제품명 {peekRows.length}개
+                <button className="icon-btn" onClick={() => setPeek(null)} aria-label="닫기">
+                  ✕
+                </button>
+              </div>
+              <ul>
+                {peekRows.slice(0, 50).map((v) => (
+                  <li key={v.row.r}>
+                    <span className="muted small">{v.row.r + 1}줄</span> {mark(v.ko, peek)}
+                    <span className="muted small"> → {v.tr.en}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
