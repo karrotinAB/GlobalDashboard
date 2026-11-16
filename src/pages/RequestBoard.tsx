@@ -5,7 +5,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
 import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel, teamTagClass } from '../lib/trade';
 import { useStore } from '../data/store';
-import { NewRequest, PriorityTag, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
+import { NewRequest, PriorityTag, SameDayNotice, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
 import { today } from '../lib/date';
 
@@ -149,6 +149,8 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           {isTeamSide ? '＋ 새 요청' : '＋ 업무 추가'}
         </button>
       </div>
+      {/* 당일 업무 의뢰 안내 (요청하는 조 화면에 고정) */}
+      {isTeamSide && <SameDayNotice />}
 
       {/* 무역사무 담당자별 남은 업무 (누르면 그 사람 업무만) */}
       <TradeSummaryCards requests={everything} trade={trade} selected={assignee} onSelect={pickAssignee} />

@@ -35,12 +35,14 @@ export default function DateInput({
   onDone,
   autoFocus,
   placeholder = '20261110',
+  reject,
 }: {
   value?: string;
   onChange: (iso?: string) => void;
   onDone?: () => void;
   autoFocus?: boolean;
   placeholder?: string;
+  reject?: (iso: string) => string | null; // 이 날짜는 안 됨 → 안내문 (칸은 원래 값으로)
 }) {
   const [text, setText] = useState(show(value));
   const [bad, setBad] = useState(false);
@@ -59,6 +61,12 @@ export default function DateInput({
       return false;
     }
     setBad(false);
+    const no = iso !== value ? reject?.(iso) : null;
+    if (no) {
+      setText(show(value));
+      alert(no);
+      return true;
+    }
     setText(show(iso));
     if (iso !== value) onChange(iso);
     return true;
@@ -125,6 +133,12 @@ export default function DateInput({
         value={value ?? ''}
         onChange={(e) => {
           const v = e.target.value || undefined;
+          const no = v && v !== value ? reject?.(v) : null;
+          if (no) {
+            setText(show(value));
+            alert(no);
+            return;
+          }
           setText(show(v));
           onChange(v);
           onDone?.();

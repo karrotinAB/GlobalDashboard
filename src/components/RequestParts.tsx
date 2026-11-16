@@ -2,7 +2,7 @@
 import { useState, type ClipboardEvent, type CSSProperties } from 'react';
 import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
 import { useSpaceData, useStore } from '../data/store';
-import { useAccess } from './AuthGate';
+import { isLeader, useAccess } from './AuthGate';
 import OrderLinkPicker from './OrderLinkPicker';
 import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
@@ -76,9 +76,22 @@ function FileBox({ reqId, files, onChange }: { reqId: string; files: RequestFile
 
 type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderDateTo' | 'orderLink' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
 
+export const SAME_DAY_MSG = '당일 업무는 팀장님께 확인 받은 후 의뢰 가능합니다.\n팀장님 및 무역사무팀원에게 확인 부탁드립니다.';
+/** 무역사무 요청 페이지·요청 창 위 고정 안내 */
+export function SameDayNotice() {
+  return (
+    <div className="rq-sameday">
+      원칙적으로 당일 업무 의뢰는 불가합니다.❌ 급한 사유가 있을 경우에 한하여, 당일업무는 락연팀장님을 통해서 의뢰 부탁드립니다😃
+    </div>
+  );
+}
+
 /** 필수: 마감일 · 우선순위 · 작업유형 (창 제목 오른쪽) */
 function HeadFields({ d, set, showMissing, longOk }: { d: Draft; set: (p: Partial<Draft>) => void; showMissing?: boolean; longOk?: boolean }) {
   const miss = (v: unknown) => (showMissing && !v ? 'missing' : '');
+  // 당일 마감은 무역사무 담당자·팀장님·이사님만 (나머지는 팀장님 확인 후 의뢰)
+  const { role } = useAccess();
+  const canToday = role === 'trade' || isLeader(role);
   return (
     <div className="rq-head-fields">
       {longOk && (
@@ -89,7 +102,12 @@ function HeadFields({ d, set, showMissing, longOk }: { d: Draft; set: (p: Partia
       )}
       <div className={`rq-f req ${miss(d.dueDate)}`}>
         <span>마감일 *</span>
-        <DateInput value={d.dueDate} placeholder="예: 20261110" onChange={(v) => set({ dueDate: v })} />
+        <DateInput
+          value={d.dueDate}
+          placeholder="예: 20261110"
+          reject={(v) => (v === today() && !canToday ? SAME_DAY_MSG : null)}
+          onChange={(v) => set({ dueDate: v })}
+        />
       </div>
       <label className={`rq-f req ${miss(d.priority)}`}>
         <span>우선순위 *</span>
@@ -352,6 +370,7 @@ export function NewRequest({
   };
   return (
     <Modal title={isTrade ? '업무 추가' : '무역사무 요청하기'} onClose={onClose} wide headExtra={<HeadFields d={d} set={set} showMissing={tried} longOk={isTrade} />}>
+      {!isTrade && <SameDayNotice />}
       <Fields d={d} set={set} reqId={id} team={team} trade={trade} side={side} showMissing={tried} />
       <div className="rq-actions">
         {tried && missing.length > 0 && <span className="rq-missing-msg">필수 칸을 채워 주세요: {missing.join(', ')}</span>}

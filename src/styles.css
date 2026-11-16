@@ -7051,3 +7051,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 @media (max-width: 600px) {
   .team .member-card > .leave { min-height: 70px; box-sizing: border-box; justify-content: center; }
 }
+/* 무역사무 요청: 당일 업무 안내 (고정) */
+.rq-sameday { margin: 4px 0 14px; padding: 11px 14px; border-radius: 12px; background: #fff4e5; border: 1px solid #f3cf95; color: #7a4a0c; font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+.modal .rq-sameday { margin-top: 0; }
