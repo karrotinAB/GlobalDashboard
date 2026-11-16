@@ -314,8 +314,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                 key: 'today',
                 head: (
                   <>
-                    📅 오늘 할 일 <b>{todayRows.length}</b>
-                    <span className="muted small"> · 처리 예상일(없으면 마감일)이 오늘이거나 지난 것 — 못 끝낸 건 다음 날로 넘어가요</span>
+                    <h2>📅 오늘 할 일</h2>
+                    <span className="muted small">{todayRows.length}건</span>
+                    <span className="rq-day-note">처리 예상일(없으면 마감일)이 오늘이거나 지난 것 — 못 끝낸 건 다음 날로 넘어가요</span>
                   </>
                 ),
                 empty: todayRows.length === 0 && doneToday.length === 0 ? '오늘 할 일이 없어요 🍵' : '',
@@ -334,8 +335,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                 key: 'later',
                 head: (
                   <>
-                    🗓 남은 업무 <b>{laterRows.length}</b>
-                    <span className="muted small"> · 날짜가 아직 넉넉한 것 (가까운 날짜 순)</span>
+                    <h2>🗓 남은 업무</h2>
+                    <span className="muted small">{laterRows.length}건</span>
+                    <span className="rq-day-note">날짜가 아직 넉넉한 것 (가까운 날짜 순)</span>
                   </>
                 ),
                 empty: laterRows.length === 0 ? '남은 업무가 없어요' : '',
@@ -347,8 +349,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                 key: 'long',
                 head: (
                   <>
-                    📌 장기 업무 <b>{longRows.length}</b>
-                    <span className="muted small"> · 세부 업무로 나눠서 오래 하는 일 (진행률 100% 가 되면 완료)</span>
+                    <h2>📌 장기 업무</h2>
+                    <span className="muted small">{longRows.length}건</span>
+                    <span className="rq-day-note">세부 업무로 나눠서 오래 하는 일 (진행률 100% 가 되면 완료)</span>
                   </>
                 ),
                 empty: longRows.length === 0 ? '장기 업무가 없어요' : '',
@@ -358,7 +361,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
               },
             ] as const
           ).map((g) => (
-            <section key={g.key} className={`card table-card rq-day-card ${g.key}`}>
+            <section key={g.key} className={`group table-card rq-day-card ${g.key}`}>
               <div className="rq-day-head">{g.head}</div>
               <table className="rq-table">
                 <thead>
