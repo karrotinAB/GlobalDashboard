@@ -201,11 +201,13 @@ export default function App() {
                 </a>
               )}
             </nav>
-            {mode === 'firestore' && (
-              <div className="drawer-foot drawer-ab">
-                <AddressBook />
-              </div>
-            )}
+            {/* 줄 위: 주소록 · 번역 / 줄 아래: 다른 페이지로 가는 링크 · 설정 · 로그아웃 */}
+            <div className="drawer-foot drawer-ab">
+              {mode === 'firestore' && <AddressBook />}
+              <a href="#/translate" className={page === 'translate' ? 'active' : ''} onClick={closeDrawer}>
+                🌐 번역
+              </a>
+            </div>
             <div className="drawer-foot" onClick={closeDrawer}>
               {!tradeOnly && canTrade && <a href={side === 'trade' ? '#/home' : '#/thome'}>{side === 'trade' ? `← ${viewLabel} 페이지` : '무역사무 페이지 →'}</a>}
               {role !== 'admin' && role !== null && (
@@ -213,9 +215,6 @@ export default function App() {
                   Global Opening Prep ↗
                 </a>
               )}
-              <a href="#/translate" className={page === 'translate' ? 'active' : ''}>
-                🌐 번역
-              </a>
               <a href="#/settings" className={page === 'settings' ? 'active' : ''}>
                 ⚙️ 설정
               </a>

@@ -7533,7 +7533,7 @@ td.c-people { min-width: 120px; }
   .team.compact .mc-mini-char { grid-area: ch; width: 26px; height: 26px; }
   .team.compact .mc-name b { grid-area: nm; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .team.compact .mc-name .muted { grid-area: sb; text-align: center; font-size: 10.5px; white-space: nowrap; }
-  .team.compact .mc-top .ring { grid-area: rg; justify-self: center; position: static; width: 52px !important; height: 52px !important; }
+  .team.compact .mc-top .ring { grid-area: rg; justify-self: center; position: relative; top: auto; right: auto; width: 52px !important; height: 52px !important; }
   .team.compact .mc-top .ring-center b { font-size: 16px; }
 }
 
