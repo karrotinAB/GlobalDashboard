@@ -7518,3 +7518,7 @@ td.c-people { min-width: 120px; }
 
 /* 📑↗ 보고 연결: 아이콘과 화살표가 한 상자 안에 한 줄로 */
 .order-link.report-link { display: inline-flex; align-items: center; justify-content: center; gap: 1px; width: auto; min-width: 20px; padding: 0 4px; white-space: nowrap; font-size: 11px; line-height: 1; }
+
+/* 새 버전 알림 */
+.update-bar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 2000; display: flex; align-items: center; gap: 12px; background: #3b2a28; color: #fff; padding: 10px 12px 10px 16px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); font-size: 14px; white-space: nowrap; }
+.update-bar button { border: 0; background: #fff; color: #8c2f3c; font-weight: 700; border-radius: 999px; padding: 6px 14px; font: inherit; font-weight: 700; cursor: pointer; }
