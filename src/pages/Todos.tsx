@@ -2,7 +2,7 @@ import { useNameOf } from '../components/AddressBook';
 import { coKey, useTradeMemos, type MemoItem } from '../lib/tradeMemos';
 import { isPersonal } from '../lib/team';
 import { useMirrorClaims } from '../lib/teamClaims';
-import { setReportCheck, useSpaceCheckRole } from '../lib/reports';
+import { setReportCheck, useReports, useSpaceCheckRole } from '../lib/reports';
 import { usePeople } from '../components/AddressBook';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
@@ -150,6 +150,7 @@ export default function Todos() {
   }, [weekRows, memberFilter, companyFilter, status, q, companyById]);
 
   const [linking, setLinking] = useState<Task | null>(null); // 주문 연결하기 창
+  const [linkingReport, setLinkingReport] = useState<Task | null>(null); // 보고 연결하기 창
   const [reportF, setReportF] = useState(''); // 보고방 칸: 어느 조 보고만 볼지
   const reportTeams = [...new Set(data.tasks.filter((t) => t.reportId && t.reportTeam).map((t) => t.reportTeam!))].sort((a, b) => (a === 'trade' ? 1 : b === 'trade' ? -1 : a.localeCompare(b)));
   const groups = useMemo((): Group[] => {
@@ -582,6 +583,11 @@ export default function Todos() {
                                 📑↗
                               </a>
                             )}
+                            {task.linkedReportId && (
+                              <a className="order-link report-link" href={`#/reports?r=${task.linkedReportId}`} title="연결한 보고 — 눌러서 보고방으로">
+                                📑↗
+                              </a>
+                            )}
                             {linked && (
                               <a
                                 className="order-link"
@@ -601,7 +607,9 @@ export default function Todos() {
                               onImportant={() => patch({ important: !task.important })}
                               extra={[
                                 { label: linked ? '📦 연결한 주문 바꾸기' : '📦 주문 연결하기', onClick: () => setLinking(task) },
-                                ...(linked ? [{ label: '연결 끊기', onClick: () => patch({ orderId: undefined, bundleId: undefined }) }] : []),
+                                ...(linked ? [{ label: '주문 연결 끊기', onClick: () => patch({ orderId: undefined, bundleId: undefined }) }] : []),
+                                { label: task.linkedReportId ? '📑 연결한 보고 바꾸기' : '📑 보고 연결하기', onClick: () => setLinkingReport(task) },
+                                ...(task.linkedReportId ? [{ label: '보고 연결 끊기', onClick: () => patch({ linkedReportId: undefined }) }] : []),
                               ]}
                               onDelete={() => {
                                 if (confirm(`"${task.title}" 할일을 삭제할까요?\n(완료 체크하면 그 주 기록에 남고, 삭제하면 기록에서도 사라져요)`)) remove('tasks', task.id);
@@ -651,6 +659,18 @@ export default function Todos() {
             setLinking(null);
           }}
           onClose={() => setLinking(null)}
+        />
+      )}
+      {linkingReport && (
+        <ReportLinkPicker
+          title={linkingReport.title}
+          team={isPersonal(access.viewTeam) ? null : access.viewTeam}
+          current={linkingReport.linkedReportId}
+          onPick={(id) => {
+            save('tasks', { ...linkingReport, linkedReportId: id });
+            setLinkingReport(null);
+          }}
+          onClose={() => setLinkingReport(null)}
         />
       )}
     </div>
@@ -735,5 +755,38 @@ function TradeNoteBtn({ name, items }: { name: string; items: MemoItem[] }) {
         </Modal>
       )}
     </>
+  );
+}
+
+/** 📑 보고 연결하기: 이 조 보고방 글 중 하나 고르기 (제목 · 내용 · 쓴 사람으로 찾기) */
+function ReportLinkPicker({ title, team, current, onPick, onClose }: { title: string; team: string | null; current?: string; onPick: (id: string) => void; onClose: () => void }) {
+  const list = useReports(team);
+  const nameOf = useNameOf();
+  const [q, setQ] = useState('');
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const plain = (h: string) => h.replace(/<[^>]+>/g, ' ');
+  const shown = (list ?? []).filter((r) => {
+    if (!words.length) return true;
+    const h = `${r.title} ${plain(r.body ?? '')} ${nameOf(r.authorEmail, r.authorName)}`.toLowerCase();
+    return words.every((w) => h.includes(w));
+  });
+  const when = (iso: string) => `${new Date(iso).getMonth() + 1}/${new Date(iso).getDate()}`;
+  return (
+    <Modal title={`보고 연결하기 · ${title}`} onClose={onClose}>
+      <input autoFocus className="search" style={{ width: '100%', marginBottom: 8 }} placeholder="🔍 보고 제목 · 내용 · 쓴 사람" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="rl-list">
+        {list === null && <p className="muted small">불러오는 중…</p>}
+        {list !== null && shown.length === 0 && <p className="muted small">맞는 보고가 없어요</p>}
+        {shown.map((r) => (
+          <button key={r.id} className={`rl-item ${r.id === current ? 'on' : ''}`} onClick={() => onPick(r.id)}>
+            {team === null && <span className={`rp-src t-${r.team}`}>{r.team === 'trade' ? '무역사무' : `${r.team}조`}</span>}
+            <span className="rl-title">{r.title}</span>
+            <span className="muted small">
+              {nameOf(r.authorEmail, r.authorName)} · {when(r.createdAt)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </Modal>
   );
 }

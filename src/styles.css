@@ -7508,3 +7508,10 @@ td.c-people { min-width: 120px; }
 
 .tr-code-pre { height: 34px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font-size: 13px; background: #fff; }
 .tr-code-pre.set { background: #f1f8f2; border-color: #bfdcc5; font-weight: 600; }
+
+/* 주간 할일: 보고 연결하기 */
+.rl-list { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow-y: auto; }
+.rl-item { display: flex; align-items: center; gap: 8px; text-align: left; border: 1px solid var(--line-2); background: #fff; border-radius: 8px; padding: 8px 10px; cursor: pointer; font: inherit; font-size: 13.5px; }
+.rl-item:hover { background: #fbf6f4; }
+.rl-item.on { border-color: #8c2f3c; background: #fbeeee; }
+.rl-title { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

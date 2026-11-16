@@ -54,6 +54,7 @@ export interface Task {
   bundleId?: string; // 연결한 주문 묶음 (↗ 로 그 묶음으로)
   reportId?: string; // 보고방 보고 (팀장님·이사님 '보고 확인하기' 할일)
   reportTeam?: string;
+  linkedReportId?: string; // 직접 연결한 보고방 보고 (📑↗ 로 그 보고로)
   order: number;
   createdAt: string; // YYYY-MM-DD
 }
