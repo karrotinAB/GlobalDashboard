@@ -197,3 +197,11 @@ export async function setReportCheck(id: string, k: CheckRole, on: boolean, by: 
   const { updateDoc, deleteField } = await import('firebase/firestore');
   await updateDoc(doc(db, 'reports', id), { [`checks.${k}`]: on ? JSON.parse(JSON.stringify({ by, email, at: new Date().toISOString() })) : deleteField() });
 }
+
+/** 지금 보는 개인 대시보드의 '확인 칸': 본인(팀장님·이사님)이면 내 칸, 관리자가 그 대시보드를 보면 주인의 칸 */
+export function useSpaceCheckRole(role: string | null, viewTeam: string, roles: { role: string; space?: string }[] | null): CheckRole | null {
+  if (isLeaderRole(role)) return role;
+  if (role !== 'admin' || !roles) return null;
+  const owner = roles.find((r) => r.space === viewTeam)?.role;
+  return isLeaderRole(owner) ? owner : null;
+}

@@ -22,18 +22,18 @@ interface Person {
 }
 
 /** 대시보드 사용자(roles) + 연락처(contacts) 실시간 */
-export function usePeople() {
-  const [roles, setRoles] = useState<{ email: string; role: Role; name?: string; team?: string }[] | null>(null);
+export function usePeople(enabled = true) {
+  const [roles, setRoles] = useState<{ email: string; role: Role; name?: string; team?: string; space?: string }[] | null>(null);
   const [contacts, setContacts] = useState<Record<string, Contact>>({});
   const [error, setError] = useState('');
   useEffect(() => {
-    if (DATA_MODE === 'local') {
+    if (DATA_MODE === 'local' || !enabled) {
       setRoles([]);
       return;
     }
     const u1 = onSnapshot(
       collection(db, 'roles'),
-      (snap) => setRoles(snap.docs.map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined, team: d.data().team as string | undefined }))),
+      (snap) => setRoles(snap.docs.map((d) => ({ email: d.id, role: d.data().level as Role, name: d.data().name as string | undefined, team: d.data().team as string | undefined, space: d.data().space as string | undefined }))),
       (e) => {
         setError(e.message);
         setRoles([]);
@@ -48,7 +48,7 @@ export function usePeople() {
       u1();
       u2();
     };
-  }, []);
+  }, [enabled]);
   return { roles, contacts, error };
 }
 

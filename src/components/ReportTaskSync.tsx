@@ -4,13 +4,18 @@ import { useEffect, useRef } from 'react';
 import { useAccess } from './AuthGate';
 import { useStore } from '../data/store';
 import { isPersonal } from '../lib/team';
-import { isLeaderRole, useReports } from '../lib/reports';
+import { isLeaderRole, useReports, useSpaceCheckRole } from '../lib/reports';
+import { usePeople } from './AddressBook';
 import { today, uid } from '../lib/date';
 import type { Task } from '../types';
 
 export default function ReportTaskSync() {
-  const { role, viewTeam } = useAccess();
-  const on = isLeaderRole(role) && isPersonal(viewTeam);
+  const { role: myRole, viewTeam } = useAccess();
+  // 팀장님·이사님 본인, 또는 관리자가 그 대시보드를 볼 때 (주인의 칸으로)
+  const personal = isPersonal(viewTeam);
+  const { roles } = usePeople(personal && myRole === 'admin');
+  const role = useSpaceCheckRole(myRole, viewTeam, roles);
+  const on = personal && !!role;
   const reports = useReports(on ? null : undefined);
   const { data, save, loading } = useStore();
   const busy = useRef(new Set<string>());

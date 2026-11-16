@@ -1,5 +1,7 @@
+import { isPersonal } from '../lib/team';
 import { useMirrorClaims } from '../lib/teamClaims';
-import { isLeaderRole, setReportCheck } from '../lib/reports';
+import { setReportCheck, useSpaceCheckRole } from '../lib/reports';
+import { usePeople } from '../components/AddressBook';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
@@ -18,7 +20,7 @@ type Group = { key: string; title: string; color?: string; company?: Company; me
 export default function Todos() {
   const { data, save, saveMany, remove } = useStore();
   const { members, myCompanies: companies, memberById, companyById } = useLookups();
-  const mirrorClaims = useMirrorClaims(companies); // 팀장님·이사님: 조 업체 클레임 (환급 안 된 건 수)
+  const mirrorClaims = useMirrorClaims(companies);
   const todayIso = today();
   const thisMonday = weekStart(todayIso);
 
@@ -50,6 +52,9 @@ export default function Todos() {
     );
   };
   const access = useAccess();
+  // 보고 확인 할일: 이 대시보드 주인의 확인 칸 (팀장님/이사님 · 관리자가 볼 때도)
+  const { roles: people } = usePeople(isPersonal(access.viewTeam) && access.role === 'admin');
+  const checkRole = useSpaceCheckRole(access.role, access.viewTeam, people);
   const canManage = access.canManage; // 관리자·팀장님·이사님 (로컬 모드는 모두)
   const deleteCompany = (id: string) => {
     const c = companyById.get(id);
@@ -205,8 +210,8 @@ export default function Todos() {
   const toggleDone = (t: Task) => {
     if (readOnly) return;
     // 보고 확인 할일: 보고방 확인 체크를 바꾸면 할일도 따라 바뀜
-    if (t.reportId && isLeaderRole(access.role)) {
-      void setReportCheck(t.reportId, access.role, !t.done, access.accountName ?? access.email.split('@')[0], access.email || undefined);
+    if (t.reportId && checkRole) {
+      void setReportCheck(t.reportId, checkRole, !t.done, access.accountName ?? access.email.split('@')[0], access.email || undefined);
       return;
     }
     // 반복 할일은 '오늘 완료했는지'로 판단 (어제 완료 → 오늘은 다시 체크할 수 있음)
