@@ -74,6 +74,7 @@ const FIELD_LABEL: Partial<Record<keyof TradeRequest, string>> = {
   dueDate: '마감일',
   priority: '우선순위',
   workType: '작업유형',
+  tag: '구분',
   eta: '처리 예상일',
   status: '상태',
   assigneeId: '처리자',

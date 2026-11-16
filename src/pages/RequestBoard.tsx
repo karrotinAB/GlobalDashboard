@@ -2,7 +2,7 @@
 //  side='team'  : 2조 '무역사무요청' 탭 — 새 요청, 무역사무 담당자별 남은 업무, 기본은 내 요청만
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
 import { useMemo, useState, type CSSProperties } from 'react';
-import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest } from '../types';
+import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest, TRADE_TAGS, tradeTagLabel, type TradeTag } from '../types';
 import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel, teamTagClass } from '../lib/trade';
 import { useStore } from '../data/store';
 import { NewRequest, PriorityTag, SameDayNotice, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
@@ -32,6 +32,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const [workType, setWorkType] = useState('');
   const [showReq, setShowReq] = useState(false);
   const [status, setStatus] = useState<'' | RequestStatus>('');
+  const [tagF, setTagF] = useState(''); // 구분 거르기: '' 전체 · usa · finance · docs · '-' 미지정
   const [query, setQuery] = useState('');
   const [year, setYear] = useState(todayIso.slice(0, 4));
   const [month, setMonth] = useState(todayIso.slice(5, 7));
@@ -64,11 +65,12 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         if (requester && r.requesterId !== requester) return false;
         if (workType && r.workType !== workType) return false;
         if (status && r.status !== status) return false;
+        if (tagF && (tagF === '-' ? !!r.tag : r.tag !== tagF)) return false;
         if (q && ![r.title, r.body, r.storeCode, r.workType].some((v) => v?.toLowerCase().includes(q))) return false;
         return true;
       }),
     );
-  }, [all, tab, year, month, assignee, requester, workType, status, query]);
+  }, [all, tab, year, month, assignee, requester, workType, status, tagF, query]);
 
   const openCount = (f: (r: TradeRequest) => boolean) => all.filter((r) => isOpen(r) && f(r)).length;
   // 무역사무 진행중: 일자별로 — 처리할 날 = 처리 예상일(없으면 마감일). 지난 건 오늘로 넘어옴, 끝낸 건 오늘만 보이고 내일 사라짐
@@ -96,6 +98,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
     const sheet = XLSX.utils.json_to_sheet(
       exportRows.map((r) => ({
         상태: REQUEST_STATUS[r.status],
+        구분: tradeTagLabel(r.tag) ?? '',
         우선순위: r.priority,
         마감일: r.dueDate ?? '',
         '처리 예상일': r.eta ?? '',
@@ -250,6 +253,15 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
             <option value="progress">진행중</option>
           </select>
         )}
+        <select className={`rq-tag-filter ${tagF ? 'on' : ''}`} value={tagF} onChange={(e) => setTagF(e.target.value)} title="무역사무 구분으로 거르기">
+          <option value="">구분 전체</option>
+          {TRADE_TAGS.map((t) => (
+            <option key={t.key} value={t.key}>
+              {t.label}
+            </option>
+          ))}
+          <option value="-">구분 없음</option>
+        </select>
         <input className="search" placeholder="🔍 제목·내용·매장번호" value={query} onChange={(e) => setQuery(e.target.value)} />
         <button className="xlsx-btn" onClick={() => void downloadExcel()} title="지금 보이는 업무(필터 건 그대로)를 엑셀로 내려받아요">
           ⬇ 엑셀 ({exportRows.length})
@@ -399,6 +411,19 @@ function Row({
           </select>
         ) : (
           <StatusTag s={r.status} />
+        )}
+        {/* 구분: 무역사무가 고름 (조 화면은 보기만) */}
+        {edit ? (
+          <select className={`cell-select rq-tag-sel ${r.tag ? `tg-${r.tag}` : 'none'}`} value={r.tag ?? ''} onChange={(e) => onPatch({ tag: (e.target.value || undefined) as TradeTag | undefined })} title="구분">
+            <option value="">구분 ·</option>
+            {TRADE_TAGS.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          r.tag && <span className={`rq-tag tg-${r.tag}`}>{tradeTagLabel(r.tag)}</span>
         )}
       </td>
       <td className="c-pr">

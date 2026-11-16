@@ -1,4 +1,4 @@
-// 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 담당자별 업무 (시계 없음)
+// 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 구분별 업무
 import { useSpaceData, useStore } from '../data/store';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { CharacterPicker, clockDefaultsOf, Hero, LeaveBand, WorldClocks } from './Home';
@@ -7,7 +7,7 @@ import { PriorityTag, RequestDetail, StatusTag } from '../components/RequestPart
 import { ago, isOpen, memberLabel, sortRequests, tradeChar, useTrade, workload } from '../lib/trade';
 import { today } from '../lib/date';
 import { attendanceOf, adjustLeave } from '../lib/mem';
-import type { Attendance, ClockPick, Member, TradeRequest } from '../types';
+import { TRADE_TAGS, type Attendance, type ClockPick, type Member, type TradeRequest } from '../types';
 
 const dot = (iso?: string) => (iso ? iso.slice(5).replace('-', '.') : '');
 
@@ -33,9 +33,11 @@ export default function TradeHome() {
   const tradeDefaults = useMemo(() => clockDefaultsOf([...(co1 ?? []), ...(co2 ?? []), ...(co3 ?? [])]), [co1, co2, co3]);
   const load = workload(data.requests, trade, todayIso);
   const open = sortRequests(data.requests.filter(isOpen));
-  const columns: { id: string; member?: Member; list: TradeRequest[] }[] = [
-    ...trade.map((m) => ({ id: m.id, member: m, list: open.filter((r) => r.assigneeId === m.id) })),
-    { id: '-', list: open.filter((r) => !r.assigneeId) },
+  // 구분별 업무 (ARTBOX USA · 재무 · 일반 서류 · 구분 없음) — 마감 급한 순 5개씩, 처리자는 카드 안에 표시
+  const byDue = (l: TradeRequest[]) => [...l].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+  const columns: { id: string; label: string; list: TradeRequest[] }[] = [
+    ...TRADE_TAGS.map((t) => ({ id: t.key, label: t.label, list: byDue(open.filter((r) => r.tag === t.key)) })),
+    { id: '-', label: '구분 없음', list: byDue(open.filter((r) => !r.tag)) },
   ];
   const detail = data.requests.find((r) => r.id === openId);
   // 새로 들어온 업무: 최근 4일 (주말 포함) 안에 올라온, 아직 시작 안 한 것
@@ -140,22 +142,21 @@ export default function TradeHome() {
 
       <section className="section">
         <div className="section-head">
-          <h2>📋 담당자별 업무</h2>
-          <span className="muted small">급한 순 · 누르면 자세히 · 전체는 업무 탭에서</span>
+          <h2>📋 구분별 업무</h2>
+          <span className="muted small">마감 급한 순 5개씩 · 누르면 자세히 · 전체는 업무 탭에서</span>
         </div>
         <div className="tw-board">
           {columns.map((c) => (
-            <div key={c.id} className={`tw-col ${c.member ? '' : 'none'}`} style={{ '--c': c.member?.color } as CSSProperties}>
+            <div key={c.id} className={`tw-col tg-col tg-${c.id === '-' ? 'none' : c.id} ${c.id === '-' ? 'none' : ''}`}>
               <div className="tw-col-head">
-                {c.member ? <Avatar member={c.member} size={26} /> : <span className="tw-q">?</span>}
-                <b>{c.member?.name ?? '처리자 미정'}</b>
+                <span className={`rq-tag tg-${c.id === '-' ? 'none' : c.id}`}>{c.label}</span>
                 <span className="tw-count">{c.list.length}</span>
               </div>
               {c.list.length === 0 ? (
                 <p className="muted small tw-empty">남은 업무 없음 🍵</p>
               ) : (
                 <ul>
-                  {c.list.map((r) => (
+                  {c.list.slice(0, 5).map((r) => (
                     <li key={r.id}>
                       <button className="tw-item" onClick={() => setOpenId(r.id)}>
                         <span className="tw-item-top">
@@ -164,13 +165,22 @@ export default function TradeHome() {
                           {r.dueDate && <span className={`tw-due ${r.dueDate < todayIso ? 'overdue' : r.dueDate === todayIso ? 'today' : ''}`}>~{dot(r.dueDate)}</span>}
                         </span>
                         <span className="tw-title">{r.title}{r.longTerm && <span className="rq-long-tag" title="장기 업무 진행률">📌 {r.progress ?? 0}%</span>}{r.orderLink && <span title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}</span>
-                        <span className="muted small">
+                        <span className="muted small tw-meta">
                           {(() => { const w = team.find((m) => m.id === r.requesterId); return w ? memberLabel(w) : ''; })()} {r.workType ? `· ${r.workType}` : ''}
+                          {(() => {
+                            const a = trade.find((m) => m.id === r.assigneeId);
+                            return <span className={`tw-as ${a ? '' : 'none'}`}>{a ? `→ ${a.name}` : '처리자 미정'}</span>;
+                          })()}
                         </span>
                       </button>
                     </li>
                   ))}
                 </ul>
+              )}
+              {c.list.length > 5 && (
+                <a className="tw-more" href="#/twork">
+                  + {c.list.length - 5}개 더 · 업무 탭에서 보기
+                </a>
               )}
             </div>
           ))}

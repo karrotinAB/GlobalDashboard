@@ -266,6 +266,7 @@ export interface TradeRequest {
   dueDate?: string;
   priority: Priority;
   workType?: string;
+  tag?: TradeTag; // 무역사무가 고르는 구분 (ARTBOX USA / 재무 / 일반 서류)
   eta?: string; // 처리 예상일
   status: RequestStatus;
   assigneeId?: string; // 무역사무 담당자(tradeMembers) id
@@ -273,3 +274,12 @@ export interface TradeRequest {
   log?: RequestLog[];
   createdAt: string;
 }
+
+/** 무역사무 업무 구분 (무역사무 페이지에서 상태 옆에서 고름 · 홈은 이 구분별로 묶어 보여줌) */
+export type TradeTag = 'usa' | 'finance' | 'docs';
+export const TRADE_TAGS: { key: TradeTag; label: string }[] = [
+  { key: 'usa', label: 'ARTBOX USA' },
+  { key: 'finance', label: '재무' },
+  { key: 'docs', label: '일반 서류' },
+];
+export const tradeTagLabel = (t?: string) => TRADE_TAGS.find((x) => x.key === t)?.label;
