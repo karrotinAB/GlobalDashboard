@@ -107,8 +107,9 @@ export default function App() {
 
   const [drawer, setDrawer] = useState(false);
   // 보고방 빨간 점: 우리 조 보고에 팀장님·이사님 새 답변 (조 화면에서만)
-  const reportAlert = useReportAlert(viewTeam, !tradeOnly && !isPersonal(viewTeam));
-  const tradeReportAlert = useReportAlert('trade', canTrade && !leader);
+  const { email: myEmail } = useAccess();
+  const reportAlert = useReportAlert(viewTeam, !tradeOnly && !isPersonal(viewTeam), myEmail);
+  const tradeReportAlert = useReportAlert('trade', canTrade && !leader, myEmail);
   const go = (p: string) => {
     window.location.hash = `/${p}`;
   };

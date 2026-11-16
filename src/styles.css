@@ -7234,3 +7234,12 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .rp-detail { padding-left: 4px; }
   .rp-detail .rp-replies { margin-left: 24px; }
 }
+
+/* 보고방: 원글과 답변 사이 구분선 · 새 알림 문구 */
+.rp-detail .rp-replies { border-top: 1px solid #e6d3cf; padding-top: 12px; margin-top: 12px; margin-left: 0; padding-left: 64px; }
+@media (max-width: 600px) { .rp-detail .rp-replies { padding-left: 24px; } }
+
+/* 보고방 확인란: 이름만, 누르면 날짜 */
+.rp-chk-name { border: 0; background: none; font: inherit; color: #2f6b3c; font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: 6px; display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.rp-chk-name:hover { background: #e3f1e6; }
+.rp-chk-at { font-size: 10.5px; font-weight: 500; color: #6b8f73; }

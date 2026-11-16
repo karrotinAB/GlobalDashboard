@@ -132,7 +132,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
             <tbody>
               {shown.map((r) => {
                 const open = openId === r.id;
-                const unseen = !leaderView && isUnseen(r);
+                const unseen = !leaderView && isUnseen(r, access.email);
                 const fresh = leaderView && myCheck && !r.checks?.[myCheck];
                 return (
                   <Fragment key={r.id}>
@@ -164,13 +164,14 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                         const mine = myCheck === k || access.role === 'admin'; // 관리자는 두 칸 다
                         return (
                           <td key={k} className={`rp-chk ${c ? 'on' : ''}`}>
+                            {/* 확인한 사람 이름만 (누르면 날짜·시간) */}
                             {mine ? (
-                              <label className="rp-chk-label" title={`${CHECK_LABEL[k]} 확인 (누르면 바뀜)`}>
-                                <input type="checkbox" checked={!!c} onChange={() => toggleCheck(r, k)} />
-                                {c ? when(c.at) : '확인'}
-                              </label>
+                              <span className="rp-chk-label">
+                                <input type="checkbox" checked={!!c} onChange={() => toggleCheck(r, k)} title={`${CHECK_LABEL[k]} 확인 (누르면 바뀜)`} />
+                                {c ? <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} /> : <span className="muted">확인</span>}
+                              </span>
                             ) : c ? (
-                              <span title={`${c.by} · ${when(c.at)}`}>✓ {when(c.at)}</span>
+                              <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} />
                             ) : (
                               <span className="muted">—</span>
                             )}
@@ -337,8 +338,7 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
             )}
           </div>
         ))}
-        {/* 답변은 팀장님·이사님 (+ 관리자) */}
-        {(isLeaderRole(access.role) || access.role === 'admin') && (
+        {/* 답변: 이 보고방을 볼 수 있는 사람 모두 */}
         <div className="rp-reply-box">
           <textarea
             rows={2}
@@ -351,8 +351,22 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
             답변
           </button>
         </div>
-        )}
+
       </div>
     </div>
+  );
+}
+
+/** 확인란 이름: 세 글자 한글 이름은 성을 빼고 (예: 이승재 → 승재) */
+const shortName = (n: string) => (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
+
+/** 확인한 사람 이름 — 누르면 날짜·시간 */
+function CheckName({ name, at }: { name: string; at: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <button type="button" className="rp-chk-name" onClick={() => setShow((v) => !v)} title={at}>
+      ✓ {name}
+      {show && <span className="rp-chk-at">{at}</span>}
+    </button>
   );
 }

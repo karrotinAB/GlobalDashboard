@@ -146,14 +146,18 @@ export async function deleteReport(id: string) {
 
 /** 이 보고에 내가 아직 안 본 팀장님·이사님 답변이 있나 (조원 쪽 알림) */
 const seenKey = (id: string) => `gd:reportSeen:${id}`;
-export const lastLeaderReply = (r: Report) =>
-  (r.replies ?? [])
-    .filter((x) => isLeaderRole(x.role) || x.role === 'admin')
-    .map((x) => x.at)
-    .sort()
-    .pop();
-export function isUnseen(r: Report) {
-  const last = lastLeaderReply(r);
+/** 알림이 될 일: 팀장님·이사님(·관리자) 답변, 팀장님·이사님 확인 체크 — 내가 한 건 빼고 */
+export const lastLeaderEvent = (r: Report, myEmail?: string) => {
+  const me = (myEmail ?? '').toLowerCase();
+  const notMe = (e?: string) => !me || (e ?? '').toLowerCase() !== me;
+  const replies = (r.replies ?? []).filter((x) => (isLeaderRole(x.role) || x.role === 'admin') && notMe(x.email)).map((x) => x.at);
+  const checks = Object.values(r.checks ?? {})
+    .filter((c): c is ReportCheck => !!c && notMe(c.email))
+    .map((c) => c.at);
+  return [...replies, ...checks].sort().pop();
+};
+export function isUnseen(r: Report, myEmail?: string) {
+  const last = lastLeaderEvent(r, myEmail);
   if (!last) return false;
   try {
     return (localStorage.getItem(seenKey(r.id)) ?? '') < last;
@@ -170,8 +174,8 @@ export function markSeen(r: Report) {
   window.dispatchEvent(new Event('gd-reports-seen'));
 }
 
-/** 탭 위 빨간 점: 내 조 보고 중 안 본 팀장님·이사님 답변이 있으면 */
-export function useReportAlert(team: string | null, enabled: boolean) {
+/** 탭 위 빨간 점: 내 조 보고에 안 본 팀장님·이사님 답변·확인이 있으면 */
+export function useReportAlert(team: string | null, enabled: boolean, myEmail?: string) {
   const list = useReports(enabled ? team : undefined);
   const [, bump] = useState(0);
   useEffect(() => {
@@ -179,7 +183,7 @@ export function useReportAlert(team: string | null, enabled: boolean) {
     window.addEventListener('gd-reports-seen', h);
     return () => window.removeEventListener('gd-reports-seen', h);
   }, []);
-  return enabled && !!list?.some(isUnseen);
+  return enabled && !!list?.some((r) => isUnseen(r, myEmail));
 }
 
 /** 보고 하나의 확인 체크 켜기/끄기 (주간 할일의 '보고 확인하기' 체크에서) */
