@@ -1,5 +1,6 @@
 import { useMirrorClaims } from '../lib/teamClaims';
 import { useMemo, useRef, useState } from 'react';
+import { useIsMobile } from '../lib/useMobile';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { today, uid } from '../lib/date';
@@ -57,6 +58,8 @@ export default function Claims() {
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState('');
   const [detail, setDetail] = useState<Claim | null>(null);
+  const isMobile = useIsMobile();
+  const [mOpen, setMOpen] = useState<string | null>(null); // 휴대폰: 눌러서 펼친 클레임
   /** 묶음 이름을 나중에 바꿔도 따라가게: 지금 묶음/주문 이름, 없으면 저장된 이름 */
   const liveTitle = (c: Claim) =>
     (c.source === 'bundle'
@@ -252,9 +255,15 @@ export default function Claims() {
               <th className="k-cur">통화</th>
               <th className="k-amt">패킹금액</th>
               <th className="k-amt">클레임 금액</th>
-              <th className="k-rate">클레임 비율</th>
-              <th className="k-chk">서류작성</th>
-              <th className="k-chk">환급 완료</th>
+              <th className="k-rate">
+                <span className="hide-m">클레임 </span>비율
+              </th>
+              <th className="k-chk">
+                서류<span className="hide-m">작성</span>
+              </th>
+              <th className="k-chk">
+                환급<span className="hide-m"> 완료</span>
+              </th>
               <th className="k-files">파일</th>
               <th className="k-note">비고</th>
               <th className="k-more" />
@@ -268,7 +277,7 @@ export default function Claims() {
               return (
                 <tr
                   key={c.id}
-                  className={`${c.refunded ? 'is-refunded' : c.docDone ? 'is-doc' : ''} ${dragId === c.id ? 'row-dragging' : ''} ${
+                  className={`${c.refunded ? 'is-refunded' : c.docDone ? 'is-doc' : ''} ${mOpen === c.id ? 'm-open' : ''} ${dragId === c.id ? 'row-dragging' : ''} ${
                     over?.id === c.id ? (over.after ? 'drop-after' : 'drop-before') : ''
                   }`}
                   onDragOver={(e) => {
@@ -283,7 +292,7 @@ export default function Claims() {
                     dropOn(c.id, over?.id === c.id ? over.after : false);
                   }}
                 >
-                  <td className="k-date">
+                  <td className="k-date" data-label="출고날짜">
                     <span
                       className="row-handle k-handle"
                       draggable
@@ -307,13 +316,13 @@ export default function Claims() {
                       <span className="k-icon" title={c.source === 'bundle' ? '묶음' : c.source === 'order' ? '주문' : '직접 입력'}>
                         {c.source === 'bundle' ? '🔗' : '💼'}
                       </span>
-                      <button className="k-title-btn" onClick={() => setDetail(c)} title="눌러서 포함된 주문 보기">
+                      <button className="k-title-btn" onClick={() => (isMobile ? setMOpen(mOpen === c.id ? null : c.id) : setDetail(c))} title={isMobile ? '눌러서 자세히' : '눌러서 포함된 주문 보기'}>
                         {liveTitle(c)}
                       </button>
                       {!sheet && company && <span className="k-co">{company.country || company.name}</span>}
                     </div>
                   </td>
-                  <td className="k-cur">
+                  <td className="k-cur" data-label="통화">
                     <button
                       className={`cur-pill ${c.currency === 'KRW' ? 'krw' : 'fx'}`}
                       title="눌러서 원화 ↔ 외화"
@@ -322,7 +331,7 @@ export default function Claims() {
                       {c.currency === 'KRW' ? '₩ 원화' : '$ 외화'}
                     </button>
                   </td>
-                  <td className="k-amt">
+                  <td className="k-amt" data-label="패킹금액">
                     <div className="k-amt-wrap" title={c.packingOverride !== undefined ? '직접 쓴 금액' : '주문 관리에서 자동으로 가져온 금액'}>
                       <AmountCell
                         value={packing}
@@ -332,7 +341,7 @@ export default function Claims() {
                       {c.packingOverride === undefined && packing !== undefined && <span className="auto-tag">자동</span>}
                     </div>
                   </td>
-                  <td className="k-amt">
+                  <td className="k-amt" data-label="클레임 금액">
                     <AmountCell value={c.claimAmount} kind={c.currency === 'KRW' ? 'krw' : 'fx'} onSave={(v) => patch(c, { claimAmount: v })} />
                   </td>
                   <td className="k-rate">{rate === undefined ? '' : `${rate.toFixed(3)}%`}</td>
@@ -342,7 +351,7 @@ export default function Claims() {
                   <td className="k-chk">
                     <input type="checkbox" checked={c.refunded} onChange={() => patch(c, { refunded: !c.refunded })} aria-label="환급 완료" />
                   </td>
-                  <td className="k-files">
+                  <td className="k-files" data-label="파일">
                     <div className="files">
                       {(c.files ?? []).map((f) => (
                         <span key={f.url} className="file-chip">
@@ -371,10 +380,14 @@ export default function Claims() {
                       </button>
                     </div>
                   </td>
-                  <td className="k-note">
+                  <td className="k-note" data-label="비고">
                     <EditableText value={c.note ?? ''} oneLine expand placeholder="비고" onSave={(v) => patch(c, { note: v || undefined })} />
                   </td>
                   <td className="k-more">
+                    {/* 휴대폰: 펼쳤을 때 포함된 주문 보기 */}
+                    <button className="link small k-m-orders" onClick={() => setDetail(c)}>
+                      📦 포함된 주문 보기
+                    </button>
                     <MoreMenu
                       items={[{ label: '🗑 삭제', danger: true, onClick: () => confirm(`'${c.title}' 클레임을 삭제할까요?`) && remove('claims', c.id) }]}
                     />

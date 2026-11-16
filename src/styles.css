@@ -7662,3 +7662,66 @@ td.c-people { min-width: 120px; }
   .task-table td.c-more .row-menu > button { padding: 0 4px; line-height: 1; height: 18px; }
   .task-table tr { column-gap: 8px; }
 }
+
+/* 휴대폰 클레임: [주문 제목] [비율] [서류] [환급] 만, 제목을 누르면 아래로 자세히 */
+.k-m-orders { display: none; }
+@media (max-width: 600px) {
+  .claims-wrap { overflow-x: visible !important; }
+  .claim-table { min-width: 0 !important; width: 100%; table-layout: auto; }
+  .claim-table thead, .claim-table tbody { display: block; width: 100%; }
+  .claim-table thead tr, .claim-table tbody tr:not(.add-row) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px 36px 36px;
+    column-gap: 6px;
+    align-items: center;
+    padding: 0 8px;
+  }
+  .claim-table th, .claim-table td { display: none; width: auto !important; padding: 8px 0 !important; border: 0 !important; }
+  .claim-table tbody tr:not(.add-row) { border-bottom: 1px solid var(--line-2); }
+  .claim-table .k-title, .claim-table .k-rate, .claim-table .k-chk { display: block; }
+  .claim-table th.k-title { grid-column: 1; }
+  .claim-table .k-rate { text-align: right; font-size: 12.5px; }
+  .claim-table .k-chk { text-align: center; }
+  .claim-table th { font-size: 11px; white-space: nowrap; }
+  .claim-table th .hide-m { display: none; }
+  .claim-table .k-title-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .claim-table .k-title-btn { text-align: left; white-space: normal; font-weight: 600; }
+  .claim-table .k-handle { display: none; }
+  /* 펼친 줄: 나머지 칸을 아래에 이름표와 함께 */
+  .claim-table tr.m-open { background: #fbf6f4; padding-bottom: 8px; }
+  .claim-table tr.m-open td[data-label], .claim-table tr.m-open td.k-more { display: flex; grid-column: 1 / -1; align-items: center; gap: 10px; padding: 4px 0 4px 26px !important; min-width: 0; }
+  .claim-table tr.m-open td[data-label]::before { content: attr(data-label); flex: none; width: 70px; font-size: 12px; color: var(--mut); }
+  .claim-table tr.m-open td[data-label] > * { min-width: 0; }
+  .claim-table tr.m-open td.k-amt { text-align: left; }
+  .claim-table tr.m-open .k-m-orders { display: inline-block; }
+  .claim-table tr.m-open td.k-more { justify-content: space-between; }
+  .claim-table tr.add-row { display: block; }
+  .claim-table tr.add-row td { display: block; }
+}
+/* 휴대폰 주간 할일: 체크 · 제목 · 날짜 · 담당 · 바로가기 모두 줄 가운데 높이로 */
+@media (max-width: 600px) {
+  .task-table td.c-check { align-self: center; padding-top: 2px !important; }
+  .task-table td.c-title, .task-table td.c-due, .task-table td.c-who { align-self: center; }
+  .task-table td.c-more { align-self: center; position: relative; flex-direction: row; min-height: 24px; }
+  /* 바로가기가 있으면 ⋯ 는 자리를 차지하지 않게 바로가기 아래에 겹쳐 둠 (그 줄을 눌렀을 때만 보이고 눌림) */
+  .task-table td.c-more:has(.links-m a) .row-menu { position: absolute; left: 50%; top: calc(50% + 14px); transform: translateX(-50%); }
+  .task-table td.c-more:has(.links-m a) .more-btn { pointer-events: none; }
+  .task-table tr:hover td.c-more .more-btn, .task-table tr:focus-within td.c-more .more-btn { pointer-events: auto; }
+}
+@media (max-width: 600px) {
+  .claim-table td { background: none !important; }
+  .claim-table tr.is-doc { background: #fbe9ee; }
+  .claim-table tr.is-refunded { background: #efecea; }
+  .claim-table th { background: none !important; }
+  .claim-table thead tr { background: var(--surface-2); border-bottom: 1px solid var(--line-2); }
+  /* 펼쳐도 첫 줄은 [제목 비율 서류 환급] 그대로, 자세한 칸은 그 아래로 */
+  .claim-table tr td.k-title { grid-column: 1; grid-row: 1; }
+  .claim-table tr td.k-rate { grid-column: 2; grid-row: 1; }
+  .claim-table tr td.k-chk:nth-of-type(7) { grid-column: 3; grid-row: 1; }
+  .claim-table tr td.k-chk:nth-of-type(8) { grid-column: 4; grid-row: 1; }
+  .claim-table thead th.k-title { grid-column: 1; }
+  .claim-table thead th.k-rate { grid-column: 2; }
+  .claim-table thead th:nth-of-type(7) { grid-column: 3; }
+  .claim-table thead th:nth-of-type(8) { grid-column: 4; }
+  .claim-table tr.m-open td[data-label], .claim-table tr.m-open td.k-more { padding-left: 8px !important; }
+}
