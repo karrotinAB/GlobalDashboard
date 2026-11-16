@@ -7566,3 +7566,15 @@ td.c-people { min-width: 120px; }
 }
 /* 휴대폰 조 현황: 누른 조 카드 바로 아래 펼침 */
 .ov-inline { grid-column: 1 / -1; min-width: 0; margin: -4px 0 6px; padding: 10px 0 4px; border-top: 2px solid #8c2f3c33; }
+
+/* 휴대폰 주간 할일: 주 옆 업체 고르기, 필터 칸은 검색 + 업체별/담당자별/마감순만 */
+.todo-co-m { display: none; }
+@media (max-width: 600px) {
+  .todo-co-m { display: block; flex: 1; min-width: 0; max-width: 46%; margin-left: auto; height: 40px; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 0 10px; font-size: 14px; }
+  .todo-toolbar .hide-m { display: none !important; }
+  .todo-toolbar .search { width: 100%; flex: 1 1 100%; }
+}
+@media (max-width: 600px) {
+  .page-head:has(.todo-co-m) .week-nav { width: 100%; max-width: 100%; min-width: 0; gap: 6px; }
+  .week-nav .todo-co-m { flex: 1 1 0; max-width: none; width: auto; height: 40px; font-size: 13px; padding: 0 6px; }
+}

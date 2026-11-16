@@ -264,13 +264,22 @@ export default function Todos() {
               이번주로
             </button>
           )}
+          {/* 휴대폰: 주 옆에 업체 고르기 */}
+          <select className="todo-co-m" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} aria-label="업체 고르기">
+            <option value="">업체 전체</option>
+            {companies.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
       <SummaryTable summary={summary} selected={memberFilter} onSelect={(id) => setMemberFilter(id === memberFilter ? null : id)} />
 
-      <div className="toolbar">
-        <div className="seg">
+      <div className="toolbar todo-toolbar">
+        <div className="seg hide-m">
           <button className={memberFilter !== '__none' ? 'on' : ''} onClick={() => setMemberFilter(null)}>
             {memberFilter && memberFilter !== '__none' ? `${memberById.get(memberFilter)?.name ?? ''} ✕` : '전체'}
           </button>
@@ -279,7 +288,7 @@ export default function Todos() {
           </button>
         </div>
         <button
-          className={`company-toggle ${companyFilter || showCompanies ? 'on' : ''}`}
+          className={`company-toggle hide-m ${companyFilter || showCompanies ? 'on' : ''}`}
           onClick={() => (companyFilter ? setCompanyFilter('') : setShowCompanies((v) => !v))}
           title={companyFilter ? '업체 필터 해제' : '업체별로 골라 보기'}
         >
@@ -292,7 +301,7 @@ export default function Todos() {
             <>업체 고르기 {showCompanies ? '▴' : '▾'}</>
           )}
         </button>
-        <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
+        <select className="hide-m" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
           <option value="all">완료 포함</option>
           <option value="open">미완료만</option>
           <option value="done">완료만</option>
@@ -310,7 +319,7 @@ export default function Todos() {
           </button>
         </div>
         {showCompanies && !companyFilter && (
-        <div className="company-chips">
+        <div className="company-chips hide-m">
           {companies.map((c) => (
             <button
               key={c.id}
