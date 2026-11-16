@@ -7,6 +7,7 @@ import type { Role } from './AuthGate';
 
 /** 주소록에 쓰는 연락처 (관리자가 설정 > 대시보드 사용자에서 넣음): contacts/{이메일} */
 export interface Contact {
+  name?: string; // 주소록에 보일 이름 (관리자가 설정에서 · 본인 것도 됨)
   office?: string; // 회사번호
   mobile?: string; // 개인번호
 }
@@ -80,7 +81,7 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
     () =>
       (roles ?? []).map((r) => ({
         ...r,
-        name: r.name || r.email.split('@')[0],
+        name: contacts[r.email]?.name || r.name || r.email.split('@')[0],
         office: contacts[r.email]?.office,
         mobile: contacts[r.email]?.mobile,
       })),

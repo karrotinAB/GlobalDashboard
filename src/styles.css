@@ -7140,3 +7140,5 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .ab-table td.ab-empty { color: #c5b8b5; }
 .ab-toast { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 700; color: #2f6b3c; background: #e6f4ea; padding: 0 4px; }
 .ab-table .ab-ext { font-weight: 800; }
+
+.name-input { width: 110px; }

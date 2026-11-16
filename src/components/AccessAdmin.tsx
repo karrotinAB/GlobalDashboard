@@ -147,7 +147,16 @@ export default function AccessAdmin() {
                   {r.email}
                   {self && <span className="muted small"> (나)</span>}
                 </td>
-                <td>{r.name}</td>
+                <td>
+                  <NameInput
+                    value={contacts[r.email]?.name || r.name}
+                    onSave={(n) => {
+                      // 주소록 이름 (본인 것도 저장됨) + 다른 사람은 사용자 목록 이름도 같이
+                      setDoc(doc(db, 'contacts', r.email), { name: n }, { merge: true }).catch((e) => setMsg(`이름 저장 실패: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`));
+                      if (!self) void put(r.email, r.role, n || undefined, r.team);
+                    }}
+                  />
+                </td>
                 <td>
                   {self ? (
                     ROLE_LABEL[r.role]
@@ -249,6 +258,22 @@ function PhoneInput({ email, field, value, onError }: { email: string; field: 'o
         if (t === (value ?? '')) return;
         setDoc(doc(db, 'contacts', email), { [field]: t }, { merge: true }).catch((e) => onError(`번호 저장 실패: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`));
       }}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
+  );
+}
+
+/** 이름 칸: 칸에서 나가면 저장 */
+function NameInput({ value, onSave }: { value?: string; onSave: (n: string) => void }) {
+  const [v, setV] = useState(value ?? '');
+  useEffect(() => setV(value ?? ''), [value]);
+  return (
+    <input
+      className="name-input"
+      value={v}
+      placeholder="이름"
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => v.trim() !== (value ?? '') && onSave(v.trim())}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
     />
   );
