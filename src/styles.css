@@ -7069,3 +7069,8 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .yr-pt { cursor: pointer; }
 .cmp-chip { font-weight: 700; }
 .sales-compare .sales-bar { margin-bottom: 4px; }
+.cmp-table th.l { white-space: nowrap; }
+.cmp-table td { white-space: nowrap; }
+
+.cmp-val { font-size: 10.5px; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+.cmp-val .sc-conv { font-size: 9px; }

@@ -1259,10 +1259,10 @@ function CompareView({
   const fx = useFxRates([...companies.map((c) => c.salesCurrency ?? ''), 'USD'], allMonths.length ? [prevMonth(allMonths[0]), ...allMonths] : []);
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`);
   // 업체·달 → 환산 금액 (환율이 하루라도 없으면 null)
-  const valOf = (c: Company, m: string): number | null | undefined => {
+  const valOf = (c: Company, m: string, t: 'KRW' | 'USD' = target): number | null | undefined => {
     const days = byCo.get(c.id)?.get(m);
     if (!days) return undefined;
-    const conv = makeConv(fx, c.salesCurrency, target);
+    const conv = makeConv(fx, c.salesCurrency, t);
     let sum = 0;
     for (const [dd, v] of Object.entries(days)) {
       const r = conv(`${m}-${dd}`, v);
@@ -1274,9 +1274,14 @@ function CompareView({
   const rows = companies.map((c) => {
     const vals = months.map((m) => valOf(c, m));
     const ok = vals.filter((v): v is number => typeof v === 'number');
-    return { c, vals, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
+    // 그래프 점 위 글씨: 원화 · 달러 둘 다
+    const krw = months.map((m) => valOf(c, m, 'KRW'));
+    const usd = months.map((m) => valOf(c, m, 'USD'));
+    return { c, vals, krw, usd, total: ok.reduce((a, v) => a + v, 0), missing: vals.some((v) => v === null) };
   });
   const grand = rows.reduce((a, r) => a + r.total, 0);
+  // 표: 데이터가 있는 달만 칸으로
+  const dataIdx = months.map((_, i) => i).filter((i) => rows.some((r) => r.vals[i] !== undefined));
   const tSym = target === 'USD' ? '$' : '₩';
   const short = (n: number) => `${tSym}${shortConv(n, target)}`;
   const [hide, setHide] = useState<Set<string>>(new Set());
@@ -1284,8 +1289,8 @@ function CompareView({
   const W = mobile ? 380 : 1000;
   const L = mobile ? 46 : 56;
   const R = 16;
-  const top = 24;
-  const bottom = mobile ? 210 : 200;
+  const top = mobile ? 24 : 44;
+  const bottom = mobile ? 210 : 240;
   const H = bottom + 30;
   const shown = rows.filter((r) => !hide.has(r.c.id));
   const max = Math.max(1, ...shown.flatMap((r) => r.vals.filter((v): v is number => typeof v === 'number')));
@@ -1372,12 +1377,22 @@ function CompareView({
                   <path d={path(r.vals)} fill="none" stroke={r.c.color ?? '#999'} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
                   {r.vals.map((v, i) =>
                     typeof v === 'number' ? (
-                      <circle key={i} cx={x(i)} cy={y(v)} r={3} fill="#fff" stroke={r.c.color ?? '#999'} strokeWidth={1.8}>
-                        <title>
-                          {r.c.name} {i + 1}월: {tSym}
-                          {fmtConv(v, target)}
-                        </title>
-                      </circle>
+                      <g key={i}>
+                        <circle cx={x(i)} cy={y(v)} r={3} fill="#fff" stroke={r.c.color ?? '#999'} strokeWidth={1.8}>
+                          <title>
+                            {r.c.name} {i + 1}월: {tSym}
+                            {fmtConv(v, target)}
+                          </title>
+                        </circle>
+                        {!mobile && (
+                          <text x={x(i)} y={y(v) - 19} textAnchor="middle" className="sc-val cmp-val" style={{ fill: r.c.color ?? '#3b2a28' }}>
+                            {typeof r.krw[i] === 'number' ? `₩${shortAmt(r.krw[i] as number)}` : '₩—'}
+                            <tspan x={x(i)} dy={10} className="sc-conv">
+                              {typeof r.usd[i] === 'number' ? `$${shortConv(r.usd[i] as number, 'USD')}` : '$—'}
+                            </tspan>
+                          </text>
+                        )}
+                      </g>
                     ) : null,
                   )}
                 </g>
@@ -1418,46 +1433,50 @@ function CompareView({
               <table className="sales-table yr-table cmp-table">
                 <thead>
                   <tr>
-                    <th className="l">월</th>
-                    {rows.map((r) => (
-                      <th key={r.c.id} className="r">
-                        <span className="br-dot" style={{ background: r.c.color ?? '#999' }} />
-                        {r.c.name}
+                    <th className="l">업체</th>
+                    {dataIdx.map((i) => (
+                      <th key={i} className="r">
+                        {i + 1}월
                       </th>
                     ))}
                     <th className="r">합계</th>
+                    <th className="r">비중</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {months.map((m, i) => {
-                    const vals = rows.map((r) => r.vals[i]);
-                    if (vals.every((v) => v === undefined)) return null;
-                    const sum = vals.reduce<number>((a, v) => a + (typeof v === 'number' ? v : 0), 0);
-                    return (
-                      <tr key={m}>
-                        <th className="l">{i + 1}월</th>
-                        {vals.map((v, j) => (
-                          <td key={rows[j].c.id} className="r">
+                  {rows.map((r) => (
+                    <tr key={r.c.id}>
+                      <th className="l">
+                        <span className="br-dot" style={{ background: r.c.color ?? '#999' }} />
+                        {r.c.name}
+                      </th>
+                      {dataIdx.map((i) => {
+                        const v = r.vals[i];
+                        return (
+                          <td key={i} className="r">
                             {v === undefined ? <span className="muted">—</span> : v === null ? <span className="warn small">환율 없음</span> : `${tSym}${fmtConv(v, target)}`}
                           </td>
-                        ))}
-                        <td className="r">
-                          <b>
-                            {tSym}
-                            {fmtConv(sum, target)}
-                          </b>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        );
+                      })}
+                      <td className="r">
+                        <b>{r.total ? `${tSym}${fmtConv(r.total, target)}` : '—'}</b>
+                      </td>
+                      <td className="r">{grand ? `${((r.total / grand) * 100).toFixed(1)}%` : '—'}</td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <th className="l">합계</th>
-                    {rows.map((r) => (
-                      <td key={r.c.id} className="r">
-                        <b>{r.total ? `${tSym}${fmtConv(r.total, target)}` : '—'}</b>
-                        {grand ? <small className="krw">{((r.total / grand) * 100).toFixed(1)}%</small> : null}
+                    {dataIdx.map((i) => (
+                      <td key={i} className="r">
+                        <b>
+                          {tSym}
+                          {fmtConv(
+                            rows.reduce((a, r) => a + (typeof r.vals[i] === 'number' ? (r.vals[i] as number) : 0), 0),
+                            target,
+                          )}
+                        </b>
                       </td>
                     ))}
                     <td className="r">
@@ -1466,6 +1485,7 @@ function CompareView({
                         {fmtConv(grand, target)}
                       </b>
                     </td>
+                    <td className="r">100%</td>
                   </tr>
                 </tfoot>
               </table>
