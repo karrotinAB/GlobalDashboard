@@ -546,13 +546,16 @@ function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
       </div>
     );
   }
+  // 주말에는 '근무전' 대신 '주말' (주말에 출근 기록이 있으면 위에서 퇴근 예정으로 나옴)
+  const dow = new Date(`${r.date}T00:00:00`).getDay();
+  const weekend = dow === 0 || dow === 6;
   return (
     <div className="leave away">
       <div className="leave-main">
         <span className="leave-label">오늘</span>
-        <span className="leave-time">{r.status}</span>
+        <span className="leave-time">{weekend ? '주말' : r.status}</span>
       </div>
-      {r.period && (
+      {r.period && !weekend && (
         <div className="leave-side">
           <span className="leave-detail">{r.period}</span>
         </div>

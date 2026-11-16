@@ -7047,3 +7047,7 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
   .companies-table .c-color { width: 56px; }
 }
 .area-pick { width: 100%; margin: 4px 0 10px; }
+/* 휴대폰 출퇴근 띠: 오른쪽 위 할일/업무 링 영역까지 덮게 */
+@media (max-width: 600px) {
+  .team .member-card > .leave { min-height: 70px; box-sizing: border-box; justify-content: center; }
+}
