@@ -237,6 +237,7 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
   const access = useAccess();
   const [editing, setEditing] = useState(false);
   const [reply, setReply] = useState('');
+  const [replying, setReplying] = useState(false);
   const [zoom, setZoom] = useState<RequestFile | null>(null);
   if (editing)
     return (
@@ -258,6 +259,7 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
       replies: [...(r.replies ?? []), { id: uid(), name: myName, email: access.email || undefined, role: access.role ?? undefined, text, at: new Date().toISOString() }],
     });
     setReply('');
+    setReplying(false);
     markSeen(r); // 내가 쓴 답변은 알림 안 띄움
   };
   return (
@@ -306,8 +308,12 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
         </ul>
       )}
       {zoom && <ImageZoom f={zoom} onClose={() => setZoom(null)} />}
-      {(canEdit || canDelete) && (
+      {/* 답글쓰기 (누르면 답글 칸) · 고치기 · 지우기 */}
+      {(
         <div className="rp-actions">
+          <button className="link small" onClick={() => setReplying((v) => !v)}>
+            ↳ 답글쓰기
+          </button>
           {canEdit && (
             <button className="link small" onClick={() => setEditing(true)}>
               ✎ 고치기
@@ -340,19 +346,23 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
             )}
           </div>
         ))}
-        {/* 답변: 이 보고방을 볼 수 있는 사람 모두 */}
+        {/* 답글: '답글쓰기'를 눌렀을 때만 */}
+        {replying && (
         <div className="rp-reply-box">
           <textarea
             rows={2}
-            placeholder="답변 쓰기 (Ctrl+Enter 로 올리기)"
+            autoFocus
+            placeholder="답글 쓰기 (Ctrl+Enter 로 올리기)"
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && send()}
           />
+          <button onClick={() => setReplying(false)}>취소</button>
           <button className="primary" disabled={!reply.trim()} onClick={send}>
-            답변
+            올리기
           </button>
         </div>
+        )}
 
       </div>
     </div>

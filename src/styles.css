@@ -7249,3 +7249,9 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rp-chk-pill { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c) 18%, #fff); color: color-mix(in srgb, var(--c) 75%, #000); }
 .rp-chk-name:hover .rp-chk-pill { background: color-mix(in srgb, var(--c) 28%, #fff); }
 .rp-table td.rp-chk.on { background: none; }
+
+/* 보고방: 답글은 본문 글 시작 위치(x)에 맞춰 · 답글이 없고 칸도 안 열렸으면 구분선 숨김 */
+.rp-detail .rp-replies { padding-left: 19px; }
+.rp-detail .rp-replies:empty { display: none; }
+.rp-actions button.link:first-child { font-weight: 600; }
+@media (max-width: 600px) { .rp-detail .rp-replies { padding-left: 8px; } }
