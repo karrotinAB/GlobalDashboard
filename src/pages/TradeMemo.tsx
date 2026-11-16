@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useSpaceData } from '../data/store';
 import { useAccess } from '../components/AuthGate';
+import { useNameOf } from '../components/AddressBook';
 import { TEAMS } from '../lib/team';
 import { memoHtml } from '../lib/richtext';
 import { uid } from '../lib/date';
@@ -87,6 +88,7 @@ function CompanyMemoView({ c, items: saved }: { c: TeamCo; items: MemoItem[] }) 
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const by = accountName ?? (email ? email.split('@')[0] : '');
+  const nameOf = useNameOf();
   const save = (next: MemoItem[]) => {
     setItems(next);
     setErr('');
@@ -98,7 +100,7 @@ function CompanyMemoView({ c, items: saved }: { c: TeamCo; items: MemoItem[] }) 
   const add = () => {
     const t = text.trim();
     if (!t) return;
-    save([...items, { id: uid(), text: t, by, at: new Date().toISOString() }]);
+    save([...items, { id: uid(), text: t, by, email: email || undefined, at: new Date().toISOString() }]);
     setText('');
   };
   const open = items.filter((x) => !x.done);
@@ -131,7 +133,7 @@ function CompanyMemoView({ c, items: saved }: { c: TeamCo; items: MemoItem[] }) 
         </span>
       )}
       <span className="muted small tm-by">
-        {x.by} {when(x.at)}
+        {nameOf(x.email, x.by)} {when(x.at)}
       </span>
       <button className="icon-btn" title="지우기" onClick={() => confirm('이 메모를 지울까요?') && save(items.filter((y) => y.id !== x.id))}>
         ✕

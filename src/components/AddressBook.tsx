@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { DATA_MODE } from '../data/store';
+import { DATA_MODE, useStore } from '../data/store';
 import { Modal } from './ui';
 import type { Role } from './AuthGate';
 
@@ -181,4 +181,23 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
       {roles !== null && !groups.length && DATA_MODE !== 'local' && <p className="muted small">맞는 사람이 없어요.</p>}
     </Modal>
   );
+}
+
+/** 세 글자 한글 이름은 성 빼고 (이가영 → 가영) */
+export const shortName = (n: string) => (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
+
+/** 이메일·아이디 → 계정 이름 (주소록 이름 → 사용자 목록 이름 → 담당자 카드), 두 글자로 */
+export function useNameOf() {
+  const { roles, contacts } = usePeople();
+  const { data } = useStore();
+  return (email?: string, fallback?: string) => {
+    let e = (email ?? '').toLowerCase();
+    // 예전 기록은 아이디(이메일 앞부분)만 있음 → 그걸로 이메일 찾기
+    if (!e && fallback && /^[a-z0-9._-]+$/i.test(fallback)) e = roles?.find((r) => r.email.split('@')[0] === fallback.toLowerCase())?.email ?? '';
+    const name =
+      (e && (contacts[e]?.name || roles?.find((r) => r.email === e)?.name || [...data.members, ...data.tradeMembers].find((m) => m.email?.toLowerCase() === e)?.name)) ||
+      fallback ||
+      (e ? e.split('@')[0] : '');
+    return shortName(name);
+  };
 }

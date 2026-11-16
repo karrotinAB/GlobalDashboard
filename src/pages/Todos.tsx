@@ -1,3 +1,4 @@
+import { useNameOf } from '../components/AddressBook';
 import { coKey, useTradeMemos, type MemoItem } from '../lib/tradeMemos';
 import { isPersonal } from '../lib/team';
 import { useMirrorClaims } from '../lib/teamClaims';
@@ -699,6 +700,7 @@ function SummaryTable({
 /** 업체 메모 옆 📒: 무역사무가 이 업체에 남긴 메모 중 아직 체크 안 한 것 (보기만) */
 function TradeNoteBtn({ name, items }: { name: string; items: MemoItem[] }) {
   const [open, setOpen] = useState(false);
+  const nameOf = useNameOf();
   return (
     <>
       <button
@@ -722,10 +724,9 @@ function TradeNoteBtn({ name, items }: { name: string; items: MemoItem[] }) {
             <ul className="tn-list">
               {items.map((x) => (
                 <li key={x.id}>
-                  <span className="tn-dot">☐</span>
                   <span className="tn-text">{x.text}</span>
                   <span className="muted small">
-                    {x.by} {new Date(x.at).getMonth() + 1}/{new Date(x.at).getDate()}
+                    {nameOf(x.email, x.by)} {new Date(x.at).getMonth() + 1}/{new Date(x.at).getDate()}
                   </span>
                 </li>
               ))}

@@ -11,6 +11,7 @@ export interface MemoItem {
   text: string;
   done?: boolean;
   by?: string;
+  email?: string; // 쓴 사람 (이름 찾기용)
   at: string;
   doneAt?: string;
 }
