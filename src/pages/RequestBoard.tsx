@@ -305,86 +305,121 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         </p>
       )}
 
-      <div className="card table-card">
-        <table className="rq-table">
-          <thead>
-            <tr>
-              <th className="c-st">상태</th>
-              <th className="c-pr">우선순위</th>
-              <th className="c-d">마감일</th>
-              <th className="c-d">처리 예상일</th>
-              <th>업무 내용</th>
-              <th className="c-wt">작업유형</th>
-              <th className="c-who">요청자</th>
-              <th className="c-d">의뢰일</th>
-              <th className="c-who">처리자</th>
-              {tab === 'done' && <th className="c-d">완료일</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={10} className="empty-box">
-                  {tab === 'open' ? (requester && isTeamSide ? '진행중인 내 요청이 없어요. 요청자 "전체"를 누르면 다른 사람 요청도 보여요.' : '진행중인 요청이 없어요.') : '이 기간에 끝난 업무가 없어요.'}
-                </td>
-              </tr>
-            )}
-            {!byDay &&
-              rows.map((r) => (
-                <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
-              ))}
-            {byDay && (
-              <>
-                <tr className="rq-group today">
-                  <td colSpan={10}>
+      {/* 일자별 보기 (무역사무): 오늘 할 일 · 남은 업무 · 장기 업무를 카드로 나눔 */}
+      {byDay ? (
+        <div className="rq-day-cards">
+          {(
+            [
+              {
+                key: 'today',
+                head: (
+                  <>
                     📅 오늘 할 일 <b>{todayRows.length}</b>
                     <span className="muted small"> · 처리 예상일(없으면 마감일)이 오늘이거나 지난 것 — 못 끝낸 건 다음 날로 넘어가요</span>
-                  </td>
-                </tr>
-                {todayRows.length === 0 && doneToday.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="muted small pad">오늘 할 일이 없어요 🍵</td>
-                  </tr>
-                )}
-                {todayRows.map((r) => (
-                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
-                ))}
-                {doneToday.map((r) => (
-                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} doneToday onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
-                ))}
-                <tr className="rq-group later">
-                  <td colSpan={10}>
+                  </>
+                ),
+                empty: todayRows.length === 0 && doneToday.length === 0 ? '오늘 할 일이 없어요 🍵' : '',
+                body: (
+                  <>
+                    {todayRows.map((r) => (
+                      <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                    ))}
+                    {doneToday.map((r) => (
+                      <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} doneToday onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                    ))}
+                  </>
+                ),
+              },
+              {
+                key: 'later',
+                head: (
+                  <>
                     🗓 남은 업무 <b>{laterRows.length}</b>
                     <span className="muted small"> · 날짜가 아직 넉넉한 것 (가까운 날짜 순)</span>
-                  </td>
-                </tr>
-                {laterRows.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="muted small pad">남은 업무가 없어요</td>
-                  </tr>
-                )}
-                {laterRows.map((r) => (
+                  </>
+                ),
+                empty: laterRows.length === 0 ? '남은 업무가 없어요' : '',
+                body: laterRows.map((r) => (
                   <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
-                ))}
-                <tr className="rq-group long">
-                  <td colSpan={10}>
+                )),
+              },
+              {
+                key: 'long',
+                head: (
+                  <>
                     📌 장기 업무 <b>{longRows.length}</b>
                     <span className="muted small"> · 세부 업무로 나눠서 오래 하는 일 (진행률 100% 가 되면 완료)</span>
+                  </>
+                ),
+                empty: longRows.length === 0 ? '장기 업무가 없어요' : '',
+                body: longRows.map((r) => (
+                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+                )),
+              },
+            ] as const
+          ).map((g) => (
+            <section key={g.key} className={`card table-card rq-day-card ${g.key}`}>
+              <div className="rq-day-head">{g.head}</div>
+              <table className="rq-table">
+                <thead>
+                  <tr>
+                    <th className="c-st">상태</th>
+                    <th className="c-pr">우선순위</th>
+                    <th className="c-d">마감일</th>
+                    <th className="c-d">처리 예상일</th>
+                    <th>업무 내용</th>
+                    <th className="c-wt">작업유형</th>
+                    <th className="c-who">요청자</th>
+                    <th className="c-d">의뢰일</th>
+                    <th className="c-who">처리자</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.empty && (
+                    <tr>
+                      <td colSpan={10} className="muted small pad">
+                        {g.empty}
+                      </td>
+                    </tr>
+                  )}
+                  {g.body}
+                </tbody>
+              </table>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="card table-card">
+          <table className="rq-table">
+            <thead>
+                  <tr>
+                    <th className="c-st">상태</th>
+                    <th className="c-pr">우선순위</th>
+                    <th className="c-d">마감일</th>
+                    <th className="c-d">처리 예상일</th>
+                    <th>업무 내용</th>
+                    <th className="c-wt">작업유형</th>
+                    <th className="c-who">요청자</th>
+                    <th className="c-d">의뢰일</th>
+                    <th className="c-who">처리자</th>
+                    {tab === 'done' && <th className="c-d">완료일</th>}
+                  </tr>
+                </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="empty-box">
+                    {tab === 'open' ? (requester && isTeamSide ? '진행중인 내 요청이 없어요. 요청자 "전체"를 누르면 다른 사람 요청도 보여요.' : '진행중인 요청이 없어요.') : '이 기간에 끝난 업무가 없어요.'}
                   </td>
                 </tr>
-                {longRows.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="muted small pad">장기 업무가 없어요</td>
-                  </tr>
-                )}
-                {longRows.map((r) => (
-                  <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={false} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
-                ))}
-              </>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+              {rows.map((r) => (
+                <Row key={r.id} r={r} people={people} side={side} myTeam={access.viewTeam} team={team} trade={trade} todayIso={todayIso} done={tab === 'done'} onOpen={() => setOpenId(r.id)} onPatch={(p) => update(r, p)} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {creating && <NewRequest team={team} trade={trade} me={me} myEmail={access.email} side={side} teamId={access.viewTeam} teamName={access.viewLabel} onCreate={(r) => save('requests', r)} onClose={() => setCreating(false)} />}
       {detail && (

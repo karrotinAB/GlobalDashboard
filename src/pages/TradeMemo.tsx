@@ -1,5 +1,5 @@
 // 무역사무 '업체 메모': 업체 고르기 → 각 조 메모(주간 할일 업체 메모, 고정·읽기만) + 무역사무 체크박스 메모
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useSpaceData } from '../data/store';
 import { useAccess } from '../components/AuthGate';
 import { TEAMS } from '../lib/team';
@@ -10,14 +10,20 @@ import type { Company } from '../types';
 
 export type TeamCo = Company & { team: string };
 
-/** 1·2·3조 업체 전부 (조 표시 붙여서) */
+/** 1·2·3조 업체 중 매장코드가 있는 것 (조 표시 붙여서) */
 export function useAllTeamCompanies(): TeamCo[] {
   const c1 = useSpaceData('1', ['companies']).data.companies;
   const c2 = useSpaceData('2', ['companies']).data.companies;
   const c3 = useSpaceData('3', ['companies']).data.companies;
   return useMemo(() => {
     const by: Record<string, Company[] | undefined> = { '1': c1, '2': c2, '3': c3 };
-    return TEAMS.flatMap((t) => [...(by[t] ?? [])].sort((a, b) => a.order - b.order).map((c) => ({ ...c, team: t })));
+    // 매장코드(4자리)가 설정된 업체만
+    return TEAMS.flatMap((t) =>
+      [...(by[t] ?? [])]
+        .filter((c) => (c.storeCodes ?? []).some((x) => /^\d{4}$/.test(x)))
+        .sort((a, b) => a.order - b.order)
+        .map((c) => ({ ...c, team: t })),
+    );
   }, [c1, c2, c3]);
 }
 
@@ -62,7 +68,7 @@ export default function TradeMemo() {
               </div>
             );
           })}
-          {!cos.length && <p className="muted small">업체를 불러오는 중…</p>}
+          {!cos.length && <p className="muted small">매장코드(4자리)가 설정된 업체가 없어요 (불러오는 중일 수도 있어요)</p>}
         </aside>
         <section className="tm-main">{cur ? <CompanyMemoView c={cur} items={memos[coKey(cur.team, cur.id)]?.items ?? []} /> : <div className="card muted tm-empty">왼쪽에서 업체를 골라 주세요</div>}</section>
       </div>
@@ -70,14 +76,25 @@ export default function TradeMemo() {
   );
 }
 
-function CompanyMemoView({ c, items }: { c: TeamCo; items: MemoItem[] }) {
+function CompanyMemoView({ c, items: saved }: { c: TeamCo; items: MemoItem[] }) {
+  // 쓰자마자 바로 보이게 (서버에 저장되면 그걸로 맞춤) · 저장 실패하면 이유를 보여줌
+  const [items, setItems] = useState<MemoItem[]>(saved);
+  const [err, setErr] = useState('');
+  useEffect(() => setItems(saved), [saved]);
   const { email, accountName } = useAccess();
   const key = coKey(c.team, c.id);
   const [text, setText] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const by = accountName ?? (email ? email.split('@')[0] : '');
-  const save = (next: MemoItem[]) => void saveCoMemo(key, next);
+  const save = (next: MemoItem[]) => {
+    setItems(next);
+    setErr('');
+    saveCoMemo(key, next).catch((e) => {
+      setErr(`저장하지 못했어요: ${(e as Error).message} — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)`);
+      setItems(saved);
+    });
+  };
   const add = () => {
     const t = text.trim();
     if (!t) return;
@@ -138,6 +155,7 @@ function CompanyMemoView({ c, items }: { c: TeamCo; items: MemoItem[] }) {
       </div>
       <div className="tm-sub">✅ 무역사무 메모 {open.length > 0 && <span className="tm-n">{open.length}</span>}</div>
       <ul className="tm-items">{open.map(row)}</ul>
+      {err && <p className="warn small">{err}</p>}
       <div className="tm-add">
         <input placeholder="메모 추가 (Enter)" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button className="primary" disabled={!text.trim()} onClick={add}>
