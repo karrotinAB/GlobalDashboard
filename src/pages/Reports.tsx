@@ -1,5 +1,5 @@
 // 보고방: 조원이 쓰고 (제목만 보이고 누르면 내용), 팀장님·이사님이 각자 확인 체크 + 답변
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { useStore } from '../data/store';
 import { isPersonal, TEAMS } from '../lib/team';
@@ -39,6 +39,8 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
     );
   };
   const myName = nameOf(access.email, access.accountName) || '나';
+  // 확인란 동그라미 색: 그 사람 담당자 카드 색 (없으면 기본)
+  const colorOf = (email?: string) => [...data.members, ...data.tradeMembers].find((m) => !!email && m.email?.toLowerCase() === email.toLowerCase())?.color;
   const [teamF, setTeamF] = useState('');
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [writing, setWriting] = useState<string | null>(null); // 새로 쓰는 보고 id (파일을 그 아래에 올림)
@@ -168,10 +170,10 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                             {mine ? (
                               <span className="rp-chk-label">
                                 <input type="checkbox" checked={!!c} onChange={() => toggleCheck(r, k)} title={`${CHECK_LABEL[k]} 확인 (누르면 바뀜)`} />
-                                {c ? <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} /> : <span className="muted">확인</span>}
+                                {c ? <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} color={colorOf(c.email)} /> : <span className="muted">확인</span>}
                               </span>
                             ) : c ? (
-                              <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} />
+                              <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} color={colorOf(c.email)} />
                             ) : (
                               <span className="muted">—</span>
                             )}
@@ -361,11 +363,11 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
 const shortName = (n: string) => (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
 
 /** 확인한 사람 이름 — 누르면 날짜·시간 */
-function CheckName({ name, at }: { name: string; at: string }) {
+function CheckName({ name, at, color }: { name: string; at: string; color?: string }) {
   const [show, setShow] = useState(false);
   return (
-    <button type="button" className="rp-chk-name" onClick={() => setShow((v) => !v)} title={at}>
-      ✓ {name}
+    <button type="button" className="rp-chk-name" style={{ '--c': color ?? '#8c2f3c' } as CSSProperties} onClick={() => setShow((v) => !v)} title={at}>
+      <span className="rp-chk-pill">{name}</span>
       {show && <span className="rp-chk-at">{at}</span>}
     </button>
   );

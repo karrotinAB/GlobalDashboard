@@ -7243,3 +7243,9 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rp-chk-name { border: 0; background: none; font: inherit; color: #2f6b3c; font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: 6px; display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; }
 .rp-chk-name:hover { background: #e3f1e6; }
 .rp-chk-at { font-size: 10.5px; font-weight: 500; color: #6b8f73; }
+/* 확인란: 이름 동그라미 (담당자 칩처럼) */
+.rp-chk-name { color: inherit; padding: 0; }
+.rp-chk-name:hover { background: none; }
+.rp-chk-pill { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c) 18%, #fff); color: color-mix(in srgb, var(--c) 75%, #000); }
+.rp-chk-name:hover .rp-chk-pill { background: color-mix(in srgb, var(--c) 28%, #fff); }
+.rp-table td.rp-chk.on { background: none; }
