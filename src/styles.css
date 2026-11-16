@@ -7515,3 +7515,6 @@ td.c-people { min-width: 120px; }
 .rl-item:hover { background: #fbf6f4; }
 .rl-item.on { border-color: #8c2f3c; background: #fbeeee; }
 .rl-title { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 📑↗ 보고 연결: 아이콘과 화살표가 한 상자 안에 한 줄로 */
+.order-link.report-link { display: inline-flex; align-items: center; justify-content: center; gap: 1px; width: auto; min-width: 20px; padding: 0 4px; white-space: nowrap; font-size: 11px; line-height: 1; }
