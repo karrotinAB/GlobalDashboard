@@ -30,7 +30,9 @@ const sum = (os: Order[], k: 'amountKRW' | 'amountForeign') => os.reduce((a, o) 
 
 export default function Claims() {
   const { data, save, saveMany, remove } = useStore();
-  const { myCompanies: companies, companyById } = useLookups();
+  // 팀장님·이사님: '내 담당'에서 뺀 업체라도 클레임이 있으면 계속 보이고, ＋ 업체 추가에서 모든 업체(1~3조 포함)를 고를 수 있게
+  //  (클레임 있는 업체는 칩으로, 나머지는 ＋ 업체 추가 목록에)
+  const { companies, companyById } = useLookups();
   // 주문 관리의 [클레임] 버튼으로 오면 #/claims?c=업체id
   const [companyFilter, setCompanyFilterState] = useState(() => {
     const fromLink = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c');
