@@ -7329,3 +7329,10 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tr-more { margin-top: 8px; }
 .tr-pager { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 10px; }
 .tr-pager button { padding: 4px 12px; }
+
+.tr-word-x { flex: none; width: 24px; height: 24px; font-size: 12px; color: #b09590; }
+.tr-word-x:hover { color: #c0392b; }
+.tr-pat { margin-left: 6px; background: #efe4ff; color: #6b3fa0; }
+.tr-row-q { flex: 0 1 260px; }
+
+.tr-saved { color: #2f6b3c; font-weight: 600; }

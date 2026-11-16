@@ -72,7 +72,7 @@ const byFirst = (keys: string[]) => {
   let m = firstCache.get(keys);
   if (!m) {
     m = new Map();
-    for (const k of keys) m.set(k[0], [...(m.get(k[0]) ?? []), k]);
+    for (const k of keys) if (!isPattern(k)) m.set(k[0], [...(m.get(k[0]) ?? []), k]);
     firstCache.set(keys, m);
   }
   return m;
@@ -83,8 +83,44 @@ export type Piece = { text: string; en?: string; unknown?: boolean };
  * 제품명 번역: 띄어쓰기·기호로 나누고, 한글 덩어리는 사전에서 가장 긴 단어부터 맞춰 바꿈.
  * 사전에 없는 한글 조각은 unknown 으로 돌려줌 (화면에서 채워 사전에 추가)
  */
+// 숫자가 들어간 사전 단어 = '틀' (예: 0호0합 → No.0 0-Ply). 숫자 자리는 아무 숫자나 맞고, 영어의 숫자 자리에 차례로 들어감
+type Pat = { re: RegExp; en: string; len: number };
+const patCache = new WeakMap<string[], Pat[]>();
+const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const isPattern = (ko: string) => /\d/.test(ko) && /[가-힣]/.test(ko);
+const patternsOf = (keys: string[], dict: Map<string, string>) => {
+  let l = patCache.get(keys);
+  if (!l) {
+    l = keys
+      .filter(isPattern)
+      .map((ko) => {
+        // 글자 사이 띄어쓰기는 있어도 되고 없어도 됨
+        const body = ko
+          .replace(/\s+/g, '')
+          .split(/(\d+)/)
+          .filter(Boolean)
+          .map((part) => (/^\d+$/.test(part) ? '(\\d+(?:\\.\\d+)?)' : [...part].map(esc).join('\\s*')))
+          .join('\\s*');
+        return { re: new RegExp(body, 'g'), en: dict.get(ko) ?? '', len: ko.length };
+      })
+      .sort((a, b) => b.len - a.len);
+    patCache.set(keys, l);
+  }
+  return l;
+};
+
 export function translate(name: string, dict: Map<string, string>, keys: string[]): { en: string; pieces: Piece[]; unknown: string[] } {
   const pieces: Piece[] = [];
+  // 먼저 틀(숫자 들어간 단어)을 통째로 바꿔 둠 — 3호5합 이 [호] [합] 으로 따로 나뉘지 않게
+  const filled: string[] = [];
+  for (const pt of patternsOf(keys, dict)) {
+    name = name.replace(pt.re, (...m) => {
+      const nums = (m.slice(1).filter((x) => typeof x === 'string' && /^\d/.test(x)) as string[]);
+      let i = 0;
+      filled.push(pt.en.replace(/\d+(?:\.\d+)?/g, () => nums[i++] ?? ''));
+      return ` \uE000${filled.length - 1}\uE001 `;
+    });
+  }
   const tokens = name.split(/(\s+|[()[\]{}/,+·_\-|]+)/).filter((t) => t !== '');
   for (const tok of tokens) {
     if (!HANGUL.test(tok)) {
@@ -134,6 +170,6 @@ export function translate(name: string, dict: Map<string, string>, keys: string[
     if (en && !/[\s(/[-]$/.test(en) && !/^[)\],.]/.test(t) && !/^[()[\]{}/,+·_\-|]+$/.test(p.text)) en += ' ';
     en += t;
   }
-  en = en.replace(/\s{2,}/g, ' ').trim();
+  en = en.replace(/\uE000(\d+)\uE001/g, (_, i) => filled[Number(i)] ?? '').replace(/\s{2,}/g, ' ').trim();
   return { en, pieces, unknown: [...new Set(pieces.filter((p) => p.unknown).map((p) => p.text))] };
 }

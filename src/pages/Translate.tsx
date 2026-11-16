@@ -2,17 +2,65 @@
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
-// 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 다른 탭·페이지에 다녀와도 그대로
+// 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 자동 저장:
+//   다른 탭·페이지 = 메모리에 그대로, 새로고침·창 닫기 = 이 브라우저에 저장된 걸로 다시 (엑셀 파일은 IndexedDB)
 const keep: Record<string, unknown> = {};
+const LS = 'gd:translate:';
+const NO_LS = new Set(['sheet']); // 엑셀 덩어리는 따로 (IndexedDB)
 function useKept<T>(key: string, init: T): [T, Dispatch<SetStateAction<T>>] {
-  const [v, setV] = useState<T>(() => (key in keep ? (keep[key] as T) : init));
+  const [v, setV] = useState<T>(() => {
+    if (key in keep) return keep[key] as T;
+    if (!NO_LS.has(key))
+      try {
+        const raw = localStorage.getItem(LS + key);
+        if (raw !== null) return JSON.parse(raw) as T;
+      } catch {
+        /* 무시 */
+      }
+    return init;
+  });
   useEffect(() => {
     keep[key] = v;
+    if (!NO_LS.has(key))
+      try {
+        localStorage.setItem(LS + key, JSON.stringify(v));
+      } catch {
+        /* 저장 공간이 모자라면 메모리에만 */
+      }
   }, [key, v]);
   return [v, setV];
 }
+
+// 올린 엑셀 파일 원본을 브라우저(IndexedDB)에 저장 · 다시 꺼내기
+const idb = () =>
+  new Promise<IDBDatabase>((res, rej) => {
+    const r = indexedDB.open('gd-translate', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('files');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+async function saveFile(name: string, buf: ArrayBuffer) {
+  try {
+    const db = await idb();
+    db.transaction('files', 'readwrite').objectStore('files').put({ name, buf, at: Date.now() }, 'last');
+  } catch {
+    /* 저장 못 해도 작업은 계속 */
+  }
+}
+async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
+  try {
+    const db = await idb();
+    return await new Promise((res) => {
+      const g = db.transaction('files').objectStore('files').get('last');
+      g.onsuccess = () => res((g.result as { name: string; buf: ArrayBuffer }) ?? null);
+      g.onerror = () => res(null);
+    });
+  } catch {
+    return null;
+  }
+}
 import { useAccess } from '../components/AuthGate';
-import { deleteDict, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
+import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, makeRecommender, saveCategories, savePicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
@@ -99,12 +147,24 @@ function TranslateTab() {
   const [onlyTodo, setOnlyTodo] = useKept('onlyTodo', true);
   const [page0, setPage] = useKept('page', 0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    if (sheet) return;
+    setRestoring(true);
+    void loadFile()
+      .then((f) => f && load({ name: f.name, arrayBuffer: async () => f.buf }, false))
+      .finally(() => setRestoring(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const load = async (f: File) => {
+  // fresh = 새로 올린 파일 (고친 것·고른 분류 비움) / 아니면 저장해 둔 파일 다시 열기 (그대로 둠)
+  const load = async (f: { name: string; arrayBuffer: () => Promise<ArrayBuffer> }, fresh = true) => {
     setErr('');
     try {
       const XLSX = await import('xlsx');
-      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      const buf = await f.arrayBuffer();
+      if (fresh) void saveFile(f.name, buf.slice(0));
+      const wb = XLSX.read(buf, { type: 'array' });
       // 찾을 칸이 2개 이상 있는 첫 시트·첫 줄을 머리줄로
       for (const sn of wb.SheetNames) {
         const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sn], { header: 1, defval: '', raw: false });
@@ -121,9 +181,11 @@ function TranslateTab() {
             .map((cells, i) => ({ r: h + 1 + i, cells }))
             .filter((x) => x.cells.some((c) => String(c ?? '').trim()));
           setSheet({ fileName: f.name, sheetName: sn, headerRow: h, headers: (aoa[h] ?? []).map((x) => String(x ?? '')), col, rows, wb });
-          setEdits({});
-          setCatSel({});
-          setPage(0);
+          if (fresh) {
+            setEdits({});
+            setCatSel({});
+            setPage(0);
+          }
           return;
         }
       }
@@ -149,7 +211,18 @@ function TranslateTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet, map, keys]);
   const todo = useMemo(() => view.filter((v) => v.empty.length), [view]);
-  const shown = onlyTodo ? todo : view;
+  // 표 검색: 제품명 · 코드 · 영문 제품명 (띄어 쓰면 모두 들어간 것만)
+  const [rowQ, setRowQ] = useKept('rowQ', '');
+  const shown = useMemo(() => {
+    const base = onlyTodo ? todo : view;
+    const words = rowQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return base;
+    return base.filter((v) => {
+      const h = `${v.ko} ${cell(v.row, 'code')} ${cell(v.row, 'enName')} ${v.tr.en}`.toLowerCase();
+      return words.every((w) => h.includes(w));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlyTodo, todo, view, rowQ]);
   const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
   const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
@@ -197,7 +270,8 @@ function TranslateTab() {
   const applyAllSuggestions = () => {
     const next: Record<number, string> = {};
     const save: { ko: string; cat: string }[] = [];
-    for (const v of todo) {
+    // 검색 중이면 찾은 줄에만
+    for (const v of shown) {
       if (!needCat(v) || chosen(v)) continue;
       const sg = sugOf(v);
       if (sg && catByKey.has(sg.cat)) {
@@ -261,11 +335,11 @@ function TranslateTab() {
         </button>
         {sheet ? (
           <span className="muted small">
-            {sheet.fileName} · {sheet.sheetName} · 전체 {sheet.rows.length}줄 중 <b>빈 칸 있는 줄 {todo.length}</b> · 영문 제품명 빈 줄 {needEn.length}
+            <span className="tr-saved" title="고친 것·고른 분류는 이 브라우저에 자동 저장돼요 (새로고침해도 그대로)">💾 자동 저장</span> {sheet.fileName} · {sheet.sheetName} · 전체 {sheet.rows.length}줄 중 <b>빈 칸 있는 줄 {todo.length}</b> · 영문 제품명 빈 줄 {needEn.length}
             {sheet.col.koName === undefined && ' · ⚠ 한글 제품명 칸을 못 찾아서 자동 번역은 안 돼요'}
           </span>
         ) : (
-          <span className="muted small">찾는 칸: {TARGETS.map((t) => t.label).join(' · ')} (+ 한글 제품명)</span>
+          <span className="muted small">{restoring ? '저장해 둔 작업 불러오는 중… · ' : ''}찾는 칸: {TARGETS.map((t) => t.label).join(' · ')} (+ 한글 제품명)</span>
         )}
         {sheet && (
           <button className="tr-dl" onClick={() => void download()}>
@@ -284,9 +358,10 @@ function TranslateTab() {
             <label className="check-line small">
               <input type="checkbox" checked={onlyTodo} onChange={(e) => (setOnlyTodo(e.target.checked), setPage(0))} /> 빈 칸 있는 줄만
             </label>
+            <input className="search tr-row-q" placeholder="🔍 제품명 · 코드로 찾기" value={rowQ} onChange={(e) => (setRowQ(e.target.value), setPage(0))} />
             <span className="muted small">{shown.length}줄</span>
             {catCols.length > 0 && !!cats?.length && (
-              <button className="tr-sug-all" onClick={applyAllSuggestions} title="추천이 있는 줄에 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
+              <button className="tr-sug-all" onClick={applyAllSuggestions} title="추천이 있는 줄에 추천 분류를 한꺼번에 넣어요 (검색 중이면 찾은 줄에만 · 고른 기록에도 남음)">
                 ✨ 추천 분류 모두 넣기
               </button>
             )}
@@ -442,8 +517,11 @@ function DictTab() {
         </button>
       </div>
       {msg && <p className="small">{msg}</p>}
+      <p className="muted small" style={{ marginTop: 0 }}>
+        숫자가 들어간 단어는 <b>틀</b>로 번역해요. 예: <code>0호0합</code> → <code>No.0 0-Ply</code> 로 넣으면 3호5합 → No.3 5-Ply, 12호 2합 → No.12 2-Ply (숫자는 차례대로 옮겨져요)
+      </p>
       <div className="tr-dict-add">
-        <input placeholder="한글 (예: 스티커)" value={ko} onChange={(e) => setKo(e.target.value)} />
+        <input placeholder="한글 (예: 스티커 · 0호0합)" value={ko} onChange={(e) => setKo(e.target.value)} />
         <span>→</span>
         <input placeholder="영어 (예: Sticker)" value={en} onChange={(e) => setEn(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} />
         <button className="primary" disabled={!ko.trim() || !en.trim()} onClick={() => void add()}>
@@ -465,7 +543,10 @@ function DictTab() {
           <tbody>
             {shown.map((e: DictEntry) => (
               <tr key={e.id}>
-                <td className="tr-ko">{e.ko}</td>
+                <td className="tr-ko">
+                  {e.ko}
+                  {isPattern(e.ko) && <span className="tag small tr-pat">틀</span>}
+                </td>
                 <td>
                   {editing === e.id ? (
                     <input
@@ -620,9 +701,12 @@ function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w
   const [q, setQ] = useState('');
   const [more, setMore] = useState(1);
   const [peek, setPeek] = useState<string | null>(null);
+  // ✕ 로 목록에서 뺀 단어 (번역은 그대로 · 다시 보기 가능)
+  const [hidden, setHidden] = useKept<string[]>('hiddenWords', []);
+  const [showHidden, setShowHidden] = useState(false);
   const STEP = 80;
   const nq = q.trim();
-  const list = nq ? words.filter(([w]) => w.includes(nq)) : words;
+  const list = (showHidden ? words.filter(([w]) => hidden.includes(w)) : words.filter(([w]) => !hidden.includes(w))).filter(([w]) => !nq || w.includes(nq));
   const filled = Object.values(newWords).filter((x) => x.trim()).length;
   const addWords = async () => {
     const items = Object.entries(newWords)
@@ -652,7 +736,12 @@ function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w
   return (
     <div className="card tr-unknown">
       <div className="tr-unknown-head">
-        <b>사전에 없는 단어 {words.length}개</b>
+        <b>사전에 없는 단어 {words.length - hidden.filter((h) => words.some(([w]) => w === h)).length}개</b>
+        {hidden.length > 0 && (
+          <button className="link small" onClick={() => setShowHidden(!showHidden)}>
+            {showHidden ? '← 목록으로' : `뺀 단어 ${hidden.length}개 보기`}
+          </button>
+        )}
         <input className="search tr-unknown-q" placeholder="🔍 단어 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted small">아는 단어만 채워도 돼요 — 채운 것만 사전에 들어가고 바로 다시 번역돼요</span>
         {saveMsg && <span className="small tr-save-msg">{saveMsg}</span>}
@@ -668,6 +757,17 @@ function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w
             </button>
             <span className="muted small">{n}줄</span>
             <input placeholder="영어" value={newWords[ko] ?? ''} onChange={(e) => setNewWords((w) => ({ ...w, [ko]: e.target.value }))} onKeyDown={(e) => e.key === 'Enter' && void addWords()} />
+            <button
+              type="button"
+              className="icon-btn tr-word-x"
+              title={showHidden ? '목록에 다시 넣기' : '목록에서 빼기 (잘못 끊긴 단어 등)'}
+              onClick={(e) => {
+                e.preventDefault();
+                setHidden((h) => (showHidden ? h.filter((x) => x !== ko) : [...h, ko]));
+              }}
+            >
+              {showHidden ? '↩' : '✕'}
+            </button>
           </label>
         ))}
       </div>
