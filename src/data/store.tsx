@@ -149,6 +149,7 @@ export function useSpaceData(team: string, cols: CollectionName[]) {
   useEffect(() => {
     setData({});
     setError(null);
+    if (!sig) return; // 불러올 게 없음
     const list = sig.split(',') as CollectionName[];
     if (DATA_MODE === 'local') {
       try {

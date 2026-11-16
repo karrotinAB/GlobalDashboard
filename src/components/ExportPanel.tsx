@@ -84,7 +84,7 @@ function useTeamOrders(teams: string[]) {
 
 type Pick = 'ship' | 'pack' | 'royalty' | null;
 
-export default function ExportPanel({ companies, view = 'table', mobile }: { companies: Company[]; view?: 'table' | 'pie'; mobile?: boolean }) {
+export default function ExportPanel({ companies, view = 'table', mobile, hideTeamSeg }: { companies: Company[]; view?: 'table' | 'pie'; mobile?: boolean; hideTeamSeg?: boolean }) {
   // 휴대폰 (수출매출): 업체 목록에서 먼저 고르기
   const [mPicked, setMPicked] = useState(false);
   const { data } = useStore();
@@ -292,7 +292,7 @@ export default function ExportPanel({ companies, view = 'table', mobile }: { com
             }}
           />
         )}
-        {!mobile && hasTeams && (
+        {!mobile && !hideTeamSeg && hasTeams && (
           <div className="seg team-seg">
             <button className={!teamF ? 'on' : ''} onClick={() => (setTeamF(''), setCoId(''))}>
               전체 조

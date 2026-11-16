@@ -2,7 +2,9 @@
 //  업체 고르기 → 지점 × 월 합계 표 → 월(또는 지점의 그 월)을 누르면
 //  왼쪽: 주차별 금액 꺾은선 (아래 작게 회색으로 평당 금액) · 오른쪽: 주차 × 요일 금액 (토·일 붉게)
 import { useMemo, useState } from 'react';
-import { useStore } from '../data/store';
+import { useSpaceData, useStore } from '../data/store';
+import { useAccess } from './AuthGate';
+import { isPersonal, TEAMS } from '../lib/team';
 import { countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, weeksOf, type FxTable, type SalesBranch } from '../lib/sales';
 
@@ -58,7 +60,39 @@ const store = {
 };
 
 /** 판매데이터 ↔ 수출매출 슬라이드 버튼 */
-export default function SalesPanel({ companies }: { companies: Company[] }) {
+export default function SalesPanel({ companies: myCos }: { companies: Company[] }) {
+  // 볼 조 고르기: 팀장님·이사님은 전체 조가 기본, 각 조는 자기 조가 기본 (다른 조·전체도 볼 수 있음)
+  const { viewTeam } = useAccess();
+  const leaderSpace = isPersonal(viewTeam);
+  const scopeKey = `gd:salesScope:${viewTeam}`;
+  const [scope, setScope] = useState<string>(() => store.get(scopeKey) || (leaderSpace ? 'all' : viewTeam));
+  const pickScope = (v: string) => {
+    setScope(v);
+    store.set(scopeKey, v);
+  };
+  // 조 화면에서 다른 조를 보면 그 조 업체를 불러옴 (읽기만)
+  const needOf = (t: string) => !leaderSpace && t !== viewTeam && (scope === 'all' || scope === t);
+  const s1 = useSpaceData('1', needOf('1') ? ['companies'] : []).data.companies;
+  const s2 = useSpaceData('2', needOf('2') ? ['companies'] : []).data.companies;
+  const s3 = useSpaceData('3', needOf('3') ? ['companies'] : []).data.companies;
+  const companies = useMemo(() => {
+    if (leaderSpace) return scope === 'all' ? myCos : myCos.filter((c) => c.team === scope);
+    const other: Record<string, Company[] | undefined> = { '1': s1, '2': s2, '3': s3 };
+    const tagged = (t: string) => (t === viewTeam ? myCos.map((c) => ({ ...c, team: t })) : (other[t] ?? []).map((c) => ({ ...c, team: t })));
+    if (scope === viewTeam) return myCos;
+    if (scope === 'all') return TEAMS.flatMap((t) => tagged(t));
+    return tagged(scope);
+  }, [leaderSpace, scope, myCos, s1, s2, s3, viewTeam]);
+  const scopeBox = (
+    <select className="scope-pick" value={scope} onChange={(e) => pickScope(e.target.value)} title="볼 조 고르기">
+      <option value="all">전체 조</option>
+      {TEAMS.map((t) => (
+        <option key={t} value={t}>
+          {t}조{!leaderSpace && t === viewTeam ? ' (우리 조)' : ''}
+        </option>
+      ))}
+    </select>
+  );
   // 세 번째 '비중' (총 수출 파이 차트) — 모든 조 (팀장님·이사님 화면은 조별 보기도)
   const leader = true;
   const saved = store.get('gd:salesMode');
@@ -95,11 +129,12 @@ export default function SalesPanel({ companies }: { companies: Company[] }) {
             </button>
           )}
         </div>
+        {(!mobile || shown) && scopeBox}
         {shown && <span className="muted small sales-sub">
           {shown === 'sales' ? '매주 월요일 아침 7시에 판매가 업데이트돼요 · 평수는 설정에서' : shown === 'export' ? '주문 관리의 ERP 출고 데이터 + 로열티(판매의 5%)' : '그 달 총 수출(출고 + 패킹 중 + 로열티) 중 업체·조별 비중'}
         </span>}
       </div>
-      {!shown ? null : shown === 'sales' ? <SalesView key={mKey} companies={companies} mobile={mobile} /> : <ExportPanel key={mKey} companies={companies} view={shown === 'share' ? 'pie' : 'table'} mobile={mobile} />}
+      {!shown ? null : shown === 'sales' ? <SalesView key={`${mKey}-${scope}`} companies={companies} mobile={mobile} /> : <ExportPanel key={`${mKey}-${scope}`} companies={companies} view={shown === 'share' ? 'pie' : 'table'} mobile={mobile} hideTeamSeg />}
     </section>
   );
 }

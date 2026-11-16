@@ -7098,3 +7098,6 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .img-zoom-ctl { display: inline-flex; align-items: center; gap: 4px; }
 .img-zoom-ctl button { width: 30px; height: 30px; font-size: 16px; }
 .img-zoom-ctl button.pct { width: auto; min-width: 54px; border-radius: 15px; font-size: 12px; padding: 0 8px; }
+
+/* 판매·수출 패널: 볼 조 고르기 */
+.scope-pick { padding: 5px 10px; border-radius: 999px; border: 1px solid #e3d3cf; background: #fff; font: inherit; font-size: 13px; font-weight: 600; color: inherit; cursor: pointer; }
