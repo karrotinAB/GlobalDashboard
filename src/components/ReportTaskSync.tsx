@@ -38,9 +38,14 @@ export default function ReportTaskSync() {
       const t = byReport.get(r.id);
       if (!t) {
         // 처음 보는 보고만 (지운 할일은 다시 안 만듦)
-        if (handled.has(r.id) || busy.current.has(r.id)) continue;
+        //  + 첫 번째 고치기에서 확인자로 다시 넣었으면 한 번 더 (그것도 한 번만)
+        const reKey = `${r.id}#re`;
+        const again = !!r.retask?.includes(role) && !handled.has(reKey);
+        if ((handled.has(r.id) && !again) || busy.current.has(again ? reKey : r.id)) continue;
         busy.current.add(r.id);
+        if (again) busy.current.add(reKey);
         newly.push(r.id);
+        if (again) newly.push(reKey);
         const task: Task = {
           id: uid(),
           companyId: null,
@@ -60,7 +65,7 @@ export default function ReportTaskSync() {
       const done = !!check;
       if (t.done !== done || t.title !== title) save('tasks', { ...t, title, done, doneAt: done ? check!.at.slice(0, 10) : undefined });
     }
-    if (newly.length) save('config', { ...(cfg ?? { id: 'reportTasks' }), reportIds: [...handled, ...newly] });
+    if (newly.length) save('config', { ...(cfg ?? { id: 'reportTasks' }), reportIds: [...new Set([...handled, ...newly])] });
   }, [on, loading, reports, data.tasks, data.config, role, save, remove]);
   return null;
 }

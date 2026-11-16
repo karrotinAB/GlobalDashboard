@@ -294,7 +294,12 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
         init={{ title: r.title, body: r.body, files: r.files, to: r.to }}
         onCancel={() => setEditing(false)}
         onSave={(title, body, files, to) => {
-          void saveReport({ ...r, title, body, files, to, updatedAt: new Date().toISOString() });
+          // 처음 올린 뒤 첫 번째 고치기에서 확인자로 넣은 분만 주간 할일에 다시 넣음 (두 번째 고치기부터는 안 넣음)
+          const before = r.to ?? (['lead', 'director'] as CheckRole[]);
+          const added = to.filter((k) => !before.includes(k));
+          const first = !r.edits;
+          const retask = first && added.length ? [...new Set([...(r.retask ?? []), ...added])] : r.retask;
+          void saveReport({ ...r, title, body, files, to, retask, edits: (r.edits ?? 0) + 1, updatedAt: new Date().toISOString() });
           setEditing(false);
         }}
       />

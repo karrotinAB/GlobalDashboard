@@ -82,6 +82,8 @@ export interface Report {
   updatedAt?: string;
   checks?: Partial<Record<CheckRole, ReportCheck>>;
   to?: CheckRole[]; // 확인자 (팀장님 · 이사님). 없으면 둘 다 (예전 보고)
+  edits?: number; // 고친 횟수
+  retask?: CheckRole[]; // 첫 번째 고치기에서 확인자로 (다시) 넣은 분 → 주간 할일에 다시 넣음
   replies?: ReportReply[];
   files?: RequestFile[]; // 사진 · 파일
 }
