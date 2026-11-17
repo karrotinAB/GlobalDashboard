@@ -171,6 +171,10 @@ service cloud.firestore {
       allow write: if isAdmin()
         || (isPcManager() && request.resource.data.get('managers', []) == resource.data.get('managers', []));
     }
+    // 기간별 정산 (전달 완료 · 정산서 항목): 담당자·관리자만
+    match /pcPeriods/{pk} {
+      allow read, write: if isAdmin() || isPcManager();
+    }
     match /pcAccounts/{email} {
       allow read: if isAdmin() || isPcManager() || (isAny() && email == myEmail());
       allow write: if isAdmin() || (isAny() && email == myEmail());

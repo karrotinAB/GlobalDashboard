@@ -31,6 +31,7 @@ export interface PettyEntry {
   modeOther?: string; // 기타일 때 직접 쓴 것
   from?: string;
   to?: string;
+  memo?: string; // 교통비 신청서 '내역' (담당자가 고침, 없으면 '이름 + 수단')
   // 영수증: 사진(파일) 또는 종이영수증
   receipt?: PettyFile;
   paper?: boolean;
@@ -72,7 +73,7 @@ export const shiftPeriod = (p: { ym: string; half: number }, d: 1 | -1) => {
 
 // ---------- 로컬 모드 ----------
 const LS = 'gd:petty';
-type Local = { cfg?: PettyCfg; accounts?: Record<string, PettyAccount>; entries?: PettyEntry[] };
+type Local = { cfg?: PettyCfg; accounts?: Record<string, PettyAccount>; entries?: PettyEntry[]; periods?: Record<string, PettyPeriod> };
 const readLocal = (): Local => {
   try {
     return JSON.parse(localStorage.getItem(LS) ?? '{}');
@@ -194,3 +195,75 @@ export async function uploadReceipt(email: string, file: File): Promise<PettyFil
 }
 
 export const won = (n?: number) => (n === undefined || Number.isNaN(n) ? '' : `₩${Math.round(n).toLocaleString('ko-KR')}`);
+
+// ---------- 담당자용: 모든 사람 계좌 ----------
+export function usePettyAccounts(enabled: boolean): Record<string, PettyAccount> {
+  const local = useLocal((l) => l.accounts ?? {});
+  const [m, setM] = useState<Record<string, PettyAccount>>({});
+  useEffect(() => {
+    if (DATA_MODE === 'local' || !enabled) return;
+    return onSnapshot(
+      collection(db, 'pcAccounts'),
+      (snap) => setM(Object.fromEntries(snap.docs.map((d) => [d.id, d.data() as PettyAccount]))),
+      () => setM({}),
+    );
+  }, [enabled]);
+  return DATA_MODE === 'local' ? local : m;
+}
+
+// ---------- 기간별 정산 (전달 완료 · 정산서 항목) ----------
+//   pcPeriods/{2026-11-1}: { paid: { 이메일: { at, by } }, rows: SheetRow[] }
+export interface SheetRow {
+  id: string;
+  item: string; // 항목 (용도)
+  desc: string; // 내역
+  note?: string; // 비고
+}
+export interface PettyPeriod {
+  paid?: Record<string, { at: string; by?: string }>;
+  rows?: SheetRow[];
+}
+export const DEFAULT_SHEET_ROWS: SheetRow[] = [
+  { id: 'r1', item: '식대', desc: '야근 식대' },
+  { id: 'r2', item: '교통비', desc: '야근 교통비, 외근 교통비' },
+  { id: 'r3', item: '구독료', desc: '클로드 구독료, 노션 구독료' },
+  { id: 'r4', item: '출장비', desc: '조승재 이사 출장' },
+  { id: 'r5', item: '기타', desc: '비품' },
+];
+const EMPTY_PERIOD: PettyPeriod = {};
+export function usePettyPeriod(pk: string, enabled: boolean): PettyPeriod | null {
+  const local = useLocal((l) => l.periods ?? {});
+  const [v, setV] = useState<PettyPeriod | null>(null);
+  useEffect(() => {
+    if (DATA_MODE === 'local' || !enabled) return;
+    setV(null);
+    return onSnapshot(
+      doc(db, 'pcPeriods', pk),
+      (d) => setV((d.data() as PettyPeriod) ?? {}),
+      () => setV({}),
+    );
+  }, [pk, enabled]);
+  if (DATA_MODE === 'local') return local[pk] ?? EMPTY_PERIOD;
+  return v;
+}
+export async function savePettyPeriod(pk: string, v: PettyPeriod) {
+  const clean = JSON.parse(JSON.stringify(v)) as PettyPeriod;
+  if (DATA_MODE === 'local') {
+    const l = readLocal();
+    return writeLocal({ ...l, periods: { ...(l.periods ?? {}), [pk]: clean } });
+  }
+  await setDoc(doc(db, 'pcPeriods', pk), clean);
+}
+
+/** 정산서 항목 금액: 교통비 칸 내역은 '교통비', 전도금 내역은 그 용도 — 정산서에 없는 용도는 '기타'(없으면 마지막 줄)로 */
+export function sheetAmounts(rows: SheetRow[], entries: PettyEntry[]) {
+  const amt: Record<string, number> = Object.fromEntries(rows.map((r) => [r.id, 0]));
+  const byItem = new Map(rows.map((r) => [r.item.trim(), r.id]));
+  const etc = byItem.get('기타') ?? rows[rows.length - 1]?.id;
+  for (const e of entries) {
+    const key = e.kind === 'transport' ? '교통비' : (e.purpose ?? '').trim();
+    const id = byItem.get(key) ?? etc;
+    if (id) amt[id] += e.amount ?? 0;
+  }
+  return amt;
+}

@@ -20,6 +20,12 @@ import {
   usePettyAccount,
   usePettyCfg,
   usePettyEntries,
+  usePettyAccounts,
+  usePettyPeriod,
+  savePettyPeriod,
+  sheetAmounts,
+  DEFAULT_SHEET_ROWS,
+  type SheetRow,
   won,
   type PettyEntry,
   type PettyFile,
@@ -37,8 +43,9 @@ export default function Petty() {
   const isAdmin = (access.realRole ?? access.role) === 'admin' || access.role === null;
   const cfg = usePettyCfg();
   const isManager = !!cfg?.managers.includes(email);
-  const [tab, setTab] = useState<'mine' | 'manage'>('mine');
+  const [tab, setTab] = useState<'mine' | 'settle' | 'print' | 'manage'>('mine');
   const canManage = isManager || isAdmin;
+  const [period, setPeriod] = useState(() => periodOf(today()));
   return (
     <div className="page">
       <div className="page-head">
@@ -50,12 +57,27 @@ export default function Petty() {
           <button className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
             ✍️ 전도금 기록하기
           </button>
+          <button className={tab === 'settle' ? 'on' : ''} onClick={() => setTab('settle')}>
+            💸 전도금 정리
+          </button>
+          <button className={tab === 'print' ? 'on' : ''} onClick={() => setTab('print')}>
+            🖨 전도금 프린트
+          </button>
           <button className={tab === 'manage' ? 'on' : ''} onClick={() => setTab('manage')}>
             🗂 관리
           </button>
         </div>
       )}
-      {tab === 'manage' && canManage ? <Manage isAdmin={isAdmin} isManager={isManager} /> : <Record email={email} />}
+      {tab !== 'manage' && <PeriodNav period={period} setPeriod={setPeriod} />}
+      {canManage && tab === 'manage' ? (
+        <Manage isAdmin={isAdmin} isManager={isManager} />
+      ) : canManage && tab === 'settle' ? (
+        <Settle period={period} />
+      ) : canManage && tab === 'print' ? (
+        <PrintSheets period={period} />
+      ) : (
+        <Record email={email} period={period} />
+      )}
     </div>
   );
 }
@@ -68,12 +90,37 @@ function useFullName(email: string) {
 }
 
 // ===================== 전도금 기록하기 =====================
-function Record({ email }: { email: string }) {
+type Period = { ym: string; half: number };
+function PeriodNav({ period, setPeriod }: { period: Period; setPeriod: (f: (p: Period) => Period) => void }) {
+  const isNow = periodKey(period) === periodKey(periodOf(today()));
+  return (
+    <div className="pc-period">
+      <button onClick={() => setPeriod((p) => shiftPeriod(p, -1))} aria-label="이전 기간">
+        ◀
+      </button>
+      <div className="pc-period-label">
+        <b>{periodLabel(period)}</b>
+        <span className="muted small">{periodRange(period)}</span>
+        {isNow ? (
+          <span className="tag">지금</span>
+        ) : (
+          <button className="link small" onClick={() => setPeriod(() => periodOf(today()))}>
+            지금 기간으로
+          </button>
+        )}
+      </div>
+      <button onClick={() => setPeriod((p) => shiftPeriod(p, 1))} aria-label="다음 기간">
+        ▶
+      </button>
+    </div>
+  );
+}
+
+function Record({ email, period }: { email: string; period: Period }) {
   const name = useFullName(email);
   const cfg = usePettyCfg();
   const purposes = cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES;
   const all = usePettyEntries(email);
-  const [period, setPeriod] = useState(() => periodOf(today()));
   const pk = periodKey(period);
   const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
   const expenses = rows.filter((e) => e.kind === 'expense');
@@ -84,24 +131,6 @@ function Record({ email }: { email: string }) {
   const defDate = isNow ? today() : `${period.ym}-${period.half === 1 ? '01' : '16'}`;
   return (
     <>
-      <div className="pc-period">
-        <button onClick={() => setPeriod((p) => shiftPeriod(p, -1))} aria-label="이전 기간">
-          ◀
-        </button>
-        <div className="pc-period-label">
-          <b>{periodLabel(period)}</b>
-          <span className="muted small">{periodRange(period)}</span>
-          {isNow ? <span className="tag">지금</span> : (
-            <button className="link small" onClick={() => setPeriod(periodOf(today()))}>
-              지금 기간으로
-            </button>
-          )}
-        </div>
-        <button onClick={() => setPeriod((p) => shiftPeriod(p, 1))} aria-label="다음 기간">
-          ▶
-        </button>
-      </div>
-
       <AccountCard email={email} name={name} total={sum(rows)} />
 
       <section className="card pc-section">
@@ -215,7 +244,7 @@ function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: P
   );
 }
 
-function EntryTable({ kind, rows, purposes }: { kind: PettyEntry['kind']; rows: PettyEntry[]; purposes: string[] }) {
+function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEntry['kind']; rows: PettyEntry[]; purposes: string[]; canDelete?: boolean }) {
   if (!rows.length) return <p className="muted small pc-empty">{kind === 'expense' ? '아직 전도금 내역이 없어요' : '아직 교통비가 없어요'}</p>;
   const patch = (e: PettyEntry, p: Partial<PettyEntry>) => void savePettyEntry({ ...e, ...p });
   return (
@@ -265,12 +294,24 @@ function EntryTable({ kind, rows, purposes }: { kind: PettyEntry['kind']; rows: 
               )}
               <td className="r nowrap">{won(e.amount)}</td>
               <td>
-                <ReceiptCell email={e.email} file={e.receipt} paper={e.paper} onChange={(v) => patch(e, v)} />
+                {canDelete ? (
+                  <ReceiptCell email={e.email} file={e.receipt} paper={e.paper} onChange={(v) => patch(e, v)} />
+                ) : e.receipt ? (
+                  <a href={e.receipt.url} target="_blank" rel="noreferrer" className="pc-rc">
+                    🧾 사진
+                  </a>
+                ) : e.paper ? (
+                  <span className="tag gray small">📄 종이영수증</span>
+                ) : (
+                  <span className="muted small">없음</span>
+                )}
               </td>
               <td>
-                <button className="icon-btn" title="지우기" onClick={() => confirm('이 줄을 지울까요?') && void deletePettyEntry(e.id)}>
-                  🗑
-                </button>
+                {canDelete && (
+                  <button className="icon-btn" title="지우기" onClick={() => confirm('이 줄을 지울까요?') && void deletePettyEntry(e.id)}>
+                    🗑
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -419,6 +460,348 @@ function Manage({ isAdmin, isManager }: { isAdmin: boolean; isManager: boolean }
           )}
         </section>
       )}
+    </>
+  );
+}
+
+// ===================== 전도금 정리 (담당자) =====================
+function Settle({ period }: { period: Period }) {
+  const { email: me } = useAccess();
+  const cfg = usePettyCfg();
+  const purposes = cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES;
+  const all = usePettyEntries(null);
+  const accounts = usePettyAccounts(true);
+  const pk = periodKey(period);
+  const per = usePettyPeriod(pk, true);
+  const [open, setOpen] = useState<string | null>(null);
+  const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
+  const people = useMemo(() => {
+    const m = new Map<string, { email: string; name: string; list: PettyEntry[] }>();
+    for (const e of rows) {
+      const p = m.get(e.email) ?? { email: e.email, name: e.name || accounts[e.email]?.name || e.email.split('@')[0], list: [] };
+      p.list.push(e);
+      m.set(e.email, p);
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows, accounts]);
+  const sum = (l: PettyEntry[]) => l.reduce((a, e) => a + (e.amount ?? 0), 0);
+  const paid = per?.paid ?? {};
+  const togglePaid = (email: string) => {
+    const next = { ...paid };
+    if (next[email]) delete next[email];
+    else next[email] = { at: new Date().toISOString(), by: me || undefined };
+    void savePettyPeriod(pk, { ...(per ?? {}), paid: next });
+  };
+  const total = sum(rows);
+  const done = people.filter((p) => paid[p.email]).length;
+  return (
+    <section className="card pc-settle">
+      <div className="pc-sec-head">
+        <h2>전도금 정리</h2>
+        <span className="muted small">
+          {people.length}명 · 전달 완료 {done}/{people.length} · 합계 {won(total) || '₩0'}
+        </span>
+      </div>
+      {all === null ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : people.length === 0 ? (
+        <p className="muted small pc-empty">이 기간에 올라온 전도금이 없어요.</p>
+      ) : (
+        <div className="pc-people">
+          {people.map((p) => {
+            const acc = accounts[p.email] ?? {};
+            const isOpen = open === p.email;
+            return (
+              <div key={p.email} className={`pc-person ${paid[p.email] ? 'paid' : ''} ${isOpen ? 'open' : ''}`}>
+                <div className="pc-person-row" onClick={() => setOpen(isOpen ? null : p.email)}>
+                  <span className="pc-caret">{isOpen ? '▾' : '▸'}</span>
+                  <b className="pc-person-name">{p.name}</b>
+                  <span className="pc-person-acc">{acc.bank || acc.account ? `${acc.bank ?? ''} ${acc.account ?? ''}`.trim() : <span className="muted small">계좌 없음</span>}</span>
+                  <b className="pc-person-amt">{won(sum(p.list))}</b>
+                  <label className="pc-paid" onClick={(e) => e.stopPropagation()} title={paid[p.email] ? `전달 완료 ${new Date(paid[p.email].at).toLocaleDateString('ko-KR')}` : '전달 완료로 표시'}>
+                    <input type="checkbox" checked={!!paid[p.email]} onChange={() => togglePaid(p.email)} /> 전달 완료
+                  </label>
+                </div>
+                {isOpen && (
+                  <div className="pc-person-detail">
+                    <div className="pc-sub">전도금 내역 <span className="muted small">· 용도를 바꾸면 정산서 그 항목으로 들어가요</span></div>
+                    <EntryTable kind="expense" rows={p.list.filter((e) => e.kind === 'expense')} purposes={purposes} canDelete={false} />
+                    <div className="pc-sub">교통비</div>
+                    <EntryTable kind="transport" rows={p.list.filter((e) => e.kind === 'transport')} purposes={purposes} canDelete={false} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ===================== 전도금 프린트 (담당자) =====================
+const ymdKo = (ym: string, d: number) => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월 ${d}일`;
+const lastDay = (ym: string) => new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate();
+const dotDate = (iso: string) => `${iso.slice(2, 4)}.${iso.slice(5, 7)}.${iso.slice(8, 10)}`;
+const APPROVALS = ['담당', '주임', '대리', '과장', '차/부장', '임원', '회장'];
+
+/** 이 시트만 인쇄 (브라우저 인쇄 창 → 'PDF로 저장' 가능): 시트를 깨끗하게 복사해서 그것만 찍음 */
+function printSheet(id: string) {
+  const src = document.getElementById(id);
+  if (!src) return;
+  const copy = src.cloneNode(true) as HTMLElement;
+  copy.removeAttribute('id');
+  // 입력칸은 적힌 글자로 바꿔서
+  const ins = src.querySelectorAll('input, textarea');
+  copy.querySelectorAll('input, textarea').forEach((el, i) => {
+    const span = document.createElement('span');
+    span.className = `${el.className} ps-text`;
+    span.textContent = (ins[i] as HTMLInputElement).value;
+    el.replaceWith(span);
+  });
+  copy.querySelectorAll('.no-print').forEach((el) => el.remove());
+  const root = document.createElement('div');
+  root.id = 'pc-print-root';
+  root.appendChild(copy);
+  document.body.appendChild(root);
+  document.body.classList.add('pc-printing');
+  const done = () => {
+    document.body.classList.remove('pc-printing');
+    root.remove();
+    window.removeEventListener('afterprint', done);
+  };
+  window.addEventListener('afterprint', done);
+  setTimeout(() => window.print(), 50);
+}
+
+function Approval({ label }: { label: string[] }) {
+  return (
+    <table className="ps-appr">
+      <tbody>
+        <tr>
+          <td rowSpan={2} className="ps-appr-side">
+            {label.map((x) => (
+              <div key={x}>{x}</div>
+            ))}
+          </td>
+          <td rowSpan={2} className="ps-appr-side">
+            <div>결</div>
+            <div>재</div>
+          </td>
+          {APPROVALS.map((a) => (
+            <td key={a} className="ps-appr-h">
+              {a}
+            </td>
+          ))}
+        </tr>
+        <tr>
+          {APPROVALS.map((a) => (
+            <td key={a} className="ps-appr-sign" />
+          ))}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function PrintSheets({ period }: { period: Period }) {
+  const access = useAccess();
+  const cfg = usePettyCfg();
+  const { roles, contacts } = usePeople();
+  const all = usePettyEntries(null);
+  const pk = periodKey(period);
+  const per = usePettyPeriod(pk, true);
+  const [which, setWhich] = useState<'sheet' | 'transport' | 'receipt'>('sheet');
+  const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
+  const sheetRows = per?.rows ?? DEFAULT_SHEET_ROWS;
+  const amts = sheetAmounts(sheetRows, rows);
+  const total = Object.values(amts).reduce((a, b) => a + b, 0);
+  const from = period.half === 1 ? 1 : 16;
+  const to = period.half === 1 ? 15 : lastDay(period.ym);
+  // 담당: 전도금 담당자 이름 (내가 담당자면 나, 아니면 첫 번째 담당자)
+  const fullName = (e: string) => contacts[e]?.name || roles?.find((r) => r.email === e)?.name || '';
+  const mgr = cfg?.managers.includes(access.email) ? access.accountName || fullName(access.email) : cfg?.managers[0] ? fullName(cfg.managers[0]) : '';
+  const saveRows = (next: SheetRow[]) => void savePettyPeriod(pk, { ...(per ?? {}), rows: next });
+  const transports = rows.filter((e) => e.kind === 'transport').sort((a, b) => a.date.localeCompare(b.date));
+  const tTotal = transports.reduce((a, e) => a + (e.amount ?? 0), 0);
+  const blankRows = Math.max(0, 12 - transports.length);
+  return (
+    <>
+      <div className="seg pc-print-tabs">
+        <button className={which === 'sheet' ? 'on' : ''} onClick={() => setWhich('sheet')}>
+          1. 전도금 정산서
+        </button>
+        <button className={which === 'transport' ? 'on' : ''} onClick={() => setWhich('transport')}>
+          2. 교통비 신청서
+        </button>
+        <button className={which === 'receipt' ? 'on' : ''} onClick={() => setWhich('receipt')}>
+          3. 영수증
+        </button>
+      </div>
+
+      {which === 'sheet' && (
+        <>
+          <div className="pc-print-bar">
+            <span className="muted small">항목 · 내역 · 비고는 눌러서 고칠 수 있어요 (이 기간에만 저장). 금액은 각자 올린 전도금을 용도별로 더한 값이에요.</span>
+            <button className="primary" onClick={() => printSheet('ps-sheet')}>
+              🖨 프린트 / PDF
+            </button>
+          </div>
+          <div className="ps-page" id="ps-sheet">
+            <h1 className="ps-title">전 도 금 정 산 서</h1>
+            <div className="ps-top">
+              <div className="ps-to">수신 : 재 무 팀</div>
+              <Approval label={['재', '무', '팀']} />
+            </div>
+            <div className="ps-guide">항목별로 구분하여 기재요망</div>
+            <div className="ps-range">
+              {ymdKo(period.ym, from)} &nbsp;~&nbsp; {ymdKo(period.ym, to)}
+            </div>
+            <table className="ps-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '16%' }}>항 목</th>
+                  <th style={{ width: '22%' }}>내 역</th>
+                  <th style={{ width: '22%' }}>지 급 처</th>
+                  <th style={{ width: '20%' }}>금 액</th>
+                  <th>비 고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sheetRows.map((r, i) => (
+                  <tr key={r.id}>
+                    <td className="c">
+                      <input className="ps-in c" value={r.item} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, item: e.target.value } : x)))} />
+                    </td>
+                    <td>
+                      <textarea className="ps-in" rows={2} value={r.desc} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, desc: e.target.value } : x)))} />
+                    </td>
+                    {i === 0 && (
+                      <td rowSpan={sheetRows.length} className="ps-x">
+                        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                          <line x1="0" y1="100" x2="100" y2="0" />
+                        </svg>
+                      </td>
+                    )}
+                    <td className="r">{won(amts[r.id])}</td>
+                    <td className="ps-note">
+                      <input className="ps-in" value={r.note ?? ''} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, note: e.target.value || undefined } : x)))} />
+                      <button className="ps-del no-print" title="이 항목 빼기" onClick={() => confirm(`'${r.item}' 항목을 뺄까요?`) && saveRows(sheetRows.filter((x) => x.id !== r.id))}>
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                <tr className="ps-sum">
+                  <td className="c">계</td>
+                  <td colSpan={2} />
+                  <td className="r">{won(total) || '₩0'}</td>
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+            <button className="link small no-print" style={{ marginTop: 6 }} onClick={() => saveRows([...sheetRows, { id: uid(), item: '새 항목', desc: '' }])}>
+              ＋ 항목 추가
+            </button>
+            <div className="ps-bottom">
+              <Approval label={['정', '산', '부', '서']} />
+              <div className="ps-dept">
+                <div>정산부서 : 글로벌사업부</div>
+                <div>담 &nbsp;당 : {mgr ? mgr.split('').join(' ') : ''}</div>
+              </div>
+            </div>
+            <div className="ps-attach">* 첨 부 : 제 증 명</div>
+          </div>
+        </>
+      )}
+
+      {which === 'transport' && (
+        <>
+          <div className="pc-print-bar">
+            <span className="muted small">모든 사람이 올린 교통비를 날짜순으로 모았어요. '내역'은 눌러서 고칠 수 있어요.</span>
+            <button className="primary" onClick={() => printSheet('ps-transport')}>
+              🖨 프린트 / PDF
+            </button>
+          </div>
+          <div className="ps-page" id="ps-transport">
+            <h1 className="ps-title small">교 통 비 신 청 서</h1>
+            <div className="ps-period">
+              ■ 사 용 기 간 &nbsp;: &nbsp;&nbsp; {Number(period.ym.slice(5, 7))}월 &nbsp; {from}일 &nbsp; ~ &nbsp; {Number(period.ym.slice(5, 7))}월 &nbsp; {to}일
+            </div>
+            <table className="ps-table ps-tr">
+              <thead>
+                <tr>
+                  <th rowSpan={2} style={{ width: '11%' }}>
+                    날 짜
+                  </th>
+                  <th colSpan={2}>교통수단</th>
+                  <th rowSpan={2} style={{ width: '16%' }}>
+                    출 발 지
+                  </th>
+                  <th rowSpan={2} style={{ width: '16%' }}>
+                    도 착 지
+                  </th>
+                  <th rowSpan={2} style={{ width: '11%' }}>
+                    금 액
+                  </th>
+                  <th rowSpan={2}>내 역</th>
+                  <th rowSpan={2} style={{ width: '7%' }}>
+                    비 고
+                  </th>
+                </tr>
+                <tr>
+                  <th style={{ width: '8%' }}>대중교통</th>
+                  <th style={{ width: '7%' }}>기타</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transports.map((e) => {
+                  const pub = e.mode === '버스' || e.mode === '기차';
+                  const label = e.mode === '기타' ? e.modeOther || '기타' : e.mode ?? '';
+                  return (
+                    <tr key={e.id}>
+                      <td className="c">{dotDate(e.date)}</td>
+                      <td className="c">{pub ? label : ''}</td>
+                      <td className="c">{pub ? '' : label}</td>
+                      <td className="c">{e.from}</td>
+                      <td className="c">{e.to}</td>
+                      <td className="r">{(e.amount ?? 0).toLocaleString('ko-KR')}</td>
+                      <td className="c">
+                        <input
+                          className="ps-in c"
+                          defaultValue={e.memo ?? `${e.name ?? ''} ${label}비`.trim()}
+                          onBlur={(x) => {
+                            const v = x.target.value.trim();
+                            if (v !== (e.memo ?? '')) void savePettyEntry({ ...e, memo: v || undefined });
+                          }}
+                        />
+                      </td>
+                      <td />
+                    </tr>
+                  );
+                })}
+                {Array.from({ length: blankRows }, (_, i) => (
+                  <tr key={`b${i}`} className="ps-blank">
+                    {Array.from({ length: 8 }, (__, j) => (
+                      <td key={j} />
+                    ))}
+                  </tr>
+                ))}
+                <tr className="ps-sum">
+                  <td colSpan={5} className="c">
+                    소 계
+                  </td>
+                  <td className="r">₩ {tTotal.toLocaleString('ko-KR')}</td>
+                  <td colSpan={2} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {which === 'receipt' && <p className="card muted">영수증 페이지는 설명을 들은 뒤 만들게요.</p>}
+      {all === null && <p className="muted small">불러오는 중…</p>}
     </>
   );
 }
