@@ -7990,3 +7990,6 @@ td.c-people { min-width: 120px; }
 @media (max-width: 900px) { .pc-settle-wrap { grid-template-columns: 1fr; } .pc-settle-sum { position: static; } }
 .ec-orig { margin-top: 2px; font-size: 11px; }
 .export-card.total .fx-orig { color: rgba(255, 255, 255, 0.7); }
+/* 수출 카드: 원화·외화 숫자 높이 맞춤 (외화 아래 원래 화폐 줄이 있어도) */
+.ec-amts { align-items: flex-start; }
+.ec-cell .ec-orig { position: relative; margin-top: 1px; }
