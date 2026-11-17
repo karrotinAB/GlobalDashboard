@@ -219,9 +219,21 @@ export interface SheetRow {
   desc: string; // 내역
   note?: string; // 비고
 }
+/** 영수증 장 위의 위치 (mm, A4 210×297) — 담당자가 옮기거나 크기를 바꾼 것만 저장 */
+export interface RcptPos {
+  page?: string; // '항목#번호'
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  fs?: number; // 글자 크기 (pt)
+  lx?: number; // 글자 위치 (상자 왼쪽 위 기준, mm)
+  ly?: number;
+}
 export interface PettyPeriod {
   paid?: Record<string, { at: string; by?: string }>;
   rows?: SheetRow[];
+  rcpt?: Record<string, RcptPos>;
 }
 export const DEFAULT_SHEET_ROWS: SheetRow[] = [
   { id: 'r1', item: '식대', desc: '야근 식대' },
@@ -253,6 +265,14 @@ export async function savePettyPeriod(pk: string, v: PettyPeriod) {
     return writeLocal({ ...l, periods: { ...(l.periods ?? {}), [pk]: clean } });
   }
   await setDoc(doc(db, 'pcPeriods', pk), clean);
+}
+
+/** 이 내역이 들어가는 정산서 항목 이름 (교통비 칸은 '교통비', 정산서에 없는 용도는 '기타' 또는 마지막 항목) */
+export function itemOf(rows: SheetRow[], e: PettyEntry) {
+  const items = rows.map((r) => r.item.trim());
+  const key = e.kind === 'transport' ? '교통비' : (e.purpose ?? '').trim();
+  if (items.includes(key)) return key;
+  return items.includes('기타') ? '기타' : (items[items.length - 1] ?? key);
 }
 
 /** 정산서 항목 금액: 교통비 칸 내역은 '교통비', 전도금 내역은 그 용도 — 정산서에 없는 용도는 '기타'(없으면 마지막 줄)로 */

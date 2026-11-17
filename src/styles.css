@@ -7854,3 +7854,50 @@ td.c-people { min-width: 120px; }
   body.pc-printing #pc-print-root .ps-page { margin: 0; box-shadow: none; width: 210mm; height: 297mm; min-height: 0; overflow: hidden; page-break-after: avoid; }
 }
 
+
+/* 전도금 프린트 › 영수증 편집 */
+.rc-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 14px; align-items: start; }
+.rc-main { min-width: 0; }
+.rc-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 36px; margin-bottom: 8px; }
+.rc-tools { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.rc-tools button { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 4px 9px; font-size: 12.5px; cursor: pointer; }
+.rc-tools button:disabled { opacity: 0.4; cursor: default; }
+.rc-sep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.rc-stage { background: #e9e2df; border-radius: 14px; padding: 16px 4px; display: flex; justify-content: center; overflow: auto; max-height: 82vh; }
+.rc-page { position: relative; background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15); overflow: hidden; color: #000; font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif; }
+.rc-box { position: absolute; box-sizing: border-box; outline: 1px dashed transparent; touch-action: none; }
+.rc-stage .rc-box { cursor: move; }
+.rc-stage .rc-box:hover { outline-color: #c9a9a3; }
+.rc-box.sel { outline: 2px solid #8c2f3c !important; }
+.rc-label { position: absolute; white-space: nowrap; line-height: 1.2; display: flex; align-items: center; color: #111; }
+.rc-stage .rc-label { cursor: text; }
+.rc-stage .rc-box.sel .rc-label { background: rgba(255, 248, 225, 0.85); cursor: grab; }
+.rc-amt { color: #444; margin-left: 0.5em; }
+.rc-img { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.rc-img img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
+.rc-box.paper .rc-img { border: 1px dashed #bbb; }
+.rc-paper { color: #aaa; font-size: 12px; }
+.rc-file { font-size: 12px; color: #555; padding: 4px; text-align: center; }
+.rc-size { position: absolute; right: -6px; bottom: -6px; width: 14px; height: 14px; background: #8c2f3c; border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; touch-action: none; }
+.rc-foot { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+.rc-side { position: sticky; top: 70px; max-height: 86vh; overflow-y: auto; padding-right: 4px; }
+.rc-group { margin-bottom: 12px; }
+.rc-group-head { font-weight: 700; font-size: 13px; padding: 4px 2px; border-bottom: 2px solid #8c2f3c33; margin-bottom: 6px; }
+.rc-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-thumb { border: 2px solid transparent; background: none; padding: 2px; border-radius: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--mut); }
+.rc-thumb.on { border-color: #8c2f3c; }
+.rc-thumb .rc-page { pointer-events: none; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); }
+.rc-print-src { display: none; }
+@media (max-width: 900px) {
+  .rc-wrap { grid-template-columns: 1fr; }
+  .rc-side { position: static; max-height: none; }
+  .rc-thumbs { flex-wrap: nowrap; overflow-x: auto; }
+}
+@media print {
+  body.pc-printing #pc-print-root .rc-print-all { display: block; }
+  body.pc-printing #pc-print-root .rc-print-page { padding: 0; page-break-after: always; break-after: page; }
+  body.pc-printing #pc-print-root .rc-print-page:last-child { page-break-after: auto; break-after: auto; }
+  body.pc-printing #pc-print-root .rc-page { box-shadow: none; }
+  body.pc-printing #pc-print-root .rc-box { outline: none !important; }
+  body.pc-printing #pc-print-root .rc-box.paper .rc-img { border: 0; }
+}

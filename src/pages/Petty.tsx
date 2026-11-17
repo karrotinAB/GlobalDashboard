@@ -2,6 +2,7 @@
 //   한 달을 1~15일 / 16일~말일 두 번으로 나눠서, 그 기간에 쓴 전도금 내역과 교통비를 기록
 import { useEffect, useMemo, useState } from 'react';
 import { useAccess } from '../components/AuthGate';
+import PettyReceipts from '../components/PettyReceipts';
 import { usePeople } from '../components/AddressBook';
 import { today, uid } from '../lib/date';
 import {
@@ -546,11 +547,12 @@ const dotDate = (iso: string) => `${iso.slice(2, 4)}.${iso.slice(5, 7)}.${iso.sl
 const APPROVALS = ['담당', '주임', '대리', '과장', '차/부장', '임원', '회장'];
 
 /** 이 시트만 인쇄 (브라우저 인쇄 창 → 'PDF로 저장' 가능): 시트를 깨끗하게 복사해서 그것만 찍음 */
-function printSheet(id: string) {
+function printSheet(id: string, many = false) {
   const src = document.getElementById(id);
   if (!src) return;
   const copy = src.cloneNode(true) as HTMLElement;
   copy.removeAttribute('id');
+  if (many) copy.className = 'rc-print-all';
   // 입력칸은 적힌 글자로 바꿔서
   const ins = src.querySelectorAll('input, textarea');
   copy.querySelectorAll('input, textarea').forEach((el, i) => {
@@ -800,7 +802,17 @@ function PrintSheets({ period }: { period: Period }) {
         </>
       )}
 
-      {which === 'receipt' && <p className="card muted">영수증 페이지는 설명을 들은 뒤 만들게요.</p>}
+      {which === 'receipt' && (
+        <>
+          <div className="pc-print-bar">
+            <span className="muted small">항목(용도)별로 장을 나눠 날짜순으로 붙였어요. 종이영수증은 그 자리를 비워 둬요.</span>
+            <button className="primary" onClick={() => printSheet('ps-receipts', true)}>
+              🖨 프린트 / PDF (모든 장)
+            </button>
+          </div>
+          {per ? <PettyReceipts pk={pk} per={per} entries={rows} rows={sheetRows} /> : <p className="muted small">불러오는 중…</p>}
+        </>
+      )}
       {all === null && <p className="muted small">불러오는 중…</p>}
     </>
   );
