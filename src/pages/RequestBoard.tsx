@@ -3,7 +3,7 @@
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
 import PeoplePicker, { type PersonOpt } from '../components/PeoplePicker';
 import { usePeople } from '../components/AddressBook';
-import { assigneesOf, peopleOptions } from '../lib/trade';
+import { assigneesOf, peopleOptions, isLeaderRequester } from '../lib/trade';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest, TRADE_TAGS, tradeTagLabel, type TradeTag } from '../types';
 import { useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel, teamTagClass } from '../lib/trade';
@@ -538,7 +538,16 @@ function Row({
       </td>
       <td className="c-who">
         {edit ? (
-          <select className="cell-select" value={r.requesterId ?? ''} onChange={(e) => onPatch({ requesterId: e.target.value || undefined })}>
+          <select
+            className="cell-select"
+            value={r.requesterId ?? ''}
+            onChange={(e) => {
+              const id = e.target.value || undefined;
+              const lead = isLeaderRequester(id) ? team.find((m) => m.id === id) : undefined;
+              // 팀장님·이사님을 고르면 요청 쪽도 그분으로 (무역사무 자체 업무에서 바꿀 때)
+              onPatch(lead ? { requesterId: id, team: lead.team, teamName: lead.name } : { requesterId: id });
+            }}
+          >
             <option value="">무역사무</option>
             {team
               .filter((m) => isSelfTask(r) || !m.team || m.team === teamOfRequest(r))

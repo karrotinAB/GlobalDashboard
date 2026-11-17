@@ -155,7 +155,8 @@ export const memberOfEmail = (list: Member[], email: string) => (email ? list.fi
 export function useTrade() {
   const { data, save } = useStore();
   const access = useAccess();
-  const team = useMemo(() => [...data.members].sort((a, b) => a.order - b.order), [data.members]);
+  // + 팀장님·이사님 (무역사무가 요청자로 고를 수 있게)
+  const team = useMemo(() => [...[...data.members].sort((a, b) => a.order - b.order), ...LEADER_REQUESTERS], [data.members]);
   const trade = useMemo(() => [...data.tradeMembers].sort((a, b) => a.order - b.order), [data.tradeMembers]);
   const me = memberOfEmail(team, access.email) ?? memberOfEmail(trade, access.email);
   const by = me?.name ?? (access.email ? access.email.split('@')[0] : '나');
@@ -179,7 +180,13 @@ export function ago(iso: string, now = Date.now()) {
 }
 
 /** 요청자 이름: 무역사무 화면처럼 여러 조가 섞이면 '이름 (1조)' */
-export const memberLabel = (m: Member) => (m.team ? `${m.name} (${m.team}조)` : m.name);
+export const memberLabel = (m: Member) => (isLeaderRequester(m.id) ? m.name : m.team ? `${m.name} (${m.team}조)` : m.name);
+/** 무역사무가 요청자로 고르는 팀장님·이사님 (담당자 카드가 아니라 자리만) */
+export const LEADER_REQUESTERS: Member[] = [
+  { id: '__lead', name: '팀장님', color: '#8c2f3c', order: 900, team: 'p-lead' },
+  { id: '__director', name: '이사님', color: '#5b3a8a', order: 901, team: 'p-director' },
+];
+export const isLeaderRequester = (id?: string) => id === '__lead' || id === '__director';
 /** 요청의 조 (옛 요청은 2조) */
 /** 무역사무가 직접 넣은 자체 업무 (요청한 조가 없음) */
 export const isSelfTask = (r: TradeRequest) => !r.team && !r.requesterId && !r.requesterEmail && !r.teamName;

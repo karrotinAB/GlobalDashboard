@@ -10,7 +10,7 @@ import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
 import { today, uid } from '../lib/date';
-import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload } from '../lib/trade';
+import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload, isLeaderRequester } from '../lib/trade';
 
 const dot = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -272,7 +272,8 @@ function Fields({
         <span>요청자{reqRequester ? ' *' : ''}</span>
         <select value={d.requesterId ?? ''} onChange={(e) => set({ requesterId: e.target.value || undefined })}>
           <option value="">{reqRequester ? '(고르기)' : '(없음 · 무역사무 자체 업무)'}</option>
-          {team.map((m) => (
+          {/* 팀장님·이사님은 무역사무 쪽에서만 */}
+          {team.filter((m) => side === 'trade' || !isLeaderRequester(m.id)).map((m) => (
             <option key={m.id} value={m.id}>
               {memberLabel(m)}
             </option>
@@ -500,7 +501,7 @@ export function NewRequest({
       requesterEmail: team.find((m) => m.id === d.requesterId)?.email ?? (isTrade ? undefined : myEmail || undefined),
       createdByEmail: myEmail || undefined,
       team: isTrade ? team.find((m) => m.id === d.requesterId)?.team : teamId,
-      teamName: isTrade ? undefined : teamName,
+      teamName: isTrade ? (isLeaderRequester(d.requesterId) ? team.find((m) => m.id === d.requesterId)?.name : undefined) : teamName,
       requesterName: team.find((m) => m.id === d.requesterId)?.name ?? (isTrade ? undefined : me?.name),
       status: 'requested',
       createdAt: now,
