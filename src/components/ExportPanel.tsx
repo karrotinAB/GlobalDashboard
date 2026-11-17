@@ -330,7 +330,8 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
             ))}
           </div>
         )}
-        {!mobile && <div className="company-chips">
+        {/* 업체 고르기는 표 보기에서만 (비중은 늘 모든 업체를 같이 봐서 고를 게 없음) */}
+        {!mobile && view !== 'pie' && <div className="company-chips">
           <button className={`cchip ${!coId ? 'on' : ''}`} onClick={() => setCoId('')}>
             전체
           </button>
