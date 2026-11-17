@@ -8010,3 +8010,6 @@ td.c-people { min-width: 120px; }
 /* 프린트 서류: 고칠 수 있는 칸은 화면에서만 살짝 표시 */
 .ps-page .ps-in:not(:focus):hover { background: #fff8e1; box-shadow: inset 0 -1px 0 #d9b9b3; cursor: text; }
 .ps-page textarea.ps-in, .ps-page input.ps-in { border-radius: 2px; }
+/* 전도금: 담당자는 이름 옆에서 팀장님·이사님 고르기 */
+.pc-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pc-who { height: 30px; font-size: 13px; border-radius: 8px; padding: 0 6px; max-width: 170px; }

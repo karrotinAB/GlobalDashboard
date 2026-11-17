@@ -183,14 +183,15 @@ service cloud.firestore {
     }
     match /pcAccounts/{email} {
       allow read: if isAdmin() || isPcManager() || (isAny() && email == myEmail());
-      allow write: if isAdmin() || (isAny() && email == myEmail());
+      allow write: if isAdmin() || isPcManager() || (isAny() && email == myEmail());
     }
     match /pcEntries/{id} {
       allow read: if isAdmin() || isPcManager() || (isAny() && resource.data.email == myEmail());
-      allow create: if isAdmin() || (isAny() && request.resource.data.email == myEmail());
+      // 담당자는 팀장님·이사님 것도 대신 기록
+      allow create: if isAdmin() || isPcManager() || (isAny() && request.resource.data.email == myEmail());
       allow update: if isAdmin() || isPcManager()
         || (isAny() && resource.data.email == myEmail() && request.resource.data.email == myEmail());
-      allow delete: if isAdmin() || (isAny() && resource.data.email == myEmail());
+      allow delete: if isAdmin() || isPcManager() || (isAny() && resource.data.email == myEmail());
     }
 
     // secrets/{문서} (ERP API 키 등): 규칙이 없으므로 사이트에서는 아무도 못 읽고 못 씀. 서버 함수만 읽음

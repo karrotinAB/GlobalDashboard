@@ -58,6 +58,7 @@ export default function Petty() {
   const [tab, setTab] = useState<'mine' | 'settle' | 'print' | 'manage'>('mine');
   const canManage = isManager || isAdmin;
   const [period, setPeriod] = useState(() => periodOf(today()));
+  const [who, setWho] = useState(''); // 담당자가 대신 기록하는 사람 ('' = 나)
   return (
     <div className="page">
       <div className="page-head">
@@ -88,7 +89,7 @@ export default function Petty() {
       ) : canManage && tab === 'print' ? (
         <PrintSheets period={period} />
       ) : (
-        <Record email={email} period={period} />
+        <Record email={who || email} period={period} who={canManage ? { value: who, set: setWho, me: email } : undefined} />
       )}
     </div>
   );
@@ -96,9 +97,24 @@ export default function Petty() {
 
 /** 이름 석 자 (계정 이름 → 주소록 이름) */
 function useFullName(email: string) {
-  const { accountName } = useAccess();
+  const { accountName, email: me } = useAccess();
   const { roles, contacts } = usePeople();
-  return accountName || contacts[email]?.name || roles?.find((r) => r.email === email)?.name || (email.includes('@') ? email.split('@')[0] : '');
+  if (email === LEAD_KEY) return '팀장님';
+  if (email === DIRECTOR_KEY) return '이사님';
+  return (email === me ? accountName : undefined) || contacts[email]?.name || roles?.find((r) => r.email === email)?.name || (email.includes('@') ? email.split('@')[0] : '');
+}
+// 대시보드 계정이 없는 팀장님·이사님 대신 쓰는 자리 (담당자가 대신 기록)
+const LEAD_KEY = 'lead@petty';
+const DIRECTOR_KEY = 'director@petty';
+
+/** 담당자: 이름 옆에서 '나 / 팀장님 / 이사님' 고르기 → 그분 전도금을 대신 기록 */
+function useProxyPeople() {
+  const { roles, contacts } = usePeople();
+  const pick = (role: 'lead' | 'director', fallback: string, key: string) => {
+    const r = roles?.find((x) => x.role === role);
+    return r ? { key: r.email, label: `${fallback} (${contacts[r.email]?.name || r.name || r.email.split('@')[0]})` } : { key, label: fallback };
+  };
+  return [pick('lead', '팀장님', LEAD_KEY), pick('director', '이사님', DIRECTOR_KEY)];
 }
 
 // ===================== 전도금 기록하기 =====================
@@ -128,7 +144,7 @@ function PeriodNav({ period, setPeriod }: { period: Period; setPeriod: (f: (p: P
   );
 }
 
-function Record({ email, period }: { email: string; period: Period }) {
+function Record({ email, period, who }: { email: string; period: Period; who?: { value: string; set: (v: string) => void; me: string } }) {
   const name = useFullName(email);
   const cfg = usePettyCfg();
   const purposes = cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES;
@@ -173,12 +189,14 @@ function Record({ email, period }: { email: string; period: Period }) {
         </section>
         {all === null && <p className="muted small">불러오는 중…</p>}
       </div>
-      <AccountCard email={email} name={name} expense={sum(expenses)} transport={sum(transports)} />
+      <AccountCard key={email} email={email} name={name} expense={sum(expenses)} transport={sum(transports)} who={who} />
     </div>
   );
 }
 
-function AccountCard({ email, name, expense, transport }: { email: string; name: string; expense: number; transport: number }) {
+function AccountCard({ email, name, expense, transport, who }: { email: string; name: string; expense: number; transport: number; who?: { value: string; set: (v: string) => void; me: string } }) {
+  const proxies = useProxyPeople();
+  const myName = useFullName(who?.me ?? email);
   const acc = usePettyAccount(email);
   const [bank, setBank] = useState('');
   const [account, setAccount] = useState('');
@@ -205,7 +223,21 @@ function AccountCard({ email, name, expense, transport }: { email: string; name:
   };
   return (
     <section className="card pc-account">
-      <b className="pc-name">{name}</b>
+      <div className="pc-name-row">
+        <b className="pc-name">{name}</b>
+        {/* 담당자만: 팀장님·이사님 전도금을 대신 기록 */}
+        {who && (
+          <select className="pc-who" value={who.value} onChange={(e) => who.set(e.target.value)} title="누구 전도금을 기록할지">
+            <option value="">{myName ? `나 (${myName})` : "나"}</option>
+            {proxies.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      {who?.value && <p className="muted small" style={{ margin: 0 }}>담당자로서 대신 기록하고 있어요.</p>}
       <div className="pc-acc-fields">
         <input className={`pc-bank ${locked ? 'locked' : ''}`} readOnly={locked} placeholder="은행 (예: 국민)" value={bank} onChange={(e) => setBank(e.target.value)} />
         <input

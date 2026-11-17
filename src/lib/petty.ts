@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { auth, db, storage } from '../firebase';
 import { DATA_MODE } from '../data/store';
 
 export const DEFAULT_PURPOSES = ['식대', '교통비', '구독료', '출장비', '비품'];
@@ -196,7 +196,9 @@ export async function uploadReceipt(email: string, file: File): Promise<PettyFil
     return { name: file.name, url };
   }
   const name = file.name || `영수증-${Date.now()}.png`;
-  const path = `petty/${email}/${Date.now()}-${name.replace(/[^\w.\-가-힣]/g, '_')}`;
+  // 올리는 사람 폴더에 (담당자가 팀장님·이사님 대신 올려도)
+  const owner = auth.currentUser?.email?.toLowerCase() || email;
+  const path = `petty/${owner}/${Date.now()}-${name.replace(/[^\w.\-가-힣]/g, '_')}`;
   const r = storageRef(storage, path);
   await uploadBytes(r, file);
   return { name, url: await getDownloadURL(r), path };
