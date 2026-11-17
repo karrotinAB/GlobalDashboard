@@ -146,6 +146,8 @@ function TranslateTab() {
   const [err, setErr] = useState('');
   const [edits, setEdits] = useKept<Record<number, string>>('edits', {}); // 줄 → 직접 고친 영문 제품명
   const [keepParen, setKeepParen] = useKept<Record<number, string[]>>('keepParen', {}); // 줄 → 빼지 말고 번역할 괄호
+  // '사전에 없는 단어'에서 ✕ 로 뺀 단어: 번역하지 않음 (영문 제품명에서 빠짐)
+  const [hidden, setHidden] = useKept<string[]>('hiddenWords', []);
   const [onlyTodo, setOnlyTodo] = useKept('onlyTodo', true);
   const [page0, setPage] = useKept('page', 0);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -201,6 +203,7 @@ function TranslateTab() {
 
   const cell = (row: { cells: unknown[] }, k: keyof Sheet['col']) => (sheet?.col[k] !== undefined ? String(row.cells[sheet.col[k]!] ?? '').trim() : '');
   // 비어 있는 칸이 있는 줄 + 자동 번역
+  const hiddenSet = useMemo(() => new Set(hidden), [hidden]);
   const view = useMemo(() => {
     if (!sheet) return [];
     return sheet.rows.map((row) => {
@@ -212,11 +215,15 @@ function TranslateTab() {
       const parens: string[] = ko.match(/\([^()]*\)|（[^（）]*）/g) ?? [];
       const cut = parens.filter((x) => !kept.includes(x));
       const koEn = cut.length ? ko.replace(/\([^()]*\)|（[^（）]*）/g, (m) => (kept.includes(m) ? m : ' ')).replace(/\s{2,}/g, ' ').trim() : ko;
-      const tr = koEn ? translate(koEn, map, keys) : { en: '', unknown: [] as string[], pieces: [] };
+      const tr0 = koEn ? translate(koEn, map, keys) : { en: '', unknown: [] as string[], pieces: [] };
+      // 뺀 단어는 영문에서 지움 ([호] → 없음)
+      const skipped = tr0.unknown.filter((u) => hiddenSet.has(u));
+      const en = skipped.length ? skipped.reduce((a, w) => a.split(`[${w}]`).join(''), tr0.en).replace(/\s{2,}/g, ' ').replace(/\s+([)\],.])/g, '$1').trim() : tr0.en;
+      const tr = { ...tr0, en, unknown: tr0.unknown.filter((u) => !hiddenSet.has(u)), skipped };
       return { row, empty, ko, tr, cut, parens };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet, map, keys, keepParen]);
+  }, [sheet, map, keys, keepParen, hiddenSet]);
   // 괄호 살리기/다시 빼기 (그 줄에 직접 고친 영문은 지우고 새로 번역)
   const toggleParen = (r: number, part: string) => {
     setKeepParen((x) => {
@@ -262,7 +269,8 @@ function TranslateTab() {
   const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
     const c = new Map<string, number>();
-    for (const v of needEn) for (const u of v.tr.unknown) c.set(u, (c.get(u) ?? 0) + 1);
+    // 뺀 단어도 세어 둠 (뺀 단어 보기에서 다시 살릴 수 있게)
+    for (const v of needEn) for (const u of [...v.tr.unknown, ...v.tr.skipped]) c.set(u, (c.get(u) ?? 0) + 1);
     return [...c.entries()].sort((a, b) => b[1] - a[1]);
   }, [needEn]);
   const enOf = (v: (typeof view)[number]) => edits[v.row.r] ?? v.tr.en;
@@ -395,7 +403,7 @@ function TranslateTab() {
       {err && <p className="warn small">{err}</p>}
       {list === null && <p className="muted small">사전 불러오는 중…</p>}
 
-      {sheet && unknownAll.length > 0 && <UnknownWords words={unknownAll} rowsOf={(w) => needEn.filter((v) => v.tr.unknown.includes(w)).map((v) => ({ r: v.row.r, ko: v.ko, en: v.tr.en }))} />}
+      {sheet && unknownAll.length > 0 && <UnknownWords words={unknownAll} hidden={hidden} setHidden={setHidden} rowsOf={(w) => needEn.filter((v) => v.tr.unknown.includes(w) || v.tr.skipped.includes(w)).map((v) => ({ r: v.row.r, ko: v.ko, en: v.tr.en }))} />}
 
       {sheet && (
         <div className="card tr-rows">
@@ -750,15 +758,24 @@ function CatsTab() {
 }
 
 /** 사전에 없는 단어: 많이 나온 순 · 찾기 · 80개씩 더 보기. 채운 것만 사전에 저장 (입력해도 표는 다시 안 그림) */
-function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w: string) => { r: number; ko: string; en: string }[] }) {
+function UnknownWords({
+  words,
+  rowsOf,
+  hidden,
+  setHidden,
+}: {
+  words: [string, number][];
+  rowsOf: (w: string) => { r: number; ko: string; en: string }[];
+  hidden: string[];
+  setHidden: Dispatch<SetStateAction<string[]>>;
+}) {
   const { email, accountName } = useAccess();
   const [newWords, setNewWords] = useKept<Record<string, string>>('newWords', {});
   const [saveMsg, setSaveMsg] = useState('');
   const [q, setQ] = useState('');
   const [more, setMore] = useState(1);
   const [peek, setPeek] = useState<string | null>(null);
-  // ✕ 로 목록에서 뺀 단어 (번역은 그대로 · 다시 보기 가능)
-  const [hidden, setHidden] = useKept<string[]>('hiddenWords', []);
+  // ✕ 로 뺀 단어 = 번역하지 않는 단어 (영문 제품명에서 빠짐 · 뺀 단어 보기에서 다시 살릴 수 있음)
   const [showHidden, setShowHidden] = useState(false);
   const STEP = 80;
   const nq = q.trim();
@@ -816,7 +833,7 @@ function UnknownWords({ words, rowsOf }: { words: [string, number][]; rowsOf: (w
             <button
               type="button"
               className="icon-btn tr-word-x"
-              title={showHidden ? '목록에 다시 넣기' : '목록에서 빼기 (잘못 끊긴 단어 등)'}
+              title={showHidden ? '다시 번역하기 (목록에 다시 넣기)' : '이 단어는 번역 안 함 (영문 제품명에서 빠져요)'}
               onClick={(e) => {
                 e.preventDefault();
                 setHidden((h) => (showHidden ? h.filter((x) => x !== ko) : [...h, ko]));
