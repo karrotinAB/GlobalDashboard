@@ -242,6 +242,8 @@ function useReceiptDrop(email: string, onUp: (f: PettyFile) => void) {
       void take(e.dataTransfer.files[0]);
     },
     onPaste: (e: React.ClipboardEvent) => {
+      // 글자 칸(내용·금액 등)에 붙여넣을 땐 글자 그대로 — 영수증으로 가로채지 않음
+      if ((e.target as HTMLElement).closest('input, textarea, select, [contenteditable]')) return;
       const f = [...e.clipboardData.files].find((x) => x.type.startsWith('image/') || x.type === 'application/pdf');
       if (!f) return;
       e.preventDefault();
@@ -355,7 +357,7 @@ function DropRow({ e, enabled, children }: { e: PettyEntry; enabled: boolean; ch
   const d = useReceiptDrop(e.email, (f) => void savePettyEntry({ ...e, receipt: f, paper: undefined }));
   if (!enabled) return <tr>{children}</tr>;
   return (
-    <tr {...d.props} tabIndex={-1} className={d.over ? 'pc-drop' : ''} title="영수증 사진을 이 줄로 끌어다 놓거나, 줄을 누르고 Ctrl+V 로 붙여넣어도 돼요">
+    <tr {...d.props} tabIndex={-1} className={d.over ? 'pc-drop' : ''} title="영수증 사진을 이 줄로 끌어다 놓거나, 줄의 빈 곳을 누르고 Ctrl+V 로 붙여넣어도 돼요">
       {children}
       {(d.busy || d.err) && <td className="small muted">{d.busy ? '올리는 중…' : d.err}</td>}
     </tr>
@@ -474,7 +476,7 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
     }
   };
   return (
-    <div className={`pc-add ${drop.over ? 'pc-drop' : ''}`} {...drop.props}>
+    <div className={`pc-add ${drop.over ? 'pc-drop' : ''}`} {...drop.props} tabIndex={-1}>
       <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
       {kind === 'expense' ? (
         <>
@@ -503,7 +505,7 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
         추가
       </button>
       {(err || drop.err) && <p className="warn small" style={{ width: '100%', margin: 0 }}>{err || drop.err}</p>}
-      <p className="muted small pc-drop-hint">{drop.busy ? '영수증 올리는 중…' : drop.over ? '여기에 놓으면 영수증으로 올라가요' : '영수증 사진은 이 칸으로 끌어다 놓거나 Ctrl+V 로 붙여넣어도 돼요'}</p>
+      <p className="muted small pc-drop-hint">{drop.busy ? '영수증 올리는 중…' : drop.over ? '여기에 놓으면 영수증으로 올라가요' : '영수증 사진은 이 칸으로 끌어다 놓거나, 칸의 빈 곳을 한 번 누르고 Ctrl+V 로 붙여넣어도 돼요 (글자 칸에서 Ctrl+V 는 글자만)'}</p>
     </div>
   );
 }

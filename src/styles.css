@@ -7931,3 +7931,5 @@ td.c-people { min-width: 120px; }
 .pc-date-btn:hover { background: #f6eeec; }
 .pc-date-in { height: 30px; font-size: 12.5px; width: 130px; }
 .pc-table .pc-d { width: auto; }
+.pc-add:focus { outline: 2px solid #e8c9c3; outline-offset: -1px; }
+.pc-table tr:focus { outline: none; background: #fbf6f4; }
