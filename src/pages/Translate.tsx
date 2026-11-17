@@ -62,7 +62,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
 }
 import { useAccess } from '../components/AuthGate';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
-import { catKey, catLabel, makeRecommender, saveCategories, savePicks, clearPicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
+import { catKey, catLabel, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
 
@@ -311,12 +311,18 @@ function TranslateTab() {
     setCatSel((x) => ({ ...x, [v.row.r]: key }));
     if (key && v.ko) void savePicks([{ ko: v.ko, cat: key }], accountName ?? email);
   };
-  // 자동 적용 초기화: 고른 기록(모두 같이 씀) 지우고 이 파일에서 고른 것도 비움
+  // 자동 적용 초기화: 지금 보고 있는 페이지(검색 결과 · 이 페이지) 줄만 — 고른 분류 비우고 그 제품명들의 고른 기록도 지움
   const resetAuto = async () => {
-    if (!confirm(`지금까지 고른 분류 기록 ${picks.length}개를 모두 지울까요?\n(모든 사람이 같이 쓰는 기록이에요. 이 파일에서 고른 분류도 비워지고, 추천·자동 적용은 앞으로 고르는 걸로 다시 쌓여요)`)) return;
+    const vis = shown.slice(page * PAGE, page * PAGE + PAGE).filter((v) => needCat(v));
+    if (!vis.length) return;
+    if (!confirm(`지금 보고 있는 페이지 ${vis.length}줄의 분류를 비우고, 그 제품명들의 고른 기록도 지울까요?\n(다른 페이지는 그대로예요)`)) return;
     try {
-      await clearPicks();
-      setCatSel({});
+      await deletePicks(vis.map((v) => v.ko).filter(Boolean));
+      setCatSel((x) => {
+        const o = { ...x };
+        for (const v of vis) o[v.row.r] = ''; // 자동 적용(같은 제품명)도 다시 안 들어가게 빈칸으로
+        return o;
+      });
     } catch (e) {
       alert(`지우지 못했어요: ${(e as Error).message}`);
     }
@@ -431,8 +437,8 @@ function TranslateTab() {
               </button>
             )}
             {catCols.length > 0 && (
-              <button className="tr-reset" onClick={resetAuto} title="지금까지 고른 분류 기록을 모두 지우고, 이 파일에서 고른 분류도 비워요. 추천·자동 적용은 앞으로 고르는 걸로 다시 쌓여요.">
-                ↺ 자동 적용 초기화
+              <button className="tr-reset" onClick={resetAuto} title="지금 보고 있는 페이지(검색 결과 · 이 페이지) 줄의 분류만 비우고, 그 제품명들의 고른 기록도 지워요. 다른 페이지는 그대로예요.">
+                ↺ 이 페이지 초기화
               </button>
             )}
             {catCols.length > 0 && !cats?.length && <span className="warn small">분류 탭에서 분류표 엑셀을 먼저 올려 주세요</span>}

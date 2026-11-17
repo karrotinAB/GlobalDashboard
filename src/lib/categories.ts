@@ -181,3 +181,15 @@ export async function clearPicks() {
     await b.commit();
   }
 }
+
+/** 이 제품명들의 고른 기록만 지우기 (페이지 단위 초기화) */
+export async function deletePicks(kos: string[]) {
+  const ids = [...new Set(kos.map((k) => dictId(k)))];
+  if (!ids.length) return;
+  if (DATA_MODE === 'local') return lsSet('gd:catPicks', lsGet<CatPick[]>('gd:catPicks', []).filter((p) => !ids.includes(p.id)), 'gd-catpicks');
+  for (let i = 0; i < ids.length; i += 400) {
+    const b = writeBatch(db);
+    ids.slice(i, i + 400).forEach((id) => b.delete(doc(db, 'catPicks', id)));
+    await b.commit();
+  }
+}
