@@ -289,6 +289,19 @@ export function itemOf(rows: SheetRow[], e: PettyEntry) {
   return items.includes('기타') ? '기타' : (items[items.length - 1] ?? key);
 }
 
+/** 정산서 항목(줄)마다 들어가는 내역 */
+export function sheetEntries(rows: SheetRow[], entries: PettyEntry[]) {
+  const out: Record<string, PettyEntry[]> = Object.fromEntries(rows.map((r) => [r.id, []]));
+  const byItem = new Map(rows.map((r) => [r.item.trim(), r.id]));
+  const etc = byItem.get('기타') ?? rows[rows.length - 1]?.id;
+  for (const e of entries) {
+    const key = e.kind === 'transport' ? '교통비' : (e.purpose ?? '').trim();
+    const id = byItem.get(key) ?? etc;
+    if (id) out[id].push(e);
+  }
+  return out;
+}
+
 /** 정산서 항목 금액: 교통비 칸 내역은 '교통비', 전도금 내역은 그 용도 — 정산서에 없는 용도는 '기타'(없으면 마지막 줄)로 */
 export function sheetAmounts(rows: SheetRow[], entries: PettyEntry[]) {
   const amt: Record<string, number> = Object.fromEntries(rows.map((r) => [r.id, 0]));

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
+import { Modal } from '../components/ui';
 import { fmtCur, rateOn, useFxRates, SALES_CURRENCIES, type FxTable } from '../lib/sales';
 import { EditableText } from '../components/SheetCells';
 import { ImageZoom } from '../components/RequestParts';
@@ -31,6 +32,7 @@ import {
   usePettyPeriod,
   savePettyPeriod,
   sheetAmounts,
+  sheetEntries,
   DEFAULT_SHEET_ROWS,
   type SheetRow,
   won,
@@ -916,6 +918,8 @@ function PrintSheets({ period }: { period: Period }) {
   const allowedItems = [...new Set([...(cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES), '교통비', '기타'])];
   const missingItems = allowedItems.filter((x) => !sheetRows.some((r) => r.item.trim() === x));
   const amts = sheetAmounts(sheetRows, rows);
+  const perRow = sheetEntries(sheetRows, rows);
+  const [showRow, setShowRow] = useState<string | null>(null);
   const total = Object.values(amts).reduce((a, b) => a + b, 0);
   const from = period.half === 1 ? 1 : 16;
   const to = period.half === 1 ? 15 : lastDay(period.ym);
@@ -988,7 +992,11 @@ function PrintSheets({ period }: { period: Period }) {
                         </svg>
                       </td>
                     )}
-                    <td className="r">{won(amts[r.id])}</td>
+                    <td className="r">
+                      <button className="ps-amt-btn" onClick={() => setShowRow(r.id)} title="눌러서 이 항목에 들어간 내역 보기">
+                        {won(amts[r.id])}
+                      </button>
+                    </td>
                     <td className="ps-note">
                       <input className="ps-in" value={r.note ?? ''} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, note: e.target.value || undefined } : x)))} />
                       <button className="ps-del no-print" title="이 항목 빼기" onClick={() => confirm(`'${r.item}' 항목을 뺄까요?`) && saveRows(sheetRows.filter((x) => x.id !== r.id))}>
@@ -1127,6 +1135,48 @@ function PrintSheets({ period }: { period: Period }) {
           </div>
           {per ? <PettyReceipts pk={pk} per={per} entries={rows} rows={sheetRows} /> : <p className="muted small">불러오는 중…</p>}
         </>
+      )}
+      {showRow && (
+        <Modal title={`${sheetRows.find((r) => r.id === showRow)?.item ?? ''} — 들어간 내역`} onClose={() => setShowRow(null)}>
+          {(perRow[showRow] ?? []).length === 0 ? (
+            <p className="muted small">이 항목에 들어간 내역이 없어요.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="pc-table">
+                <thead>
+                  <tr>
+                    <th>날짜</th>
+                    <th>이름</th>
+                    <th>구분</th>
+                    <th>내용</th>
+                    <th className="r">금액</th>
+                    <th>영수증</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...(perRow[showRow] ?? [])]
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map((e) => (
+                      <tr key={e.id}>
+                        <td className="nowrap">{md(e.date)}</td>
+                        <td className="nowrap">{e.name}</td>
+                        <td className="nowrap">{e.kind === 'transport' ? `교통비 · ${e.mode === '기타' ? e.modeOther || '기타' : e.mode}` : e.purpose}</td>
+                        <td>{e.kind === 'transport' ? `${e.from} → ${e.to}${e.content ? ` · ${e.content}` : ''}` : e.content}</td>
+                        <td className="r nowrap">
+                          {won(e.amount)}
+                          {e.cur && e.cur !== 'KRW' && e.curAmount !== undefined && <small className="fx-orig">{fmtCur(e.cur, e.curAmount)}</small>}
+                        </td>
+                        <td>{e.receipt ? <ReceiptLink file={e.receipt} /> : e.paper ? <span className="tag gray small">종이</span> : <span className="muted small">없음</span>}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="muted small" style={{ marginBottom: 0 }}>
+            합계 {won(amts[showRow]) || '₩0'} · 용도는 전도금 정리에서 바꿀 수 있어요 (바꾸면 그 항목으로 옮겨가요)
+          </p>
+        </Modal>
       )}
       {all === null && <p className="muted small">불러오는 중…</p>}
     </>

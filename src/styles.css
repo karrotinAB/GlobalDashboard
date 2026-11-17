@@ -8026,3 +8026,5 @@ td.c-people { min-width: 120px; }
 .pc-add .pc-rc-btn { padding: 4px 6px; }
 .pc-add > button.primary { flex: none; padding: 0 12px; height: 34px; }
 .pc-add .pc-drop-hint, .pc-add .pc-conv, .pc-add > p { flex-basis: 100%; }
+.ps-amt-btn { border: 0; background: none; font: inherit; color: inherit; padding: 0; cursor: pointer; }
+.ps-amt-btn:hover { text-decoration: underline; color: #8c2f3c; }
