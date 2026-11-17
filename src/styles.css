@@ -7988,3 +7988,5 @@ td.c-people { min-width: 120px; }
 .pc-settle-sum .pc-sum-total span { font-weight: 700; }
 .pc-settle-sum .pc-sum-total b { font-size: 20px; color: #8c2f3c; }
 @media (max-width: 900px) { .pc-settle-wrap { grid-template-columns: 1fr; } .pc-settle-sum { position: static; } }
+.ec-orig { margin-top: 2px; font-size: 11px; }
+.export-card.total .fx-orig { color: rgba(255, 255, 255, 0.7); }

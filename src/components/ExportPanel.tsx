@@ -247,6 +247,22 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
   const now = thisMonth();
   const [y, m] = month.split('-').map(Number);
   // 순서: ④ 총 수출 → ① 출고 → ② 패킹 중 → ③ 로열티
+  // 카드 외화 아래 작게: USD 로 바꾸기 전 원래 외화 (엔화 업체 · 로열티는 판매 통화)
+  const origOf = (key: 'total' | 'ship' | 'pack' | 'royalty') => {
+    const m: Record<string, number> = {};
+    const add = (cur: string, n: number) => {
+      if (!n || cur === 'USD' || cur === 'KRW') return;
+      m[cur] = (m[cur] ?? 0) + n;
+    };
+    for (const r of scope) {
+      if (key === 'ship' || key === 'total') add(r.cur, r.shipFo);
+      if (key === 'pack' || key === 'total') add(r.cur, r.packFo);
+      if ((key === 'royalty' || key === 'total') && r.sale) add(r.sale.cur ?? 'USD', r.sale.royLocal);
+    }
+    return Object.entries(m)
+      .map(([c, n]) => fmtCur(c, Math.round(n * 100) / 100))
+      .join(' · ');
+  };
   const cards: { key: Exclude<Pick, null> | 'total'; n: string; label: string; k: number; f?: number; sub: string }[] = [
     { key: 'total', n: '', label: '총 수출 금액', k: sum('total'), f: sum('totalF'), sub: '① + ② + ③ (로열티는 환율 적용)' },
     { key: 'ship', n: '①', label: `${m}월 출고 금액`, k: sum('shipK'), f: sum('shipF'), sub: '출고 체크한 주문의 ERP 출고승인 금액 (출고일 기준)' },
@@ -355,9 +371,10 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
                   <span className="ec-amts-m">
                     <b>{c.k ? `${shortAmt(c.k)}원` : '0원'}</b>
                     <small>{c.f ? shortUsd(c.f) : '—'}</small>
+                    {origOf(c.key) && <small className="fx-orig">{origOf(c.key)}</small>}
                   </span>
                 ) : (
-                  <Amts krw={won(c.k)} fx={c.f ? fx(c.f, fxCode) : '—'} />
+                  <Amts krw={won(c.k)} fx={c.f ? fx(c.f, fxCode) : '—'} orig={origOf(c.key)} />
                 )}
                 {/* 설명은 '자세히'를 누르면 (총 금액만 맨 아래 작게) */}
                 {c.key === 'total' ? <span className="ec-sub ec-foot">{c.sub}</span> : <span className="ec-more">{open === c.key ? '접기 ▴' : mobile ? '자세히' : '자세히 ▾'}</span>}
@@ -677,7 +694,7 @@ function useExportMonthly(codes: string[], month: string) {
 }
 
 /** 원화 | 외화 — 한 줄에 안 들어가면 세로줄 없이 줄바꿈 */
-function Amts({ krw, fx: f }: { krw: string; fx: string }) {
+function Amts({ krw, fx: f, orig }: { krw: string; fx: string; orig?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [wrapped, setWrapped] = useState(false);
   useLayoutEffect(() => {
@@ -705,6 +722,7 @@ function Amts({ krw, fx: f }: { krw: string; fx: string }) {
       <span className="ec-cell">
         <small>외화</small>
         <b className="ec-amt fx">{f}</b>
+        {orig && <small className="fx-orig ec-orig">{orig}</small>}
       </span>
     </span>
   );
