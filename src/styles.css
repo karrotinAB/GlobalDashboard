@@ -8028,3 +8028,5 @@ td.c-people { min-width: 120px; }
 .pc-add .pc-drop-hint, .pc-add .pc-conv, .pc-add > p { flex-basis: 100%; }
 .ps-amt-btn { border: 0; background: none; font: inherit; color: inherit; padding: 0; cursor: pointer; }
 .ps-amt-btn:hover { text-decoration: underline; color: #8c2f3c; }
+.ps-item:disabled { color: inherit; opacity: 1; cursor: default; background: transparent; }
+.ps-page .ps-in[readonly]:hover { background: none; box-shadow: none; cursor: default; }

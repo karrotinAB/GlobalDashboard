@@ -68,7 +68,7 @@ function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string,
   }, [entries, rows, over]);
 }
 
-export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; per: PettyPeriod; entries: PettyEntry[]; rows: SheetRow[] }) {
+export default function PettyReceipts({ pk, per, entries, rows, readOnly }: { pk: string; per: PettyPeriod; entries: PettyEntry[]; rows: SheetRow[]; readOnly?: boolean }) {
   const saved = per.rcpt ?? {};
   // 끄는 중에는 화면에서만 바꾸고, 손을 떼면 저장
   const [draft, setDraft] = useState<Record<string, RcptPos>>(saved);
@@ -203,7 +203,9 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
           <b>
             {page.split('#')[0]} <span className="muted small">· {page.split('#')[1]}번째 장 ({pageIdx + 1}/{pages.length})</span>
           </b>
-          {selBox ? (
+          {readOnly ? (
+            <span className="muted small">보기만 할 수 있어요 (옮기거나 고치는 건 전도금 담당자)</span>
+          ) : selBox ? (
             <span className="rc-tools">
               <span className="muted small">글자</span>
               <button onClick={() => setPos(selBox.e.id, { page: selBox.page, fs: Math.max(5, selBox.fs - 1) })}>가−</button>
@@ -251,13 +253,19 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
         </div>
         <div className="rc-stage" ref={stage} onPointerDown={() => setSel(null)}>
           <div style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
-            <RcPage boxes={boxes.filter((b) => b.page === page)} scale={scale} sel={sel} onDrag={drag} editing={editing} onEdit={(b) => (setSel(b.e.id), setEditing(b.e.id))} onEditDone={saveText} />
+            {readOnly ? (
+              <RcPage boxes={boxes.filter((b) => b.page === page)} scale={scale} />
+            ) : (
+              <RcPage boxes={boxes.filter((b) => b.page === page)} scale={scale} sel={sel} onDrag={drag} editing={editing} onEdit={(b) => (setSel(b.e.id), setEditing(b.e.id))} onEditDone={saveText} />
+            )}
           </div>
         </div>
         <div className="rc-foot">
-          <button className="link small" onClick={resetAll}>
-            ↺ 이 기간 배치 모두 처음으로
-          </button>
+          {!readOnly && (
+            <button className="link small" onClick={resetAll}>
+              ↺ 이 기간 배치 모두 처음으로
+            </button>
+          )}
           {noReceipt.length > 0 && <span className="muted small">영수증이 없는 내역 {noReceipt.length}개는 빠져 있어요</span>}
           {paperN > 0 && <span className="muted small">종이영수증 {paperN}개는 따로 붙여 주세요</span>}
         </div>

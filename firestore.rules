@@ -179,14 +179,17 @@ service cloud.firestore {
     }
     // 기간별 정산 (전달 완료 · 정산서 항목): 담당자·관리자만
     match /pcPeriods/{pk} {
-      allow read, write: if isAdmin() || isPcManager();
+      // 전도금 프린트는 모두 봄 (고치는 건 담당자·관리자)
+      allow read: if isAny();
+      allow write: if isAdmin() || isPcManager();
     }
     match /pcAccounts/{email} {
       allow read: if isAdmin() || isPcManager() || (isAny() && email == myEmail());
       allow write: if isAdmin() || isPcManager() || (isAny() && email == myEmail());
     }
     match /pcEntries/{id} {
-      allow read: if isAdmin() || isPcManager() || (isAny() && resource.data.email == myEmail());
+      // 전도금 프린트(정산서·교통비 신청서·영수증)는 모두 보니까 내역 읽기는 모두
+      allow read: if isAny();
       // 담당자는 팀장님·이사님 것도 대신 기록
       allow create: if isAdmin() || isPcManager() || (isAny() && request.resource.data.email == myEmail());
       allow update: if isAdmin() || isPcManager()

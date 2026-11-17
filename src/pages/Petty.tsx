@@ -67,29 +67,32 @@ export default function Petty() {
         <h1>전도금</h1>
         <p className="muted">한 달을 1~15일 / 16일~말일 두 번으로 나눠 기록해요. 매달 15일이 지나면 다음 기간으로 넘어가요.</p>
       </div>
-      {canManage && (
-        <div className="seg pc-tabs">
-          <button className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
-            ✍️ 전도금 기록하기
-          </button>
+      <div className="seg pc-tabs">
+        <button className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>
+          ✍️ 전도금 기록하기
+        </button>
+        {canManage && (
           <button className={tab === 'settle' ? 'on' : ''} onClick={() => setTab('settle')}>
             💸 전도금 정리
           </button>
-          <button className={tab === 'print' ? 'on' : ''} onClick={() => setTab('print')}>
-            🖨 전도금 프린트
-          </button>
+        )}
+        {/* 프린트는 모두 볼 수 있고, 고치는 건 담당자·관리자만 */}
+        <button className={tab === 'print' ? 'on' : ''} onClick={() => setTab('print')}>
+          🖨 전도금 프린트
+        </button>
+        {canManage && (
           <button className={tab === 'manage' ? 'on' : ''} onClick={() => setTab('manage')}>
             🗂 관리
           </button>
-        </div>
-      )}
+        )}
+      </div>
       {tab !== 'manage' && <PeriodNav period={period} setPeriod={setPeriod} />}
       {canManage && tab === 'manage' ? (
         <Manage isAdmin={isAdmin} isManager={isManager} />
       ) : canManage && tab === 'settle' ? (
         <Settle period={period} />
-      ) : canManage && tab === 'print' ? (
-        <PrintSheets period={period} />
+      ) : tab === 'print' ? (
+        <PrintSheets period={period} canEdit={canManage} />
       ) : (
         <Record email={who || email} period={period} who={canManage ? { value: who, set: setWho, me: email } : undefined} />
       )}
@@ -904,7 +907,7 @@ function Approval({ label }: { label: string[] }) {
   );
 }
 
-function PrintSheets({ period }: { period: Period }) {
+function PrintSheets({ period, canEdit }: { period: Period; canEdit: boolean }) {
   const access = useAccess();
   const cfg = usePettyCfg();
   const { roles, contacts } = usePeople();
@@ -947,7 +950,7 @@ function PrintSheets({ period }: { period: Period }) {
       {which === 'sheet' && (
         <>
           <div className="pc-print-bar">
-            <span className="muted small">항목 · 내역 · 비고는 눌러서 고칠 수 있어요 (이 기간에만 저장). 금액은 각자 올린 전도금을 용도별로 더한 값이에요.</span>
+            <span className="muted small">{canEdit ? '' : '보기만 할 수 있어요 (고치는 건 전도금 담당자). '}항목 · 내역 · 비고는 눌러서 고칠 수 있어요 (이 기간에만 저장). 금액은 각자 올린 전도금을 용도별로 더한 값이에요.</span>
             <button className="primary" onClick={() => printSheet('ps-sheet')}>
               🖨 프린트 / PDF
             </button>
@@ -976,14 +979,14 @@ function PrintSheets({ period }: { period: Period }) {
                 {sheetRows.map((r, i) => (
                   <tr key={r.id}>
                     <td className="c">
-                      <select className="ps-in ps-item c" value={r.item} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, item: e.target.value } : x)))}>
+                      <select className="ps-in ps-item c" disabled={!canEdit} value={r.item} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, item: e.target.value } : x)))}>
                         {[r.item, ...missingItems].map((x) => (
                           <option key={x}>{x}</option>
                         ))}
                       </select>
                     </td>
                     <td>
-                      <textarea className="ps-in" rows={2} value={r.desc} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, desc: e.target.value } : x)))} />
+                      <textarea className="ps-in" readOnly={!canEdit} rows={2} value={r.desc} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, desc: e.target.value } : x)))} />
                     </td>
                     {i === 0 && (
                       <td rowSpan={sheetRows.length} className="ps-x">
@@ -998,10 +1001,10 @@ function PrintSheets({ period }: { period: Period }) {
                       </button>
                     </td>
                     <td className="ps-note">
-                      <input className="ps-in" value={r.note ?? ''} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, note: e.target.value || undefined } : x)))} />
-                      <button className="ps-del no-print" title="이 항목 빼기" onClick={() => confirm(`'${r.item}' 항목을 뺄까요?`) && saveRows(sheetRows.filter((x) => x.id !== r.id))}>
+                      <input className="ps-in" readOnly={!canEdit} value={r.note ?? ''} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, note: e.target.value || undefined } : x)))} />
+                      {canEdit && <button className="ps-del no-print" title="이 항목 빼기" onClick={() => confirm(`'${r.item}' 항목을 뺄까요?`) && saveRows(sheetRows.filter((x) => x.id !== r.id))}>
                         ✕
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 ))}
@@ -1014,7 +1017,7 @@ function PrintSheets({ period }: { period: Period }) {
               </tbody>
             </table>
             {/* 관리 탭의 용도 중 아직 없는 것만 골라서 추가 */}
-            {missingItems.length > 0 && (
+            {canEdit && missingItems.length > 0 && (
               <select
                 className="ps-add-item no-print"
                 value=""
@@ -1093,6 +1096,7 @@ function PrintSheets({ period }: { period: Period }) {
                       <td className="c">
                         <input
                           className="ps-in c"
+                          readOnly={!canEdit}
                           key={`${e.id}:${e.content ?? ''}:${e.memo ?? ''}`}
                           defaultValue={e.memo ?? `${e.name ?? ''} ${e.content || `${label}비`}`.trim()}
                           onBlur={(x) => {
@@ -1133,7 +1137,7 @@ function PrintSheets({ period }: { period: Period }) {
               🖨 프린트 / PDF (모든 장)
             </button>
           </div>
-          {per ? <PettyReceipts pk={pk} per={per} entries={rows} rows={sheetRows} /> : <p className="muted small">불러오는 중…</p>}
+          {per ? <PettyReceipts pk={pk} per={per} entries={rows} rows={sheetRows} readOnly={!canEdit} /> : <p className="muted small">불러오는 중…</p>}
         </>
       )}
       {showRow && (
