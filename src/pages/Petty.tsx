@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
+import { ImageZoom } from '../components/RequestParts';
 import { usePeople } from '../components/AddressBook';
 import { today, uid } from '../lib/date';
 import {
@@ -250,6 +251,30 @@ function useReceiptDrop(email: string, onUp: (f: PettyFile) => void) {
   return { props, over, busy, err };
 }
 
+/** 영수증 보기: 사진은 누르면 팝업으로 크게 (PDF 는 새 창) */
+function ReceiptLink({ file }: { file: PettyFile }) {
+  const [zoom, setZoom] = useState(false);
+  const img = !/\.pdf$/i.test(file.name) && !file.url.startsWith('data:application/pdf');
+  return (
+    <>
+      <a
+        href={file.url}
+        target="_blank"
+        rel="noreferrer"
+        title={file.name}
+        onClick={(e) => {
+          if (!img) return;
+          e.preventDefault();
+          setZoom(true);
+        }}
+      >
+        {img ? '🧾 사진' : '📄 PDF'}
+      </a>
+      {zoom && <ImageZoom f={file} onClose={() => setZoom(false)} />}
+    </>
+  );
+}
+
 /** 영수증 칸: 사진 올리기 · 종이영수증 표시 */
 function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: PettyFile; paper?: boolean; onChange: (v: { receipt?: PettyFile; paper?: boolean }) => void }) {
   const [busy, setBusy] = useState(false);
@@ -269,9 +294,7 @@ function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: P
   if (file)
     return (
       <span className="pc-rc">
-        <a href={file.url} target="_blank" rel="noreferrer" title={file.name}>
-          🧾 사진
-        </a>
+        <ReceiptLink file={file} />
         <button className="icon-btn" title="빼기" onClick={() => onChange({ receipt: undefined })}>
           ✕
         </button>
@@ -394,9 +417,9 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
                 {canDelete ? (
                   <ReceiptCell email={e.email} file={e.receipt} paper={e.paper} onChange={(v) => patch(e, v)} />
                 ) : e.receipt ? (
-                  <a href={e.receipt.url} target="_blank" rel="noreferrer" className="pc-rc">
-                    🧾 사진
-                  </a>
+                  <span className="pc-rc">
+                    <ReceiptLink file={e.receipt} />
+                  </span>
                 ) : e.paper ? (
                   <span className="tag gray small">📄 종이영수증</span>
                 ) : (
