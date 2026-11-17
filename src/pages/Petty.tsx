@@ -17,6 +17,9 @@ import {
   TRANSPORTS,
   deletePettyEntry,
   periodKey,
+  entryPeriod,
+  offPeriodLabel,
+  periodDateRange,
   periodLabel,
   periodOf,
   periodRange,
@@ -155,7 +158,7 @@ function Record({ email, period, who }: { email: string; period: Period; who?: {
   const purposes = cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES;
   const all = usePettyEntries(email);
   const pk = periodKey(period);
-  const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
+  const rows = useMemo(() => (all ?? []).filter((e) => entryPeriod(e) === pk), [all, pk]);
   const expenses = rows.filter((e) => e.kind === 'expense');
   const transports = rows.filter((e) => e.kind === 'transport');
   const sum = (l: PettyEntry[]) => l.reduce((a, e) => a + (e.amount ?? 0), 0);
@@ -182,7 +185,7 @@ function Record({ email, period, who }: { email: string; period: Period; who?: {
             <span className="muted small">합계 {won(sum(expenses)) || '₩0'}</span>
           </div>
           <EntryTable kind="expense" rows={expenses} purposes={purposes} />
-          <AddEntry kind="expense" email={email} name={name} purposes={purposes} defDate={defDate} curs={curs} fx={fx} />
+          <AddEntry kind="expense" email={email} name={name} purposes={purposes} defDate={defDate} curs={curs} fx={fx} period={period} />
         </section>
         <section className="card pc-section">
           <div className="pc-sec-head">
@@ -190,7 +193,7 @@ function Record({ email, period, who }: { email: string; period: Period; who?: {
             <span className="muted small">합계 {won(sum(transports)) || '₩0'}</span>
           </div>
           <EntryTable kind="transport" rows={transports} purposes={purposes} />
-          <AddEntry kind="transport" email={email} name={name} purposes={purposes} defDate={defDate} curs={curs} fx={fx} />
+          <AddEntry kind="transport" email={email} name={name} purposes={purposes} defDate={defDate} curs={curs} fx={fx} period={period} />
         </section>
         {all === null && <p className="muted small">불러오는 중…</p>}
       </div>
@@ -414,7 +417,7 @@ function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: P
 }
 
 /** 날짜: 누르면 달력으로 고치기 (다른 기간 날짜로 바꾸면 그 기간으로 옮겨가요) */
-function DateEdit({ value, onSave }: { value: string; onSave: (d: string) => void }) {
+function DateEdit({ value, onSave, min, max }: { value: string; onSave: (d: string) => void; min?: string; max?: string }) {
   const [edit, setEdit] = useState(false);
   if (!edit)
     return (
@@ -428,8 +431,11 @@ function DateEdit({ value, onSave }: { value: string; onSave: (d: string) => voi
       autoFocus
       className="pc-date-in"
       defaultValue={value}
+      min={min}
+      max={max}
       onBlur={(x) => {
-        if (x.target.value && x.target.value !== value) onSave(x.target.value);
+        const v = x.target.value;
+        if (v && v !== value && (!min || v >= min) && (!max || v <= max)) onSave(v);
         setEdit(false);
       }}
       onKeyDown={(x) => {
@@ -482,7 +488,14 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
           {rows.map((e) => (
             <DropRow key={e.id} e={e} enabled={canDelete}>
               <td className="pc-d">
-                <DateEdit value={e.date} onSave={(d) => patch(e, e.cur && e.cur !== 'KRW' ? { date: d, amount: undefined, rate: undefined, rateDate: undefined } : { date: d })} />
+                {!canDelete && offPeriodLabel(e) && <span className="tag small pc-off-tag" title="다른 기간 날짜 영수증 (올린 사람이 확인함)">{offPeriodLabel(e)}</span>}
+                <DateEdit
+                  value={e.date}
+                  {...(() => {
+                    const [ym, h] = [entryPeriod(e).slice(0, 7), Number(entryPeriod(e).slice(8))];
+                    return periodDateRange({ ym, half: h });
+                  })()}
+                  onSave={(d) => patch(e, e.cur && e.cur !== 'KRW' ? { date: d, amount: undefined, rate: undefined, rateDate: undefined } : { date: d })} />
               </td>
               {kind === 'expense' ? (
                 <>
@@ -544,7 +557,9 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
   );
 }
 
-function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: PettyEntry['kind']; email: string; name: string; purposes: string[]; defDate: string; curs: string[]; fx: FxTable }) {
+function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { kind: PettyEntry['kind']; email: string; name: string; purposes: string[]; defDate: string; curs: string[]; fx: FxTable; period: Period }) {
+  // 이 기간에 낼 수 있는 영수증 날짜 (이 달 1일 ~ 이 기간 마지막 날)
+  const range = periodDateRange(period);
   const blank = () => ({ date: defDate, purpose: purposes[0] ?? '', content: '', mode: '버스', modeOther: '', from: '', to: '', amount: '', cur: 'KRW' });
   const [f, setF] = useState(blank);
   const [rc, setRc] = useState<{ receipt?: PettyFile; paper?: boolean }>({});
@@ -553,15 +568,20 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: Pe
   const set = (p: Partial<ReturnType<typeof blank>>) => setF((x) => ({ ...x, ...p }));
   const drop = useReceiptDrop(email, (file) => setRc({ receipt: file }));
   const amount = toNum(f.amount);
-  const ok = !!f.date && amount !== undefined && (kind === 'expense' ? !!f.purpose && !!f.content.trim() : !!f.from.trim() && !!f.to.trim() && (f.mode !== '기타' || !!f.modeOther.trim()));
-  const add = async () => {
+  const dateOk = !!f.date && f.date >= range.min && f.date <= range.max;
+  const ok = dateOk && amount !== undefined && (kind === 'expense' ? !!f.purpose && !!f.content.trim() : !!f.from.trim() && !!f.to.trim() && (f.mode !== '기타' || !!f.modeOther.trim()));
+  const [askLate, setAskLate] = useState(false); // 상반기에 하반기 날짜 영수증 → 맞는지 묻기
+  const add = async (confirmed = false) => {
     if (!ok) return;
+    if (!confirmed && periodOf(f.date).half > period.half) return setAskLate(true);
+    setAskLate(false);
     const e: PettyEntry = {
       id: uid(),
       email,
       name,
       kind,
       date: f.date,
+      period: periodKey(period),
       ...(f.cur === 'KRW'
         ? { amount }
         : (() => {
@@ -583,7 +603,7 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: Pe
   };
   return (
     <div className={`pc-add pc-add-${kind} ${drop.over ? 'pc-drop' : ''}`} {...drop.props} tabIndex={-1}>
-      <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
+      <input type="date" value={f.date} min={range.min} max={range.max} onChange={(e) => set({ date: e.target.value })} title={`${md(range.min)} ~ ${md(range.max)} 영수증만 낼 수 있어요`} />
       {kind === 'expense' ? (
         <>
           <select value={f.purpose} onChange={(e) => set({ purpose: e.target.value })} title="용도">
@@ -628,6 +648,27 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: Pe
       <button className="primary" disabled={!ok} onClick={() => void add()}>
         추가
       </button>
+      {askLate && (
+        <Modal title="날짜를 확인해 주세요" onClose={() => setAskLate(false)}>
+          <p style={{ marginTop: 0 }}>
+            영수증 날짜 <b>{md(f.date)}</b>는 <b>{periodLabel(periodOf(f.date))}</b> 날짜예요.
+            <br />
+            지금 <b>{periodLabel(period)}</b>에 올리는 게 맞나요?
+          </p>
+          <p className="muted small">맞으면 {periodLabel(period)} 전도금에 들어가고, 담당자에게는 '{periodLabel(periodOf(f.date))}' 표시가 붙어요.</p>
+          <div className="btn-row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+            <button onClick={() => setAskLate(false)}>아니요 (날짜 고치기)</button>
+            <button className="primary" onClick={() => void add(true)}>
+              맞습니다
+            </button>
+          </div>
+        </Modal>
+      )}
+      {!dateOk && f.date && (
+        <p className="warn small" style={{ width: '100%', margin: 0 }}>
+          이 달({md(range.min)} ~ {md(range.max)}) 영수증만 낼 수 있어요 (지난 달 영수증은 못 내요)
+        </p>
+      )}
       {(err || drop.err) && <p className="warn small" style={{ width: '100%', margin: 0 }}>{err || drop.err}</p>}
       <p className="muted small pc-drop-hint">{drop.busy ? '영수증 올리는 중…' : drop.over ? '여기에 놓으면 영수증으로 올라가요' : '영수증 사진은 이 칸으로 끌어다 놓거나, 칸의 빈 곳을 한 번 누르고 Ctrl+V 로 붙여넣어도 돼요 (글자 칸에서 Ctrl+V 는 글자만)'}</p>
     </div>
@@ -751,7 +792,7 @@ function Settle({ period }: { period: Period }) {
   const pk = periodKey(period);
   const per = usePettyPeriod(pk, true);
   const [open, setOpen] = useState<string | null>(null);
-  const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
+  const rows = useMemo(() => (all ?? []).filter((e) => entryPeriod(e) === pk), [all, pk]);
   const people = useMemo(() => {
     const m = new Map<string, { email: string; name: string; list: PettyEntry[] }>();
     for (const e of rows) {
@@ -915,7 +956,7 @@ function PrintSheets({ period, canEdit }: { period: Period; canEdit: boolean }) 
   const pk = periodKey(period);
   const per = usePettyPeriod(pk, true);
   const [which, setWhich] = useState<'sheet' | 'transport' | 'receipt'>('sheet');
-  const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
+  const rows = useMemo(() => (all ?? []).filter((e) => entryPeriod(e) === pk), [all, pk]);
   const sheetRows = per?.rows ?? DEFAULT_SHEET_ROWS;
   // 정산서 항목으로 쓸 수 있는 것: 관리 탭의 용도 + 교통비 + 기타 (그 밖의 말은 안 됨)
   const allowedItems = [...new Set([...(cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES), '교통비', '기타'])];
@@ -1162,7 +1203,10 @@ function PrintSheets({ period, canEdit }: { period: Period; canEdit: boolean }) 
                     .sort((a, b) => a.date.localeCompare(b.date))
                     .map((e) => (
                       <tr key={e.id}>
-                        <td className="nowrap">{md(e.date)}</td>
+                        <td className="nowrap">
+                          {md(e.date)}
+                          {offPeriodLabel(e) && <span className="tag small pc-off-tag">{offPeriodLabel(e)}</span>}
+                        </td>
                         <td className="nowrap">{e.name}</td>
                         <td className="nowrap">{e.kind === 'transport' ? `교통비 · ${e.mode === '기타' ? e.modeOther || '기타' : e.mode}` : e.purpose}</td>
                         <td>{e.kind === 'transport' ? `${e.from} → ${e.to}${e.content ? ` · ${e.content}` : ''}` : e.content}</td>

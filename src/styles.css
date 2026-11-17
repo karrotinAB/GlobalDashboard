@@ -8030,3 +8030,4 @@ td.c-people { min-width: 120px; }
 .ps-amt-btn:hover { text-decoration: underline; color: #8c2f3c; }
 .ps-item:disabled { color: inherit; opacity: 1; cursor: default; background: transparent; }
 .ps-page .ps-in[readonly]:hover { background: none; box-shadow: none; cursor: default; }
+.pc-off-tag { background: #fde7c8; color: #8a5a00; margin-right: 4px; white-space: nowrap; }

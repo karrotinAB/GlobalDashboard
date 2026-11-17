@@ -39,6 +39,7 @@ export interface PettyEntry {
   // 영수증: 사진(파일) 또는 종이영수증
   receipt?: PettyFile;
   paper?: boolean;
+  period?: string; // 낸 기간 (예: 2026-11-2). 영수증 날짜가 앞 기간이어도 낸 기간에 들어감. 없으면 날짜로
   createdAt: string;
 }
 export interface PettyAccount {
@@ -58,6 +59,15 @@ export const curLabel = (c: string) => CUR_KO[c] ?? c;
 /** 날짜 → 기간 (월 + 앞/뒤 반) */
 export const periodOf = (iso: string) => ({ ym: iso.slice(0, 7), half: Number(iso.slice(8, 10)) <= 15 ? 1 : 2 });
 export const periodKey = (p: { ym: string; half: number }) => `${p.ym}-${p.half}`;
+/** 이 내역이 들어가는 기간: 낸 기간 (예전 기록은 날짜로) */
+export const entryPeriod = (e: { period?: string; date: string }) => e.period ?? periodKey(periodOf(e.date));
+/** 이 기간에 낼 수 있는 영수증 날짜: 그 달 1일 ~ 말일 (지난 달 영수증은 안 됨) */
+export const periodDateRange = (p: { ym: string; half: number }) => {
+  const [y, m] = p.ym.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  // 상반기에도 그 달 하반기 날짜는 낼 수 있음 (확인 받고, 담당자에게 '하반기' 표시)
+  return { min: `${p.ym}-01`, max: `${p.ym}-${String(last).padStart(2, '0')}` };
+};
 // 1~15일 = 상반기, 16일~말일 = 하반기
 export const HALF_LABEL: Record<number, string> = { 1: '상반기', 2: '하반기' };
 export const periodLabel = (p: { ym: string; half: number }) => `${Number(p.ym.slice(5, 7))}월 ${HALF_LABEL[p.half]}`;
@@ -314,3 +324,10 @@ export function sheetAmounts(rows: SheetRow[], entries: PettyEntry[]) {
   }
   return amt;
 }
+
+/** 낸 기간과 영수증 날짜의 기간이 다르면 그 날짜 기간 이름 (예: '11월 하반기') — 담당자에게 표시 */
+export const offPeriodLabel = (e: { period?: string; date: string }) => {
+  if (!e.period) return '';
+  const nat = periodOf(e.date);
+  return periodKey(nat) === e.period ? '' : periodLabel(nat);
+};
