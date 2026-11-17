@@ -7958,3 +7958,5 @@ td.c-people { min-width: 120px; }
 .wt-edit-name { flex: 1; text-align: left; border: 0; background: none; font: inherit; padding: 6px 4px; cursor: text; }
 .wt-edit-add { display: flex; gap: 6px; margin-top: 8px; }
 .wt-edit-add input { flex: 1; }
+/* 처리자 이름 칩: 각자 담당자 카드에 정한 색 */
+.pp-chip.has-c { background: color-mix(in srgb, var(--c) 24%, #fff); color: color-mix(in srgb, var(--c) 55%, #2a1a1a); }

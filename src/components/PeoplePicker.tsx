@@ -1,10 +1,11 @@
 // 여러 사람 고르기: 대시보드에 등록된 사람 누구나 (이름 칩 + ＋ 로 추가, ✕ 로 빼기)
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 export interface PersonOpt {
   key: string; // 이메일 (없으면 카드 id)
   name: string;
   group?: string; // 무역사무 · 1조 · 팀장님 …
+  color?: string; // 담당자 카드 색
 }
 
 export default function PeoplePicker({
@@ -30,6 +31,7 @@ export default function PeoplePicker({
     return () => window.removeEventListener('mousedown', close);
   }, [open]);
   const nameOf = (k: string) => people.find((p) => p.key === k)?.name ?? k.split('@')[0];
+  const colorOf = (k: string) => people.find((p) => p.key === k)?.color;
   const nq = q.trim().toLowerCase();
   const rest = people.filter((p) => !value.includes(p.key) && (!nq || `${p.name} ${p.key} ${p.group ?? ''}`.toLowerCase().includes(nq)));
   // 무리별로 묶어서
@@ -38,7 +40,7 @@ export default function PeoplePicker({
     <div className="pp" ref={box}>
       {value.length === 0 && <span className="pp-empty">{emptyLabel}</span>}
       {value.map((k) => (
-        <span key={k} className="pp-chip">
+        <span key={k} className={`pp-chip ${colorOf(k) ? 'has-c' : ''}`} style={colorOf(k) ? ({ '--c': colorOf(k) } as CSSProperties) : undefined}>
           {nameOf(k)}
           {!readOnly && (
             <button type="button" onClick={() => onChange(value.filter((x) => x !== k))} aria-label={`${nameOf(k)} 빼기`}>
