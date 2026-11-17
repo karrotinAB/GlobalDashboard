@@ -58,8 +58,8 @@ export const curLabel = (c: string) => CUR_KO[c] ?? c;
 /** 날짜 → 기간 (월 + 앞/뒤 반) */
 export const periodOf = (iso: string) => ({ ym: iso.slice(0, 7), half: Number(iso.slice(8, 10)) <= 15 ? 1 : 2 });
 export const periodKey = (p: { ym: string; half: number }) => `${p.ym}-${p.half}`;
-// 1~15일 = 하반기, 16일~말일 = 상반기 (요청하신 이름 그대로)
-export const HALF_LABEL: Record<number, string> = { 1: '하반기', 2: '상반기' };
+// 1~15일 = 상반기, 16일~말일 = 하반기
+export const HALF_LABEL: Record<number, string> = { 1: '상반기', 2: '하반기' };
 export const periodLabel = (p: { ym: string; half: number }) => `${Number(p.ym.slice(5, 7))}월 ${HALF_LABEL[p.half]}`;
 export const periodRange = (p: { ym: string; half: number }) => {
   const [y, m] = p.ym.split('-').map(Number);
