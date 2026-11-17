@@ -22,7 +22,11 @@ export interface PettyEntry {
   name?: string;
   kind: 'expense' | 'transport';
   date: string; // YYYY-MM-DD
-  amount?: number;
+  amount?: number; // 원화 (외화면 영수증 날짜 ECOS 환율로 바꾼 값 — 환율이 아직 없으면 비어 있다가 채워짐)
+  cur?: string; // 금액 통화 (없으면 KRW)
+  curAmount?: number; // 외화 원래 금액
+  rate?: number; // 쓴 환율 (원 / 1단위)
+  rateDate?: string;
   // 전도금 내역
   purpose?: string;
   content?: string;
@@ -45,7 +49,11 @@ export interface PettyAccount {
 export interface PettyCfg {
   managers: string[];
   purposes: string[];
+  currencies?: string[]; // 금액 통화 (기본 원 · 달러 · 엔, 담당자가 더 넣음)
 }
+export const DEFAULT_PC_CURRENCIES = ['KRW', 'USD', 'JPY'];
+const CUR_KO: Record<string, string> = { KRW: '원', USD: '달러', JPY: '엔', EUR: '유로', CNY: '위안', GBP: '파운드' };
+export const curLabel = (c: string) => CUR_KO[c] ?? c;
 
 /** 날짜 → 기간 (월 + 앞/뒤 반) */
 export const periodOf = (iso: string) => ({ ym: iso.slice(0, 7), half: Number(iso.slice(8, 10)) <= 15 ? 1 : 2 });
@@ -104,11 +112,11 @@ export function usePettyCfg(): PettyCfg | null {
     if (DATA_MODE === 'local') return;
     return onSnapshot(
       doc(db, 'pcCfg', 'main'),
-      (d) => setCfg({ managers: (d.data()?.managers as string[]) ?? [], purposes: (d.data()?.purposes as string[]) ?? DEFAULT_PURPOSES }),
+      (d) => setCfg({ managers: (d.data()?.managers as string[]) ?? [], purposes: (d.data()?.purposes as string[]) ?? DEFAULT_PURPOSES, currencies: (d.data()?.currencies as string[]) ?? DEFAULT_PC_CURRENCIES }),
       () => setCfg({ managers: [], purposes: DEFAULT_PURPOSES }),
     );
   }, []);
-  if (DATA_MODE === 'local') return { managers: local?.managers ?? [], purposes: local?.purposes ?? DEFAULT_PURPOSES };
+  if (DATA_MODE === 'local') return { managers: local?.managers ?? [], purposes: local?.purposes ?? DEFAULT_PURPOSES, currencies: local?.currencies ?? DEFAULT_PC_CURRENCIES };
   return cfg;
 }
 export async function savePettyCfg(cfg: PettyCfg) {
@@ -231,6 +239,7 @@ export interface RcptPos {
   ly?: number;
   bold?: boolean; // 글자 굵게
   hl?: boolean; // 글자 형광펜
+  hlc?: string; // 형광펜 색
   text?: string; // 글자를 직접 고친 것 (없으면 '글로벌사업부/이름/내용')
 }
 export interface PettyPeriod {

@@ -3,6 +3,7 @@
 //   오른쪽 = 모든 장 미리보기 (항목별로 묶음, 누르면 그 장을 고침)
 //   종이영수증은 그 자리(1/4)를 비워 두고 글자만 찍음 → 인쇄 후 종이를 붙이면 돼요
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
+import { fmtCur } from '../lib/sales';
 import { itemOf, savePettyPeriod, type PettyEntry, type PettyPeriod, type RcptPos, type SheetRow } from '../lib/petty';
 
 const PAGE_W = 210;
@@ -14,20 +15,25 @@ const CELL_H = (PAGE_H - M * 2 - GAP) / 2;
 const LABEL_H = 9; // 글자 줄 높이 (기본)
 const DEF_FS = 9;
 
-type Box = { e: PettyEntry; item: string; label: string; page: string; x: number; y: number; w: number; h: number; fs: number; lx: number; ly: number; bold?: boolean; hl?: boolean; text?: string; moved: boolean };
+type Box = { e: PettyEntry; item: string; label: string; page: string; x: number; y: number; w: number; h: number; fs: number; lx: number; ly: number; bold?: boolean; hl?: boolean; hlc?: string; text?: string; moved: boolean };
 
 const isImg = (e: PettyEntry) => !!e.receipt && (/\.(png|jpe?g|gif|webp|heic|bmp)$/i.test(e.receipt.name) || e.receipt.url.startsWith('data:image'));
 
 export function labelOf(e: PettyEntry) {
   const what = e.kind === 'transport' ? e.content || `${e.from ?? ''}→${e.to ?? ''} ${e.mode === '기타' ? e.modeOther || '기타' : e.mode ?? ''} 교통비` : e.content || e.purpose || '';
-  return `글로벌사업부/${e.name ?? ''}/${what.trim()}`;
+  const head = `글로벌사업부/${e.name ?? ''}/${what.trim()}`;
+  // 외화 영수증: 둘째 줄에 '기록한 금액 × 환율 = 원화'
+  if (e.cur && e.cur !== 'KRW' && e.curAmount !== undefined && e.rate && e.amount !== undefined)
+    return `${head}\n${fmtCur(e.cur, e.curAmount)} × ${Math.round(e.rate * 100) / 100} = ₩${e.amount.toLocaleString('ko-KR')}`;
+  return head;
 }
+export const HL_COLORS = ['#fff36b', '#b6f2a9', '#ffc6dd', '#bfe3ff', '#ffd59a'];
 
 /** 자동 배치 + 담당자가 옮긴 것 합치기 */
 function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string, RcptPos>) {
   return useMemo(() => {
     const order = rows.map((r) => r.item.trim());
-    const withRc = entries.filter((e) => e.receipt || e.paper).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+    const withRc = entries.filter((e) => e.receipt) // 종이영수증은 자리를 따로 비우지 않음.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
     const byItem = new Map<string, PettyEntry[]>();
     for (const e of withRc) {
       const it = itemOf(rows, e);
@@ -57,7 +63,8 @@ function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string,
       return ra[0] - rb[0] || ra[1] - rb[1] || String(ra[2]).localeCompare(String(rb[2]));
     });
     const noReceipt = entries.filter((e) => !e.receipt && !e.paper);
-    return { boxes, pages: keys, noReceipt };
+    const paperN = entries.filter((e) => !e.receipt && e.paper).length;
+    return { boxes, pages: keys, noReceipt, paperN };
   }, [entries, rows, over]);
 }
 
@@ -66,7 +73,7 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
   // 끄는 중에는 화면에서만 바꾸고, 손을 떼면 저장
   const [draft, setDraft] = useState<Record<string, RcptPos>>(saved);
   useEffect(() => setDraft(per.rcpt ?? {}), [per.rcpt]);
-  const { boxes, pages, noReceipt } = useLayout(entries, rows, draft);
+  const { boxes, pages, noReceipt, paperN } = useLayout(entries, rows, draft);
   const [cur, setCur] = useState('');
   const page = pages.includes(cur) ? cur : pages[0] ?? '';
   const [sel, setSel] = useState<string | null>(null);
@@ -141,8 +148,13 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
     const n = Math.max(0, ...pages.filter((k) => k.startsWith(`${b.item}#`)).map((k) => Number(k.split('#')[1].replace(/\D/g, '')) || 0)) + 1;
     moveTo(b, `${b.item}#${n}`);
   };
-  const [editText, setEditText] = useState<string | null>(null);
-  useEffect(() => setEditText(null), [sel]);
+  const [editing, setEditing] = useState<string | null>(null); // 글자를 고치는 중인 영수증
+  useEffect(() => setEditing(null), [sel]);
+  const saveText = (b: Box, t: string) => {
+    setEditing(null);
+    const v = t.trim();
+    setPos(b.e.id, { page: b.page, text: v && v !== labelOf(b.e) ? v : undefined });
+  };
   const reset = (b: Box) => {
     const next = { ...draft };
     delete next[b.e.id];
@@ -179,7 +191,7 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
   if (!pages.length)
     return (
       <div className="card muted">
-        이 기간에 영수증(사진 또는 종이영수증 표시)이 올라온 전도금이 없어요.
+        이 기간에 영수증 사진이 올라온 전도금이 없어요.
         {noReceipt.length > 0 && <div className="small" style={{ marginTop: 6 }}>영수증이 없는 내역 {noReceipt.length}개가 있어요.</div>}
       </div>
     );
@@ -203,9 +215,24 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
               <button className={selBox.hl ? 'on' : ''} onClick={() => setPos(selBox.e.id, { page: selBox.page, hl: !selBox.hl || undefined })} title="형광펜">
                 <span className="rc-hl-ico">형광</span>
               </button>
-              <button onClick={() => setEditText(selBox.label)} title="글자 고치기">
+              {selBox.hl &&
+                HL_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    className={`rc-hl-dot ${(selBox.hlc ?? HL_COLORS[0]) === c ? 'on' : ''}`}
+                    style={{ background: c }}
+                    title="형광펜 색"
+                    onClick={() => setPos(selBox.e.id, { page: selBox.page, hlc: c === HL_COLORS[0] ? undefined : c })}
+                  />
+                ))}
+              <button onClick={() => setEditing(selBox.e.id)} title="글자 고치기 (글자를 두 번 눌러도 돼요)">
                 ✎ 글자
               </button>
+              {selBox.text && (
+                <button onClick={() => setPos(selBox.e.id, { page: selBox.page, text: undefined })} title="처음 글자로">
+                  ↺ 처음 글자
+                </button>
+              )}
               <span className="rc-sep" />
               <button disabled={pageIdx <= 0} onClick={() => moveTo(selBox, pages[pageIdx - 1])} title="앞 장으로">
                 ◀ 앞 장
@@ -222,38 +249,9 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
             <span className="muted small">영수증을 눌러 고르면 옮기기 · 크기 · 글자를 바꿀 수 있어요 (방향키로 조금씩, Shift+방향키로 크게)</span>
           )}
         </div>
-        {selBox && editText !== null && (
-          <div className="rc-textbar">
-            <input
-              autoFocus
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setPos(selBox.e.id, { page: selBox.page, text: editText.trim() && editText.trim() !== labelOf(selBox.e) ? editText.trim() : undefined });
-                  setEditText(null);
-                }
-                if (e.key === 'Escape') setEditText(null);
-              }}
-            />
-            <button
-              className="primary"
-              onClick={() => {
-                setPos(selBox.e.id, { page: selBox.page, text: editText.trim() && editText.trim() !== labelOf(selBox.e) ? editText.trim() : undefined });
-                setEditText(null);
-              }}
-            >
-              저장
-            </button>
-            <button onClick={() => setEditText(labelOf(selBox.e))} title="처음 글자로">
-              ↺ 처음 글자
-            </button>
-            <button onClick={() => setEditText(null)}>취소</button>
-          </div>
-        )}
         <div className="rc-stage" ref={stage} onPointerDown={() => setSel(null)}>
           <div style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
-            <RcPage boxes={boxes.filter((b) => b.page === page)} scale={scale} sel={sel} onDrag={drag} />
+            <RcPage boxes={boxes.filter((b) => b.page === page)} scale={scale} sel={sel} onDrag={drag} editing={editing} onEdit={(b) => (setSel(b.e.id), setEditing(b.e.id))} onEditDone={saveText} />
           </div>
         </div>
         <div className="rc-foot">
@@ -261,6 +259,7 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
             ↺ 이 기간 배치 모두 처음으로
           </button>
           {noReceipt.length > 0 && <span className="muted small">영수증이 없는 내역 {noReceipt.length}개는 빠져 있어요</span>}
+          {paperN > 0 && <span className="muted small">종이영수증 {paperN}개는 따로 붙여 주세요</span>}
         </div>
       </div>
       <aside className="rc-side">
@@ -293,7 +292,23 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
 }
 
 /** 한 장 그리기. scale=0 이면 인쇄용 (mm 단위 그대로) */
-function RcPage({ boxes, scale, sel, onDrag }: { boxes: Box[]; scale: number; sel?: string | null; onDrag?: (ev: RPointerEvent, b: Box, mode: 'move' | 'size' | 'label') => void }) {
+function RcPage({
+  boxes,
+  scale,
+  sel,
+  onDrag,
+  editing,
+  onEdit,
+  onEditDone,
+}: {
+  boxes: Box[];
+  scale: number;
+  sel?: string | null;
+  onDrag?: (ev: RPointerEvent, b: Box, mode: 'move' | 'size' | 'label') => void;
+  editing?: string | null;
+  onEdit?: (b: Box) => void;
+  onEditDone?: (b: Box, text: string) => void;
+}) {
   const u = (mm: number) => (scale ? `${mm * scale}px` : `${mm}mm`);
   const pt = (p: number) => (scale ? `${p * 0.3528 * scale}px` : `${p}pt`);
   return (
@@ -302,14 +317,37 @@ function RcPage({ boxes, scale, sel, onDrag }: { boxes: Box[]; scale: number; se
         const st: CSSProperties = { left: u(b.x), top: u(b.y), width: u(b.w), height: u(b.h) };
         return (
           <div key={b.e.id} className={`rc-box ${sel === b.e.id ? 'sel' : ''} ${b.e.paper && !b.e.receipt ? 'paper' : ''}`} style={st} onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'move') : undefined}>
-            <div
-              className={`rc-label ${b.bold ? 'bold' : ''}`}
-              style={{ fontSize: pt(b.fs), left: u(b.lx), top: u(b.ly), height: u(LABEL_H) }}
-              onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'label') : undefined}
-            >
-              <span className={b.hl ? 'rc-hl' : ''}>{b.label}</span>
-            </div>
-            <div className="rc-img" style={{ top: u(LABEL_H) }}>
+            {editing === b.e.id && onEditDone ? (
+              <textarea
+                autoFocus
+                className={`rc-label rc-label-edit ${b.bold ? 'bold' : ''}`}
+                style={{ fontSize: pt(b.fs), left: u(b.lx), top: u(b.ly), width: u(b.w) }}
+                defaultValue={b.label}
+                rows={b.label.split('\n').length}
+                onPointerDown={(ev) => ev.stopPropagation()}
+                onBlur={(ev) => onEditDone(b, ev.target.value)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Escape') onEditDone(b, b.label);
+                  if (ev.key === 'Enter' && !ev.shiftKey) {
+                    ev.preventDefault();
+                    (ev.target as HTMLTextAreaElement).blur();
+                  }
+                }}
+              />
+            ) : (
+              <div
+                className={`rc-label ${b.bold ? 'bold' : ''}`}
+                style={{ fontSize: pt(b.fs), left: u(b.lx), top: u(b.ly), minHeight: u(LABEL_H) }}
+                onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'label') : undefined}
+                onDoubleClick={onEdit ? () => onEdit(b) : undefined}
+                title={onEdit ? '두 번 눌러 글자 고치기' : undefined}
+              >
+                <span className={b.hl ? 'rc-hl' : ''} style={b.hl ? { background: b.hlc ?? HL_COLORS[0] } : undefined}>
+                  {b.label}
+                </span>
+              </div>
+            )}
+            <div className="rc-img" style={{ top: u(Math.max(LABEL_H, b.label.split('\n').length * b.fs * 0.3528 * 1.3 + 3)) }}>
               {b.e.receipt && isImg(b.e) ? (
                 <img src={b.e.receipt.url} alt="" draggable={false} />
               ) : b.e.receipt ? (

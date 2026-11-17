@@ -7996,3 +7996,14 @@ td.c-people { min-width: 120px; }
 /* 정산서 항목: 고르기 (용도 목록 안에서만) */
 .ps-item { appearance: none; -webkit-appearance: none; text-align: center; text-align-last: center; cursor: pointer; }
 .ps-add-item { margin-top: 6px; font-size: 13px; color: #8c2f3c; border: 1px dashed #d9b9b3; background: #fff; border-radius: 8px; padding: 4px 8px; }
+/* 전도금 금액 통화 */
+.pc-amt-wrap { display: inline-flex; align-items: center; gap: 0; }
+.pc-amt-wrap .pc-cur { height: 34px; border-radius: 8px 0 0 8px; border-right: 0; padding: 0 4px; font-size: 13px; }
+.pc-amt-wrap .pc-amt { border-radius: 0 8px 8px 0; }
+.pc-conv { flex-basis: 100%; text-align: right; margin-top: -2px; }
+/* 영수증 글자: 여러 줄 · 그 자리에서 고치기 · 형광펜 색 */
+.rc-label { white-space: pre; align-items: flex-start; }
+.rc-label > span { display: inline-block; }
+.rc-label-edit { position: absolute; z-index: 6; resize: none; border: 1.5px solid #8c2f3c; background: #fffdf3; padding: 0 2px; line-height: 1.2; font-family: inherit; color: #111; outline: none; overflow: hidden; height: auto; }
+.rc-hl-dot { width: 18px; height: 18px; border-radius: 50%; padding: 0 !important; border: 2px solid #fff !important; box-shadow: 0 0 0 1px #ccc; }
+.rc-hl-dot.on { box-shadow: 0 0 0 2px #8c2f3c; }

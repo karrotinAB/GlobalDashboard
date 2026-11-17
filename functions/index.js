@@ -396,6 +396,11 @@ async function fxCurrencies() {
       if (d.get('exportCurrency') && d.get('exportCurrency') !== 'KRW') set.add(String(d.get('exportCurrency')));
     }
   }
+  // 전도금 금액 통화 (영수증 날짜 환율로 원화 환산)
+  {
+    const pc = (await db.doc('pcCfg/main').get()).get('currencies');
+    for (const c of Array.isArray(pc) ? pc : ['USD', 'JPY']) if (c && c !== 'KRW') set.add(String(c));
+  }
   return [...set];
 }
 async function runFx(months) {

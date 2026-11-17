@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
+import { fmtCur, rateOn, useFxRates, SALES_CURRENCIES, type FxTable } from '../lib/sales';
 import { EditableText } from '../components/SheetCells';
 import { ImageZoom } from '../components/RequestParts';
 import { usePeople } from '../components/AddressBook';
 import { today, uid } from '../lib/date';
 import {
   DEFAULT_PURPOSES,
+  DEFAULT_PC_CURRENCIES,
+  curLabel,
   TRANSPORTS,
   deletePettyEntry,
   periodKey,
@@ -38,6 +41,11 @@ import {
 const toNum = (s: string) => {
   const n = Number(s.replace(/[^\d.-]/g, ''));
   return s.trim() === '' || Number.isNaN(n) ? undefined : n;
+};
+const prevYm = (ym: string) => {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
 
@@ -131,6 +139,16 @@ function Record({ email, period }: { email: string; period: Period }) {
   const transports = rows.filter((e) => e.kind === 'transport');
   const sum = (l: PettyEntry[]) => l.reduce((a, e) => a + (e.amount ?? 0), 0);
   const isNow = pk === periodKey(periodOf(today()));
+  // 외화 금액: 영수증 날짜 ECOS 환율로 원화 (환율이 늦게 들어오면 그때 채움)
+  const curs = cfg?.currencies?.length ? cfg.currencies : DEFAULT_PC_CURRENCIES;
+  const fx = useFxRates(curs.filter((c) => c !== 'KRW'), [prevYm(period.ym), period.ym]);
+  useEffect(() => {
+    for (const e of rows) {
+      if (!e.cur || e.cur === 'KRW' || e.amount !== undefined || e.curAmount === undefined) continue;
+      const r = rateOn(fx, e.cur, e.date);
+      if (r) void savePettyEntry({ ...e, amount: Math.round(e.curAmount * r.rate), rate: r.rate, rateDate: r.date });
+    }
+  }, [rows, fx]);
   // 새 줄 기본 날짜: 지금 기간이면 오늘, 아니면 그 기간 첫날
   const defDate = isNow ? today() : `${period.ym}-${period.half === 1 ? '01' : '16'}`;
   return (
@@ -143,7 +161,7 @@ function Record({ email, period }: { email: string; period: Period }) {
             <span className="muted small">합계 {won(sum(expenses)) || '₩0'}</span>
           </div>
           <EntryTable kind="expense" rows={expenses} purposes={purposes} />
-          <AddEntry kind="expense" email={email} name={name} purposes={purposes} defDate={defDate} />
+          <AddEntry kind="expense" email={email} name={name} purposes={purposes} defDate={defDate} curs={curs} fx={fx} />
         </section>
         <section className="card pc-section">
           <div className="pc-sec-head">
@@ -151,7 +169,7 @@ function Record({ email, period }: { email: string; period: Period }) {
             <span className="muted small">합계 {won(sum(transports)) || '₩0'}</span>
           </div>
           <EntryTable kind="transport" rows={transports} purposes={purposes} />
-          <AddEntry kind="transport" email={email} name={name} purposes={purposes} defDate={defDate} />
+          <AddEntry kind="transport" email={email} name={name} purposes={purposes} defDate={defDate} curs={curs} fx={fx} />
         </section>
         {all === null && <p className="muted small">불러오는 중…</p>}
       </div>
@@ -427,7 +445,7 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
           {rows.map((e) => (
             <DropRow key={e.id} e={e} enabled={canDelete}>
               <td className="pc-d">
-                <DateEdit value={e.date} onSave={(d) => patch(e, { date: d })} />
+                <DateEdit value={e.date} onSave={(d) => patch(e, e.cur && e.cur !== 'KRW' ? { date: d, amount: undefined, rate: undefined, rateDate: undefined } : { date: d })} />
               </td>
               {kind === 'expense' ? (
                 <>
@@ -453,7 +471,14 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
                   </td>
                 </>
               )}
-              <td className="r nowrap">{won(e.amount)}</td>
+              <td className="r nowrap">
+                {e.amount !== undefined ? won(e.amount) : <span className="muted small">환율 대기</span>}
+                {e.cur && e.cur !== 'KRW' && e.curAmount !== undefined && (
+                  <small className="fx-orig" title={e.rate ? `${e.rateDate} 환율 ${e.rate}` : ''}>
+                    {fmtCur(e.cur, e.curAmount)}
+                  </small>
+                )}
+              </td>
               <td className="pc-rc-col">
                 {canDelete ? (
                   <ReceiptCell email={e.email} file={e.receipt} paper={e.paper} onChange={(v) => patch(e, v)} />
@@ -482,8 +507,8 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
   );
 }
 
-function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['kind']; email: string; name: string; purposes: string[]; defDate: string }) {
-  const blank = () => ({ date: defDate, purpose: purposes[0] ?? '', content: '', mode: '버스', modeOther: '', from: '', to: '', amount: '' });
+function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: PettyEntry['kind']; email: string; name: string; purposes: string[]; defDate: string; curs: string[]; fx: FxTable }) {
+  const blank = () => ({ date: defDate, purpose: purposes[0] ?? '', content: '', mode: '버스', modeOther: '', from: '', to: '', amount: '', cur: 'KRW' });
   const [f, setF] = useState(blank);
   const [rc, setRc] = useState<{ receipt?: PettyFile; paper?: boolean }>({});
   const [err, setErr] = useState('');
@@ -500,14 +525,19 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
       name,
       kind,
       date: f.date,
-      amount,
+      ...(f.cur === 'KRW'
+        ? { amount }
+        : (() => {
+            const r = rateOn(fx, f.cur, f.date);
+            return { cur: f.cur, curAmount: amount, amount: r ? Math.round(amount! * r.rate) : undefined, rate: r?.rate, rateDate: r?.date };
+          })()),
       ...(kind === 'expense' ? { purpose: f.purpose, content: f.content.trim() } : { mode: f.mode, modeOther: f.mode === '기타' ? f.modeOther.trim() : undefined, from: f.from.trim(), to: f.to.trim(), content: f.content.trim() || undefined }),
       ...rc,
       createdAt: new Date().toISOString(),
     };
     try {
       await savePettyEntry(e);
-      setF(blank());
+      setF({ ...blank(), cur: f.cur });
       setRc({});
       setErr('');
     } catch (x) {
@@ -539,7 +569,24 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
           <input className="pc-grow" placeholder="내역 (예: 야근 택시, 거래처 미팅)" value={f.content} onChange={(e) => set({ content: e.target.value })} />
         </>
       )}
-      <input className="pc-amt" placeholder="금액" inputMode="numeric" value={f.amount} onChange={(e) => set({ amount: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && void add()} />
+      <span className="pc-amt-wrap">
+        <select className="pc-cur" value={f.cur} onChange={(e) => set({ cur: e.target.value })} title="금액 통화">
+          {curs.map((c) => (
+            <option key={c} value={c}>
+              {curLabel(c)}
+            </option>
+          ))}
+        </select>
+        <input className="pc-amt" placeholder="금액" inputMode="decimal" value={f.amount} onChange={(e) => set({ amount: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && void add()} />
+      </span>
+      {f.cur !== 'KRW' && amount !== undefined && (
+        <span className="pc-conv muted small">
+          {(() => {
+            const r = rateOn(fx, f.cur, f.date);
+            return r ? `≈ ${won(Math.round(amount * r.rate))} (${r.date.slice(5).replace('-', '/')} 환율)` : '환율이 아직 없어요 — 들어오면 원화로 채워져요';
+          })()}
+        </span>
+      )}
       <ReceiptCell email={email} file={rc.receipt} paper={rc.paper} onChange={(v) => setRc((x) => ({ ...x, ...v }))} />
       <button className="primary" disabled={!ok} onClick={() => void add()}>
         추가
@@ -599,6 +646,35 @@ function Manage({ isAdmin, isManager }: { isAdmin: boolean; isManager: boolean }
             >
               추가
             </button>
+          </div>
+        </section>
+      )}
+      {(isManager || isAdmin) && (
+        <section className="card">
+          <h2>금액 통화</h2>
+          <p className="muted small">전도금·교통비 금액 앞에서 고르는 통화예요. 외화는 영수증 날짜의 ECOS 환율로 원화로 바꿔요.</p>
+          <div className="pc-purposes">
+            {(cfg.currencies?.length ? cfg.currencies : DEFAULT_PC_CURRENCIES).map((c) => (
+              <span key={c} className="pc-purpose">
+                {curLabel(c)} <span className="muted small">{c}</span>
+                {c !== 'KRW' && (
+                  <button className="icon-btn" title="빼기" onClick={() => void save({ ...cfg, currencies: (cfg.currencies?.length ? cfg.currencies : DEFAULT_PC_CURRENCIES).filter((x) => x !== c) })}>
+                    ✕
+                  </button>
+                )}
+              </span>
+            ))}
+            <select
+              value=""
+              onChange={(e) => e.target.value && void save({ ...cfg, currencies: [...(cfg.currencies?.length ? cfg.currencies : DEFAULT_PC_CURRENCIES), e.target.value] })}
+            >
+              <option value="">＋ 통화 추가</option>
+              {SALES_CURRENCIES.filter((c) => !(cfg.currencies?.length ? cfg.currencies : DEFAULT_PC_CURRENCIES).includes(c)).map((c) => (
+                <option key={c} value={c}>
+                  {curLabel(c)} ({c})
+                </option>
+              ))}
+            </select>
           </div>
         </section>
       )}
@@ -1012,7 +1088,7 @@ function PrintSheets({ period }: { period: Period }) {
       {which === 'receipt' && (
         <>
           <div className="pc-print-bar">
-            <span className="muted small">항목(용도)별로 장을 나눠 날짜순으로 붙였어요. 종이영수증은 그 자리를 비워 둬요.</span>
+            <span className="muted small">항목(용도)별로 장을 나눠 날짜순으로 붙였어요. 글자는 두 번 누르면 그 자리에서 고칠 수 있어요.</span>
             <button className="primary" onClick={() => printSheet('ps-receipts', true)}>
               🖨 프린트 / PDF (모든 장)
             </button>
