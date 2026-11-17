@@ -1,3 +1,4 @@
+import { saveWorkTypes, useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
 import { httpsCallable } from 'firebase/functions';
@@ -124,7 +125,12 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       </div>
 
       {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
-      {(access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && <TradeMembersSection />}
+      {(access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && (
+        <>
+          <TradeMembersSection />
+          <WorkTypesSection />
+        </>
+      )}
       {access.role === 'trade' ? (
         access.email && <ChangePassword />
       ) : (
@@ -978,6 +984,117 @@ function MyCalendars({ email }: { email: string }) {
         </>
       )}
       {msg && <p className="small">{msg}</p>}
+    </section>
+  );
+}
+
+/** 무역사무 작업유형: 무역사무(·관리자)가 넣고 · 이름 바꾸고 · 지움 */
+function WorkTypesSection() {
+  const list = useWorkTypes();
+  const { data, saveMany } = useStore();
+  const [text, setText] = useState('');
+  const [edit, setEdit] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [err, setErr] = useState('');
+  const save = (next: string[]) => saveWorkTypes(next).catch((e) => setErr(`저장하지 못했어요: ${(e as Error).message} — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)`));
+  const used = (w: string) => data.requests.filter((r) => r.workType === w);
+  const rename = async (from: string) => {
+    const to = editText.trim();
+    setEdit(null);
+    if (!to || to === from) return;
+    if (list.includes(to)) return setErr(`'${to}' 은(는) 이미 있어요`);
+    await save(list.map((x) => (x === from ? to : x)));
+    // 이미 이 작업유형으로 적힌 업무도 같이 바꿈
+    const rs = used(from);
+    if (rs.length && confirm(`'${from}' 으로 적힌 업무 ${rs.length}개도 '${to}' 로 바꿀까요?`)) await saveMany('requests', rs.map((r) => ({ ...r, workType: to })));
+  };
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]];
+    void save(next);
+  };
+  // 목록에 없는데 업무에 적혀 있는 작업유형 (예전 이름)
+  const orphans = [...new Set(data.requests.map((r) => r.workType).filter((w): w is string => !!w && !list.includes(w)))];
+  return (
+    <section className="card">
+      <h2>작업유형</h2>
+      <p className="muted small">무역사무 업무의 '작업유형' 목록이에요. 이름을 누르면 고치고, ✕ 로 지워요. ▲▼ 로 순서를 바꿔요.</p>
+      {err && <p className="warn small">{err}</p>}
+      <div className="wt-edit-list">
+        {list.map((w, i) => (
+          <div key={w} className="wt-edit-row">
+            <span className="wt-edit-move">
+              <button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} title="위로">
+                ▲
+              </button>
+              <button className="icon-btn" disabled={i === list.length - 1} onClick={() => move(i, 1)} title="아래로">
+                ▼
+              </button>
+            </span>
+            {edit === w ? (
+              <input
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onBlur={() => void rename(w)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  if (e.key === 'Escape') setEdit(null);
+                }}
+              />
+            ) : (
+              <button
+                className="wt-edit-name"
+                onClick={() => {
+                  setEdit(w);
+                  setEditText(w);
+                }}
+                title="눌러서 이름 고치기"
+              >
+                {w}
+              </button>
+            )}
+            <span className="muted small">{used(w).length ? `업무 ${used(w).length}개` : ''}</span>
+            <button
+              className="icon-btn"
+              title="지우기"
+              onClick={() => confirm(`'${w}' 작업유형을 지울까요?${used(w).length ? ` (이미 이걸로 적힌 업무 ${used(w).length}개는 그대로 남아요)` : ''}`) && void save(list.filter((x) => x !== w))}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="wt-edit-add">
+        <input
+          placeholder="새 작업유형"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && text.trim() && !list.includes(text.trim())) {
+              void save([...list, text.trim()]);
+              setText('');
+            }
+          }}
+        />
+        <button
+          className="primary"
+          disabled={!text.trim() || list.includes(text.trim())}
+          onClick={() => {
+            void save([...list, text.trim()]);
+            setText('');
+          }}
+        >
+          추가
+        </button>
+      </div>
+      {orphans.length > 0 && (
+        <p className="muted small" style={{ marginTop: 10 }}>
+          목록에 없는데 업무에 적혀 있는 작업유형: {orphans.map((o) => `'${o}' (${used(o).length}개)`).join(', ')}
+        </p>
+      )}
     </section>
   );
 }

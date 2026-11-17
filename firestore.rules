@@ -160,6 +160,12 @@ service cloud.firestore {
       allow read, write: if isAny() && email == myEmail();
     }
 
+    // 무역사무 설정 (작업유형 목록 등): 모두 읽고, 무역사무·관리자만 고침
+    match /tradeCfg/{id} {
+      allow read: if isAny();
+      allow write: if isTrade() || isAdmin();
+    }
+
     // 전도금: 담당자(pcCfg/main.managers)·관리자는 모두 보고, 나머지는 자기 것만
     function isPcManager() {
       return isAny() && exists(/databases/$(database)/documents/pcCfg/main)

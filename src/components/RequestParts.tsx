@@ -1,6 +1,7 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
+import { useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState, type ClipboardEvent, type CSSProperties } from 'react';
-import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, WORK_TYPES, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
+import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
 import { useSpaceData, useStore } from '../data/store';
 import { isLeader, useAccess } from './AuthGate';
 import OrderLinkPicker from './OrderLinkPicker';
@@ -765,7 +766,8 @@ export function WorkTypePicker({
   const [text, setText] = useState('');
   const [hi, setHi] = useState(0);
   const q = text.trim().toLowerCase().replace(/\s+/g, '');
-  const list = WORK_TYPES.filter((w) => !q || w.toLowerCase().replace(/\s+/g, '').includes(q));
+  const types = useWorkTypes();
+  const list = types.filter((w) => !q || w.toLowerCase().replace(/\s+/g, '').includes(q));
   const items: { v?: string; label: string }[] = [...(allLabel && !q ? [{ v: undefined, label: allLabel }] : []), ...list.map((w) => ({ v: w, label: w }))];
   const pick = (v?: string) => {
     onChange(v);

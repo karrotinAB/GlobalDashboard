@@ -7948,3 +7948,13 @@ td.c-people { min-width: 120px; }
 .rc-label { z-index: 3; }
 .rc-size { z-index: 4; }
 .rc-box.sel { z-index: 5; }
+/* 설정: 작업유형 편집 */
+.wt-edit-list { display: flex; flex-direction: column; gap: 2px; max-height: 420px; overflow-y: auto; border: 1px solid var(--line-2); border-radius: 10px; padding: 4px; }
+.wt-edit-row { display: flex; align-items: center; gap: 8px; padding: 2px 6px; border-radius: 8px; }
+.wt-edit-row:hover { background: #fbf6f4; }
+.wt-edit-row input { flex: 1; height: 30px; }
+.wt-edit-move { display: inline-flex; flex-direction: column; }
+.wt-edit-move .icon-btn { font-size: 9px; line-height: 1; padding: 1px 3px; }
+.wt-edit-name { flex: 1; text-align: left; border: 0; background: none; font: inherit; padding: 6px 4px; cursor: text; }
+.wt-edit-add { display: flex; gap: 6px; margin-top: 8px; }
+.wt-edit-add input { flex: 1; }
