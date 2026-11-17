@@ -7901,3 +7901,23 @@ td.c-people { min-width: 120px; }
   body.pc-printing #pc-print-root .rc-box { outline: none !important; }
   body.pc-printing #pc-print-root .rc-box.paper .rc-img { border: 0; }
 }
+
+/* 전도금 기록하기: 왼쪽 등록 · 오른쪽 이름/계좌/합계 */
+.pc-record { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.pc-left { min-width: 0; display: flex; flex-direction: column; }
+.pc-left .card { margin-bottom: 14px; }
+.pc-record .pc-account { position: sticky; top: 16px; gap: 10px; }
+.pc-account .pc-name { font-size: 20px; }
+.pc-acc-fields { display: flex; flex-direction: column; gap: 6px; }
+.pc-acc-fields .pc-bank, .pc-acc-fields .pc-acc { width: 100%; }
+.pc-sums { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--line); padding-top: 10px; }
+.pc-sums > div { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 2px; font-size: 14px; }
+.pc-sums > div span { color: var(--mut); }
+.pc-sums > div b { font-variant-numeric: tabular-nums; }
+.pc-sums .pc-sum-total { margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: #fbf1ee; }
+.pc-sums .pc-sum-total span { color: var(--ink); font-weight: 700; }
+.pc-sums .pc-sum-total b { font-size: 20px; color: #8c2f3c; }
+@media (max-width: 900px) {
+  .pc-record { grid-template-columns: 1fr; }
+  .pc-record .pc-account { position: static; order: -1; }
+}

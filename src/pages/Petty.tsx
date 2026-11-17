@@ -131,32 +131,33 @@ function Record({ email, period }: { email: string; period: Period }) {
   // 새 줄 기본 날짜: 지금 기간이면 오늘, 아니면 그 기간 첫날
   const defDate = isNow ? today() : `${period.ym}-${period.half === 1 ? '01' : '16'}`;
   return (
-    <>
-      <AccountCard email={email} name={name} total={sum(rows)} />
-
-      <section className="card pc-section">
-        <div className="pc-sec-head">
-          <h2>전도금 내역</h2>
-          <span className="muted small">합계 {won(sum(expenses)) || '₩0'}</span>
-        </div>
-        <EntryTable kind="expense" rows={expenses} purposes={purposes} />
-        <AddEntry kind="expense" email={email} name={name} purposes={purposes} defDate={defDate} />
-
-        <hr className="pc-line" />
-
-        <div className="pc-sec-head">
-          <h2>교통비</h2>
-          <span className="muted small">합계 {won(sum(transports)) || '₩0'}</span>
-        </div>
-        <EntryTable kind="transport" rows={transports} purposes={purposes} />
-        <AddEntry kind="transport" email={email} name={name} purposes={purposes} defDate={defDate} />
-      </section>
-      {all === null && <p className="muted small">불러오는 중…</p>}
-    </>
+    <div className="pc-record">
+      {/* 왼쪽: 등록 (전도금 내역 · 교통비) / 오른쪽: 이름 · 계좌 · 합계 */}
+      <div className="pc-left">
+        <section className="card pc-section">
+          <div className="pc-sec-head">
+            <h2>전도금 내역</h2>
+            <span className="muted small">합계 {won(sum(expenses)) || '₩0'}</span>
+          </div>
+          <EntryTable kind="expense" rows={expenses} purposes={purposes} />
+          <AddEntry kind="expense" email={email} name={name} purposes={purposes} defDate={defDate} />
+        </section>
+        <section className="card pc-section">
+          <div className="pc-sec-head">
+            <h2>교통비</h2>
+            <span className="muted small">합계 {won(sum(transports)) || '₩0'}</span>
+          </div>
+          <EntryTable kind="transport" rows={transports} purposes={purposes} />
+          <AddEntry kind="transport" email={email} name={name} purposes={purposes} defDate={defDate} />
+        </section>
+        {all === null && <p className="muted small">불러오는 중…</p>}
+      </div>
+      <AccountCard email={email} name={name} expense={sum(expenses)} transport={sum(transports)} />
+    </div>
   );
 }
 
-function AccountCard({ email, name, total }: { email: string; name: string; total: number }) {
+function AccountCard({ email, name, expense, transport }: { email: string; name: string; expense: number; transport: number }) {
   const acc = usePettyAccount(email);
   const [bank, setBank] = useState('');
   const [account, setAccount] = useState('');
@@ -178,18 +179,28 @@ function AccountCard({ email, name, total }: { email: string; name: string; tota
   };
   return (
     <section className="card pc-account">
-      <div className="pc-acc-row">
-        <b className="pc-name">{name}</b>
+      <b className="pc-name">{name}</b>
+      <div className="pc-acc-fields">
         <input className="pc-bank" placeholder="은행 (예: 국민)" value={bank} onChange={(e) => setBank(e.target.value)} />
         <input className="pc-acc" placeholder="계좌번호" inputMode="numeric" value={account} onChange={(e) => setAccount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
         <button className="primary" disabled={!dirty} onClick={() => void save()}>
-          저장
+          계좌 저장
         </button>
         {msg && <span className="muted small">{msg}</span>}
       </div>
-      <div className="pc-total">
-        <span>전도금 총합계</span>
-        <b>{won(total) || '₩0'}</b>
+      <div className="pc-sums">
+        <div>
+          <span>전도금 내역</span>
+          <b>{won(expense) || '₩0'}</b>
+        </div>
+        <div>
+          <span>교통비 내역</span>
+          <b>{won(transport) || '₩0'}</b>
+        </div>
+        <div className="pc-sum-total">
+          <span>총 전도금</span>
+          <b>{won(expense + transport) || '₩0'}</b>
+        </div>
       </div>
     </section>
   );
