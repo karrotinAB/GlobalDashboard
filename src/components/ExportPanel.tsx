@@ -433,9 +433,9 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
                       <span className="dot" style={{ background: r.c.color }} /> {hasTeams && <span className="team-tag">{r.c.team ? `${r.c.team}조` : '내'}</span>}
                       {r.c.name}
                     </th>
-                    <KF k={r.total} f={r.totalF} bold orig={r.cur !== 'USD' ? fmtCur(r.cur, r.shipFo + r.packFo) : undefined} />
-                    <KF k={r.shipK} f={r.shipF} orig={r.cur !== 'USD' && r.shipFo ? fmtCur(r.cur, r.shipFo) : undefined} />
-                    <KF k={r.packK} f={r.packF} orig={r.cur !== 'USD' && r.packFo ? fmtCur(r.cur, r.packFo) : undefined} />
+                    <KF k={r.total} f={r.totalF} bold />
+                    <KF k={r.shipK} f={r.shipF} />
+                    <KF k={r.packK} f={r.packF} />
                     {r.c.royalty ? <KF k={r.royalty} f={r.royaltyF} /> : <td className="r">—</td>}
                   </tr>
                 ))}
