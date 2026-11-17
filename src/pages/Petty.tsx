@@ -570,10 +570,10 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { 
   const amount = toNum(f.amount);
   const dateOk = !!f.date && f.date >= range.min && f.date <= range.max;
   const ok = dateOk && amount !== undefined && (kind === 'expense' ? !!f.purpose && !!f.content.trim() : !!f.from.trim() && !!f.to.trim() && (f.mode !== '기타' || !!f.modeOther.trim()));
-  const [askLate, setAskLate] = useState(false); // 상반기에 하반기 날짜 영수증 → 맞는지 묻기
+  const [askLate, setAskLate] = useState(false); // 다른 반기 날짜 영수증 → 맞는지 묻기
   const add = async (confirmed = false) => {
     if (!ok) return;
-    if (!confirmed && periodOf(f.date).half > period.half) return setAskLate(true);
+    if (!confirmed && periodOf(f.date).half !== period.half) return setAskLate(true); // 다른 반기 날짜면 맞는지 묻기
     setAskLate(false);
     const e: PettyEntry = {
       id: uid(),
