@@ -7993,3 +7993,6 @@ td.c-people { min-width: 120px; }
 /* 수출 카드: 원화·외화 숫자 높이 맞춤 (외화 아래 원래 화폐 줄이 있어도) */
 .ec-amts { align-items: flex-start; }
 .ec-cell .ec-orig { position: relative; margin-top: 1px; }
+/* 정산서 항목: 고르기 (용도 목록 안에서만) */
+.ps-item { appearance: none; -webkit-appearance: none; text-align: center; text-align-last: center; cursor: pointer; }
+.ps-add-item { margin-top: 6px; font-size: 13px; color: #8c2f3c; border: 1px dashed #d9b9b3; background: #fff; border-radius: 8px; padding: 4px 8px; }

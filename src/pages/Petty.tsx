@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
+import { EditableText } from '../components/SheetCells';
 import { ImageZoom } from '../components/RequestParts';
 import { usePeople } from '../components/AddressBook';
 import { today, uid } from '../lib/date';
@@ -414,6 +415,7 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
               <>
                 <th>교통 수단</th>
                 <th>출발지 → 도착지</th>
+                <th>내역</th>
               </>
             )}
             <th className="r">금액</th>
@@ -436,13 +438,18 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
                       ))}
                     </select>
                   </td>
-                  <td>{e.content}</td>
+                  <td>
+                    <EditableText value={e.content ?? ''} oneLine placeholder="내역" onSave={(v) => patch(e, { content: v.trim() || undefined })} />
+                  </td>
                 </>
               ) : (
                 <>
                   <td>{e.mode === '기타' ? e.modeOther || '기타' : e.mode}</td>
                   <td>
                     {e.from} → {e.to}
+                  </td>
+                  <td>
+                    <EditableText value={e.content ?? ''} oneLine placeholder="내역" onSave={(v) => patch(e, { content: v.trim() || undefined })} />
                   </td>
                 </>
               )}
@@ -494,7 +501,7 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
       kind,
       date: f.date,
       amount,
-      ...(kind === 'expense' ? { purpose: f.purpose, content: f.content.trim() } : { mode: f.mode, modeOther: f.mode === '기타' ? f.modeOther.trim() : undefined, from: f.from.trim(), to: f.to.trim() }),
+      ...(kind === 'expense' ? { purpose: f.purpose, content: f.content.trim() } : { mode: f.mode, modeOther: f.mode === '기타' ? f.modeOther.trim() : undefined, from: f.from.trim(), to: f.to.trim(), content: f.content.trim() || undefined }),
       ...rc,
       createdAt: new Date().toISOString(),
     };
@@ -529,6 +536,7 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
           {f.mode === '기타' && <input className="pc-other" placeholder="직접 쓰기" value={f.modeOther} onChange={(e) => set({ modeOther: e.target.value })} />}
           <input className="pc-grow" placeholder="출발지" value={f.from} onChange={(e) => set({ from: e.target.value })} />
           <input className="pc-grow" placeholder="도착지" value={f.to} onChange={(e) => set({ to: e.target.value })} />
+          <input className="pc-grow" placeholder="내역 (예: 야근 택시, 거래처 미팅)" value={f.content} onChange={(e) => set({ content: e.target.value })} />
         </>
       )}
       <input className="pc-amt" placeholder="금액" inputMode="numeric" value={f.amount} onChange={(e) => set({ amount: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && void add()} />
@@ -796,6 +804,9 @@ function PrintSheets({ period }: { period: Period }) {
   const [which, setWhich] = useState<'sheet' | 'transport' | 'receipt'>('sheet');
   const rows = useMemo(() => (all ?? []).filter((e) => periodKey(periodOf(e.date)) === pk), [all, pk]);
   const sheetRows = per?.rows ?? DEFAULT_SHEET_ROWS;
+  // 정산서 항목으로 쓸 수 있는 것: 관리 탭의 용도 + 교통비 + 기타 (그 밖의 말은 안 됨)
+  const allowedItems = [...new Set([...(cfg?.purposes?.length ? cfg.purposes : DEFAULT_PURPOSES), '교통비', '기타'])];
+  const missingItems = allowedItems.filter((x) => !sheetRows.some((r) => r.item.trim() === x));
   const amts = sheetAmounts(sheetRows, rows);
   const total = Object.values(amts).reduce((a, b) => a + b, 0);
   const from = period.half === 1 ? 1 : 16;
@@ -853,7 +864,11 @@ function PrintSheets({ period }: { period: Period }) {
                 {sheetRows.map((r, i) => (
                   <tr key={r.id}>
                     <td className="c">
-                      <input className="ps-in c" value={r.item} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, item: e.target.value } : x)))} />
+                      <select className="ps-in ps-item c" value={r.item} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, item: e.target.value } : x)))}>
+                        {[r.item, ...missingItems].map((x) => (
+                          <option key={x}>{x}</option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <textarea className="ps-in" rows={2} value={r.desc} onChange={(e) => saveRows(sheetRows.map((x) => (x.id === r.id ? { ...x, desc: e.target.value } : x)))} />
@@ -882,9 +897,20 @@ function PrintSheets({ period }: { period: Period }) {
                 </tr>
               </tbody>
             </table>
-            <button className="link small no-print" style={{ marginTop: 6 }} onClick={() => saveRows([...sheetRows, { id: uid(), item: '새 항목', desc: '' }])}>
-              ＋ 항목 추가
-            </button>
+            {/* 관리 탭의 용도 중 아직 없는 것만 골라서 추가 */}
+            {missingItems.length > 0 && (
+              <select
+                className="ps-add-item no-print"
+                value=""
+                onChange={(e) => e.target.value && saveRows([...sheetRows, { id: uid(), item: e.target.value, desc: '' }])}
+                title="관리 탭에 있는 용도 중 정산서에 아직 없는 항목"
+              >
+                <option value="">＋ 항목 추가</option>
+                {missingItems.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </select>
+            )}
             <div className="ps-bottom">
               <Approval label={['정', '산', '부', '서']} />
               <div className="ps-dept">
@@ -951,7 +977,8 @@ function PrintSheets({ period }: { period: Period }) {
                       <td className="c">
                         <input
                           className="ps-in c"
-                          defaultValue={e.memo ?? `${e.name ?? ''} ${label}비`.trim()}
+                          key={`${e.id}:${e.content ?? ''}:${e.memo ?? ''}`}
+                          defaultValue={e.memo ?? `${e.name ?? ''} ${e.content || `${label}비`}`.trim()}
                           onBlur={(x) => {
                             const v = x.target.value.trim();
                             if (v !== (e.memo ?? '')) void savePettyEntry({ ...e, memo: v || undefined });

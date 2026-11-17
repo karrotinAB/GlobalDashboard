@@ -19,7 +19,7 @@ type Box = { e: PettyEntry; item: string; label: string; page: string; x: number
 const isImg = (e: PettyEntry) => !!e.receipt && (/\.(png|jpe?g|gif|webp|heic|bmp)$/i.test(e.receipt.name) || e.receipt.url.startsWith('data:image'));
 
 export function labelOf(e: PettyEntry) {
-  const what = e.kind === 'transport' ? `${e.from ?? ''}→${e.to ?? ''} ${e.mode === '기타' ? e.modeOther || '기타' : e.mode ?? ''} 교통비` : e.content || e.purpose || '';
+  const what = e.kind === 'transport' ? e.content || `${e.from ?? ''}→${e.to ?? ''} ${e.mode === '기타' ? e.modeOther || '기타' : e.mode ?? ''} 교통비` : e.content || e.purpose || '';
   return `글로벌사업부/${e.name ?? ''}/${what.trim()}`;
 }
 
