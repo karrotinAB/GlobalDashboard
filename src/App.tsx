@@ -4,6 +4,7 @@ import TradeExport from './pages/TradeExport';
 import Reports from './pages/Reports';
 import TradeMemo from './pages/TradeMemo';
 import Translate from './pages/Translate';
+import Petty from './pages/Petty';
 import ProfileMenu from './components/ProfileMenu';
 import ReportTaskSync from './components/ReportTaskSync';
 import { useReportAlert } from './lib/reports';
@@ -42,6 +43,7 @@ const PAGES = [
   { key: 'texport', label: '수출매출', icon: '🚢' },
   { key: 'treports', label: '보고방', icon: '📑' },
   { key: 'translate', label: '번역', icon: '🌐' },
+  { key: 'petty', label: '전도금', icon: '💰' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
 ] as const;
@@ -68,7 +70,7 @@ export default function App() {
   // '조 현황' 탭: 팀장님·이사님 대시보드에만 (관리자는 팀장님·이사님 대시보드를 볼 때만)
   const canOverview = leader || ((role === 'admin' || role === null) && isPersonal(viewTeam));
   const page: PageKey = tradeOnly
-    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate'
+    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate' || hashPage === 'petty'
       ? hashPage
       : 'thome'
     : isTradePage(hashPage) && !canTrade
@@ -207,6 +209,9 @@ export default function App() {
               <a href="#/translate" className={page === 'translate' ? 'active' : ''} onClick={closeDrawer}>
                 🌐 번역
               </a>
+              <a href="#/petty" className={page === 'petty' ? 'active' : ''} onClick={closeDrawer}>
+                💰 전도금
+              </a>
             </div>
             <div className="drawer-foot" onClick={closeDrawer}>
               {!tradeOnly && canTrade && <a href={side === 'trade' ? '#/home' : '#/thome'}>{side === 'trade' ? `← ${viewLabel} 페이지` : '무역사무 페이지 →'}</a>}
@@ -335,6 +340,8 @@ export default function App() {
             <Reports />
           ) : page === 'translate' ? (
             <Translate />
+          ) : page === 'petty' ? (
+            <Petty />
           ) : page === 'treports' ? (
             <Reports key="trade" space="trade" />
           ) : (

@@ -20,6 +20,12 @@ service firebase.storage {
       allow read, delete: if isAny();
       allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
     }
+    // 전도금 영수증: 올린 사람 폴더에만 올림 (읽기는 대시보드 사용자)
+    match /petty/{email}/{file} {
+      allow read: if isAny();
+      allow create: if isAny() && request.auth.token.email.lower() == email && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if isAny() && request.auth.token.email.lower() == email;
+    }
     match /claims/{claimId}/{file} {
       allow read, delete: if isTeam();
       allow create: if isTeam() && request.resource.size < 20 * 1024 * 1024;

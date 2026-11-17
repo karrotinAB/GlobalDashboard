@@ -37,6 +37,9 @@ export default function ProfileMenu() {
             <b>{name}</b>
             {email && <span>{email}</span>}
           </div>
+          <a href="#/petty" role="menuitem" onClick={() => setOpen(false)}>
+            <span aria-hidden="true">💰</span> 전도금
+          </a>
           <a href="#/settings" role="menuitem" onClick={() => setOpen(false)}>
             <span aria-hidden="true">⚙️</span> 설정
           </a>

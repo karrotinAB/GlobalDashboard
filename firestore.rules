@@ -160,6 +160,29 @@ service cloud.firestore {
       allow read, write: if isAny() && email == myEmail();
     }
 
+    // 전도금: 담당자(pcCfg/main.managers)·관리자는 모두 보고, 나머지는 자기 것만
+    function isPcManager() {
+      return isAny() && exists(/databases/$(database)/documents/pcCfg/main)
+        && myEmail() in get(/databases/$(database)/documents/pcCfg/main).data.get('managers', []);
+    }
+    match /pcCfg/main {
+      allow read: if isAny();
+      // 관리자: 모두 / 담당자: 용도만 (담당자 목록은 못 바꿈)
+      allow write: if isAdmin()
+        || (isPcManager() && request.resource.data.get('managers', []) == resource.data.get('managers', []));
+    }
+    match /pcAccounts/{email} {
+      allow read: if isAdmin() || isPcManager() || (isAny() && email == myEmail());
+      allow write: if isAdmin() || (isAny() && email == myEmail());
+    }
+    match /pcEntries/{id} {
+      allow read: if isAdmin() || isPcManager() || (isAny() && resource.data.email == myEmail());
+      allow create: if isAdmin() || (isAny() && request.resource.data.email == myEmail());
+      allow update: if isAdmin() || isPcManager()
+        || (isAny() && resource.data.email == myEmail() && request.resource.data.email == myEmail());
+      allow delete: if isAdmin() || (isAny() && resource.data.email == myEmail());
+    }
+
     // secrets/{문서} (ERP API 키 등): 규칙이 없으므로 사이트에서는 아무도 못 읽고 못 씀. 서버 함수만 읽음
 
     // 조 데이터 (members, companies, tasks, orders, attendance, claims, config 와 t1_… t3_…)
