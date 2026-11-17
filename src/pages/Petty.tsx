@@ -57,9 +57,11 @@ const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10
 export default function Petty() {
   const access = useAccess();
   const email = access.email || 'local';
-  const isAdmin = (access.realRole ?? access.role) === 'admin' || access.role === null;
+  // 관리자의 '일반 유저로 보기' 중이면 담당자·관리자 화면도 숨김 (일반 사용자가 보는 그대로)
+  const previewMember = access.realRole === 'admin' && access.role === 'member';
+  const isAdmin = access.role === 'admin' || access.role === null;
   const cfg = usePettyCfg();
-  const isManager = !!cfg?.managers.includes(email);
+  const isManager = !previewMember && !!cfg?.managers.includes(email);
   const [tab, setTab] = useState<'mine' | 'settle' | 'print' | 'manage'>('mine');
   const canManage = isManager || isAdmin;
   const [period, setPeriod] = useState(() => periodOf(today()));
