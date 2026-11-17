@@ -1,6 +1,7 @@
 // 전도금: [전도금 기록하기] (모든 사용자) · [관리] (전도금 담당자 · 관리자)
 //   한 달을 1~15일 / 16일~말일 두 번으로 나눠서, 그 기간에 쓴 전도금 내역과 교통비를 기록
 import { useEffect, useMemo, useState } from 'react';
+import type React from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
 import { usePeople } from '../components/AddressBook';
@@ -206,6 +207,49 @@ function AccountCard({ email, name, expense, transport }: { email: string; name:
   );
 }
 
+/** 영수증 끌어다 놓기 · 붙여넣기(Ctrl+V): 그 칸(줄) 위에서 하면 바로 영수증으로 올라감 */
+function useReceiptDrop(email: string, onUp: (f: PettyFile) => void) {
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const take = async (f?: File) => {
+    if (!f) return;
+    setBusy(true);
+    setErr('');
+    try {
+      onUp(await uploadReceipt(email, f));
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const props = {
+    onDragOver: (e: React.DragEvent) => {
+      if (![...e.dataTransfer.types].includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      if (!over) setOver(true);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      if (!e.dataTransfer.files.length) return;
+      e.preventDefault();
+      setOver(false);
+      void take(e.dataTransfer.files[0]);
+    },
+    onPaste: (e: React.ClipboardEvent) => {
+      const f = [...e.clipboardData.files].find((x) => x.type.startsWith('image/') || x.type === 'application/pdf');
+      if (!f) return;
+      e.preventDefault();
+      void take(f);
+    },
+  };
+  return { props, over, busy, err };
+}
+
 /** 영수증 칸: 사진 올리기 · 종이영수증 표시 */
 function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: PettyFile; paper?: boolean; onChange: (v: { receipt?: PettyFile; paper?: boolean }) => void }) {
   const [busy, setBusy] = useState(false);
@@ -256,6 +300,18 @@ function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: P
   );
 }
 
+/** 이미 쓴 줄: 그 줄 위로 영수증을 끌어다 놓거나, 줄을 누르고 Ctrl+V */
+function DropRow({ e, enabled, children }: { e: PettyEntry; enabled: boolean; children: React.ReactNode }) {
+  const d = useReceiptDrop(e.email, (f) => void savePettyEntry({ ...e, receipt: f, paper: undefined }));
+  if (!enabled) return <tr>{children}</tr>;
+  return (
+    <tr {...d.props} tabIndex={-1} className={d.over ? 'pc-drop' : ''} title="영수증 사진을 이 줄로 끌어다 놓거나, 줄을 누르고 Ctrl+V 로 붙여넣어도 돼요">
+      {children}
+      {(d.busy || d.err) && <td className="small muted">{d.busy ? '올리는 중…' : d.err}</td>}
+    </tr>
+  );
+}
+
 function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEntry['kind']; rows: PettyEntry[]; purposes: string[]; canDelete?: boolean }) {
   if (!rows.length) return <p className="muted small pc-empty">{kind === 'expense' ? '아직 전도금 내역이 없어요' : '아직 교통비가 없어요'}</p>;
   const patch = (e: PettyEntry, p: Partial<PettyEntry>) => void savePettyEntry({ ...e, ...p });
@@ -277,13 +333,13 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
               </>
             )}
             <th className="r">금액</th>
-            <th>영수증</th>
+            <th className="pc-rc-col">영수증</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {rows.map((e) => (
-            <tr key={e.id}>
+            <DropRow key={e.id} e={e} enabled={canDelete}>
               <td className="pc-d">{md(e.date)}</td>
               {kind === 'expense' ? (
                 <>
@@ -305,7 +361,7 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
                 </>
               )}
               <td className="r nowrap">{won(e.amount)}</td>
-              <td>
+              <td className="pc-rc-col">
                 {canDelete ? (
                   <ReceiptCell email={e.email} file={e.receipt} paper={e.paper} onChange={(v) => patch(e, v)} />
                 ) : e.receipt ? (
@@ -325,7 +381,7 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
                   </button>
                 )}
               </td>
-            </tr>
+            </DropRow>
           ))}
         </tbody>
       </table>
@@ -340,6 +396,7 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
   const [err, setErr] = useState('');
   useEffect(() => setF((x) => ({ ...x, date: defDate })), [defDate]);
   const set = (p: Partial<ReturnType<typeof blank>>) => setF((x) => ({ ...x, ...p }));
+  const drop = useReceiptDrop(email, (file) => setRc({ receipt: file }));
   const amount = toNum(f.amount);
   const ok = !!f.date && amount !== undefined && (kind === 'expense' ? !!f.purpose && !!f.content.trim() : !!f.from.trim() && !!f.to.trim() && (f.mode !== '기타' || !!f.modeOther.trim()));
   const add = async () => {
@@ -365,7 +422,7 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
     }
   };
   return (
-    <div className="pc-add">
+    <div className={`pc-add ${drop.over ? 'pc-drop' : ''}`} {...drop.props}>
       <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
       {kind === 'expense' ? (
         <>
@@ -393,7 +450,8 @@ function AddEntry({ kind, email, name, purposes, defDate }: { kind: PettyEntry['
       <button className="primary" disabled={!ok} onClick={() => void add()}>
         추가
       </button>
-      {err && <p className="warn small" style={{ width: '100%', margin: 0 }}>{err}</p>}
+      {(err || drop.err) && <p className="warn small" style={{ width: '100%', margin: 0 }}>{err || drop.err}</p>}
+      <p className="muted small pc-drop-hint">{drop.busy ? '영수증 올리는 중…' : drop.over ? '여기에 놓으면 영수증으로 올라가요' : '영수증 사진은 이 칸으로 끌어다 놓거나 Ctrl+V 로 붙여넣어도 돼요'}</p>
     </div>
   );
 }
