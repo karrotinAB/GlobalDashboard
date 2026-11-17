@@ -7737,3 +7737,6 @@ td.c-people { min-width: 120px; }
 .tm-claims .r { text-align: right; }
 .tm-claims .c { text-align: center; }
 .tm-claims tr.done td { color: var(--mut); }
+
+/* 사진·파일 칸: 끌어다 놓는 중 */
+.rq-files.drag-over { outline: 2px dashed #8c2f3c; outline-offset: -2px; background: #fbeeee; }

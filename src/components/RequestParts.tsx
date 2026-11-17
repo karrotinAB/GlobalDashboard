@@ -102,6 +102,7 @@ export function FileBox({ reqId, files, onChange, uploader }: { reqId: string; f
   const [zoom, setZoom] = useState<RequestFile | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [over, setOver] = useState(false); // 파일을 끌어다 올리는 중
   const add = async (list: File[]) => {
     if (!list.length) return;
     setBusy(true);
@@ -124,7 +125,26 @@ export function FileBox({ reqId, files, onChange, uploader }: { reqId: string; f
     }
   };
   return (
-    <div className="rq-files" onPaste={onPaste} tabIndex={0}>
+    <div
+      className={`rq-files ${over ? 'drag-over' : ''}`}
+      onPaste={onPaste}
+      tabIndex={0}
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].includes('Files')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        if (!over) setOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return;
+        e.preventDefault();
+        setOver(false);
+        void add([...e.dataTransfer.files]);
+      }}
+    >
       {zoom && <ImageZoom f={zoom} onClose={() => setZoom(null)} />}
       {files.map((f, i) => (
         <div key={f.url + i} className="rq-thumb">
@@ -156,10 +176,10 @@ export function FileBox({ reqId, files, onChange, uploader }: { reqId: string; f
         </div>
       ))}
       <label className="rq-add-file">
-        {busy ? '올리는 중…' : '＋ 사진'}
+        {busy ? '올리는 중…' : '＋ 사진/파일'}
         <input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.doc,.docx" onChange={(e) => void add([...(e.target.files ?? [])])} hidden />
       </label>
-      <span className="muted small">캡처한 사진은 여기를 누르고 Ctrl+V 로 붙여넣어도 돼요</span>
+      <span className="muted small">{over ? '여기에 놓으면 올라가요' : '파일을 여기로 끌어다 놓거나, 캡처한 사진은 여기를 누르고 Ctrl+V 로 붙여넣어도 돼요'}</span>
       {err && <span className="rq-err">{err}</span>}
     </div>
   );
