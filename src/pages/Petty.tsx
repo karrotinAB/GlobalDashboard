@@ -577,7 +577,7 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: Pe
     }
   };
   return (
-    <div className={`pc-add ${drop.over ? 'pc-drop' : ''}`} {...drop.props} tabIndex={-1}>
+    <div className={`pc-add pc-add-${kind} ${drop.over ? 'pc-drop' : ''}`} {...drop.props} tabIndex={-1}>
       <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
       {kind === 'expense' ? (
         <>
@@ -596,9 +596,9 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx }: { kind: Pe
             ))}
           </select>
           {f.mode === '기타' && <input className="pc-other" placeholder="직접 쓰기" value={f.modeOther} onChange={(e) => set({ modeOther: e.target.value })} />}
-          <input className="pc-grow" placeholder="출발지" value={f.from} onChange={(e) => set({ from: e.target.value })} />
-          <input className="pc-grow" placeholder="도착지" value={f.to} onChange={(e) => set({ to: e.target.value })} />
-          <input className="pc-grow" placeholder="내역 (예: 야근 택시, 거래처 미팅)" value={f.content} onChange={(e) => set({ content: e.target.value })} />
+          <input className="pc-grow pc-place" placeholder="출발지" value={f.from} onChange={(e) => set({ from: e.target.value })} />
+          <input className="pc-grow pc-place" placeholder="도착지" value={f.to} onChange={(e) => set({ to: e.target.value })} />
+          <input className="pc-grow pc-memo" placeholder="내역 (예: 야근 택시)" value={f.content} onChange={(e) => set({ content: e.target.value })} />
         </>
       )}
       <span className="pc-amt-wrap">

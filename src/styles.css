@@ -8013,3 +8013,16 @@ td.c-people { min-width: 120px; }
 /* 전도금: 담당자는 이름 옆에서 팀장님·이사님 고르기 */
 .pc-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pc-who { height: 30px; font-size: 13px; border-radius: 8px; padding: 0 6px; max-width: 170px; }
+/* 전도금 등록 칸: 한 줄에 다 들어가게 */
+.pc-add { flex-wrap: wrap; column-gap: 5px; }
+.pc-add > input[type='date'] { width: 128px; flex: none; padding: 0 6px; }
+.pc-add > select { flex: none; width: auto; padding: 0 4px; }
+.pc-add-transport .pc-place { flex: 0 1 86px; min-width: 60px; }
+.pc-add-transport .pc-memo { flex: 1 1 110px; min-width: 80px; }
+.pc-add .pc-amt-wrap { flex: none; }
+.pc-add .pc-amt-wrap .pc-cur { width: 50px; }
+.pc-add .pc-amt { width: 84px; }
+.pc-add .pc-rc { flex: none; gap: 3px; }
+.pc-add .pc-rc-btn { padding: 4px 6px; }
+.pc-add > button.primary { flex: none; padding: 0 12px; height: 34px; }
+.pc-add .pc-drop-hint, .pc-add .pc-conv, .pc-add > p { flex-basis: 100%; }
