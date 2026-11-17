@@ -326,9 +326,14 @@ function RcPage({
                 rows={b.label.split('\n').length}
                 onPointerDown={(ev) => ev.stopPropagation()}
                 onBlur={(ev) => onEditDone(b, ev.target.value)}
+                // Enter = 줄바꿈 · 바깥을 누르거나 Ctrl+Enter = 저장 · Esc = 취소
+                onInput={(ev) => {
+                  const t = ev.target as HTMLTextAreaElement;
+                  t.rows = Math.max(1, t.value.split('\n').length);
+                }}
                 onKeyDown={(ev) => {
                   if (ev.key === 'Escape') onEditDone(b, b.label);
-                  if (ev.key === 'Enter' && !ev.shiftKey) {
+                  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
                     ev.preventDefault();
                     (ev.target as HTMLTextAreaElement).blur();
                   }
@@ -340,7 +345,7 @@ function RcPage({
                 style={{ fontSize: pt(b.fs), left: u(b.lx), top: u(b.ly), minHeight: u(LABEL_H) }}
                 onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'label') : undefined}
                 onDoubleClick={onEdit ? () => onEdit(b) : undefined}
-                title={onEdit ? '두 번 눌러 글자 고치기' : undefined}
+                title={onEdit ? '두 번 눌러 글자 고치기 (Enter 로 줄바꿈, 바깥을 누르면 저장)' : undefined}
               >
                 <span className={b.hl ? 'rc-hl' : ''} style={b.hl ? { background: b.hlc ?? HL_COLORS[0] } : undefined}>
                   {b.label}
