@@ -7962,3 +7962,29 @@ td.c-people { min-width: 120px; }
 .pp-chip.has-c { background: color-mix(in srgb, var(--c) 24%, #fff); color: color-mix(in srgb, var(--c) 55%, #2a1a1a); }
 /* 수출 통화가 USD 가 아닌 업체: USD 아래 원래 외화 작게 회색 */
 .fx-orig { display: block; font-size: 10.5px; color: #9a8f8c; font-weight: 400; line-height: 1.2; white-space: nowrap; }
+/* 영수증 편집: 미리보기는 왼쪽, 글자 굵게 · 형광펜 · 고치기 */
+.rc-wrap { grid-template-columns: 200px minmax(0, 1fr); }
+.rc-wrap .rc-side { order: -1; }
+.rc-label.bold { font-weight: 700; }
+.rc-hl { background: #fff36b; padding: 0 0.15em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rc-tools button.on { background: #8c2f3c; color: #fff; border-color: #8c2f3c; }
+.rc-hl-ico { background: #fff36b; padding: 0 3px; border-radius: 2px; color: #333; }
+.rc-tools button.on .rc-hl-ico { background: #fff36b; }
+.rc-textbar { display: flex; gap: 6px; margin-bottom: 8px; }
+.rc-textbar input { flex: 1; }
+.rc-textbar button:not(.primary) { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 0 10px; cursor: pointer; }
+@media (max-width: 900px) { .rc-wrap .rc-side { order: 0; } }
+/* 전도금 정리: 오른쪽 이름-금액 · 총 전도금 */
+.pc-settle-wrap { display: grid; grid-template-columns: minmax(0, 1000px) 280px; gap: 16px; align-items: start; }
+.pc-settle-wrap .pc-settle { max-width: none; }
+.pc-settle-sum { position: sticky; top: 16px; }
+.pc-settle-sum h2 { margin: 0 0 8px; font-size: 16px; }
+.pc-settle-sum ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pc-settle-sum li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 2px; border-bottom: 1px solid var(--line-2); font-size: 14px; }
+.pc-settle-sum li b { font-variant-numeric: tabular-nums; }
+.pc-settle-sum li.paid { color: var(--mut); }
+.pc-sum-ok { color: #2f6b3c; font-weight: 700; }
+.pc-settle-sum .pc-sum-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #fbf1ee; }
+.pc-settle-sum .pc-sum-total span { font-weight: 700; }
+.pc-settle-sum .pc-sum-total b { font-size: 20px; color: #8c2f3c; }
+@media (max-width: 900px) { .pc-settle-wrap { grid-template-columns: 1fr; } .pc-settle-sum { position: static; } }

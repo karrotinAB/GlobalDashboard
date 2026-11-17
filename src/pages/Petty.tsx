@@ -651,6 +651,7 @@ function Settle({ period }: { period: Period }) {
   const total = sum(rows);
   const done = people.filter((p) => paid[p.email]).length;
   return (
+    <div className="pc-settle-wrap">
     <section className="card pc-settle">
       <div className="pc-sec-head">
         <h2>전도금 정리</h2>
@@ -692,6 +693,30 @@ function Settle({ period }: { period: Period }) {
         </div>
       )}
     </section>
+    {/* 오른쪽: 이름 - 금액 목록 + 총 전도금 */}
+    <aside className="card pc-settle-sum">
+      <h2>보낼 금액</h2>
+      {people.length === 0 ? (
+        <p className="muted small">없어요</p>
+      ) : (
+        <ul>
+          {people.map((p) => (
+            <li key={p.email} className={paid[p.email] ? 'paid' : ''}>
+              <span>
+                {p.name}
+                {paid[p.email] && <span className="pc-sum-ok"> ✓</span>}
+              </span>
+              <b>{won(sum(p.list))}</b>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="pc-sum-total">
+        <span>총 전도금</span>
+        <b>{won(total) || '₩0'}</b>
+      </div>
+    </aside>
+    </div>
   );
 }
 

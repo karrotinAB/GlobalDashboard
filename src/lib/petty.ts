@@ -229,6 +229,9 @@ export interface RcptPos {
   fs?: number; // 글자 크기 (pt)
   lx?: number; // 글자 위치 (상자 왼쪽 위 기준, mm)
   ly?: number;
+  bold?: boolean; // 글자 굵게
+  hl?: boolean; // 글자 형광펜
+  text?: string; // 글자를 직접 고친 것 (없으면 '글로벌사업부/이름/내용')
 }
 export interface PettyPeriod {
   paid?: Record<string, { at: string; by?: string }>;

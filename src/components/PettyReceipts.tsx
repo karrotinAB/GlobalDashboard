@@ -14,10 +14,9 @@ const CELL_H = (PAGE_H - M * 2 - GAP) / 2;
 const LABEL_H = 9; // 글자 줄 높이 (기본)
 const DEF_FS = 9;
 
-type Box = { e: PettyEntry; item: string; label: string; page: string; x: number; y: number; w: number; h: number; fs: number; lx: number; ly: number; moved: boolean };
+type Box = { e: PettyEntry; item: string; label: string; page: string; x: number; y: number; w: number; h: number; fs: number; lx: number; ly: number; bold?: boolean; hl?: boolean; text?: string; moved: boolean };
 
 const isImg = (e: PettyEntry) => !!e.receipt && (/\.(png|jpe?g|gif|webp|heic|bmp)$/i.test(e.receipt.name) || e.receipt.url.startsWith('data:image'));
-const won = (n?: number) => (n === undefined ? '' : `₩${Math.round(n).toLocaleString('ko-KR')}`);
 
 export function labelOf(e: PettyEntry) {
   const what = e.kind === 'transport' ? `${e.from ?? ''}→${e.to ?? ''} ${e.mode === '기타' ? e.modeOther || '기타' : e.mode ?? ''} 교통비` : e.content || e.purpose || '';
@@ -40,7 +39,9 @@ function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string,
         const slot = i % 4;
         const def = { page: `${item}#${Math.floor(i / 4) + 1}`, x: M + (slot % 2) * (CELL_W + GAP), y: M + Math.floor(slot / 2) * (CELL_H + GAP), w: CELL_W, h: CELL_H, fs: DEF_FS, lx: 0, ly: 0 };
         const o = over[e.id] ?? {};
-        boxes.push({ e, item, label: labelOf(e), ...def, ...o, moved: !!over[e.id] } as Box);
+        const b = { e, item, label: labelOf(e), ...def, ...o, moved: !!over[e.id] } as Box;
+        if (o.text) b.label = o.text;
+        boxes.push(b);
       });
     }
     // 장 목록: 항목 순서(정산서) → 번호 순
@@ -140,6 +141,8 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
     const n = Math.max(0, ...pages.filter((k) => k.startsWith(`${b.item}#`)).map((k) => Number(k.split('#')[1].replace(/\D/g, '')) || 0)) + 1;
     moveTo(b, `${b.item}#${n}`);
   };
+  const [editText, setEditText] = useState<string | null>(null);
+  useEffect(() => setEditText(null), [sel]);
   const reset = (b: Box) => {
     const next = { ...draft };
     delete next[b.e.id];
@@ -194,6 +197,15 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
               <button onClick={() => setPos(selBox.e.id, { page: selBox.page, fs: Math.max(5, selBox.fs - 1) })}>가−</button>
               <span className="small">{selBox.fs}pt</span>
               <button onClick={() => setPos(selBox.e.id, { page: selBox.page, fs: Math.min(24, selBox.fs + 1) })}>가＋</button>
+              <button className={selBox.bold ? 'on' : ''} onClick={() => setPos(selBox.e.id, { page: selBox.page, bold: !selBox.bold || undefined })} title="굵게">
+                <b>B</b>
+              </button>
+              <button className={selBox.hl ? 'on' : ''} onClick={() => setPos(selBox.e.id, { page: selBox.page, hl: !selBox.hl || undefined })} title="형광펜">
+                <span className="rc-hl-ico">형광</span>
+              </button>
+              <button onClick={() => setEditText(selBox.label)} title="글자 고치기">
+                ✎ 글자
+              </button>
               <span className="rc-sep" />
               <button disabled={pageIdx <= 0} onClick={() => moveTo(selBox, pages[pageIdx - 1])} title="앞 장으로">
                 ◀ 앞 장
@@ -210,6 +222,35 @@ export default function PettyReceipts({ pk, per, entries, rows }: { pk: string; 
             <span className="muted small">영수증을 눌러 고르면 옮기기 · 크기 · 글자를 바꿀 수 있어요 (방향키로 조금씩, Shift+방향키로 크게)</span>
           )}
         </div>
+        {selBox && editText !== null && (
+          <div className="rc-textbar">
+            <input
+              autoFocus
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setPos(selBox.e.id, { page: selBox.page, text: editText.trim() && editText.trim() !== labelOf(selBox.e) ? editText.trim() : undefined });
+                  setEditText(null);
+                }
+                if (e.key === 'Escape') setEditText(null);
+              }}
+            />
+            <button
+              className="primary"
+              onClick={() => {
+                setPos(selBox.e.id, { page: selBox.page, text: editText.trim() && editText.trim() !== labelOf(selBox.e) ? editText.trim() : undefined });
+                setEditText(null);
+              }}
+            >
+              저장
+            </button>
+            <button onClick={() => setEditText(labelOf(selBox.e))} title="처음 글자로">
+              ↺ 처음 글자
+            </button>
+            <button onClick={() => setEditText(null)}>취소</button>
+          </div>
+        )}
         <div className="rc-stage" ref={stage} onPointerDown={() => setSel(null)}>
           <div style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
             <RcPage boxes={boxes.filter((b) => b.page === page)} scale={scale} sel={sel} onDrag={drag} />
@@ -261,9 +302,12 @@ function RcPage({ boxes, scale, sel, onDrag }: { boxes: Box[]; scale: number; se
         const st: CSSProperties = { left: u(b.x), top: u(b.y), width: u(b.w), height: u(b.h) };
         return (
           <div key={b.e.id} className={`rc-box ${sel === b.e.id ? 'sel' : ''} ${b.e.paper && !b.e.receipt ? 'paper' : ''}`} style={st} onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'move') : undefined}>
-            <div className="rc-label" style={{ fontSize: pt(b.fs), left: u(b.lx), top: u(b.ly), height: u(LABEL_H) }} onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'label') : undefined}>
-              {b.label}
-              <span className="rc-amt"> {won(b.e.amount)}</span>
+            <div
+              className={`rc-label ${b.bold ? 'bold' : ''}`}
+              style={{ fontSize: pt(b.fs), left: u(b.lx), top: u(b.ly), height: u(LABEL_H) }}
+              onPointerDown={onDrag ? (ev) => onDrag(ev, b, 'label') : undefined}
+            >
+              <span className={b.hl ? 'rc-hl' : ''}>{b.label}</span>
             </div>
             <div className="rc-img" style={{ top: u(LABEL_H) }}>
               {b.e.receipt && isImg(b.e) ? (
