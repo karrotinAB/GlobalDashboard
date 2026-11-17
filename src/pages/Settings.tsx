@@ -226,7 +226,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           + 업체 추가
         </button>
       </section>
-      <StoreAreaSection />
+      {side !== 'trade' && <StoreAreaSection />}
       <section className="card">
         <h2>데이터</h2>
         <div className="btn-row">
