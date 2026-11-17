@@ -8007,3 +8007,6 @@ td.c-people { min-width: 120px; }
 .rc-label-edit { position: absolute; z-index: 6; resize: none; border: 1.5px solid #8c2f3c; background: #fffdf3; padding: 0 2px; line-height: 1.2; font-family: inherit; color: #111; outline: none; overflow: hidden; height: auto; }
 .rc-hl-dot { width: 18px; height: 18px; border-radius: 50%; padding: 0 !important; border: 2px solid #fff !important; box-shadow: 0 0 0 1px #ccc; }
 .rc-hl-dot.on { box-shadow: 0 0 0 2px #8c2f3c; }
+/* 프린트 서류: 고칠 수 있는 칸은 화면에서만 살짝 표시 */
+.ps-page .ps-in:not(:focus):hover { background: #fff8e1; box-shadow: inset 0 -1px 0 #d9b9b3; cursor: text; }
+.ps-page textarea.ps-in, .ps-page input.ps-in { border-radius: 2px; }
