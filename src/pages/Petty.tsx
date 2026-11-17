@@ -300,6 +300,33 @@ function ReceiptCell({ email, file, paper, onChange }: { email: string; file?: P
   );
 }
 
+/** 날짜: 누르면 달력으로 고치기 (다른 기간 날짜로 바꾸면 그 기간으로 옮겨가요) */
+function DateEdit({ value, onSave }: { value: string; onSave: (d: string) => void }) {
+  const [edit, setEdit] = useState(false);
+  if (!edit)
+    return (
+      <button className="pc-date-btn" onClick={() => setEdit(true)} title="눌러서 날짜 고치기">
+        {md(value)}
+      </button>
+    );
+  return (
+    <input
+      type="date"
+      autoFocus
+      className="pc-date-in"
+      defaultValue={value}
+      onBlur={(x) => {
+        if (x.target.value && x.target.value !== value) onSave(x.target.value);
+        setEdit(false);
+      }}
+      onKeyDown={(x) => {
+        if (x.key === 'Enter') (x.target as HTMLInputElement).blur();
+        if (x.key === 'Escape') setEdit(false);
+      }}
+    />
+  );
+}
+
 /** 이미 쓴 줄: 그 줄 위로 영수증을 끌어다 놓거나, 줄을 누르고 Ctrl+V */
 function DropRow({ e, enabled, children }: { e: PettyEntry; enabled: boolean; children: React.ReactNode }) {
   const d = useReceiptDrop(e.email, (f) => void savePettyEntry({ ...e, receipt: f, paper: undefined }));
@@ -340,7 +367,9 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
         <tbody>
           {rows.map((e) => (
             <DropRow key={e.id} e={e} enabled={canDelete}>
-              <td className="pc-d">{md(e.date)}</td>
+              <td className="pc-d">
+                <DateEdit value={e.date} onSave={(d) => patch(e, { date: d })} />
+              </td>
               {kind === 'expense' ? (
                 <>
                   <td>

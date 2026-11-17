@@ -7927,3 +7927,7 @@ td.c-people { min-width: 120px; }
 /* 영수증 끌어다 놓기 */
 .pc-drop { outline: 2px dashed #8c2f3c; outline-offset: -2px; background: #fbeeee !important; }
 .pc-drop-hint { width: 100%; margin: 0; font-size: 11.5px; }
+.pc-date-btn { border: 0; background: none; padding: 2px 4px; margin: -2px -4px; border-radius: 6px; font: inherit; color: inherit; cursor: pointer; }
+.pc-date-btn:hover { background: #f6eeec; }
+.pc-date-in { height: 30px; font-size: 12.5px; width: 130px; }
+.pc-table .pc-d { width: auto; }
