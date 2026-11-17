@@ -7933,3 +7933,11 @@ td.c-people { min-width: 120px; }
 .pc-table .pc-d { width: auto; }
 .pc-add:focus { outline: 2px solid #e8c9c3; outline-offset: -1px; }
 .pc-table tr:focus { outline: none; background: #fbf6f4; }
+/* 전도금 계좌: 저장 후 잠금 (회색) */
+.pc-acc-fields input.locked { background: #f1eeed; color: #6f6461; border-color: #e4dedc; cursor: default; }
+.pc-acc-fields input.locked:focus { outline: none; box-shadow: none; }
+.pc-acc-edit { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 7px 0; font-size: 13.5px; cursor: pointer; color: var(--ink-2); }
+.pc-acc-edit:hover { background: #f6eeec; }
+.pc-acc-btns { display: flex; gap: 6px; }
+.pc-acc-btns .primary { flex: 1; }
+.pc-acc-btns button:not(.primary) { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 0 14px; cursor: pointer; }

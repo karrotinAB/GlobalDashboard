@@ -170,9 +170,14 @@ function AccountCard({ email, name, expense, transport }: { email: string; name:
     setAccount(acc.account ?? '');
   }, [acc]);
   const dirty = !!acc && (bank !== (acc.bank ?? '') || account !== (acc.account ?? ''));
+  // 한 번 저장한 계좌는 잠가 두고 '수정'을 눌러야 고침
+  const hasSaved = !!acc && !!(acc.bank || acc.account);
+  const [editing, setEditing] = useState(false);
+  const locked = hasSaved && !editing;
   const save = async () => {
     try {
       await savePettyAccount(email, { name, bank: bank.trim() || undefined, account: account.trim() || undefined });
+      setEditing(false);
       setMsg('저장했어요');
       setTimeout(() => setMsg(''), 1500);
     } catch (e) {
@@ -183,11 +188,38 @@ function AccountCard({ email, name, expense, transport }: { email: string; name:
     <section className="card pc-account">
       <b className="pc-name">{name}</b>
       <div className="pc-acc-fields">
-        <input className="pc-bank" placeholder="은행 (예: 국민)" value={bank} onChange={(e) => setBank(e.target.value)} />
-        <input className="pc-acc" placeholder="계좌번호" inputMode="numeric" value={account} onChange={(e) => setAccount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
-        <button className="primary" disabled={!dirty} onClick={() => void save()}>
-          계좌 저장
-        </button>
+        <input className={`pc-bank ${locked ? 'locked' : ''}`} readOnly={locked} placeholder="은행 (예: 국민)" value={bank} onChange={(e) => setBank(e.target.value)} />
+        <input
+          className={`pc-acc ${locked ? 'locked' : ''}`}
+          readOnly={locked}
+          placeholder="계좌번호"
+          inputMode="numeric"
+          value={account}
+          onChange={(e) => setAccount(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !locked && void save()}
+        />
+        {locked ? (
+          <button className="pc-acc-edit" onClick={() => setEditing(true)}>
+            ✎ 수정
+          </button>
+        ) : (
+          <div className="pc-acc-btns">
+            <button className="primary" disabled={!dirty} onClick={() => void save()}>
+              계좌 저장
+            </button>
+            {hasSaved && (
+              <button
+                onClick={() => {
+                  setBank(acc?.bank ?? '');
+                  setAccount(acc?.account ?? '');
+                  setEditing(false);
+                }}
+              >
+                취소
+              </button>
+            )}
+          </div>
+        )}
         {msg && <span className="muted small">{msg}</span>}
       </div>
       <div className="pc-sums">
