@@ -1,5 +1,6 @@
 // 조 현황 (팀장님·이사님·관리자): 1~3조의 이번 주 할일 · 주문 · 클레임을 한눈에 (읽기 전용)
 // 조 대시보드에 '들어가는' 게 아니라, 모든 조 정보를 한 화면에서 확인하는 용도
+import { useOrderUsd } from '../lib/sales';
 import { Fragment, useMemo, useState, type CSSProperties } from 'react';
 import { useIsMobile } from '../lib/useMobile';
 import { useSpaceData, useStore } from '../data/store';
@@ -370,8 +371,22 @@ interface Unit {
 }
 const stepsDone = (o: Order) => ORDER_STEPS.filter((s) => o[s.key]).length;
 
-function OrdersView({ teams, q }: { teams: TeamData[]; q: string }) {
+function OrdersView({ teams: teams0, q }: { teams: TeamData[]; q: string }) {
   const [tab, setTab] = useState<'open' | 'done'>('open');
+  // 수출 통화가 USD 가 아닌 업체: 외화를 USD 로 바꾸고 원래 외화(fxOrig)는 아래 작게
+  const fxc = useOrderUsd(
+    teams0.flatMap((t) => t.companies),
+    teams0.flatMap((t) => t.orders),
+  );
+  const teams = useMemo(
+    () =>
+      teams0.map((t) => ({
+        ...t,
+        orders: t.orders.map((o) => (fxc.curOf(o) === 'USD' || o.amountForeign === undefined ? o : ({ ...o, amountForeign: fxc.usd(o, o.amountForeign), fxOrig: fxc.orig(o, o.amountForeign) } as Order))),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [teams0, fxc.table],
+  );
   const [detail, setDetail] = useState<Unit | null>(null);
   const query = q.trim().toLowerCase();
   const units = useMemo(() => {
@@ -534,7 +549,10 @@ function UnitDetail({ u, onClose }: { u: Unit; onClose: () => void }) {
                   <td>{o.shipFrom ?? ''}</td>
                   <td>{o.packing ?? ''}</td>
                   <td className="r nowrap">{fmtKRW(o.amountKRW)}</td>
-                  <td className="r nowrap">{fmtFX(o.amountForeign)}</td>
+                  <td className="r nowrap">
+                    {fmtFX(o.amountForeign)}
+                    {(o as Order & { fxOrig?: string }).fxOrig && <small className="fx-orig">{(o as Order & { fxOrig?: string }).fxOrig}</small>}
+                  </td>
                 </tr>
               );
             })}

@@ -1,3 +1,4 @@
+import { useOrderUsd } from '../lib/sales';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
@@ -53,6 +54,8 @@ function toUnits(rows: Order[]): Unit[] {
 export default function Orders() {
   const { data, save, saveMany, remove } = useStore();
   const { myCompanies: companies, companyById } = useLookups();
+  // 수출 통화가 USD 가 아닌 업체: 외화는 USD 로 바꿔 보여주고 원래 외화는 아래 작게
+  const fxc = useOrderUsd(companies, data.orders);
   const [tab, setTab] = useState<Tab>('open');
   // ERP 내역 보기: 모두 (저장된 값 — API 안 부름) · 'ERP 에서 다시 조회'는 관리자만 (API 2~3번)
   const canQuery = DATA_MODE === 'firestore' && useAccess().role === 'admin';
@@ -534,7 +537,10 @@ export default function Orders() {
             </td>
             {/* 묶음 합계는 원화/외화 금액 칸 바로 위에 */}
             <td className="c-amt bundle-amt">{hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}</td>
-            <td className="c-amt bundle-amt">{hasAmt(u.orders, 'amountForeign') && fmtFX(sum(u.orders, 'amountForeign'))}</td>
+            <td className="c-amt bundle-amt">
+              {hasAmt(u.orders, 'amountForeign') && fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}
+              {hasAmt(u.orders, 'amountForeign') && fxc.orig(u.orders[0], 1) && <small className="fx-orig">{fxc.orig(u.orders[0], sum(u.orders, 'amountForeign'))}</small>}
+            </td>
             <td colSpan={2} />
           </tr>
         )}
@@ -632,6 +638,17 @@ export default function Orders() {
           <AmountCell
             value={o.amountForeign}
             kind="fx"
+            ph={fxc.curOf(o) !== 'USD' ? fxc.curOf(o) : undefined}
+            display={
+              fxc.curOf(o) !== 'USD'
+                ? (v) => (
+                    <>
+                      {fmtFX(fxc.usd(o, v))}
+                      <small className="fx-orig">{fxc.orig(o, v)}</small>
+                    </>
+                  )
+                : undefined
+            }
             onSave={(v) => patch({ amountForeign: v, amountSource: v === undefined && o.amountKRW === undefined ? undefined : 'manual' })}
           />
         </td>

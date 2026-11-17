@@ -8,7 +8,7 @@ import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { physName, DEFAULT_TEAM } from '../lib/team';
-import { fullAmt, rateOn, shortAmt, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
+import { exportCur, fmtCur, fullAmt, rateOn, shortAmt, toUsd, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
 import { isOrderDone, type Company, type Order } from '../types';
 import { CoSelect, LIST, MobileCoList } from './MobilePick';
 
@@ -102,7 +102,8 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
   const { months: sales } = useSales(royaltyCos.flatMap((c) => c.storeCodes ?? []));
   const branchNames = useStoreBranches(royaltyCos.flatMap((c) => c.storeCodes ?? []));
   // 판매일 ECOS 환율 (주말·공휴일은 그 전 영업일). 앞 달도 같이 (월초 주말용)
-  const fxTable = useFxRates([...royaltyCos.map((c) => c.salesCurrency ?? ''), 'USD'], [shiftMonth(month, -1), month]);
+  // + 수출 통화가 USD 가 아닌 업체 (주문 외화 → USD)
+  const fxTable = useFxRates([...royaltyCos.map((c) => c.salesCurrency ?? ''), ...companies.map((c) => exportCur(c)), 'USD'], [shiftMonth(month, -1), month]);
   const salesOf = (c: Company, mo: string = month, fx: FxTable = fxTable) => {
     const docs = sales.filter((m) => m.month === mo && (c.storeCodes ?? []).includes(m.code));
     const cur0 = c.salesCurrency;
@@ -181,16 +182,24 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
             }
           }
           // 지난 달은 이미 마감 → 패킹 중은 이번 달에만
-          const pack = (month < thisMonth() ? [] : orders).map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
+          const pack0 = (month < thisMonth() ? [] : orders).map((o) => ({ o, v: packingOf(o) })).filter((x): x is { o: Order; v: NonNullable<ReturnType<typeof packingOf>> } => !!x.v);
+          // 수출 통화가 USD 가 아니면 외화를 USD 로 (출고일 · 주문일 환율), 원래 외화는 fo 에
+          const cur = exportCur(c);
+          const cv = (f: number, d?: string | null) => (cur === 'USD' || !f ? f : (toUsd(fx, cur, f, d) ?? f));
+          const shipU = ship.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: x.v.f, f: cv(x.v.f, x.v.date ?? x.o.orderDate) } }));
+          const pack = pack0.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: x.v.f, f: cv(x.v.f, x.o.orderDate) } }));
           // 로열티 받기 시작한 달 전에는 없음
           const sale = c.royalty && (!c.royaltyFrom || month >= c.royaltyFrom) ? salesOf(c, month, fx) : null;
           const r = {
             c,
-            ship,
+            ship: shipU,
             pack,
+            cur,
+            shipFo: cur === 'USD' ? 0 : ship.reduce((a, x) => a + x.v.f, 0),
+            packFo: cur === 'USD' ? 0 : pack0.reduce((a, x) => a + x.v.f, 0),
             sale,
             shipK: ship.reduce((a, x) => a + x.v.k, 0),
-            shipF: ship.reduce((a, x) => a + x.v.f, 0),
+            shipF: shipU.reduce((a, x) => a + x.v.f, 0),
             packK: pack.reduce((a, x) => a + x.v.k, 0),
             packF: pack.reduce((a, x) => a + x.v.f, 0),
             royalty: sale ? sale.royK : 0, // 원화 (판매일 환율)
@@ -212,7 +221,7 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
   for (let mo = `${year}-01`; mo <= `${year}-12` && mo <= thisMonth(); mo = shiftMonth(mo, 1)) yearMonths.push(mo);
   const wantYear = view === 'pie' && pieYear;
   const erpYear = useExportYear(companies.flatMap((c) => c.storeCodes ?? []), wantYear ? yearMonths : []);
-  const fxYear = useFxRates(wantYear ? [...royaltyCos.map((c) => c.salesCurrency ?? ''), 'USD'] : [], wantYear ? [shiftMonth(yearMonths[0], -1), ...yearMonths] : []);
+  const fxYear = useFxRates(wantYear ? [...royaltyCos.map((c) => c.salesCurrency ?? ''), ...companies.map((c) => exportCur(c)), 'USD'] : [], wantYear ? [shiftMonth(yearMonths[0], -1), ...yearMonths] : []);
   const yearRows = useMemo(() => {
     if (!wantYear) return [];
     const by = new Map<string, { c: Company; total: number; totalF: number }>();
@@ -233,7 +242,8 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
   const rows = teamF ? allRows.filter((r) => teamOf(r.c) === teamF) : allRows;
   const scope = coId ? rows.filter((r) => r.c.id === coId) : rows;
   const sum = (k: 'shipK' | 'shipF' | 'packK' | 'packF' | 'royalty' | 'royaltyF' | 'total' | 'totalF') => scope.reduce((a, r) => a + r[k], 0);
-  const fxCode = scope.flatMap((r) => [...r.ship, ...r.pack]).find((x) => x.o.fxCode)?.o.fxCode;
+  // 외화를 USD 로 바꾼 업체가 섞여 있으면 합계는 USD ($)
+  const fxCode = scope.some((r) => r.cur !== 'USD') ? undefined : scope.flatMap((r) => [...r.ship, ...r.pack]).find((x) => x.o.fxCode)?.o.fxCode;
   const now = thisMonth();
   const [y, m] = month.split('-').map(Number);
   // 순서: ④ 총 수출 → ① 출고 → ② 패킹 중 → ③ 로열티
@@ -360,7 +370,7 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
               note="주문 관리에서 출고(완료) 체크한 주문의 ERP 출고승인 금액 · 출고일이 이 달인 것"
               title={`① ${m}월 출고 금액 — 출고승인 난 주문`}
               empty="이 달 출고승인 난 주문이 없어요."
-              items={scope.flatMap((r) => r.ship.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: x.v.date?.slice(5).replace('-', '/') ?? '' })))}
+              items={scope.flatMap((r) => r.ship.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, fo: (x.v as { fo?: number }).fo, cur: r.cur, extra: x.v.date?.slice(5).replace('-', '/') ?? '' })))}
               extraHead="출고일"
               showCo={!coId}
             />
@@ -370,7 +380,7 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
               note={month < now ? '지난 달은 마감이라 패킹 중 금액은 넣지 않아요 (이번 달에만 보여요)' : '주문 들어갔고 아직 출고 체크 전인 주문 전부 (ERP 출고승인이 났어도) · 지금 기준'}
               title="② 패킹 중 금액 — 아직 출고 체크 전인 주문"
               empty={month < now ? '지난 달은 마감 — 패킹 중 없음' : '패킹 중인 주문이 없어요.'}
-              items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, extra: `${x.o.packing?.trim() || '—'}${x.v.approved ? ' · ERP 출고승인 (출고 체크 전)' : x.v.partial ? ' · 일부 승인' : ''}` })))}
+              items={scope.flatMap((r) => r.pack.map((x) => ({ c: r.c, o: x.o, k: x.v.k, f: x.v.f, fo: (x.v as { fo?: number }).fo, cur: r.cur, extra: `${x.o.packing?.trim() || '—'}${x.v.approved ? ' · ERP 출고승인 (출고 체크 전)' : x.v.partial ? ' · 일부 승인' : ''}` })))}
               extraHead="패킹 예정일"
               showCo={!coId}
             />
@@ -406,9 +416,9 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
                       <span className="dot" style={{ background: r.c.color }} /> {hasTeams && <span className="team-tag">{r.c.team ? `${r.c.team}조` : '내'}</span>}
                       {r.c.name}
                     </th>
-                    <KF k={r.total} f={r.totalF} bold />
-                    <KF k={r.shipK} f={r.shipF} />
-                    <KF k={r.packK} f={r.packF} />
+                    <KF k={r.total} f={r.totalF} bold orig={r.cur !== 'USD' ? fmtCur(r.cur, r.shipFo + r.packFo) : undefined} />
+                    <KF k={r.shipK} f={r.shipF} orig={r.cur !== 'USD' && r.shipFo ? fmtCur(r.cur, r.shipFo) : undefined} />
+                    <KF k={r.packK} f={r.packF} orig={r.cur !== 'USD' && r.packFo ? fmtCur(r.cur, r.packFo) : undefined} />
                     {r.c.royalty ? <KF k={r.royalty} f={r.royaltyF} /> : <td className="r">—</td>}
                   </tr>
                 ))}
@@ -446,7 +456,7 @@ function OrderList({
   title: string;
   note?: string;
   empty: string;
-  items: { c: Company; o: Order; k: number; f: number; extra: string }[];
+  items: { c: Company; o: Order; k: number; f: number; fo?: number; cur?: string; extra: string }[];
   extraHead: string;
   showCo: boolean;
 }) {
@@ -474,7 +484,7 @@ function OrderList({
               </tr>
             </thead>
             <tbody>
-              {sorted.map(({ c, o, k, f, extra }) => (
+              {sorted.map(({ c, o, k, f, fo, cur, extra }) => (
                 <tr key={o.id}>
                   {showCo && <td>{c.name}</td>}
                   <td>
@@ -495,7 +505,10 @@ function OrderList({
                   <td>{o.storeCode ?? ''}</td>
                   <td>{extra}</td>
                   <td className="r">{k ? fullAmt(k) : '—'}</td>
-                  <td className="r">{f ? fx(f, o.fxCode) : '—'}</td>
+                  <td className="r">
+                    {f ? (fo !== undefined ? fx(f) : fx(f, o.fxCode)) : '—'}
+                    {fo !== undefined && cur && <small className="fx-orig">{fmtCur(cur, fo)}</small>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -699,12 +712,13 @@ function Amts({ krw, fx: f }: { krw: string; fx: string }) {
 
 /** 표 칸: 원화 (짧게) + 아래 외화 */
 const shortUsd = (n: number) => (Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : Math.abs(n) >= 1e3 ? `$${(n / 1e3).toFixed(1)}k` : `$${n.toFixed(0)}`);
-function KF({ k, f, bold }: { k: number; f: number; bold?: boolean }) {
+function KF({ k, f, bold, orig }: { k: number; f: number; bold?: boolean; orig?: string }) {
   if (!k && !f) return <td className="r">—</td>;
   return (
-    <td className="r kf" title={`${won(k)}${f ? ` · ${fx(f)}` : ''}`}>
+    <td className="r kf" title={`${won(k)}${f ? ` · ${fx(f)}` : ''}${orig ? ` (원래 ${orig})` : ''}`}>
       {bold ? <b>{shortAmt(k)}</b> : shortAmt(k)}
       {f ? <small className="kf-fx">{shortUsd(f)}</small> : null}
+      {orig ? <small className="fx-orig">{orig}</small> : null}
     </td>
   );
 }

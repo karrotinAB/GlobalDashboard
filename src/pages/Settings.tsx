@@ -1,3 +1,4 @@
+import { SALES_CURRENCIES } from '../lib/sales';
 import { saveWorkTypes, useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
@@ -188,6 +189,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
                 <th className="m-hide">나라 (시계 이름)</th>
                 <th className="m-hide">매장코드 (4자리)</th>
                 <th className="m-hide">타임존</th>
+                <th className="m-hide" title="이 업체 주문 외화가 USD 가 아니면 골라 주세요. 화면에는 USD 로 바꿔서 보여주고 원래 외화는 아래 작게">수출 통화</th>
                 <th>색</th>
                 <th className="m-hide">순서</th>
                 <th className="m-hide" />
@@ -481,6 +483,7 @@ function CompanyRow({
         <td className="m-hide">{c.country}</td>
         <td className="m-hide">{(c.storeCodes ?? []).join(', ')}</td>
         <td className="m-hide">{c.timezone ?? ''}</td>
+        <td className="m-hide">{c.exportCurrency || 'USD'}</td>
         <td>
           <span className="dot" style={{ background: c.color }} />
         </td>
@@ -556,6 +559,13 @@ function CompanyRow({
       ))}
     </select>
   );
+  const curEl = (
+    <select value={c.exportCurrency ?? 'USD'} onChange={(e) => onSave({ ...c, exportCurrency: e.target.value === 'USD' ? undefined : e.target.value })} title="주문 외화 통화 (기본 USD)">
+      {SALES_CURRENCIES.filter((x) => x !== 'KRW').map((x) => (
+        <option key={x}>{x}</option>
+      ))}
+    </select>
+  );
   const colorEl = <input type="color" value={c.color ?? '#888888'} onChange={(e) => onSave({ ...c, color: e.target.value })} />;
   const orderEl = <input type="number" className="num" value={c.order} onChange={(e) => onSave({ ...c, order: Number(e.target.value) })} />;
   const delEl = onDelete && (
@@ -570,6 +580,7 @@ function CompanyRow({
       <td className="m-hide">{countryEl}</td>
       <td className="m-hide">{codesEl}</td>
       <td className="m-hide">{tzEl}</td>
+      <td className="m-hide">{curEl}</td>
       <td className="c-color">{colorEl}</td>
       <td className="m-hide">{orderEl}</td>
       <td className="m-hide">{delEl}</td>
@@ -595,6 +606,10 @@ function CompanyRow({
               <label>
                 <span>타임존</span>
                 {tzEl}
+              </label>
+              <label>
+                <span>수출 통화 (기본 USD)</span>
+                {curEl}
               </label>
               <div className="mset-row">
                 <label>

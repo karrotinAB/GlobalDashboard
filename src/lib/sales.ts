@@ -228,3 +228,61 @@ export function guessCurrency(country?: string): string | undefined {
   ];
   return map.find(([re]) => re.test(c))?.[1];
 }
+
+// ---------- 수출 통화 (업체마다, 기본 USD) → 화면에는 USD 로 바꿔서 ----------
+/** 이 업체 수출 외화 통화 (없으면 USD) */
+export const exportCur = (c?: { exportCurrency?: string } | null) => (c?.exportCurrency && c.exportCurrency !== 'USD' && c.exportCurrency !== 'KRW' ? c.exportCurrency : 'USD');
+/** 표 안에서 그 통화의 가장 최근 환율 (그날 환율이 아직 없을 때) */
+function latestRate(table: FxTable, cur: string) {
+  const months = Object.keys(table[cur] ?? {}).sort().reverse();
+  for (const m of months) {
+    const days = Object.keys(table[cur][m] ?? {}).sort().reverse();
+    if (days.length) return { rate: table[cur][m][days[0]], date: `${m}-${days[0]}` };
+  }
+  return null;
+}
+/** 외화 → USD: 그날(주말이면 그 전 영업일) 환율, 없으면 받아 둔 가장 최근 환율. 환율이 아예 없으면 null */
+export function toUsd(table: FxTable, cur: string, amount: number, iso?: string | null): number | null {
+  if (cur === 'USD') return amount;
+  const day = iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const a = rateOn(table, cur, day) ?? latestRate(table, cur);
+  const u = rateOn(table, 'USD', day) ?? latestRate(table, 'USD');
+  return a && u ? (amount * a.rate) / u.rate : null;
+}
+const CUR_SIGN: Record<string, string> = { JPY: '¥', EUR: '€', GBP: '£', CNY: 'CN¥', USD: '$' };
+/** 원래 외화 표시 (예: ¥1,234,567) */
+export const fmtCur = (cur: string, n?: number | null) => (n === undefined || n === null ? '' : `${CUR_SIGN[cur] ?? `${cur} `}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
+const monthOf = (iso?: string | null) => (iso && /^\d{4}-\d{2}/.test(iso) ? iso.slice(0, 7) : '');
+const nowMonth = () => new Date().toISOString().slice(0, 7);
+const prevMon = (m: string) => {
+  const [y, mo] = m.split('-').map(Number);
+  const d = new Date(y, mo - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/**
+ * 주문 외화 → USD 바꾸개: 수출 통화가 USD 가 아닌 업체 주문만 바꿈 (주문일 환율)
+ *   usd(o, n) → USD 금액 (바꿀 수 없으면 원래 숫자) · orig(o, n) → 원래 외화 글자 (USD 업체면 '')
+ */
+export function useOrderUsd(companies: { id: string; exportCurrency?: string }[], orders: { companyId?: string | null; orderDate?: string; createdAt?: string }[]) {
+  const curById = new Map(companies.map((c) => [c.id, exportCur(c)]));
+  const foreign = orders.filter((o) => (curById.get(o.companyId ?? '') ?? 'USD') !== 'USD');
+  const curs = [...new Set(foreign.map((o) => curById.get(o.companyId ?? '')!))];
+  const months = curs.length ? [...new Set([nowMonth(), prevMon(nowMonth()), ...foreign.map((o) => monthOf(o.orderDate || o.createdAt)).filter(Boolean)])] : [];
+  const table = useFxRates(curs.length ? [...curs, 'USD'] : [], months);
+  const curOf = (o: { companyId?: string | null }) => curById.get(o.companyId ?? '') ?? 'USD';
+  return {
+    curOf,
+    usd: (o: { companyId?: string | null; orderDate?: string; createdAt?: string }, n?: number | null, date?: string | null): number | undefined => {
+      if (n === undefined || n === null) return undefined;
+      const cur = curOf(o);
+      if (cur === 'USD') return n;
+      return toUsd(table, cur, n, date ?? o.orderDate ?? o.createdAt) ?? n;
+    },
+    orig: (o: { companyId?: string | null }, n?: number | null) => {
+      const cur = curOf(o);
+      return cur === 'USD' || n === undefined || n === null ? '' : fmtCur(cur, n);
+    },
+    table,
+  };
+}

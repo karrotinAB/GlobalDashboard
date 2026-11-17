@@ -390,7 +390,11 @@ async function ecosKey() {
 async function fxCurrencies() {
   const set = new Set(['USD']);
   for (const space of await allSpaces()) {
-    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) if ((d.get('royalty') || d.get('salesOn')) && d.get('salesCurrency')) set.add(String(d.get('salesCurrency')));
+    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) {
+      if ((d.get('royalty') || d.get('salesOn')) && d.get('salesCurrency')) set.add(String(d.get('salesCurrency')));
+      // 수출 통화가 USD 가 아닌 업체 (주문 외화 → USD 로 바꿔 보여줄 때)
+      if (d.get('exportCurrency') && d.get('exportCurrency') !== 'KRW') set.add(String(d.get('exportCurrency')));
+    }
   }
   return [...set];
 }

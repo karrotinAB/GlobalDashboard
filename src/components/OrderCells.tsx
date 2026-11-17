@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState , type ReactNode } from 'react';
 import type { Company, Order } from '../types';
 import { today, uid } from '../lib/date';
 import DateInput from './DateInput';
@@ -188,7 +188,8 @@ export const fmtFX = (n?: number) =>
   n === undefined ? '' : `$${n.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
 
 /** 금액 칸: 평소엔 ₩1,234,500 / $12,345.6 으로 보이고, 누르면 숫자 입력 (붙여넣기 가능) */
-export function AmountCell({ value, kind, onSave }: { value?: number; kind: 'krw' | 'fx'; onSave: (v?: number) => void }) {
+/** display: 평소 보이는 모양을 바꿀 때 (예: 엔화 업체 → USD + 아래 작게 원래 엔화). 고칠 땐 원래 숫자 그대로 */
+export function AmountCell({ value, kind, onSave, display, ph }: { value?: number; kind: 'krw' | 'fx'; onSave: (v?: number) => void; display?: (v: number) => ReactNode; ph?: string }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const fmt = kind === 'krw' ? fmtKRW : fmtFX;
@@ -201,7 +202,7 @@ export function AmountCell({ value, kind, onSave }: { value?: number; kind: 'krw
           setEditing(true);
         }}
       >
-        {value !== undefined ? fmt(value) : <span className="cell-ph">{kind === 'krw' ? '₩' : '$'}</span>}
+        {value !== undefined ? (display ? display(value) : fmt(value)) : <span className="cell-ph">{ph ?? (kind === 'krw' ? '₩' : '$')}</span>}
       </div>
     );
   }

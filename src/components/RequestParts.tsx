@@ -1,4 +1,5 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
+import { useOrderUsd } from '../lib/sales';
 import { useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState, type ClipboardEvent, type CSSProperties } from 'react';
 import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
@@ -358,7 +359,8 @@ function Fields({
 function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' }) {
   const space = useSpaceData(link.team, ['orders', 'companies']);
   const orders = (space.data.orders as Order[] | undefined) ?? [];
-  const companies = (space.data.companies as { id: string; name: string }[] | undefined) ?? [];
+  const companies = (space.data.companies as { id: string; name: string; exportCurrency?: string }[] | undefined) ?? [];
+  const fxc = useOrderUsd(companies, orders);
   const list = link.bundleId ? orders.filter((o) => o.bundle?.id === link.bundleId) : orders.filter((o) => o.id === link.orderId);
   const won = (n?: number) => (n !== undefined ? `₩${Math.round(n).toLocaleString()}` : '-');
   const usd = (n?: number) => (n !== undefined ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-');
@@ -429,7 +431,10 @@ function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' 
                   </td>
                   <td>{o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : isOrderDone(o) ? '완료' : '대기'}</td>
                   <td className="r">{won(o.amountKRW)}</td>
-                  <td className="r">{usd(o.amountForeign)}</td>
+                  <td className="r">
+                    {usd(fxc.usd(o, o.amountForeign))}
+                    {fxc.orig(o, o.amountForeign) && <small className="fx-orig">{fxc.orig(o, o.amountForeign)}</small>}
+                  </td>
                 </tr>
               ))}
             </tbody>

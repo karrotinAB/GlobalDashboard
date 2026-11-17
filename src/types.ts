@@ -35,6 +35,7 @@ export interface Company {
   memo?: string; // 업체 메모 (주간 할일 화면 업체 이름 옆, 첫 줄만 보임)
   memoUpdatedAt?: string;
   memoUpdatedBy?: string;
+  exportCurrency?: string; // 수출 외화 통화 (없으면 USD). USD 가 아니면 화면에는 USD 로 바꿔서 보여주고 원래 외화는 아래 작게
 }
 
 export interface Task {

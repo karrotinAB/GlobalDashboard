@@ -7960,3 +7960,5 @@ td.c-people { min-width: 120px; }
 .wt-edit-add input { flex: 1; }
 /* 처리자 이름 칩: 각자 담당자 카드에 정한 색 */
 .pp-chip.has-c { background: color-mix(in srgb, var(--c) 24%, #fff); color: color-mix(in srgb, var(--c) 55%, #2a1a1a); }
+/* 수출 통화가 USD 가 아닌 업체: USD 아래 원래 외화 작게 회색 */
+.fx-orig { display: block; font-size: 10.5px; color: #9a8f8c; font-weight: 400; line-height: 1.2; white-space: nowrap; }
