@@ -7,7 +7,9 @@ import { TEAMS } from '../lib/team';
 import { memoHtml } from '../lib/richtext';
 import { uid } from '../lib/date';
 import { coKey, saveCoMemo, useTradeMemos, type MemoItem } from '../lib/tradeMemos';
-import type { Company } from '../types';
+import type { Claim, Company } from '../types';
+import { Modal } from '../components/ui';
+import { fmtFX, fmtKRW } from '../components/OrderCells';
 
 export type TeamCo = Company & { team: string };
 
@@ -147,6 +149,7 @@ function CompanyMemoView({ c, items: saved }: { c: TeamCo; items: MemoItem[] }) 
         <h2>{c.name}</h2>
         <span className="team-tag">{c.team}조</span>
         {c.country && <span className="muted small">{c.country}</span>}
+        <TeamClaimsBtn c={c} />
       </div>
       {/* 조 메모: 주간 할일 업체 이름 옆 메모 (그 조에서만 고침) */}
       <div className="tm-team-memo">
@@ -171,5 +174,79 @@ function CompanyMemoView({ c, items: saved }: { c: TeamCo; items: MemoItem[] }) 
         </details>
       )}
     </div>
+  );
+}
+
+/** 업체 메모 옆 🧾 클레임: 그 조 대시보드에 저장된 이 업체 클레임 기록 (보기만) */
+function TeamClaimsBtn({ c }: { c: TeamCo }) {
+  const [open, setOpen] = useState(false);
+  const { data, error } = useSpaceData(c.team, open ? ['claims', 'orders'] : ['claims']);
+  const claims = (data.claims ?? []).filter((k) => k.companyId === c.id).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || (b.shipDate ?? '').localeCompare(a.shipDate ?? ''));
+  const orders = data.orders ?? [];
+  const waiting = claims.filter((k) => !k.refunded).length;
+  const titleOf = (k: Claim) =>
+    (k.source === 'bundle' ? orders.find((o) => o.bundle?.id === k.sourceId)?.bundle?.name : k.source === 'order' ? orders.find((o) => o.id === k.sourceId)?.name : undefined) || k.title;
+  const packingOf = (k: Claim): number | undefined => {
+    if (k.packingOverride !== undefined) return k.packingOverride;
+    const f = k.currency === 'KRW' ? 'amountKRW' : 'amountForeign';
+    const os = k.source === 'bundle' ? orders.filter((o) => o.bundle?.id === k.sourceId) : k.source === 'order' ? orders.filter((o) => o.id === k.sourceId) : [];
+    return os.some((o) => o[f] !== undefined) ? os.reduce((a, o) => a + (o[f] ?? 0), 0) : undefined;
+  };
+  const money = (k: Claim, v?: number) => (v === undefined ? '' : k.currency === 'KRW' ? fmtKRW(v) : fmtFX(v));
+  return (
+    <>
+      <button className={`tm-claim-btn ${waiting ? 'on' : ''}`} onClick={() => setOpen(true)} title={`${c.team}조 대시보드에 저장된 이 업체 클레임`}>
+        🧾 클레임{claims.length > 0 && <b>{waiting > 0 ? waiting : claims.length}</b>}
+      </button>
+      {open && (
+        <Modal title={`클레임 기록 · ${c.name} (${c.team}조)`} onClose={() => setOpen(false)}>
+          {error ? (
+            <p className="warn small">클레임을 읽지 못했어요 — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)</p>
+          ) : !data.claims ? (
+            <p className="muted small">불러오는 중…</p>
+          ) : claims.length === 0 ? (
+            <p className="muted small">이 업체 클레임 기록이 없어요.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="tm-claims">
+                <thead>
+                  <tr>
+                    <th>출고날짜</th>
+                    <th>주문</th>
+                    <th className="r">패킹금액</th>
+                    <th className="r">클레임 금액</th>
+                    <th className="r">비율</th>
+                    <th>서류</th>
+                    <th>환급</th>
+                    <th>비고</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {claims.map((k) => {
+                    const p = packingOf(k);
+                    const rate = p && k.claimAmount !== undefined ? (k.claimAmount / p) * 100 : undefined;
+                    return (
+                      <tr key={k.id} className={k.refunded ? 'done' : ''}>
+                        <td className="nowrap">{k.shipDate?.replace(/-/g, '.') ?? ''}</td>
+                        <td>{titleOf(k)}</td>
+                        <td className="r nowrap">{money(k, p)}</td>
+                        <td className="r nowrap">{money(k, k.claimAmount)}</td>
+                        <td className="r nowrap">{rate === undefined ? '' : `${rate.toFixed(3)}%`}</td>
+                        <td className="c">{k.docDone ? '✅' : '—'}</td>
+                        <td className="c">{k.refunded ? '✅' : '—'}</td>
+                        <td className="muted small">{k.note ?? ''}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="muted small" style={{ marginBottom: 0 }}>
+            고치는 건 {c.team}조 대시보드 › 클레임에서 해요.
+          </p>
+        </Modal>
+      )}
+    </>
   );
 }

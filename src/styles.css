@@ -7725,3 +7725,15 @@ td.c-people { min-width: 120px; }
   .claim-table thead th:nth-of-type(8) { grid-column: 4; }
   .claim-table tr.m-open td[data-label], .claim-table tr.m-open td.k-more { padding-left: 8px !important; }
 }
+
+/* 무역사무 업체 메모: 클레임 기록 버튼 · 표 */
+.tm-claim-btn { margin-left: auto; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.tm-claim-btn b { font-size: 11px; color: #fff; background: #b0413e; border-radius: 999px; padding: 0 6px; }
+.tm-claim-btn:not(.on) b { background: #a99; }
+.tm-claim-btn:hover { background: #f6eeec; }
+.tm-claims { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tm-claims th { font-size: 11px; color: var(--mut); font-weight: 500; text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+.tm-claims td { padding: 7px 8px; border-bottom: 1px solid var(--line-2); }
+.tm-claims .r { text-align: right; }
+.tm-claims .c { text-align: center; }
+.tm-claims tr.done td { color: var(--mut); }
