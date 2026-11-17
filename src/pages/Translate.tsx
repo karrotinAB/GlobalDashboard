@@ -271,7 +271,8 @@ function TranslateTab() {
     const c = new Map<string, number>();
     // 뺀 단어도 세어 둠 (뺀 단어 보기에서 다시 살릴 수 있게)
     for (const v of needEn) for (const u of [...v.tr.unknown, ...v.tr.skipped]) c.set(u, (c.get(u) ?? 0) + 1);
-    return [...c.entries()].sort((a, b) => b[1] - a[1]);
+    // 긴 단어부터 (짧은 단어를 먼저 넣으면 '러기지'가 '러기'+'지' 로 잘못 끊길 수 있어서) · 같은 길이는 많이 나온 순
+    return [...c.entries()].sort((a, b) => b[0].length - a[0].length || b[1] - a[1]);
   }, [needEn]);
   const enOf = (v: (typeof view)[number]) => edits[v.row.r] ?? v.tr.en;
 
