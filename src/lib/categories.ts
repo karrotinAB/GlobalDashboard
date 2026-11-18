@@ -24,6 +24,7 @@ export interface CatPick {
   cat: string;
   at?: string;
   by?: string;
+  season?: 'S' | 'N'; // 시즌품 / 비시즌품 (엑셀 '시즌품구분')
 }
 
 const lsGet = <T,>(k: string, d: T): T => {
@@ -88,15 +89,15 @@ export function useCatPicks() {
 }
 
 /** 고른 분류 기록 (같은 제품명은 마지막에 고른 걸로) */
-export async function savePicks(picks: { ko: string; cat: string }[], by?: string) {
+export async function savePicks(picks: { ko: string; cat: string; season?: 'S' | 'N' }[], by?: string) {
   const at = new Date().toISOString();
   const clean = picks.filter((p) => p.ko.trim() && p.cat);
   if (DATA_MODE === 'local') {
     const m = new Map(lsGet<CatPick[]>('gd:catPicks', []).map((p) => [p.id, p]));
-    for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by });
+    for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by, ...(p.season ? { season: p.season } : {}) });
     return lsSet('gd:catPicks', [...m.values()], 'gd-catpicks');
   }
-  await Promise.all(clean.map((p) => setDoc(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}) })));
+  await Promise.all(clean.map((p) => setDoc(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}) })));
 }
 
 // ---------- 비슷한 제품 찾기 ----------
@@ -132,15 +133,16 @@ export interface Suggestion {
 }
 
 /** 예시들(고른 기록 + 이 파일에서 이미 분류가 채워진 줄)로 이 제품의 분류를 추천 */
-export function makeRecommender(examples: { ko: string; cat: string }[]) {
+export function makeRecommender(examples: { ko: string; cat: string; season?: 'S' | 'N' }[]) {
   // 같은 제품명은 하나로 (마지막 것)
-  const uniq = new Map(examples.filter((e) => e.ko && e.cat).map((e) => [e.ko.trim(), e.cat]));
-  const ex = [...uniq.entries()].map(([k, cat]) => ({ k, cat, g: gramsOf(k) }));
+  const uniq = new Map(examples.filter((e) => e.ko && e.cat).map((e) => [e.ko.trim(), e]));
+  const ex = [...uniq.entries()].map(([k, e]) => ({ k, cat: e.cat, season: e.season, g: gramsOf(k) }));
   const exact = new Map(ex.map((e) => [e.k, e.cat]));
   // 글자 묶음 → 예시 번호 (흔한 묶음은 건너뜀)
   const index = new Map<string, number[]>();
   ex.forEach((e, i) => e.g.forEach((x) => index.set(x, [...(index.get(x) ?? []), i])));
-  return (name: string): Suggestion | null => {
+  // season: 이 제품이 시즌품(S)/비시즌품(N)이면 같은 구분 예시를 더 믿고, 다른 구분 예시는 덜 믿음
+  return (name: string, season?: 'S' | 'N'): Suggestion | null => {
     const k = name.trim();
     if (!k) return null;
     if (exact.has(k)) return { cat: exact.get(k)!, score: 1, like: k, exact: true };
@@ -155,7 +157,8 @@ export function makeRecommender(examples: { ko: string; cat: string }[]) {
     const by = new Map<string, { score: number; best: number; like: string }>();
     for (const i of cand) {
       const e = ex[i];
-      const s = sim(g, e.g);
+      const s0 = sim(g, e.g);
+      const s = season && e.season ? (season === e.season ? Math.min(1, s0 * 1.15) : s0 * 0.7) : s0;
       if (s < 0.2) continue;
       const cur = by.get(e.cat) ?? { score: 0, best: 0, like: '' };
       cur.score += s * s;

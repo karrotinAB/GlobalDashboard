@@ -8031,3 +8031,6 @@ td.c-people { min-width: 120px; }
 .ps-item:disabled { color: inherit; opacity: 1; cursor: default; background: transparent; }
 .ps-page .ps-in[readonly]:hover { background: none; box-shadow: none; cursor: default; }
 .pc-off-tag { background: #fde7c8; color: #8a5a00; margin-right: 4px; white-space: nowrap; }
+/* 번역: 시즌품 표시 */
+.tr-season { display: inline-block; font-size: 11px; font-weight: 700; color: #1f6b3a; background: #e3f4e6; border-radius: 999px; padding: 0 7px; margin-right: 6px; vertical-align: 1px; white-space: nowrap; }
+.tr-dl-all { margin-left: 6px; border-style: dashed !important; }

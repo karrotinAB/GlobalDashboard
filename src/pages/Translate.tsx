@@ -80,9 +80,10 @@ type TKey = (typeof TARGETS)[number]['key'];
 const PAGE = 100; // 표는 100줄씩
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, '').toLowerCase();
 /** 머리줄 칸 이름 → 어떤 칸인지 (비슷하면 찾음: [F9]수출 대분류 · 수출 대분류명 · 영어 제품명 …) */
-const classify = (raw: unknown): TKey | 'koName' | 'code' | null => {
+const classify = (raw: unknown): TKey | 'koName' | 'code' | 'season' | null => {
   const h = norm(raw).replace(/\[[^\]]*\]|\([^)]*\)|[*:·]/g, '');
   if (!h) return null;
+  if (/시즌/.test(h)) return 'season'; // 시즌품구분 (00 비시즌품 / 01 시즌품)
   const eng = /영문|영어|eng|english/.test(h);
   const named = /명$|이름|name/.test(h);
   for (const [lv, code, name, en] of [
@@ -101,7 +102,7 @@ interface Sheet {
   sheetName: string;
   headerRow: number; // 0부터
   headers: string[];
-  col: Partial<Record<TKey | 'koName' | 'code', number>>;
+  col: Partial<Record<TKey | 'koName' | 'code' | 'season', number>>;
   rows: { r: number; cells: unknown[] }[]; // 데이터 줄 (엑셀 줄 번호 r: 0부터)
   wb: unknown; // 원본 (내려받을 때 채워 넣음)
 }
@@ -140,7 +141,8 @@ function useDictMap() {
 }
 
 function TranslateTab() {
-  const { email, accountName } = useAccess();
+  const { email, accountName, role } = useAccess();
+  const isAdmin = role === 'admin' || role === null; // 관리자 (로컬 모드 포함)
   const { list, map, keys } = useDictMap();
   const [sheet, setSheet] = useKept<Sheet | null>('sheet', null);
   const [err, setErr] = useState('');
@@ -189,6 +191,7 @@ function TranslateTab() {
             setEdits({});
             setKeepParen({});
             setCodePre('');
+            setSeasonF('');
             setCatSel({});
             setPage(0);
           }
@@ -220,7 +223,10 @@ function TranslateTab() {
       const skipped = tr0.unknown.filter((u) => hiddenSet.has(u));
       const en = skipped.length ? skipped.reduce((a, w) => a.split(`[${w}]`).join(''), tr0.en).replace(/\s{2,}/g, ' ').replace(/\s+([)\],.])/g, '$1').trim() : tr0.en;
       const tr = { ...tr0, en, unknown: tr0.unknown.filter((u) => !hiddenSet.has(u)), skipped };
-      return { row, empty, ko, tr, cut, parens };
+      // 시즌품구분: '01 시즌품' → S, '00 비시즌품' → N
+      const sv = cell(row, 'season');
+      const season: 'S' | 'N' | undefined = /비시즌/.test(sv) ? 'N' : /시즌/.test(sv) ? 'S' : undefined;
+      return { row, empty, ko, tr, cut, parens, season };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet, map, keys, keepParen, hiddenSet]);
@@ -245,6 +251,7 @@ function TranslateTab() {
   // 표 검색: 제품명 · 코드 · 영문 제품명 (띄어 쓰면 모두 들어간 것만)
   const [rowQ, setRowQ] = useKept('rowQ', '');
   const [codePre, setCodePre] = useKept('codePre', ''); // 제품코드 앞 2자리
+  const [seasonF, setSeasonF] = useKept<'' | 'S' | 'N'>('seasonF', ''); // 시즌품만 / 비시즌품만
   const codePres = useMemo(() => {
     const c = new Map<string, number>();
     for (const v of onlyTodo ? todo : view) {
@@ -256,7 +263,8 @@ function TranslateTab() {
   }, [onlyTodo, todo, view]);
   const shown = useMemo(() => {
     const base0 = onlyTodo ? todo : view;
-    const base = codePre ? base0.filter((v) => cell(v.row, 'code').startsWith(codePre)) : base0;
+    const base1 = codePre ? base0.filter((v) => cell(v.row, 'code').startsWith(codePre)) : base0;
+    const base = seasonF ? base1.filter((v) => v.season === seasonF) : base1;
     const words = rowQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return base;
     return base.filter((v) => {
@@ -264,7 +272,7 @@ function TranslateTab() {
       return words.every((w) => h.includes(w));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onlyTodo, todo, view, rowQ, codePre]);
+  }, [onlyTodo, todo, view, rowQ, codePre, seasonF]);
   const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
   const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
@@ -289,8 +297,8 @@ function TranslateTab() {
   const recommend = useMemo(() => {
     const inFile = view
       .filter((v) => v.ko && cell(v.row, 'mainCode') && cell(v.row, 'subCode'))
-      .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}` }));
-    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat }))]);
+      .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}`, season: v.season }));
+    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: p.season }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, picks]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
@@ -298,7 +306,7 @@ function TranslateTab() {
   const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
   const sugOf = (v: (typeof view)[number]) => {
     if (!v.ko || !needCat(v)) return null;
-    if (!sugCache.has(v.row.r)) sugCache.set(v.row.r, recommend(v.ko));
+    if (!sugCache.has(v.row.r)) sugCache.set(v.row.r, recommend(v.ko, v.season));
     return sugCache.get(v.row.r)!;
   };
   // 같은 제품명으로 고른 적 있으면 바로 그 분류
@@ -309,7 +317,7 @@ function TranslateTab() {
   };
   const pickCat = (v: (typeof view)[number], key: string) => {
     setCatSel((x) => ({ ...x, [v.row.r]: key }));
-    if (key && v.ko) void savePicks([{ ko: v.ko, cat: key }], accountName ?? email);
+    if (key && v.ko) void savePicks([{ ko: v.ko, cat: key, season: v.season }], accountName ?? email);
   };
   // 자동 적용 초기화: 지금 보고 있는 페이지(검색 결과 · 이 페이지) 줄만 — 고른 분류 비우고 그 제품명들의 고른 기록도 지움
   const resetAuto = async () => {
@@ -329,14 +337,14 @@ function TranslateTab() {
   };
   const applyAllSuggestions = () => {
     const next: Record<number, string> = {};
-    const save: { ko: string; cat: string }[] = [];
+    const save: { ko: string; cat: string; season?: 'S' | 'N' }[] = [];
     // 지금 보고 있는 쪽(검색 결과 · 페이지)에 보이는 줄에만
     for (const v of shown.slice(page * PAGE, page * PAGE + PAGE)) {
       if (!needCat(v) || chosen(v)) continue;
       const sg = sugOf(v);
       if (sg && catByKey.has(sg.cat)) {
         next[v.row.r] = sg.cat;
-        save.push({ ko: v.ko, cat: sg.cat });
+        save.push({ ko: v.ko, cat: sg.cat, season: v.season });
       }
     }
     setCatSel((x) => ({ ...x, ...next }));
@@ -345,7 +353,8 @@ function TranslateTab() {
   const catValue = (c: Cat, k: string) => (k === 'mainCode' ? c.mainCode : k === 'mainName' ? c.mainName : k === 'mainEn' ? c.mainEn : k === 'subCode' ? c.subCode : k === 'subName' ? c.subName : k === 'subEn' ? c.subEn : '');
 
 
-  const download = async () => {
+  // all: 관리자만 — 모르는 단어 [ ] 가 남은 영문 제품명도 그대로 채워서 받기
+  const download = async (all = false) => {
     if (!sheet) return;
     const XLSX = await import('xlsx');
     const wb = sheet.wb as import('xlsx').WorkBook;
@@ -355,7 +364,7 @@ function TranslateTab() {
     if (c !== undefined)
       for (const v of needEn) {
         const en = enOf(v);
-        if (!en || /\[[^\]]+\]/.test(en)) continue; // 모르는 단어가 남은 건 비워 둠
+        if (!en || (!all && /\[[^\]]+\]/.test(en))) continue; // 모르는 단어가 남은 건 비워 둠 (관리자 '덜 된 것도' 는 그대로)
         ws[XLSX.utils.encode_cell({ r: v.row.r, c })] = { t: 's', v: en };
         n++;
       }
@@ -383,7 +392,7 @@ function TranslateTab() {
     a.download = sheet.fileName.replace(/(\.xlsx?|\.csv)?$/i, '_번역.xlsx');
     a.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-    alert(`영문 제품명 ${n}줄 · 수출 분류 ${nc}줄을 채워서 받았어요. (모르는 단어가 남은 영문 제품명, 분류를 안 고른 줄은 비워 뒀어요)`);
+    alert(all ? `영문 제품명 ${n}줄(모르는 단어 [ ] 가 남은 것 포함) · 수출 분류 ${nc}줄을 채워서 받았어요.` : `영문 제품명 ${n}줄 · 수출 분류 ${nc}줄을 채워서 받았어요. (모르는 단어가 남은 영문 제품명, 분류를 안 고른 줄은 비워 뒀어요)`);
   };
 
   return (
@@ -404,6 +413,11 @@ function TranslateTab() {
         {sheet && (
           <button className="tr-dl" onClick={() => void download()}>
             ⬇ 채운 엑셀 받기
+          </button>
+        )}
+        {sheet && isAdmin && (
+          <button className="tr-dl tr-dl-all" onClick={() => void download(true)} title="관리자만: 모르는 단어가 [ ] 로 남은 영문 제품명도 그대로 채워서 받아요">
+            ⬇ 덜 된 것도 받기
           </button>
         )}
       </div>
@@ -428,6 +442,13 @@ function TranslateTab() {
                   </option>
                 ))}
                 {codePre && !codePres.some(([k]) => k === codePre) && <option value={codePre}>{codePre}… (0줄)</option>}
+              </select>
+            )}
+            {sheet.col.season !== undefined && (
+              <select className={`tr-code-pre ${seasonF ? 'set' : ''}`} value={seasonF} onChange={(e) => (setSeasonF(e.target.value as '' | 'S' | 'N'), setPage(0))} title="시즌품구분으로 거르기">
+                <option value="">시즌 전체</option>
+                <option value="S">🎄 시즌품만 ({view.filter((v) => v.season === 'S').length})</option>
+                <option value="N">비시즌품만</option>
               </select>
             )}
             <span className="muted small">{shown.length}줄</span>
@@ -467,6 +488,11 @@ function TranslateTab() {
                       <td className="muted">{v.row.r + 1}</td>
                       {sheet.col.code !== undefined && <td className="tr-code">{cell(v.row, 'code')}</td>}
                       <td className="tr-ko-name">
+                        {v.season === 'S' && (
+                          <span className="tr-season" title="시즌품 (엑셀 시즌품구분)">
+                            🎄 시즌
+                          </span>
+                        )}
                         {v.parens.length
                           ? v.ko.split(/(\([^()]*\)|（[^（）]*）)/).map((part, i) =>
                               v.parens.includes(part) ? (
