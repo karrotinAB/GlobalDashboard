@@ -8179,3 +8179,8 @@ span.rp-ack { cursor: default; }
 .ct-field b { font-weight: 700; }
 .ct-intro + .ct-sub, .ct-field + .ct-sub { margin-top: 18px; }
 .ct-doc-title { text-align: center; font-size: 19px; margin: 8px 0 14px; }
+/* 계약서 조항 목차: 누르면 그 조항으로 */
+.ct-toc-btn { border: 0; background: none; padding: 2px 4px; margin: -2px -4px; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 6px; }
+.ct-toc-btn:hover { background: #f6eeec; color: #8c2f3c; }
+.ct-art { scroll-margin-top: 80px; transition: background 0.4s; border-radius: 8px; }
+.ct-art.ct-flash { background: #fff6cc; }

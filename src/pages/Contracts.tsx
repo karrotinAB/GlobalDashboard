@@ -256,7 +256,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
             const hit = groups.length > 0 && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
             if (groups.length && !hit) return null;
             return (
-              <section key={a.no} className="ct-art">
+              <section key={a.no} id={`ct-art-${a.no}`} className="ct-art">
                 <div className="ct-art-head">{hl(a.head, groups)}</div>
                 {a.body.map((p, j) => (
                   <Para key={j} p={p} groups={groups} />
@@ -287,7 +287,28 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
               <h3>조항</h3>
               <ol className="ct-toc">
                 {articles.map((a) => (
-                  <li key={a.no}>{a.head}</li>
+                  <li key={a.no}>
+                    {/* 누르면 그 조항으로 (찾기 중이면 찾기를 풀고) */}
+                    <button
+                      className="ct-toc-btn"
+                      onClick={() => {
+                        const go = () => {
+                          const el = document.getElementById(`ct-art-${a.no}`);
+                          if (!el) return;
+                          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          el.classList.add('ct-flash');
+                          setTimeout(() => el.classList.remove('ct-flash'), 1500);
+                        };
+                        if (q || which === 'both') {
+                          setQ('');
+                          if (which === 'both') setWhich('orig');
+                          setTimeout(go, 60);
+                        } else go();
+                      }}
+                    >
+                      {a.head}
+                    </button>
+                  </li>
                 ))}
               </ol>
             </>

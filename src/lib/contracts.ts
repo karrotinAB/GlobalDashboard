@@ -95,9 +95,19 @@ const HEAD_RE = [
   /^\s*(article|art\.)\s*[\dIVXLC]+\b/i,
   /^\s*(section|clause)\s+\d+/i,
   /^\s*제\s*\d+\s*조/,
-  /^\s*\d{1,2}\s*[.)]\s+[A-Z가-힣][^.]{0,80}$/, // '5. Security Deposit' 처럼 짧은 제목 줄
 ];
-export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line));
+/** '5. Security Deposit' · '5. 보증금' 처럼 번호 + 짧은 제목 (문장으로 이어지는 번호 목록은 제목 아님) */
+const isNumberedTitle = (line: string) => {
+  const m = line.match(/^\s*\d{1,2}\s*[.)]\s+(.+)$/);
+  if (!m) return false;
+  const t = m[1].trim();
+  if (/[.,;:]$/.test(t) || t.length > 45) return false;
+  if (/[가-힣]/.test(t)) return t.length <= 20 && !/(다|요|함|음)$/.test(t);
+  const words = t.split(/\s+/);
+  // 영어: 6단어 이하, 짧은 연결어 빼고 모두 대문자로 시작
+  return words.length <= 6 && words.every((w) => /^[A-Z0-9("'&]/.test(w) || /^(of|and|or|the|to|for|in|on|a|an|by|with)$/i.test(w));
+};
+export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line)) || isNumberedTitle(line);
 
 /**
  * OCR 원문 → 조항: 제목 줄에서 나누고, 문단 안에서 OCR 로 끊긴 줄은 이어 붙임
