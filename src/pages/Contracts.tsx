@@ -6,7 +6,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { useLookups } from '../data/store';
 import { today, uid } from '../lib/date';
-import { deleteContract, expandQuery, parseArticles, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
+import { deleteContract, expandQuery, langOf, parseArticles, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
 
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -80,12 +80,20 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
   // 업체 → [계약서, 맞는 조항들]
   const results = useMemo(() => {
     if (!groups.length) return [];
-    const out: { c: Contract; hits: { head: string; body: string[] }[] }[] = [];
+    const out: { c: Contract; hits: { head: string; body: string[]; lang?: string }[] }[] = [];
     for (const c of list) {
       if (co && c.company !== co) continue;
-      const { intro, articles } = parseArticles(c.text ?? '');
-      const parts = [...(intro.length ? [{ head: '(앞부분)', body: intro }] : []), ...articles];
-      const hits = parts.filter((a) => groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g)));
+      // 원문 + 번역본 둘 다에서 찾기
+      const hits: { head: string; body: string[]; lang?: string }[] = [];
+      for (const [t, lang] of [
+        [c.text, c.text2 ? langOf(c.text) : undefined],
+        [c.text2, c.text2 ? `${langOf(c.text2)} 번역본` : undefined],
+      ] as const) {
+        if (!t) continue;
+        const { intro, articles } = parseArticles(t);
+        const parts = [...(intro.length ? [{ head: '(앞부분)', body: intro }] : []), ...articles];
+        for (const a of parts) if (groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g))) hits.push({ ...a, lang });
+      }
       if (hits.length) out.push({ c, hits });
     }
     return out;
@@ -126,7 +134,10 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
               </div>
               {hits.map((a, i) => (
                 <div key={i} className="ct-art">
-                  <div className="ct-art-head">{hl(a.head, groups)}</div>
+                  <div className="ct-art-head">
+                    {a.lang && <span className="ct-lang">{a.lang}</span>}
+                    {hl(a.head, groups)}
+                  </div>
                   {a.body.map((p, j) => (
                     <p key={j}>{hl(p, groups)}</p>
                   ))}
@@ -167,7 +178,10 @@ function ByCompany({ list, onOpen }: { list: Contract[]; onOpen: (id: string) =>
 }
 
 function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; onEdit: () => void }) {
-  const { intro, articles } = useMemo(() => parseArticles(c.text ?? ''), [c.text]);
+  // 원문 / 번역본 / 나란히
+  const [which, setWhich] = useState<'orig' | 'trans' | 'both'>('orig');
+  const { intro, articles } = useMemo(() => parseArticles((which === 'trans' ? c.text2 : c.text) ?? ''), [c.text, c.text2, which]);
+  const trans = useMemo(() => parseArticles(c.text2 ?? ''), [c.text2]);
   const [q, setQ] = useState('');
   const groups = useMemo(() => expandQuery(q), [q]);
   return (
@@ -187,6 +201,42 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
             </div>
             <input className="search" placeholder="🔍 이 계약서에서 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
+          {c.text2?.trim() && (
+            <div className="seg ct-lang-seg">
+              <button className={which === 'orig' ? 'on' : ''} onClick={() => setWhich('orig')}>
+                원문 ({langOf(c.text)})
+              </button>
+              <button className={which === 'trans' ? 'on' : ''} onClick={() => setWhich('trans')}>
+                번역본 ({langOf(c.text2)})
+              </button>
+              <button className={which === 'both' ? 'on' : ''} onClick={() => setWhich('both')}>
+                나란히 보기
+              </button>
+            </div>
+          )}
+          {which === 'both' && c.text2?.trim() ? (
+            <div className="ct-both">
+              {[parseArticles(c.text ?? ''), trans].map((d, k) => (
+                <div key={k} className="ct-both-col">
+                  <div className="ct-lang">{k ? `번역본 (${langOf(c.text2)})` : `원문 (${langOf(c.text)})`}</div>
+                  {d.intro.map((p, i) => (
+                    <p key={`i${i}`} className="ct-intro">
+                      {hl(p, groups)}
+                    </p>
+                  ))}
+                  {d.articles.map((a) => (
+                    <section key={a.no} className="ct-art">
+                      <div className="ct-art-head">{hl(a.head, groups)}</div>
+                      {a.body.map((p, j) => (
+                        <p key={j}>{hl(p, groups)}</p>
+                      ))}
+                    </section>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
           {!c.text?.trim() && <p className="muted">아직 OCR 텍스트를 넣지 않았어요. '고치기'에서 붙여넣어 주세요.</p>}
           {intro.map((p, i) => (
             <p key={`i${i}`} className="ct-intro">
@@ -205,6 +255,8 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
               </section>
             );
           })}
+            </>
+          )}
         </article>
         <aside className="card ct-side">
           <h3>원본 파일</h3>
@@ -258,6 +310,7 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
   const [title, setTitle] = useState(init?.title ?? '');
   const [signedAt, setSignedAt] = useState(init?.signedAt ?? '');
   const [text, setText] = useState(init?.text ?? '');
+  const [text2, setText2] = useState(init?.text2 ?? '');
   const [note, setNote] = useState(init?.note ?? '');
   const [files, setFiles] = useState<ContractFile[]>(init?.files ?? []);
   const [busy, setBusy] = useState(false);
@@ -280,7 +333,7 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
   const save = async () => {
     if (!ok) return;
     try {
-      await saveContract({ id, company: company.trim(), title: title.trim(), signedAt: signedAt || undefined, files, text: text || undefined, note: note.trim() || undefined, createdAt: init?.createdAt ?? new Date().toISOString(), by: init?.by ?? by });
+      await saveContract({ id, company: company.trim(), title: title.trim(), signedAt: signedAt || undefined, files, text: text || undefined, text2: text2 || undefined, note: note.trim() || undefined, createdAt: init?.createdAt ?? new Date().toISOString(), by: init?.by ?? by });
       onSaved(id);
     } catch (e) {
       setErr(`저장하지 못했어요: ${(e as Error).message} — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)`);
@@ -336,9 +389,15 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
         </div>
         <label className="ct-text-label">
           <span>
-            OCR 텍스트 <span className="muted small">— 그대로 붙여넣어 주세요. Article · 제N조 · 1. 제목 줄을 찾아 조항으로 나누고, 끊긴 줄은 이어 붙여요</span>
+            원문 OCR 텍스트 <span className="muted small">— 그대로 붙여넣어 주세요. Article · 제N조 · 1. 제목 줄을 찾아 조항으로 나누고, 끊긴 줄은 이어 붙여요</span>
           </span>
           <textarea rows={14} value={text} onChange={(e) => setText(e.target.value)} placeholder={'예)\nARTICLE 1. DEFINITIONS\n...\nARTICLE 5. SECURITY DEPOSIT\nThe Licensee shall pay ...'} />
+        </label>
+        <label className="ct-text-label">
+          <span>
+            번역본 텍스트 <span className="muted small">— {text.trim() ? `원문이 ${langOf(text)}라서 ${langOf(text) === '한글' ? '영어' : '한글'} 버전` : '원문이 한글이면 영어, 영어면 한글 버전'} (있으면 붙여넣어 주세요. 검색도 같이 돼요)</span>
+          </span>
+          <textarea rows={8} value={text2} onChange={(e) => setText2(e.target.value)} placeholder="번역본 (선택)" />
         </label>
         <label className="ct-text-label">
           <span>메모</span>

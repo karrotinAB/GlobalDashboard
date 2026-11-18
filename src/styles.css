@@ -8165,3 +8165,10 @@ span.rp-ack { cursor: default; }
 }
 .ct-doc { font-family: Georgia, 'Times New Roman', 'Noto Sans KR', serif; }
 .ct-art-head { font-family: Georgia, 'Times New Roman', 'Noto Sans KR', serif; font-weight: 700; }
+/* 계약서: 원문 · 번역본 */
+.ct-lang-seg { margin-bottom: 12px; font-family: 'Noto Sans KR', sans-serif; }
+.ct-lang { display: inline-block; font-family: 'Noto Sans KR', sans-serif; font-size: 11px; font-weight: 700; color: #5b3a8a; background: #efe7fa; border-radius: 999px; padding: 0 8px; margin-right: 6px; vertical-align: 2px; }
+.ct-both { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.ct-both-col { min-width: 0; }
+.ct-both-col + .ct-both-col { border-left: 1px solid var(--line-2); padding-left: 20px; }
+@media (max-width: 900px) { .ct-both { grid-template-columns: 1fr; } .ct-both-col + .ct-both-col { border-left: 0; padding-left: 0; } }

@@ -19,6 +19,7 @@ export interface Contract {
   signedAt?: string; // 계약일 YYYY-MM-DD
   files?: ContractFile[]; // 원본 (스캔본) — 참고용
   text?: string; // OCR 텍스트 원문
+  text2?: string; // 번역본 (원문이 한글이면 영어, 영어면 한글)
   note?: string;
   createdAt: string;
   by?: string;
@@ -170,3 +171,11 @@ export function expandQuery(q: string): string[][] {
       return g ? [...new Set([w, ...g.map((x) => x.toLowerCase())])] : [w];
     });
 }
+
+/** 한글이 많으면 '한글', 아니면 '영어' */
+export const langOf = (t?: string) => {
+  const s = t ?? '';
+  const ko = (s.match(/[가-힣]/g) ?? []).length;
+  const en = (s.match(/[A-Za-z]/g) ?? []).length;
+  return ko > en / 3 ? '한글' : '영어';
+};
