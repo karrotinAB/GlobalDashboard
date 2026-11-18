@@ -8172,3 +8172,10 @@ span.rp-ack { cursor: default; }
 .ct-both-col { min-width: 0; }
 .ct-both-col + .ct-both-col { border-left: 1px solid var(--line-2); padding-left: 20px; }
 @media (max-width: 900px) { .ct-both { grid-template-columns: 1fr; } .ct-both-col + .ct-both-col { border-left: 0; padding-left: 0; } }
+/* 계약서 본문: 소제목 · 항목 줄 */
+.ct-sub { font-weight: 700; margin: 16px 0 4px; font-size: 15px; }
+.ct-art .ct-sub { font-size: 14px; margin-top: 10px; }
+.ct-field { margin: 0 0 4px !important; text-align: left !important; }
+.ct-field b { font-weight: 700; }
+.ct-intro + .ct-sub, .ct-field + .ct-sub { margin-top: 18px; }
+.ct-doc-title { text-align: center; font-size: 19px; margin: 8px 0 14px; }

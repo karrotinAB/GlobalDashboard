@@ -104,36 +104,58 @@ export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line));
  *   (빈 줄 · 목록 기호 (a) 1) • - 로 시작하는 줄은 새 문단)
  */
 export function parseArticles(text: string): { intro: string[]; articles: Article[] } {
-  const lines = text.replace(/\r/g, '').split('\n');
+  const isPage = (l: string) => /^[=\-_~*\s]*(page|페이지)\s*\d+[=\-_~*\s]*$/i.test(l) || /^[=\-_]{4,}$/.test(l);
+  const lines = text
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((l) => l.trim())
+    .map((l) => (isPage(l) ? '' : l));
   const intro: string[] = [];
   const articles: Article[] = [];
   let cur: Article | null = null;
   let para = '';
+  const push = (p: string) => (cur ? cur.body : intro).push(p);
   const flush = () => {
     const p = para.replace(/\s+/g, ' ').trim();
-    if (p) (cur ? cur.body : intro).push(p);
+    if (p) push(p);
     para = '';
   };
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      flush();
-      continue;
-    }
+  lines.forEach((line, i) => {
+    if (!line) return flush();
     if (isHead(line)) {
       flush();
       cur = { no: articles.length + 1, head: line.replace(/\s+/g, ' '), body: [] };
       articles.push(cur);
-      continue;
+      return;
     }
-    // 목록 항목은 새 문단
-    if (/^(\(?[a-z0-9ivx]{1,3}[.)]|[•·\-–*])\s+/i.test(line)) flush();
+    const prevBlank = !lines[i - 1];
+    const nextBlank = !lines[i + 1];
+    // 소제목: 'Company:' 처럼 짧고 : 로 끝나는 줄, 또는 앞뒤가 빈 짧은 줄 (마침표 없이)
+    if ((line.length <= 50 && /:$/.test(line)) || (line.length <= 70 && prevBlank && nextBlank && !/[.;,]$/.test(line) && !isField(line))) {
+      flush();
+      push(SUB + line.replace(/\s+/g, ' '));
+      return;
+    }
+    // 'Store Name: ARTBOX' 같은 항목 줄 · 목록 항목은 새 문단
+    if (isField(line) || /^(\(?[a-z0-9ivx]{1,3}[.)]|[•·\-–*])\s+/i.test(line)) flush();
     // 하이픈으로 끊긴 단어는 붙이고, 아니면 띄어서 이어 붙임
     para = para ? (para.endsWith('-') ? para.slice(0, -1) + line : `${para} ${line}`) : line;
-  }
+  });
   flush();
+  // 앞부분에서 처음 나오는 'OO Agreement / 계약서' 소제목 하나만 문서 제목으로
+  const ti = intro.findIndex((p) => p.startsWith(SUB) && /agreement|contract|계약서/i.test(p) && !/[:：]/.test(p) && p.length <= 61);
+  if (ti >= 0) intro[ti] = TITLE + intro[ti].slice(1);
   return { intro, articles };
 }
+/** 소제목 표시 (문단 앞에 붙음) · 문서 제목 표시 */
+export const SUB = '\u0001';
+export const TITLE = '\u0002';
+/** 'Label: value' 항목 줄 (라벨은 6단어 이하) */
+export const FIELD_RE = /^([A-Za-z가-힣][^:：]{0,45})[:：]\s+(\S.*)$/;
+export const isField = (line: string) => {
+  const m = line.match(FIELD_RE);
+  return !!m && m[1].trim().split(/\s+/).length <= 6 && !/[.;]$/.test(m[1]);
+};
 
 // ---------- 검색 ----------
 /** 같이 찾을 말 (한글 ↔ 영어 계약 용어) */

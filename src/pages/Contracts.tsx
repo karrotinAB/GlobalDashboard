@@ -6,7 +6,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { useLookups } from '../data/store';
 import { today, uid } from '../lib/date';
-import { deleteContract, expandQuery, langOf, parseArticles, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
+import { deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
 
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -16,6 +16,19 @@ function hl(text: string, groups: string[][]): ReactNode {
   if (!words.length) return text;
   const re = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
   return text.split(re).map((p, i) => (i % 2 ? <mark key={i}>{p}</mark> : <Fragment key={i}>{p}</Fragment>));
+}
+/** 문단 하나: 소제목은 굵게 · 'Label: value' 는 라벨 굵게 · 나머지는 보통 문단 */
+function Para({ p, groups, intro }: { p: string; groups: string[][]; intro?: boolean }) {
+  if (p.startsWith(TITLE)) return <div className="ct-sub ct-doc-title">{hl(p.slice(1), groups)}</div>;
+  if (p.startsWith(SUB)) return <div className="ct-sub">{hl(p.slice(1), groups)}</div>;
+  const m = isField(p) ? p.match(FIELD_RE) : null;
+  if (m)
+    return (
+      <p className="ct-field">
+        <b>{hl(m[1].trim(), groups)}:</b> {hl(m[2], groups)}
+      </p>
+    );
+  return <p className={intro ? 'ct-intro' : undefined}>{hl(p, groups)}</p>;
 }
 const has = (text: string, g: string[]) => {
   const t = text.toLowerCase();
@@ -139,7 +152,7 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
                     {hl(a.head, groups)}
                   </div>
                   {a.body.map((p, j) => (
-                    <p key={j}>{hl(p, groups)}</p>
+                    <Para key={j} p={p} groups={groups} />
                   ))}
                 </div>
               ))}
@@ -220,15 +233,13 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
                 <div key={k} className="ct-both-col">
                   <div className="ct-lang">{k ? `번역본 (${langOf(c.text2)})` : `원문 (${langOf(c.text)})`}</div>
                   {d.intro.map((p, i) => (
-                    <p key={`i${i}`} className="ct-intro">
-                      {hl(p, groups)}
-                    </p>
+                    <Para key={`i${i}`} p={p} groups={groups} intro />
                   ))}
                   {d.articles.map((a) => (
                     <section key={a.no} className="ct-art">
                       <div className="ct-art-head">{hl(a.head, groups)}</div>
                       {a.body.map((p, j) => (
-                        <p key={j}>{hl(p, groups)}</p>
+                        <Para key={j} p={p} groups={groups} />
                       ))}
                     </section>
                   ))}
@@ -239,9 +250,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
             <>
           {!c.text?.trim() && <p className="muted">아직 OCR 텍스트를 넣지 않았어요. '고치기'에서 붙여넣어 주세요.</p>}
           {intro.map((p, i) => (
-            <p key={`i${i}`} className="ct-intro">
-              {hl(p, groups)}
-            </p>
+            <Para key={`i${i}`} p={p} groups={groups} intro />
           ))}
           {articles.map((a) => {
             const hit = groups.length > 0 && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
@@ -250,7 +259,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
               <section key={a.no} className="ct-art">
                 <div className="ct-art-head">{hl(a.head, groups)}</div>
                 {a.body.map((p, j) => (
-                  <p key={j}>{hl(p, groups)}</p>
+                  <Para key={j} p={p} groups={groups} />
                 ))}
               </section>
             );
@@ -419,15 +428,13 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
         ) : (
           <div className="ct-doc ct-doc-mini">
             {parsed.intro.map((p, i) => (
-              <p key={`i${i}`} className="ct-intro">
-                {p}
-              </p>
+              <Para key={`i${i}`} p={p} groups={[]} intro />
             ))}
             {parsed.articles.map((a) => (
               <section key={a.no} className="ct-art">
                 <div className="ct-art-head">{a.head}</div>
                 {a.body.map((p, j) => (
-                  <p key={j}>{p}</p>
+                  <Para key={j} p={p} groups={[]} />
                 ))}
               </section>
             ))}
