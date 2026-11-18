@@ -8110,3 +8110,14 @@ span.rp-ack { cursor: default; }
   .trip-list { position: static; }
 }
 .ts-item-cell .ts-del { left: -9mm; right: auto !important; }
+/* 출장신청서: 처음엔 목록 화면 */
+.trip-home-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.trip-home .trip-new { padding: 10px 22px; font-size: 15px; }
+.trip-home-title { font-size: 16px; margin: 0 0 8px; }
+.trip-rows { display: flex; flex-direction: column; gap: 6px; }
+.trip-row { display: flex; align-items: center; gap: 12px; text-align: left; border: 1px solid var(--line-2); background: #fff; border-radius: 12px; padding: 12px 16px; cursor: pointer; font: inherit; }
+.trip-row:hover { background: #fbf6f4; border-color: #e3cfca; }
+.trip-row b { font-size: 15px; }
+.trip-row-purpose { color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.trip-row-go { margin-left: auto; color: #8c2f3c; font-size: 13px; white-space: nowrap; }
+.trip-back { display: inline-block; margin-bottom: 10px; font-size: 13.5px; }

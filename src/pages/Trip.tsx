@@ -48,55 +48,107 @@ export default function Trip() {
   const pcCfg = usePettyCfg();
   const canManage = access.role === 'admin' || access.role === null || (!previewMember && !!pcCfg?.managers.includes(email));
   const trips = useTrips(email);
-  const [sel, setSel] = useState<string>('');
-  const [writing, setWriting] = useState(false);
-  const [tab, setTab] = useState<'record' | 'print' | 'manage'>('record');
-  const cur = trips?.find((t) => t.id === sel) ?? (writing ? undefined : trips?.[0]);
+  // 화면: 목록 (처음) → 신청서 쓰기 / 신청서 열기 / 관리
+  const [view, setView] = useState<{ k: 'list' } | { k: 'new' } | { k: 'trip'; id: string } | { k: 'manage' }>({ k: 'list' });
+  const [tab, setTab] = useState<'record' | 'print'>('record');
+  // 위 탭: 기록 · 프린트 · 관리 (전도금과 같은 모양)
+  const topTab = view.k === 'manage' ? 'manage' : tab;
+  const goTab = (t: 'record' | 'print' | 'manage') => {
+    if (t === 'manage') return setView({ k: 'manage' });
+    setTab(t);
+    if (view.k === 'manage' || view.k === 'new') setView({ k: 'list' });
+  };
+  const cur = view.k === 'trip' ? trips?.find((t) => t.id === view.id) : undefined;
+  const back = (
+    <button className="link trip-back" onClick={() => setView({ k: 'list' })}>
+      ← 신청서 목록
+    </button>
+  );
   return (
     <div className="page">
       <div className="page-head">
         <h1>출장신청서</h1>
         <p className="muted">출장마다 신청서를 한 장씩 만들어요. 출장비 내역 · 교통비 · 영수증을 기록하고 출장신청서 · 교통비 사용내역서 · 영수증을 A4 로 뽑아요.</p>
       </div>
-      <div className="trip-wrap">
-        <aside className="card trip-list">
-          <button className="primary trip-new" onClick={() => (setWriting(true), setSel(''))}>
-            ＋ 신청서 쓰기
+      <div className="seg pc-tabs">
+        <button className={topTab === 'record' ? 'on' : ''} onClick={() => goTab('record')}>
+          ✍️ 출장신청서 기록
+        </button>
+        <button className={topTab === 'print' ? 'on' : ''} onClick={() => goTab('print')}>
+          🖨 출장비 프린트
+        </button>
+        {canManage && (
+          <button className={topTab === 'manage' ? 'on' : ''} onClick={() => goTab('manage')}>
+            🗂 관리
           </button>
-          {trips === null && <p className="muted small">불러오는 중…</p>}
-          {trips?.length === 0 && !writing && <p className="muted small">아직 만든 신청서가 없어요.</p>}
-          {trips?.map((t) => (
-            <button key={t.id} className={`trip-item ${cur?.id === t.id && !writing ? 'on' : ''}`} onClick={() => (setSel(t.id), setWriting(false))}>
-              <b>{tripTitle(t)}</b>
-              <span className="muted small">
-                {dots(t.from)} ~ {dots(t.to)}
-              </span>
-            </button>
-          ))}
-          {canManage && (
-            <button className={`trip-item manage ${tab === 'manage' ? 'on' : ''}`} onClick={() => setTab(tab === 'manage' ? 'record' : 'manage')}>
-              🗂 관리 (항목 · 통화)
-            </button>
-          )}
-        </aside>
-        <section className="trip-main">
-          {tab === 'manage' && canManage ? (
-            <TripManage />
-          ) : writing || !cur ? (
-            <NewTrip
-              email={email}
-              onMade={(id) => {
-                setSel(id);
-                setWriting(false);
-                setTab('record');
-              }}
-              onCancel={trips?.length ? () => setWriting(false) : undefined}
-            />
+        )}
+      </div>
+      {view.k === 'list' && (
+        <section className="card trip-home">
+          {tab === 'record' ? (
+            <div className="trip-home-head">
+              <button className="primary trip-new" onClick={() => setView({ k: 'new' })}>
+                ＋ 신청서 쓰기
+              </button>
+            </div>
           ) : (
-            <TripView key={cur.id} trip={cur} email={email} tab={tab === 'manage' ? 'record' : tab} setTab={setTab} />
+            <p className="muted small" style={{ marginTop: 0 }}>
+              프린트할 신청서를 골라 주세요.
+            </p>
+          )}
+          <h2 className="trip-home-title">내 출장신청서</h2>
+          {trips === null ? (
+            <p className="muted small">불러오는 중…</p>
+          ) : trips.length === 0 ? (
+            <p className="muted small">아직 쓴 신청서가 없어요. 위의 '＋ 신청서 쓰기'로 시작해요.</p>
+          ) : (
+            <div className="trip-rows">
+              {trips.map((t) => (
+                <button key={t.id} className="trip-row" onClick={() => setView({ k: 'trip', id: t.id })}>
+                  <span className="trip-row-icon">✈️</span>
+                  <b>{tripTitle(t)}</b>
+                  <span className="muted small">
+                    {dots(t.from)} ~ {dots(t.to)}
+                  </span>
+                  {t.purpose && <span className="trip-row-purpose">{t.purpose}</span>}
+                  <span className="trip-row-go">열기 ›</span>
+                </button>
+              ))}
+            </div>
           )}
         </section>
-      </div>
+      )}
+      {view.k === 'new' && (
+        <>
+          {back}
+          <NewTrip
+            email={email}
+            onMade={(id) => {
+              setView({ k: 'trip', id });
+              setTab('record');
+            }}
+            onCancel={() => setView({ k: 'list' })}
+          />
+        </>
+      )}
+      {view.k === 'manage' && canManage && (
+        <>
+          {back}
+          <TripManage />
+        </>
+      )}
+      {view.k === 'trip' &&
+        (cur ? (
+          <>
+            {back}
+            <TripView key={cur.id} trip={cur} email={email} tab={tab} onDeleted={() => setView({ k: 'list' })} />
+          </>
+        ) : (
+          <>
+            {back}
+            <p className="muted small">불러오는 중…</p>
+          </>
+        ))}
     </div>
   );
 }
@@ -147,7 +199,7 @@ function NewTrip({ email, onMade, onCancel }: { email: string; onMade: (id: stri
   );
 }
 
-function TripView({ trip, email, tab, setTab }: { trip: TripDoc; email: string; tab: 'record' | 'print'; setTab: (t: 'record' | 'print') => void }) {
+function TripView({ trip, email, tab, onDeleted }: { trip: TripDoc; email: string; tab: 'record' | 'print'; onDeleted: () => void }) {
   const cfg = useTripCfg();
   const entries = useTripEntries(email, trip.id);
   const rows = entries ?? [];
@@ -173,20 +225,13 @@ function TripView({ trip, email, tab, setTab }: { trip: TripDoc; email: string; 
             {dots(trip.from)} ~ {dots(trip.to)}
           </span>
         </div>
-        <div className="seg">
-          <button className={tab === 'record' ? 'on' : ''} onClick={() => setTab('record')}>
-            ✍️ 기록
-          </button>
-          <button className={tab === 'print' ? 'on' : ''} onClick={() => setTab('print')}>
-            🖨 출장비 프린트
-          </button>
-        </div>
         <button
           className="link small danger-text"
           onClick={async () => {
             if (!confirm(`'${tripTitle(trip)}' 신청서를 지울까요? (안의 내역도 같이 지워요)`)) return;
             for (const e of rows) await deleteTripEntry(e.id);
             await deleteTrip(trip.id);
+            onDeleted();
           }}
         >
           🗑 신청서 지우기
