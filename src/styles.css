@@ -8042,3 +8042,18 @@ td.c-people { min-width: 120px; }
 .rp-ack:hover { background: #f6eeec; }
 .rp-ack.on { background: #e8f5ea; border-color: #b9dcc0; color: #2f6b3c; font-weight: 700; }
 span.rp-ack { cursor: default; }
+/* 보고방 답글: 이모지 반응 */
+.rp-reacts { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.rp-react-wrap { position: relative; display: inline-flex; }
+.rp-react { border: 1px solid #eadcd9; background: #fff; border-radius: 999px; padding: 1px 8px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; line-height: 1.6; }
+.rp-react b { font-size: 11.5px; color: #6b5a57; }
+.rp-react.on { background: #fbeeee; border-color: #d9a9a3; }
+.rp-react.on b { color: #8c2f3c; }
+.rp-react.add { opacity: 0.55; padding: 1px 6px; }
+.rp-react.add span { font-size: 10px; margin-left: -1px; }
+.rp-reply:hover .rp-react.add, .rp-react.add:focus { opacity: 1; }
+.rp-react-tip { position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 30; background: #3b2a28; color: #fff; font-size: 12px; padding: 4px 9px; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+.rp-react-pick { position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 30; display: flex; gap: 2px; background: #fff; border: 1px solid #eadcd9; border-radius: 999px; padding: 3px 5px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15); }
+.rp-react-pick button { border: 0; background: none; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
+.rp-react-pick button:hover { background: #f6eeec; transform: scale(1.15); }
+.rp-react-pick button.on { background: #fbeeee; }

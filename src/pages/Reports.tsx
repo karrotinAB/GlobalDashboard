@@ -9,7 +9,7 @@ import { usePeople } from '../components/AddressBook';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
-import { downloadFile, isUnseenLeader, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report } from '../lib/reports';
+import { downloadFile, isUnseenLeader, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report, type ReportReply, REACTIONS } from '../lib/reports';
 
 const when = (iso?: string) => {
   if (!iso) return '';
@@ -409,22 +409,14 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
             </span>
             <span className="rp-reply-text">{x.text}</span>
             <span className="muted small">{when(x.at)}</span>
-            {/* 👍 담당 확인: 보고를 쓴 담당자만 누름 (다시 누르면 취소) */}
-            {(() => {
-              const isAuthor = !!access.email && r.authorEmail === access.email;
-              if (!isAuthor && !x.ack) return null;
-              const toggle = () =>
-                void saveReport({ ...r, replies: (r.replies ?? []).map((y) => (y.id === x.id ? { ...y, ack: y.ack ? undefined : { at: new Date().toISOString(), by: myName } } : y)) });
-              return isAuthor ? (
-                <button className={`rp-ack ${x.ack ? 'on' : ''}`} onClick={toggle} title={x.ack ? `담당 확인 ${when(x.ack.at)} (누르면 취소)` : '담당 확인'}>
-                  👍 {x.ack ? '담당 확인 완료' : '담당 확인'}
-                </button>
-              ) : (
-                <span className="rp-ack on" title={when(x.ack!.at)}>
-                  👍 담당 확인 완료
-                </span>
-              );
-            })()}
+            {/* 이모지 반응: 누구나 (다시 누르면 취소) · 올려 보면 누가 눌렀는지 */}
+            <Reactions
+              x={x}
+              me={access.email}
+              myName={myName}
+              nameOf={nameOf}
+              onChange={(reactions) => void saveReport({ ...r, replies: (r.replies ?? []).map((y) => (y.id === x.id ? { ...y, reactions, ack: undefined } : y)) })}
+            />
             {x.email && x.email === access.email && (
               <button className="icon-btn" title="답변 지우기" onClick={() => confirm('이 답변을 지울까요?') && void saveReport({ ...r, replies: (r.replies ?? []).filter((y) => y.id !== x.id) })}>
                 ✕
@@ -466,5 +458,60 @@ function CheckName({ name, at, color }: { name: string; at: string; color?: stri
       <span className="rp-chk-pill">{name}</span>
       {show && <span className="rp-chk-at">{at}</span>}
     </button>
+  );
+}
+
+/** 답글 이모지 반응: 눌린 이모지 + 수 (누가 눌렀는지 이름 표시), 😊+ 로 고르기 */
+function Reactions({
+  x,
+  me,
+  myName,
+  nameOf,
+  onChange,
+}: {
+  x: ReportReply;
+  me: string;
+  myName: string;
+  nameOf: (email?: string, fallback?: string) => string;
+  onChange: (r: Record<string, { email?: string; name: string; at: string }[]>) => void;
+}) {
+  const [pick, setPick] = useState(false);
+  const [tip, setTip] = useState<string | null>(null);
+  // 예전 '담당 확인'(ack)은 👍 로 보여줌
+  const cur = x.reactions ?? (x.ack ? { '👍': [{ name: x.ack.by ?? '', at: x.ack.at }] } : {});
+  const mine = (e: string) => (cur[e] ?? []).some((p) => (me && p.email === me) || (!p.email && p.name === myName));
+  const toggle = (e: string) => {
+    const list = cur[e] ?? [];
+    const next = { ...cur, [e]: mine(e) ? list.filter((p) => !((me && p.email === me) || (!p.email && p.name === myName))) : [...list, { email: me || undefined, name: myName, at: new Date().toISOString() }] };
+    if (!next[e].length) delete next[e];
+    onChange(JSON.parse(JSON.stringify(next)));
+    setPick(false);
+  };
+  const names = (e: string) => (cur[e] ?? []).map((p) => nameOf(p.email, p.name)).join(', ');
+  return (
+    <span className="rp-reacts">
+      {REACTIONS.filter((e) => cur[e]?.length).map((e) => (
+        <span key={e} className="rp-react-wrap" onMouseEnter={() => setTip(e)} onMouseLeave={() => setTip(null)}>
+          <button className={`rp-react ${mine(e) ? 'on' : ''}`} onClick={() => toggle(e)} onFocus={() => setTip(e)} onBlur={() => setTip(null)} aria-label={`${e} ${names(e)}`}>
+            {e} <b>{cur[e].length}</b>
+          </button>
+          {tip === e && <span className="rp-react-tip">{names(e)}</span>}
+        </span>
+      ))}
+      <span className="rp-react-wrap">
+        <button className="rp-react add" onClick={() => setPick((v) => !v)} title="반응 남기기">
+          😊<span>＋</span>
+        </button>
+        {pick && (
+          <span className="rp-react-pick" onMouseLeave={() => setPick(false)}>
+            {REACTIONS.map((e) => (
+              <button key={e} className={mine(e) ? 'on' : ''} onClick={() => toggle(e)}>
+                {e}
+              </button>
+            ))}
+          </span>
+        )}
+      </span>
+    </span>
   );
 }

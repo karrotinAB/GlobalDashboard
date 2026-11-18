@@ -70,8 +70,10 @@ export interface ReportReply {
   role?: string; // 'lead' | 'director' | 'member' | 'admin'
   text: string;
   at: string;
-  ack?: { at: string; by?: string }; // 👍 담당 확인 (보고 쓴 사람이 누름)
+  ack?: { at: string; by?: string }; // (예전) 👍 담당 확인 — 지금은 reactions 로
+  reactions?: Record<string, { email?: string; name: string; at: string }[]>; // 이모지 → 누른 사람들
 }
+export const REACTIONS = ['👍', '❤️', '😂', '😮', '🙏', '✅'];
 export interface Report {
   id: string;
   team: string; // '1' | '2' | '3'
