@@ -8057,3 +8057,7 @@ span.rp-ack { cursor: default; }
 .rp-react-pick button { border: 0; background: none; font-size: 18px; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; }
 .rp-react-pick button:hover { background: #f6eeec; transform: scale(1.15); }
 .rp-react-pick button.on { background: #fbeeee; }
+/* 반응 고르기: 😊 버튼 바로 아래 오른쪽 맞춤 (위 고치기·지우기 줄을 가리지 않게) */
+.rp-react-pick { bottom: auto; top: calc(100% + 4px); right: 0; padding: 2px 4px; gap: 0; }
+.rp-react-pick button { width: 30px; height: 30px; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.rp-react-pick button:hover { transform: none; background: #f6eeec; }
