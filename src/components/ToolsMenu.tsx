@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 
 /** 도구 목록 (준비 중인 건 ready: false) — 휴대폰 메뉴에서도 씀 */
 export const TOOLS: { key: string; label: string; icon: string; href?: string; ready: boolean }[] = [
-  { key: 'translate', label: '번역', icon: '🌐', href: '#/translate', ready: true },
-  { key: 'trip', label: '출장신청서', icon: '✈️', ready: false },
+  { key: 'translate', label: '제품번역', icon: '🌐', href: '#/translate', ready: true },
+  { key: 'trip', label: '출장신청서', icon: '✈️', href: '#/trip', ready: true },
   { key: 'contract', label: '계약서', icon: '📄', ready: false },
 ];
 

@@ -30,13 +30,13 @@ export function labelOf(e: PettyEntry) {
 export const HL_COLORS = ['#fff36b', '#b6f2a9', '#ffc6dd', '#bfe3ff', '#ffd59a'];
 
 /** 자동 배치 + 담당자가 옮긴 것 합치기 */
-function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string, RcptPos>) {
+function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string, RcptPos>, transportItem?: string) {
   return useMemo(() => {
     const order = rows.map((r) => r.item.trim());
     const withRc = entries.filter((e) => e.receipt) // 종이영수증은 자리를 따로 비우지 않음.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
     const byItem = new Map<string, PettyEntry[]>();
     for (const e of withRc) {
-      const it = itemOf(rows, e);
+      const it = itemOf(rows, e, transportItem);
       byItem.set(it, [...(byItem.get(it) ?? []), e]);
     }
     const boxes: Box[] = [];
@@ -68,19 +68,36 @@ function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string,
   }, [entries, rows, over]);
 }
 
-export default function PettyReceipts({ pk, per, entries, rows, readOnly }: { pk: string; per: PettyPeriod; entries: PettyEntry[]; rows: SheetRow[]; readOnly?: boolean }) {
+export default function PettyReceipts({
+  pk,
+  per,
+  entries,
+  rows,
+  readOnly,
+  onSaveRcpt,
+  transportItem,
+}: {
+  pk: string;
+  per: PettyPeriod;
+  entries: PettyEntry[];
+  rows: SheetRow[];
+  readOnly?: boolean;
+  onSaveRcpt?: (rcpt: Record<string, RcptPos>) => void; // 출장신청서처럼 다른 곳에 저장할 때
+  transportItem?: string; // 교통비 칸 내역이 들어갈 항목 이름 (기본 '교통비')
+}) {
   const saved = per.rcpt ?? {};
   // 끄는 중에는 화면에서만 바꾸고, 손을 떼면 저장
   const [draft, setDraft] = useState<Record<string, RcptPos>>(saved);
   useEffect(() => setDraft(per.rcpt ?? {}), [per.rcpt]);
-  const { boxes, pages, noReceipt, paperN } = useLayout(entries, rows, draft);
+  const { boxes, pages, noReceipt, paperN } = useLayout(entries, rows, draft, transportItem);
   const [cur, setCur] = useState('');
   const page = pages.includes(cur) ? cur : pages[0] ?? '';
   const [sel, setSel] = useState<string | null>(null);
   const selBox = boxes.find((b) => b.e.id === sel && b.page === page);
   const commit = (next: Record<string, RcptPos>) => {
     setDraft(next);
-    void savePettyPeriod(pk, { ...per, rcpt: next });
+    if (onSaveRcpt) onSaveRcpt(next);
+    else void savePettyPeriod(pk, { ...per, rcpt: next });
   };
   const setPos = (id: string, p: RcptPos, save = true) => {
     const next = { ...draft, [id]: { ...(draft[id] ?? {}), ...p } };
@@ -191,7 +208,7 @@ export default function PettyReceipts({ pk, per, entries, rows, readOnly }: { pk
   if (!pages.length)
     return (
       <div className="card muted">
-        이 기간에 영수증 사진이 올라온 전도금이 없어요.
+        아직 영수증 사진이 올라온 내역이 없어요.
         {noReceipt.length > 0 && <div className="small" style={{ marginTop: 6 }}>영수증이 없는 내역 {noReceipt.length}개가 있어요.</div>}
       </div>
     );

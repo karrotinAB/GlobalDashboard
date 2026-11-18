@@ -292,9 +292,9 @@ export async function savePettyPeriod(pk: string, v: PettyPeriod) {
 }
 
 /** 이 내역이 들어가는 정산서 항목 이름 (교통비 칸은 '교통비', 정산서에 없는 용도는 '기타' 또는 마지막 항목) */
-export function itemOf(rows: SheetRow[], e: PettyEntry) {
+export function itemOf(rows: SheetRow[], e: PettyEntry, transportItem = '교통비') {
   const items = rows.map((r) => r.item.trim());
-  const key = e.kind === 'transport' ? '교통비' : (e.purpose ?? '').trim();
+  const key = e.kind === 'transport' ? transportItem : (e.purpose ?? '').trim();
   if (items.includes(key)) return key;
   return items.includes('기타') ? '기타' : (items[items.length - 1] ?? key);
 }

@@ -400,6 +400,9 @@ async function fxCurrencies() {
   {
     const pc = (await db.doc('pcCfg/main').get()).get('currencies');
     for (const c of Array.isArray(pc) ? pc : ['USD', 'JPY']) if (c && c !== 'KRW') set.add(String(c));
+    // 출장신청서 금액 통화
+    const tc = (await db.doc('tripCfg/main').get()).get('currencies');
+    for (const c of Array.isArray(tc) ? tc : ['USD', 'JPY']) if (c && c !== 'KRW') set.add(String(c));
   }
   return [...set];
 }

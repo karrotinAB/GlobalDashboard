@@ -1,6 +1,6 @@
 // 전도금: [전도금 기록하기] (모든 사용자) · [관리] (전도금 담당자 · 관리자)
 //   한 달을 1~15일 / 16일~말일 두 번으로 나눠서, 그 기간에 쓴 전도금 내역과 교통비를 기록
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type React from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
@@ -54,6 +54,13 @@ const prevYm = (ym: string) => {
 };
 const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
 
+/** 내역 저장소: 전도금(기본) · 출장신청서가 같은 화면 부품을 같이 씀 */
+export const EntryStoreCtx = createContext<{ save: (e: PettyEntry) => Promise<void>; del: (id: string) => Promise<void>; extra: Partial<PettyEntry> }>({
+  save: savePettyEntry,
+  del: deletePettyEntry,
+  extra: {},
+});
+
 export default function Petty() {
   const access = useAccess();
   const email = access.email || 'local';
@@ -106,7 +113,7 @@ export default function Petty() {
 }
 
 /** 이름 석 자 (계정 이름 → 주소록 이름) */
-function useFullName(email: string) {
+export function useFullName(email: string) {
   const { accountName, email: me } = useAccess();
   const { roles, contacts } = usePeople();
   if (email === LEAD_KEY) return '팀장님';
@@ -347,7 +354,7 @@ function useReceiptDrop(email: string, onUp: (f: PettyFile) => void) {
 }
 
 /** 영수증 보기: 사진은 누르면 팝업으로 크게 (PDF 는 새 창) */
-function ReceiptLink({ file }: { file: PettyFile }) {
+export function ReceiptLink({ file }: { file: PettyFile }) {
   const [zoom, setZoom] = useState(false);
   const img = !/\.pdf$/i.test(file.name) && !file.url.startsWith('data:application/pdf');
   return (
@@ -450,7 +457,8 @@ function DateEdit({ value, onSave, min, max }: { value: string; onSave: (d: stri
 
 /** 이미 쓴 줄: 그 줄 위로 영수증을 끌어다 놓거나, 줄을 누르고 Ctrl+V */
 function DropRow({ e, enabled, children }: { e: PettyEntry; enabled: boolean; children: React.ReactNode }) {
-  const d = useReceiptDrop(e.email, (f) => void savePettyEntry({ ...e, receipt: f, paper: undefined }));
+  const store = useContext(EntryStoreCtx);
+  const d = useReceiptDrop(e.email, (f) => void store.save({ ...e, receipt: f, paper: undefined }));
   if (!enabled) return <tr>{children}</tr>;
   return (
     <tr {...d.props} tabIndex={-1} className={d.over ? 'pc-drop' : ''} title="영수증 사진을 이 줄로 끌어다 놓거나, 줄의 빈 곳을 누르고 Ctrl+V 로 붙여넣어도 돼요">
@@ -460,9 +468,10 @@ function DropRow({ e, enabled, children }: { e: PettyEntry; enabled: boolean; ch
   );
 }
 
-function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEntry['kind']; rows: PettyEntry[]; purposes: string[]; canDelete?: boolean }) {
+export function EntryTable({ kind, rows, purposes, canDelete = true, purposeLabel = '용도' }: { kind: PettyEntry['kind']; rows: PettyEntry[]; purposes: string[]; canDelete?: boolean; purposeLabel?: string }) {
   if (!rows.length) return <p className="muted small pc-empty">{kind === 'expense' ? '아직 전도금 내역이 없어요' : '아직 교통비가 없어요'}</p>;
-  const patch = (e: PettyEntry, p: Partial<PettyEntry>) => void savePettyEntry({ ...e, ...p });
+  const store = useContext(EntryStoreCtx);
+  const patch = (e: PettyEntry, p: Partial<PettyEntry>) => void store.save({ ...e, ...p });
   return (
     <div className="table-scroll">
       <table className="pc-table">
@@ -471,7 +480,7 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
             <th className="pc-d">날짜</th>
             {kind === 'expense' ? (
               <>
-                <th>용도</th>
+                <th>{purposeLabel}</th>
                 <th>내용</th>
               </>
             ) : (
@@ -546,7 +555,7 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
               </td>
               <td>
                 {canDelete && (
-                  <button className="icon-btn" title="지우기" onClick={() => confirm('이 줄을 지울까요?') && void deletePettyEntry(e.id)}>
+                  <button className="icon-btn" title="지우기" onClick={() => confirm('이 줄을 지울까요?') && void store.del(e.id)}>
                     🗑
                   </button>
                 )}
@@ -559,9 +568,10 @@ function EntryTable({ kind, rows, purposes, canDelete = true }: { kind: PettyEnt
   );
 }
 
-function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { kind: PettyEntry['kind']; email: string; name: string; purposes: string[]; defDate: string; curs: string[]; fx: FxTable; period: Period }) {
-  // 이 기간에 낼 수 있는 영수증 날짜 (이 달 1일 ~ 이 기간 마지막 날)
-  const range = periodDateRange(period);
+export function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { kind: PettyEntry['kind']; email: string; name: string; purposes: string[]; defDate: string; curs: string[]; fx: FxTable; period?: Period }) {
+  const store = useContext(EntryStoreCtx);
+  // 이 기간에 낼 수 있는 영수증 날짜 (이 달 1일 ~ 말일) — 출장신청서는 기간 없음
+  const range = period ? periodDateRange(period) : { min: '2000-01-01', max: '2999-12-31' };
   const blank = () => ({ date: defDate, purpose: purposes[0] ?? '', content: '', mode: '버스', modeOther: '', from: '', to: '', amount: '', cur: 'KRW' });
   const [f, setF] = useState(blank);
   const [rc, setRc] = useState<{ receipt?: PettyFile; paper?: boolean }>({});
@@ -575,7 +585,7 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { 
   const [askLate, setAskLate] = useState(false); // 다른 반기 날짜 영수증 → 맞는지 묻기
   const add = async (confirmed = false) => {
     if (!ok) return;
-    if (!confirmed && periodOf(f.date).half !== period.half) return setAskLate(true); // 다른 반기 날짜면 맞는지 묻기
+    if (period && !confirmed && periodOf(f.date).half !== period.half) return setAskLate(true); // 다른 반기 날짜면 맞는지 묻기
     setAskLate(false);
     const e: PettyEntry = {
       id: uid(),
@@ -583,7 +593,8 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { 
       name,
       kind,
       date: f.date,
-      period: periodKey(period),
+      ...(period ? { period: periodKey(period) } : {}),
+      ...store.extra,
       ...(f.cur === 'KRW'
         ? { amount }
         : (() => {
@@ -595,7 +606,7 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { 
       createdAt: new Date().toISOString(),
     };
     try {
-      await savePettyEntry(e);
+      await store.save(e);
       setF({ ...blank(), cur: f.cur });
       setRc({});
       setErr('');
@@ -605,7 +616,7 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { 
   };
   return (
     <div className={`pc-add pc-add-${kind} ${drop.over ? 'pc-drop' : ''}`} {...drop.props} tabIndex={-1}>
-      <input type="date" value={f.date} min={range.min} max={range.max} onChange={(e) => set({ date: e.target.value })} title={`${md(range.min)} ~ ${md(range.max)} 영수증만 낼 수 있어요`} />
+      <input type="date" value={f.date} min={period ? range.min : undefined} max={period ? range.max : undefined} onChange={(e) => set({ date: e.target.value })} title={period ? `${md(range.min)} ~ ${md(range.max)} 영수증만 낼 수 있어요` : '영수증 날짜'} />
       {kind === 'expense' ? (
         <>
           <select value={f.purpose} onChange={(e) => set({ purpose: e.target.value })} title="용도">
@@ -650,7 +661,7 @@ function AddEntry({ kind, email, name, purposes, defDate, curs, fx, period }: { 
       <button className="primary" disabled={!ok} onClick={() => void add()}>
         추가
       </button>
-      {askLate && (
+      {askLate && period && (
         <Modal title="날짜를 확인해 주세요" onClose={() => setAskLate(false)}>
           <p style={{ marginTop: 0 }}>
             영수증 날짜 <b>{md(f.date)}</b>는 <b>{periodLabel(periodOf(f.date))}</b> 날짜예요.
@@ -891,7 +902,7 @@ const dotDate = (iso: string) => `${iso.slice(2, 4)}.${iso.slice(5, 7)}.${iso.sl
 const APPROVALS = ['담당', '주임', '대리', '과장', '차/부장', '임원', '회장'];
 
 /** 이 시트만 인쇄 (브라우저 인쇄 창 → 'PDF로 저장' 가능): 시트를 깨끗하게 복사해서 그것만 찍음 */
-function printSheet(id: string, many = false) {
+export function printSheet(id: string, many = false) {
   const src = document.getElementById(id);
   if (!src) return;
   const copy = src.cloneNode(true) as HTMLElement;
@@ -920,7 +931,7 @@ function printSheet(id: string, many = false) {
   setTimeout(() => window.print(), 50);
 }
 
-function Approval({ label }: { label: string[] }) {
+export function Approval({ label, heads }: { label: string[]; heads?: string[] }) {
   return (
     <table className="ps-appr">
       <tbody>
@@ -934,14 +945,14 @@ function Approval({ label }: { label: string[] }) {
             <div>결</div>
             <div>재</div>
           </td>
-          {APPROVALS.map((a) => (
+          {(heads ?? APPROVALS).map((a) => (
             <td key={a} className="ps-appr-h">
               {a}
             </td>
           ))}
         </tr>
         <tr>
-          {APPROVALS.map((a) => (
+          {(heads ?? APPROVALS).map((a) => (
             <td key={a} className="ps-appr-sign" />
           ))}
         </tr>

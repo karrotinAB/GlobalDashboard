@@ -112,7 +112,7 @@ export default function Translate() {
   return (
     <div className="page">
       <div className="page-head">
-        <h1>번역</h1>
+        <h1>제품번역</h1>
         <p className="muted">엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아서 사전으로 자동 번역해요. 모르는 단어는 채워 넣으면 사전에 저장돼서 다음부터 자동으로 들어가요.</p>
       </div>
       <div className="seg tr-tabs">

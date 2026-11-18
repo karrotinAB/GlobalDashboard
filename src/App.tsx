@@ -5,6 +5,7 @@ import Reports from './pages/Reports';
 import TradeMemo from './pages/TradeMemo';
 import Translate from './pages/Translate';
 import Petty from './pages/Petty';
+import Trip from './pages/Trip';
 import ToolsMenu, { TOOLS } from './components/ToolsMenu';
 import ProfileMenu from './components/ProfileMenu';
 import ReportTaskSync from './components/ReportTaskSync';
@@ -43,7 +44,8 @@ const PAGES = [
   { key: 'tmemo', label: '업체 메모', icon: '📝' },
   { key: 'texport', label: '수출매출', icon: '🚢' },
   { key: 'treports', label: '보고방', icon: '📑' },
-  { key: 'translate', label: '번역', icon: '🌐' },
+  { key: 'translate', label: '제품번역', icon: '🌐' },
+  { key: 'trip', label: '출장신청서', icon: '✈️' },
   { key: 'petty', label: '전도금', icon: '💰' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
@@ -71,7 +73,7 @@ export default function App() {
   // '조 현황' 탭: 팀장님·이사님 대시보드에만 (관리자는 팀장님·이사님 대시보드를 볼 때만)
   const canOverview = leader || ((role === 'admin' || role === null) && isPersonal(viewTeam));
   const page: PageKey = tradeOnly
-    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate' || hashPage === 'petty'
+    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate' || hashPage === 'petty' || hashPage === 'trip'
       ? hashPage
       : 'thome'
     : isTradePage(hashPage) && !canTrade
@@ -350,6 +352,8 @@ export default function App() {
             <Translate />
           ) : page === 'petty' ? (
             <Petty />
+          ) : page === 'trip' ? (
+            <Trip />
           ) : page === 'treports' ? (
             <Reports key="trade" space="trade" />
           ) : (

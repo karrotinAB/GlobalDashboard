@@ -166,6 +166,16 @@ service cloud.firestore {
       allow write: if isTrade() || isAdmin();
     }
 
+    // 출장신청서: 각자 자기 것만 (관리자는 모두)
+    match /trips/{id} {
+      allow read, update, delete: if isAdmin() || (isAny() && resource.data.email == myEmail());
+      allow create: if isAdmin() || (isAny() && request.resource.data.email == myEmail());
+    }
+    match /tripEntries/{id} {
+      allow read, update, delete: if isAdmin() || (isAny() && resource.data.email == myEmail());
+      allow create: if isAdmin() || (isAny() && request.resource.data.email == myEmail());
+    }
+
     // 전도금: 담당자(pcCfg/main.managers)·관리자는 모두 보고, 나머지는 자기 것만
     function isPcManager() {
       return isAny() && exists(/databases/$(database)/documents/pcCfg/main)
@@ -180,6 +190,10 @@ service cloud.firestore {
     // 기간별 정산 (전달 완료 · 정산서 항목): 담당자·관리자만
     match /pcPeriods/{pk} {
       // 전도금 프린트는 모두 봄 (고치는 건 담당자·관리자)
+      allow read: if isAny();
+      allow write: if isAdmin() || isPcManager();
+    }
+    match /tripCfg/{id} {
       allow read: if isAny();
       allow write: if isAdmin() || isPcManager();
     }
