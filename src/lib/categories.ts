@@ -25,6 +25,7 @@ export interface CatPick {
   at?: string;
   by?: string;
   season?: 'S' | 'N'; // 시즌품 / 비시즌품 (엑셀 '시즌품구분')
+  pre?: string; // 제품코드 앞 2자리
 }
 
 const lsGet = <T,>(k: string, d: T): T => {
@@ -89,15 +90,15 @@ export function useCatPicks() {
 }
 
 /** 고른 분류 기록 (같은 제품명은 마지막에 고른 걸로) */
-export async function savePicks(picks: { ko: string; cat: string; season?: 'S' | 'N' }[], by?: string) {
+export async function savePicks(picks: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[], by?: string) {
   const at = new Date().toISOString();
   const clean = picks.filter((p) => p.ko.trim() && p.cat);
   if (DATA_MODE === 'local') {
     const m = new Map(lsGet<CatPick[]>('gd:catPicks', []).map((p) => [p.id, p]));
-    for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by, ...(p.season ? { season: p.season } : {}) });
+    for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by, ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) });
     return lsSet('gd:catPicks', [...m.values()], 'gd-catpicks');
   }
-  await Promise.all(clean.map((p) => setDoc(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}) })));
+  await Promise.all(clean.map((p) => setDoc(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) })));
 }
 
 // ---------- 비슷한 제품 찾기 ----------
@@ -133,16 +134,20 @@ export interface Suggestion {
 }
 
 /** 예시들(고른 기록 + 이 파일에서 이미 분류가 채워진 줄)로 이 제품의 분류를 추천 */
-export function makeRecommender(examples: { ko: string; cat: string; season?: 'S' | 'N' }[]) {
+export function makeRecommender(examples: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[]) {
   // 같은 제품명은 하나로 (마지막 것)
   const uniq = new Map(examples.filter((e) => e.ko && e.cat).map((e) => [e.ko.trim(), e]));
-  const ex = [...uniq.entries()].map(([k, e]) => ({ k, cat: e.cat, season: e.season, g: gramsOf(k) }));
+  const ex = [...uniq.entries()].map(([k, e]) => ({ k, cat: e.cat, season: e.season, pre: e.pre, g: gramsOf(k) }));
+  // 제품코드 앞 2자리별 분류 수 (글자로 못 찾을 때 그 앞자리에서 가장 많은 분류)
+  const byPre = new Map<string, Map<string, number>>();
+  for (const e of ex) if (e.pre) byPre.set(e.pre, (byPre.get(e.pre) ?? new Map()).set(e.cat, ((byPre.get(e.pre) ?? new Map()).get(e.cat) ?? 0) + 1));
   const exact = new Map(ex.map((e) => [e.k, e.cat]));
   // 글자 묶음 → 예시 번호 (흔한 묶음은 건너뜀)
   const index = new Map<string, number[]>();
   ex.forEach((e, i) => e.g.forEach((x) => index.set(x, [...(index.get(x) ?? []), i])));
   // season: 이 제품이 시즌품(S)/비시즌품(N)이면 같은 구분 예시를 더 믿고, 다른 구분 예시는 덜 믿음
-  return (name: string, season?: 'S' | 'N'): Suggestion | null => {
+  //   pre: 제품코드 앞 2자리가 같은 예시를 더 믿고, 다른 앞자리는 덜 믿음
+  return (name: string, season?: 'S' | 'N', pre?: string): Suggestion | null => {
     const k = name.trim();
     if (!k) return null;
     if (exact.has(k)) return { cat: exact.get(k)!, score: 1, like: k, exact: true };
@@ -158,7 +163,8 @@ export function makeRecommender(examples: { ko: string; cat: string; season?: 'S
     for (const i of cand) {
       const e = ex[i];
       const s0 = sim(g, e.g);
-      const s = season && e.season ? (season === e.season ? Math.min(1, s0 * 1.15) : s0 * 0.7) : s0;
+      let s = season && e.season ? (season === e.season ? Math.min(1, s0 * 1.15) : s0 * 0.7) : s0;
+      if (pre && e.pre) s = pre === e.pre ? Math.min(1, s * 1.15) : s * 0.9;
       if (s < 0.2) continue;
       const cur = by.get(e.cat) ?? { score: 0, best: 0, like: '' };
       cur.score += s * s;
@@ -169,7 +175,15 @@ export function makeRecommender(examples: { ko: string; cat: string; season?: 'S
       by.set(e.cat, cur);
     }
     const top = [...by.entries()].sort((a, b) => b[1].best + b[1].score * 0.2 - (a[1].best + a[1].score * 0.2))[0];
-    if (!top || top[1].best < 0.3) return null;
+    if (!top || top[1].best < 0.3) {
+      // 글자로 못 찾으면: 같은 코드 앞자리 제품들이 가장 많이 고른 분류 (그 앞자리 예시의 60% 이상일 때만)
+      const m = pre ? byPre.get(pre) : undefined;
+      if (!m) return null;
+      const all = [...m.values()].reduce((a, b) => a + b, 0);
+      const [cat, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (all < 3 || n / all < 0.6) return null;
+      return { cat, score: 0.3, like: `코드 ${pre}… 제품 ${all}개 중 ${n}개`, exact: false };
+    }
     return { cat: top[0], score: Math.min(1, top[1].best), like: top[1].like, exact: false };
   };
 }
