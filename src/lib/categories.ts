@@ -98,7 +98,12 @@ export async function savePicks(picks: { ko: string; cat: string; season?: 'S' |
     for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by, ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) });
     return lsSet('gd:catPicks', [...m.values()], 'gd-catpicks');
   }
-  await Promise.all(clean.map((p) => setDoc(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) })));
+  // 많으면 400개씩 묶어서 (분류된 엑셀을 통째로 올릴 때)
+  for (let i = 0; i < clean.length; i += 400) {
+    const b = writeBatch(db);
+    for (const p of clean.slice(i, i + 400)) b.set(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) });
+    await b.commit();
+  }
 }
 
 // ---------- 비슷한 제품 찾기 ----------

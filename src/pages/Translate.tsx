@@ -755,6 +755,55 @@ function CatsTab() {
       setMsg(`엑셀을 못 읽었어요: ${(e as Error).message}`);
     }
   };
+  // 이미 분류가 채워진 제품 엑셀 → 고른 기록(추천 예시)으로 한꺼번에 넣기
+  const learnRef = useRef<HTMLInputElement>(null);
+  const [learning, setLearning] = useState(false);
+  const learn = async (f: File) => {
+    setMsg('');
+    setLearning(true);
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      const known = new Set((rows ?? []).map((c) => `${c.mainCode}-${c.subCode}`));
+      const out: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[] = [];
+      let skipped = 0;
+      for (const sn of wb.SheetNames) {
+        const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sn], { header: 1, defval: '', raw: false });
+        for (let h = 0; h < Math.min(aoa.length, 15); h++) {
+          const col: Partial<Record<string, number>> = {};
+          (aoa[h] ?? []).forEach((x, i) => {
+            const k = classify(x);
+            if (k && col[k] === undefined) col[k] = i;
+          });
+          if (col.koName === undefined || col.mainCode === undefined || col.subCode === undefined) continue;
+          const g = (r: unknown[], k: string) => (col[k] !== undefined ? String(r[col[k]!] ?? '').trim() : '');
+          for (const r of aoa.slice(h + 1)) {
+            const ko = g(r, 'koName');
+            const m = g(r, 'mainCode');
+            const sub = g(r, 'subCode');
+            if (!ko || !/^\d+$/.test(m) || !/^\d+$/.test(sub)) continue;
+            const cat = `${m}-${sub}`;
+            if (known.size && !known.has(cat)) {
+              skipped++;
+              continue;
+            }
+            const sv = g(r, 'season');
+            const code = g(r, 'code');
+            out.push({ ko, cat, season: /비시즌/.test(sv) ? 'N' : /시즌/.test(sv) ? 'S' : undefined, pre: /^\d{2}/.test(code) ? code.slice(0, 2) : undefined });
+          }
+          break;
+        }
+      }
+      if (!out.length) return setMsg("제품명 · 수출 대분류 · 수출 중분류 칸이 채워진 줄을 못 찾았어요.");
+      if (!confirm(`분류가 채워진 제품 ${out.length}개를 추천 예시로 넣을까요?${skipped ? `\n(분류표에 없는 분류 ${skipped}줄은 빼요)` : ''}\n같은 제품명은 새로 올린 분류로 바뀌어요.`)) return;
+      await savePicks(out, accountName ?? email);
+      setMsg(`제품 ${out.length}개를 추천 예시로 넣었어요 ✓ 이제 번역 탭 추천에 바로 쓰여요`);
+    } catch (e) {
+      setMsg(`엑셀을 못 읽었어요: ${(e as Error).message}`);
+    } finally {
+      setLearning(false);
+    }
+  };
   const nq = q.trim().toLowerCase();
   const shown = (rows ?? []).filter((c) => !nq || `${c.mainName} ${c.mainEn} ${c.subName} ${c.subEn} ${c.mainCode}-${c.subCode}`.toLowerCase().includes(nq));
   const pickCount = (k: string) => picks.filter((p) => p.cat === k).length;
@@ -769,9 +818,13 @@ function CatsTab() {
         <button className="primary" onClick={() => fileRef.current?.click()} title="대분류코드 · 대분류명 · 대분류 영문명 · 중분류코드 · 중분류명 · 중분류 영문명">
           📤 분류표 엑셀 올리기
         </button>
+        <input ref={learnRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => (e.target.files?.[0] && void learn(e.target.files[0]), (e.target.value = ''))} />
+        <button disabled={learning || !rows?.length} onClick={() => learnRef.current?.click()} title="제품명 · 제품코드 · 수출 대분류 · 수출 중분류 (· 시즌품구분) 칸이 있는 엑셀. 분류가 채워진 줄을 추천 예시로 넣어요">
+          {learning ? '넣는 중…' : '📥 분류된 제품 엑셀로 추천 배우기'}
+        </button>
       </div>
       <p className="muted small" style={{ marginTop: 0 }}>
-        올리면 전체가 새 분류표로 바뀌어요. 번역 탭에서 줄마다 분류를 고르면 기록이 남고, 다음에 비슷한 제품명이 나오면 그 분류를 추천해요.
+        분류표를 올리면 전체가 새 분류표로 바뀌어요. 번역 탭에서 줄마다 분류를 고르면 기록이 남고, 다음에 비슷한 제품명이 나오면 그 분류를 추천해요. 이미 분류가 채워진 제품 엑셀을 '추천 배우기'로 올리면 그 제품들도 한꺼번에 추천 예시가 돼요.
       </p>
       {msg && <p className="small">{msg}</p>}
       {rows === null ? (
