@@ -28,7 +28,10 @@ export interface Article {
   no: number; // 순서
   head: string; // 조항 제목 줄 (예: Article 5. Security Deposit)
   body: string[]; // 문단들
+  section?: boolean; // Section · Chapter · Part · 제N장 (여러 조항을 묶는 큰 구간 제목)
 }
+/** 큰 구간 제목 (Section 1: General Provisions · Chapter 2 · 제1장) */
+export const isSection = (line: string) => /^\s*(section|chapter|part)\s+[\dIVXLC]+\b/i.test(line) || /^\s*제\s*\d+\s*(장|편|절)/.test(line);
 
 // ---------- 로컬 ----------
 const LS = 'gd:contracts';
@@ -107,7 +110,7 @@ const isNumberedTitle = (line: string) => {
   // 영어: 6단어 이하, 짧은 연결어 빼고 모두 대문자로 시작
   return words.length <= 6 && words.every((w) => /^[A-Z0-9("'&]/.test(w) || /^(of|and|or|the|to|for|in|on|a|an|by|with)$/i.test(w));
 };
-export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line)) || isNumberedTitle(line);
+export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line)) || isNumberedTitle(line) || isSection(line);
 
 /**
  * OCR 원문 → 조항: 제목 줄에서 나누고, 문단 안에서 OCR 로 끊긴 줄은 이어 붙임
@@ -134,7 +137,7 @@ export function parseArticles(text: string): { intro: string[]; articles: Articl
     if (!line) return flush();
     if (isHead(line)) {
       flush();
-      cur = { no: articles.length + 1, head: line.replace(/\s+/g, ' '), body: [] };
+      cur = { no: articles.length + 1, head: line.replace(/\s+/g, ' '), body: [], ...(isSection(line) ? { section: true } : {}) };
       articles.push(cur);
       return;
     }

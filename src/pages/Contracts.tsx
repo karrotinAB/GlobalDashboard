@@ -236,7 +236,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
                     <Para key={`i${i}`} p={p} groups={groups} intro />
                   ))}
                   {d.articles.map((a) => (
-                    <section key={a.no} className="ct-art">
+                    <section key={a.no} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
                       <div className="ct-art-head">{hl(a.head, groups)}</div>
                       {a.body.map((p, j) => (
                         <Para key={j} p={p} groups={groups} />
@@ -256,7 +256,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
             const hit = groups.length > 0 && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
             if (groups.length && !hit) return null;
             return (
-              <section key={a.no} id={`ct-art-${a.no}`} className="ct-art">
+              <section key={a.no} id={`ct-art-${a.no}`} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
                 <div className="ct-art-head">{hl(a.head, groups)}</div>
                 {a.body.map((p, j) => (
                   <Para key={j} p={p} groups={groups} />
@@ -285,9 +285,10 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
           {articles.length > 0 && (
             <>
               <h3>조항</h3>
-              <ol className="ct-toc">
-                {articles.map((a) => (
-                  <li key={a.no}>
+              <ul className="ct-toc">
+                {articles.map((a, i) => (
+                  // Section 아래 Article 은 들여쓰기 (그 앞에 Section 이 하나라도 있으면)
+                  <li key={a.no} className={a.section ? 'ct-toc-sec' : articles.slice(0, i).some((x) => x.section) ? 'ct-toc-sub' : undefined}>
                     {/* 누르면 그 조항으로 (찾기 중이면 찾기를 풀고) */}
                     <button
                       className="ct-toc-btn"
@@ -310,7 +311,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
                     </button>
                   </li>
                 ))}
-              </ol>
+              </ul>
             </>
           )}
           {c.note && <p className="small">{c.note}</p>}
@@ -452,7 +453,7 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
               <Para key={`i${i}`} p={p} groups={[]} intro />
             ))}
             {parsed.articles.map((a) => (
-              <section key={a.no} className="ct-art">
+              <section key={a.no} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
                 <div className="ct-art-head">{a.head}</div>
                 {a.body.map((p, j) => (
                   <Para key={j} p={p} groups={[]} />

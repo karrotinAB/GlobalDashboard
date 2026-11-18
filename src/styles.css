@@ -8193,3 +8193,18 @@ span.rp-ack { cursor: default; }
 .ct-doc .ct-art.ct-flash { background: #fff6cc; }
 .ct-result .ct-art { padding-left: 12px; border-left: 3px solid #e8d9d5; margin-bottom: 14px; }
 .ct-result .ct-art p { margin: 0 0 3px; }
+/* 계약서: Section · Chapter · 제N장 = 큰 구간 제목 */
+.ct-doc .ct-art.ct-section { border-left: 0; padding: 0; margin: 34px 0 14px; }
+.ct-doc .ct-art.ct-section .ct-art-head { font-size: 19px; padding: 8px 12px; border-bottom: 0; background: #f4e9e6; border-radius: 8px; color: #5a1f27; letter-spacing: 0.3px; }
+.ct-doc .ct-art.ct-section:first-of-type { margin-top: 8px; }
+.ct-doc .ct-art.ct-section > p { margin-left: 4px; }
+.ct-result .ct-art.ct-section { border-left: 0; padding-left: 0; }
+.ct-result .ct-art.ct-section .ct-art-head { font-size: 16px; color: #5a1f27; }
+.ct-toc li.ct-toc-sec { list-style: none; margin: 8px 0 2px -14px; font-weight: 700; color: #5a1f27; }
+/* 조항 목차: Section 아래 Article 들여쓰기 */
+.ct-toc { list-style: none; padding-left: 0; overflow-x: hidden; }
+.ct-toc li { white-space: normal; overflow-wrap: anywhere; }
+.ct-toc li.ct-toc-sec { margin: 10px 0 3px 0; font-weight: 700; color: #5a1f27; padding-bottom: 2px; border-bottom: 1px solid #eadcd9; }
+.ct-toc li.ct-toc-sec:first-child { margin-top: 0; }
+.ct-toc li.ct-toc-sub { padding-left: 12px; position: relative; }
+.ct-toc li.ct-toc-sub::before { content: ''; position: absolute; left: 3px; top: 0.75em; width: 5px; height: 1px; background: #c9b3ae; }
