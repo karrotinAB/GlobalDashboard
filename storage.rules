@@ -20,6 +20,14 @@ service firebase.storage {
       allow read, delete: if isAny();
       allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
     }
+    // 계약서 원본 (관리자만)
+    match /contracts/{id}/{file} {
+      allow read, delete: if request.auth != null && request.auth.token.email != null
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level == 'admin';
+      allow create: if request.auth != null && request.auth.token.email != null
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level == 'admin'
+        && request.resource.size < 50 * 1024 * 1024;
+    }
     // 전도금 영수증: 올린 사람 폴더에만 올림 (읽기는 대시보드 사용자)
     match /petty/{email}/{file} {
       allow read: if isAny();

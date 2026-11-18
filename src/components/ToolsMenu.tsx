@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 export const TOOLS: { key: string; label: string; icon: string; href?: string; ready: boolean }[] = [
   { key: 'translate', label: '제품번역', icon: '🌐', href: '#/translate', ready: true },
   { key: 'trip', label: '출장신청서', icon: '✈️', href: '#/trip', ready: true },
-  { key: 'contract', label: '계약서', icon: '📄', ready: false },
+  { key: 'contract', label: '계약서', icon: '📄', href: '#/contract', ready: true },
 ];
 
 export default function ToolsMenu({ page }: { page: string }) {

@@ -166,6 +166,11 @@ service cloud.firestore {
       allow write: if isTrade() || isAdmin();
     }
 
+    // 계약서 보관함: 관리자만
+    match /contracts/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // 출장신청서: 각자 자기 것만 (관리자는 모두)
     match /trips/{id} {
       allow read, update, delete: if isAdmin() || (isAny() && resource.data.email == myEmail());

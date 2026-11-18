@@ -261,8 +261,9 @@ function TranslateTab() {
     return [...c.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onlyTodo, todo, view]);
-  const shown = useMemo(() => {
-    const base0 = onlyTodo ? todo : view;
+  // 찾기 · 코드 · 시즌으로 거른 줄 (덜 채운 줄만은 아래에서)
+  const shownAll = useMemo(() => {
+    const base0 = view;
     const base1 = codePre ? base0.filter((v) => cell(v.row, 'code').startsWith(codePre)) : base0;
     const base = seasonF ? base1.filter((v) => v.season === seasonF) : base1;
     const words = rowQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -272,8 +273,7 @@ function TranslateTab() {
       return words.every((w) => h.includes(w));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onlyTodo, todo, view, rowQ, codePre, seasonF]);
-  const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
+  }, [view, rowQ, codePre, seasonF]);
   const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
     const c = new Map<string, number>();
@@ -315,6 +315,16 @@ function TranslateTab() {
     const sg = sugOf(v);
     return sg?.exact && catByKey.has(sg.cat) ? sg.cat : '';
   };
+  // '아직 덜 채운 줄만': 영문 제품명이 비었거나 [모르는 단어] 가 남은 줄 · 수출 분류를 아직 안 고른 줄
+  //   고치는 중에 줄이 사라지지 않게, 체크하거나 거르기를 바꿀 때만 다시 거름
+  const isLeft = (v: (typeof view)[number]) => (v.empty.includes('enName') && (!enOf(v) || /\[[^\]]+\]/.test(enOf(v)))) || (needCat(v) && !chosen(v));
+  const [refilter, setRefilter] = useState(0);
+  const shown = useMemo(
+    () => (onlyTodo ? shownAll.filter(isLeft) : shownAll),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onlyTodo, shownAll, refilter],
+  );
+  const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
   const pickCat = (v: (typeof view)[number], key: string) => {
     setCatSel((x) => ({ ...x, [v.row.r]: key }));
     if (key && v.ko) void savePicks([{ ko: v.ko, cat: key, season: v.season }], accountName ?? email);
@@ -430,7 +440,7 @@ function TranslateTab() {
         <div className="card tr-rows">
           <div className="tr-rows-head">
             <label className="check-line small">
-              <input type="checkbox" checked={onlyTodo} onChange={(e) => (setOnlyTodo(e.target.checked), setPage(0))} /> 빈 칸 있는 줄만
+              <input type="checkbox" checked={onlyTodo} onChange={(e) => (setOnlyTodo(e.target.checked), setPage(0))} /> 아직 덜 채운 줄만
             </label>
             <input className="search tr-row-q" placeholder="🔍 제품명 · 코드로 찾기" value={rowQ} onChange={(e) => (setRowQ(e.target.value), setPage(0))} />
             {sheet.col.code !== undefined && codePres.length > 0 && (
@@ -452,6 +462,11 @@ function TranslateTab() {
               </select>
             )}
             <span className="muted small">{shown.length}줄</span>
+            {onlyTodo && (
+              <button className="link small" onClick={() => (setRefilter((n) => n + 1), setPage(0))} title="방금 채운 줄을 빼고 다시 거르기">
+                ↻ 다시 거르기
+              </button>
+            )}
             {catCols.length > 0 && !!cats?.length && (
               <button className="tr-sug-all" onClick={applyAllSuggestions} title="지금 화면에 보이는 줄(검색 결과 · 이 페이지)에만 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
                 ✨ 이 페이지 추천 분류 넣기
