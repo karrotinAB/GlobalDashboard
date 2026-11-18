@@ -409,6 +409,22 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
             </span>
             <span className="rp-reply-text">{x.text}</span>
             <span className="muted small">{when(x.at)}</span>
+            {/* 👍 담당 확인: 보고를 쓴 담당자만 누름 (다시 누르면 취소) */}
+            {(() => {
+              const isAuthor = !!access.email && r.authorEmail === access.email;
+              if (!isAuthor && !x.ack) return null;
+              const toggle = () =>
+                void saveReport({ ...r, replies: (r.replies ?? []).map((y) => (y.id === x.id ? { ...y, ack: y.ack ? undefined : { at: new Date().toISOString(), by: myName } } : y)) });
+              return isAuthor ? (
+                <button className={`rp-ack ${x.ack ? 'on' : ''}`} onClick={toggle} title={x.ack ? `담당 확인 ${when(x.ack.at)} (누르면 취소)` : '담당 확인'}>
+                  👍 {x.ack ? '담당 확인 완료' : '담당 확인'}
+                </button>
+              ) : (
+                <span className="rp-ack on" title={when(x.ack!.at)}>
+                  👍 담당 확인 완료
+                </span>
+              );
+            })()}
             {x.email && x.email === access.email && (
               <button className="icon-btn" title="답변 지우기" onClick={() => confirm('이 답변을 지울까요?') && void saveReport({ ...r, replies: (r.replies ?? []).filter((y) => y.id !== x.id) })}>
                 ✕

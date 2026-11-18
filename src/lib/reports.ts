@@ -70,6 +70,7 @@ export interface ReportReply {
   role?: string; // 'lead' | 'director' | 'member' | 'admin'
   text: string;
   at: string;
+  ack?: { at: string; by?: string }; // 👍 담당 확인 (보고 쓴 사람이 누름)
 }
 export interface Report {
   id: string;

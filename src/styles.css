@@ -8034,3 +8034,11 @@ td.c-people { min-width: 120px; }
 /* 번역: 시즌품 표시 */
 .tr-season { display: inline-block; font-size: 11px; font-weight: 700; color: #1f6b3a; background: #e3f4e6; border-radius: 999px; padding: 0 7px; margin-right: 6px; vertical-align: 1px; white-space: nowrap; }
 .tr-dl-all { margin-left: 6px; border-style: dashed !important; }
+/* 보고방 답글: 조금 크게 + 👍 담당 확인 */
+.rp-reply { padding: 11px 14px; font-size: 14.5px; align-items: center; gap: 10px; }
+.rp-reply-who { font-size: 14px; }
+.rp-reply-text { line-height: 1.5; }
+.rp-ack { margin-left: auto; flex: none; border: 1px solid #e3d3cf; background: #fff; border-radius: 999px; padding: 3px 11px; font-size: 12.5px; cursor: pointer; color: #6b5a57; white-space: nowrap; }
+.rp-ack:hover { background: #f6eeec; }
+.rp-ack.on { background: #e8f5ea; border-color: #b9dcc0; color: #2f6b3c; font-weight: 700; }
+span.rp-ack { cursor: default; }
