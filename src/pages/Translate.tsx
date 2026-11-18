@@ -839,6 +839,16 @@ function UnknownWords({
       </>
     );
   };
+  // 지금 목록을 엑셀로 (첫 칸 한글 · 둘째 칸 영어 → 채워서 사전 탭에서 다시 올리면 한꺼번에 들어감)
+  const downloadWords = async () => {
+    const XLSX = await import('xlsx');
+    const aoa = [['한글', '영어', '나온 줄', '예시 제품명'], ...list.map(([w, n]) => [w, newWords[w] ?? '', n, rowsOf(w)[0]?.ko ?? ''])];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 8 }, { wch: 50 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, showHidden ? '뺀 단어' : '사전에 없는 단어');
+    XLSX.writeFile(wb, showHidden ? '뺀_단어.xlsx' : '사전에_없는_단어.xlsx');
+  };
   return (
     <div className="card tr-unknown">
       <div className="tr-unknown-head">
@@ -851,6 +861,9 @@ function UnknownWords({
         <input className="search tr-unknown-q" placeholder="🔍 단어 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted small">아는 단어만 채워도 돼요 — 채운 것만 사전에 들어가고 바로 다시 번역돼요</span>
         {saveMsg && <span className="small tr-save-msg">{saveMsg}</span>}
+        <button onClick={() => void downloadWords()} title="지금 목록(찾기·뺀 단어 보기 그대로)을 엑셀로: 한글 · 영어 · 나온 줄 · 예시 제품명. 영어를 채워서 사전 탭 '엑셀로 한꺼번에 넣기'로 다시 올릴 수 있어요">
+          ⬇ 엑셀로 받기
+        </button>
         <button className="primary" disabled={!filled} onClick={() => void addWords()}>
           사전에 추가{filled ? ` (${filled})` : ''}
         </button>
