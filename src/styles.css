@@ -8061,3 +8061,13 @@ span.rp-ack { cursor: default; }
 .rp-react-pick { bottom: auto; top: calc(100% + 4px); right: 0; padding: 2px 4px; gap: 0; }
 .rp-react-pick button { width: 30px; height: 30px; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
 .rp-react-pick button:hover { transform: none; background: #f6eeec; }
+/* 도구함 드롭다운 */
+.tools-caret { font-size: 10px; margin-left: 2px; opacity: 0.7; }
+.tools-menu { min-width: 210px; right: 0; left: auto; }
+.tools-menu a.on { background: #fbeeee; color: #8c2f3c; font-weight: 700; }
+.tools-n { color: #b09590; font-size: 12px; width: 16px; }
+.tools-soon { display: flex; align-items: center; gap: 10px; padding: 9px 10px; font-size: 13.5px; color: #a8958f; cursor: default; }
+.tools-soon .tag { margin-left: auto; }
+.drawer-tools-head { font-size: 12px; color: var(--mut); padding: 6px 12px 2px; }
+.drawer-foot .drawer-tool { padding-left: 22px !important; }
+.drawer-foot .drawer-tool.soon { display: flex; align-items: center; gap: 8px; padding: 11px 12px 11px 22px; color: #a8958f; font-size: 15px; }

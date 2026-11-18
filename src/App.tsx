@@ -5,6 +5,7 @@ import Reports from './pages/Reports';
 import TradeMemo from './pages/TradeMemo';
 import Translate from './pages/Translate';
 import Petty from './pages/Petty';
+import ToolsMenu, { TOOLS } from './components/ToolsMenu';
 import ProfileMenu from './components/ProfileMenu';
 import ReportTaskSync from './components/ReportTaskSync';
 import { useReportAlert } from './lib/reports';
@@ -206,9 +207,18 @@ export default function App() {
             {/* 줄 위: 주소록 · 번역 / 줄 아래: 다른 페이지로 가는 링크 · 설정 · 로그아웃 */}
             <div className="drawer-foot drawer-ab">
               {mode === 'firestore' && <AddressBook />}
-              <a href="#/translate" className={page === 'translate' ? 'active' : ''} onClick={closeDrawer}>
-                🌐 번역
-              </a>
+              <div className="drawer-tools-head">🧰 도구함</div>
+              {TOOLS.map((t) =>
+                t.ready ? (
+                  <a key={t.key} href={t.href} className={`drawer-tool ${page === t.key ? 'active' : ''}`} onClick={closeDrawer}>
+                    {t.icon} {t.label}
+                  </a>
+                ) : (
+                  <span key={t.key} className="drawer-tool soon">
+                    {t.icon} {t.label} <span className="tag gray small">준비 중</span>
+                  </span>
+                ),
+              )}
               <a href="#/petty" className={page === 'petty' ? 'active' : ''} onClick={closeDrawer}>
                 💰 전도금
               </a>
@@ -245,10 +255,8 @@ export default function App() {
           </a>
         )}
         {mode === 'firestore' && <AddressBook className="top-btn" />}
-        {/* 설정 자리: 번역 · 설정·로그아웃은 프로필 동그라미 안으로 */}
-        <a href="#/translate" className={`top-btn ${page === 'translate' ? 'active' : ''}`} title="제품명 번역 · 사전">
-          🌐 번역
-        </a>
+        {/* 도구함 (번역 · 출장신청서 · 계약서 …) · 설정·로그아웃은 프로필 동그라미 안으로 */}
+        <ToolsMenu page={page} />
         <ProfileMenu />
       </div>
       <div className="shell">
