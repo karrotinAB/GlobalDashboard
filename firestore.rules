@@ -170,6 +170,13 @@ service cloud.firestore {
     match /contracts/{id} {
       allow read, write: if isAdmin();
     }
+    // 계약서 스크랩 · 폴더 (계약서 보는 사람 모두 같이)
+    match /ctFolders/{id} {
+      allow read, write: if isAdmin();
+    }
+    match /ctClips/{id} {
+      allow read, write: if isAdmin();
+    }
 
     // 출장신청서: 각자 자기 것만 (관리자는 모두)
     match /trips/{id} {

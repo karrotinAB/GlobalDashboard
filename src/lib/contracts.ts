@@ -21,6 +21,9 @@ export interface Contract {
   text?: string; // OCR 텍스트 원문
   text2?: string; // 번역본 (원문이 한글이면 영어, 영어면 한글)
   note?: string;
+  latest?: boolean; // (최신) — 이 업체의 최신 버전 계약서
+  team?: string; // 올린 조 ('1'·'2'·'3'·'trade') — 검색 '우리 조만'
+  main?: boolean; // (주요) — 이 업체의 주요 계약서
   createdAt: string;
   by?: string;
 }
@@ -220,3 +223,80 @@ export const langOf = (t?: string) => {
   const en = (s.match(/[A-Za-z]/g) ?? []).length;
   return ko > en / 3 ? '한글' : '영어';
 };
+
+// ---------- 스크랩 + 폴더 (모두 같이 씀) ----------
+//   ctFolders/{id}: { name, createdAt, by }
+//   ctClips/{id}: { folderId, text, contractId, company, title, head, at, by, note? }
+export interface ClipFolder {
+  id: string;
+  name: string;
+  createdAt: string;
+  by?: string;
+}
+export interface Clip {
+  id: string;
+  folderId: string;
+  text: string; // 긁은 글
+  contractId: string;
+  company: string;
+  title: string; // 계약서 이름
+  head?: string; // 어느 조항
+  note?: string;
+  at: string;
+  by?: string;
+}
+function useCol<T extends { id: string }>(name: string, enabled: boolean): T[] | null {
+  const [list, setList] = useState<T[] | null>(null);
+  useEffect(() => {
+    if (!enabled) return setList([]);
+    if (DATA_MODE === 'local') {
+      const load = () => {
+        try {
+          setList(JSON.parse(localStorage.getItem(`gd:${name}`) ?? '[]'));
+        } catch {
+          setList([]);
+        }
+      };
+      load();
+      window.addEventListener(`gd-${name}`, load);
+      return () => window.removeEventListener(`gd-${name}`, load);
+    }
+    return onSnapshot(
+      collection(db, name),
+      (snap) => setList(snap.docs.map((d) => ({ ...(d.data() as Omit<T, 'id'>), id: d.id }) as T)),
+      () => setList([]),
+    );
+  }, [name, enabled]);
+  return list;
+}
+async function putDoc<T extends { id: string }>(name: string, v: T) {
+  const clean = JSON.parse(JSON.stringify(v)) as T;
+  if (DATA_MODE === 'local') {
+    const l = (JSON.parse(localStorage.getItem(`gd:${name}`) ?? '[]') as T[]).filter((x) => x.id !== v.id);
+    localStorage.setItem(`gd:${name}`, JSON.stringify([...l, clean]));
+    window.dispatchEvent(new Event(`gd-${name}`));
+    return;
+  }
+  await setDoc(doc(db, name, v.id), clean);
+}
+async function dropDoc(name: string, id: string) {
+  if (DATA_MODE === 'local') {
+    const l = (JSON.parse(localStorage.getItem(`gd:${name}`) ?? '[]') as { id: string }[]).filter((x) => x.id !== id);
+    localStorage.setItem(`gd:${name}`, JSON.stringify(l));
+    window.dispatchEvent(new Event(`gd-${name}`));
+    return;
+  }
+  await deleteDoc(doc(db, name, id));
+}
+export const useClipFolders = (on: boolean) => {
+  const l = useCol<ClipFolder>('ctFolders', on);
+  return l ? [...l].sort((a, b) => a.name.localeCompare(b.name, 'ko')) : null;
+};
+export const useClips = (on: boolean) => {
+  const l = useCol<Clip>('ctClips', on);
+  return l ? [...l].sort((a, b) => b.at.localeCompare(a.at)) : null;
+};
+export const saveClipFolder = (f: ClipFolder) => putDoc('ctFolders', f);
+export const deleteClipFolder = (id: string) => dropDoc('ctFolders', id);
+export const saveClip = (c: Clip) => putDoc('ctClips', c);
+export const deleteClip = (id: string) => dropDoc('ctClips', id);

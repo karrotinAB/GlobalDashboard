@@ -4,13 +4,24 @@
 //   [올리기] 업체 · 계약서 이름 · 계약일 · 원본 파일 · OCR 텍스트 붙여넣기 (조항 자동 정리 미리보기)
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useAccess } from '../components/AuthGate';
+import { Modal } from '../components/ui';
 import { useLookups } from '../data/store';
 import { today, uid } from '../lib/date';
-import { deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
+import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
 
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
 /** 글 안에서 찾은 말 <mark> */
+/** (최신) · (주요) 표시 */
+function Marks({ c }: { c: Contract }) {
+  return (
+    <>
+      {c.latest && <span className="ct-mark ct-mark-new">최신</span>}
+      {c.main && <span className="ct-mark ct-mark-main">주요</span>}
+    </>
+  );
+}
+
 function hl(text: string, groups: string[][]): ReactNode {
   const words = groups.flat().filter(Boolean).sort((a, b) => b.length - a.length);
   if (!words.length) return text;
@@ -39,9 +50,26 @@ export default function Contracts() {
   const access = useAccess();
   const isAdmin = access.role === 'admin' || access.role === null;
   const list = useContracts(isAdmin);
-  const [tab, setTab] = useState<'search' | 'list' | 'new'>('search');
+  const [tab, setTab] = useState<'search' | 'list' | 'new' | 'scrap'>('search');
+  // 글을 긁으면 '✂️ 스크랩' 버튼 → 폴더 골라 저장
+  const [pick, setPick] = useState<{ text: string; cid: string; head?: string; x: number; y: number } | null>(null);
+  const [scrap, setScrap] = useState<{ text: string; cid: string; head?: string } | null>(null);
+  const onMouseUp = () => {
+    setTimeout(() => {
+      const sel = window.getSelection();
+      const text = sel?.toString().replace(/\s+/g, ' ').trim() ?? '';
+      if (!sel || sel.rangeCount === 0 || text.length < 3) return setPick(null);
+      const node = sel.anchorNode instanceof Element ? sel.anchorNode : sel.anchorNode?.parentElement;
+      const box = node?.closest('[data-cid]') as HTMLElement | null;
+      if (!box) return setPick(null);
+      const head = (node?.closest('[data-head]') as HTMLElement | null)?.dataset.head;
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      setPick({ text, cid: box.dataset.cid!, head, x: rect.right, y: rect.top });
+    }, 0);
+  };
   const [openId, setOpenId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [newCo, setNewCo] = useState(''); // 업체별 목록에서 '＋ 이 업체에 계약서 더 올리기'
   if (!isAdmin)
     return (
       <div className="page">
@@ -54,7 +82,23 @@ export default function Contracts() {
   const open = list?.find((c) => c.id === openId);
   const editing = list?.find((c) => c.id === editId);
   return (
-    <div className="page">
+    <div className="page" onMouseUp={onMouseUp}>
+      {pick && (
+        <button
+          className="ct-scrap-pop"
+          style={{ left: Math.min(window.innerWidth - 110, pick.x + 6), top: Math.max(8, pick.y - 40) }}
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseUp={(e) => e.stopPropagation()}
+          onClick={() => {
+            setScrap({ text: pick.text, cid: pick.cid, head: pick.head });
+            setPick(null);
+            window.getSelection()?.removeAllRanges();
+          }}
+        >
+          ✂️ 스크랩
+        </button>
+      )}
+      {scrap && list && <ScrapModal s={scrap} c={list.find((x) => x.id === scrap.cid)} by={access.accountName || access.email} onClose={() => setScrap(null)} />}
       <div className="page-head">
         <h1>계약서</h1>
         <p className="muted">계약서를 업체별로 보관하고, 조항으로 찾아봐요. 원본(스캔본)은 참고용으로 같이 올려 두고, 내용은 OCR 텍스트를 붙여넣으면 조항별로 정리돼요.</p>
@@ -66,7 +110,10 @@ export default function Contracts() {
         <button className={tab === 'list' && !open ? 'on' : ''} onClick={() => (setTab('list'), setOpenId(null))}>
           📁 업체별 계약서
         </button>
-        <button className={tab === 'new' && !open ? 'on' : ''} onClick={() => (setTab('new'), setOpenId(null), setEditId(null))}>
+        <button className={tab === 'scrap' && !open ? 'on' : ''} onClick={() => (setTab('scrap'), setOpenId(null))}>
+          📌 스크랩
+        </button>
+        <button className={tab === 'new' && !open ? 'on' : ''} onClick={() => (setTab('new'), setOpenId(null), setEditId(null), setNewCo(''))}>
           ＋ 계약서 올리기
         </button>
       </div>
@@ -77,19 +124,28 @@ export default function Contracts() {
       ) : tab === 'search' ? (
         <Search list={list} onOpen={setOpenId} />
       ) : tab === 'list' ? (
-        <ByCompany list={list} onOpen={setOpenId} />
+        <ByCompany list={list} onOpen={setOpenId} onAdd={(co) => (setNewCo(co), setEditId(null), setTab('new'))} />
+      ) : tab === 'scrap' ? (
+        <ScrapTab list={list} onOpen={setOpenId} />
       ) : (
-        <Upload key={editing?.id ?? 'new'} init={editing} by={access.accountName || access.email} onSaved={(id) => (setEditId(null), setOpenId(id))} />
+        <Upload key={editing?.id ?? `new:${newCo}`} init={editing} company0={newCo} list={list} by={access.accountName || access.email} onSaved={(id) => (setEditId(null), setOpenId(id))} />
       )}
     </div>
   );
 }
 
 function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
+  const access = useAccess();
+  const { companies: myCos } = useLookups();
+  // 우리 조 계약서: 올린 조가 지금 조이거나, (조 기록이 없는 예전 것은) 업체가 우리 조 업체
+  const [scope, setScope] = useState<'mine' | 'all'>(() => (localStorage.getItem('gd:ctScope') === 'mine' ? 'mine' : 'all'));
+  const isMine = (c: Contract) => (c.team ? c.team === access.viewTeam : myCos.some((m) => m.name === c.company));
   const [q, setQ] = useState('');
   const [co, setCo] = useState('');
+  const [onlyNew, setOnlyNew] = useState(false); // 최신 버전만
+  const [onlyMain, setOnlyMain] = useState(false); // 주요 계약서만
   const groups = useMemo(() => expandQuery(q), [q]);
-  const companies = [...new Set(list.map((c) => c.company))];
+  const companies = [...new Set(list.filter((c) => scope === 'all' || isMine(c)).map((c) => c.company))];
   // 업체 → [계약서, 맞는 조항들] — 보여주는 건 원문, 번역본은 같은 순서의 조항 (번역 버튼)
   type Part = { head: string; body: string[]; section?: boolean };
   const results = useMemo(() => {
@@ -103,6 +159,9 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
     const hit = (a?: Part) => !!a && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
     for (const c of list) {
       if (co && c.company !== co) continue;
+      if (scope === 'mine' && !isMine(c)) continue;
+      if (onlyNew && !c.latest) continue;
+      if (onlyMain && !c.main) continue;
       const O = partsOf(c.text);
       const T = partsOf(c.text2);
       // 원문이나 번역본 어느 쪽에서든 맞으면 그 순서의 조항 (원문/번역본 조항 수가 다르면 제목 번호로 맞춤)
@@ -116,17 +175,43 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
       if (ks.length) out.push({ c, orig: O.length ? ks.map((k) => O[k]) : ks.map((k) => T[k]), trans: O.length ? ks.map(pairOf) : [] });
     }
     return out;
-  }, [list, groups, co]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list, groups, co, onlyNew, onlyMain, scope, access.viewTeam, myCos]);
   return (
     <>
       <div className="card ct-search">
         <input className="search" autoFocus placeholder="🔍 조항 찾기 (예: 보증금 · 로열티 · 해지 · deposit)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="seg ct-scope">
+          {(['mine', 'all'] as const).map((k) => (
+            <button
+              key={k}
+              className={scope === k ? 'on' : ''}
+              onClick={() => {
+                setScope(k);
+                setCo('');
+                try {
+                  localStorage.setItem('gd:ctScope', k);
+                } catch {
+                  /* 무시 */
+                }
+              }}
+            >
+              {k === 'mine' ? `우리 조만 (${access.viewLabel})` : '전체'}
+            </button>
+          ))}
+        </div>
         <select value={co} onChange={(e) => setCo(e.target.value)}>
           <option value="">업체 전체</option>
           {companies.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
+        <label className="ct-opt" title="(최신) 표시한 계약서에서만 찾기">
+          <input type="checkbox" checked={onlyNew} onChange={(e) => setOnlyNew(e.target.checked)} /> 최신 버전만
+        </label>
+        <label className="ct-opt" title="(주요) 표시한 계약서에서만 찾기">
+          <input type="checkbox" checked={onlyMain} onChange={(e) => setOnlyMain(e.target.checked)} /> 주요 계약서만
+        </label>
         {groups.some((g) => g.length > 1) && (
           <p className="muted small" style={{ width: '100%', margin: 0 }}>
             같이 찾는 말: {groups.map((g) => g.join(' · ')).join(' / ')}
@@ -154,13 +239,14 @@ function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: str
   const { c } = r;
   const show = tr ? r.trans : r.orig;
   return (
-    <section className="card ct-result">
+    <section className="card ct-result" data-cid={c.id}>
       <div className="ct-result-head">
         <b>{c.company}</b>
         <span className="muted small">
           {c.title}
           {c.signedAt ? ` · ${dots(c.signedAt)}` : ''}
         </span>
+        <Marks c={c} />
         <span className="ct-result-tools">
           {c.text2?.trim() && r.trans.length > 0 && (
             <button className={`ct-tr-btn ${tr ? 'on' : ''}`} onClick={() => setTr(!tr)} title={tr ? '원문으로' : '이 조항들의 번역본 보기'}>
@@ -174,7 +260,7 @@ function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: str
       </div>
       {show.map((a, i) =>
         a ? (
-          <div key={i} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
+          <div key={i} className={a.section ? 'ct-art ct-section' : 'ct-art'} data-head={a.head}>
             <div className="ct-art-head">{hl(a.head, groups)}</div>
             {a.body.map((p, j) => (
               <Para key={j} p={p} groups={groups} />
@@ -190,7 +276,7 @@ function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: str
   );
 }
 
-function ByCompany({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
+function ByCompany({ list, onOpen, onAdd }: { list: Contract[]; onOpen: (id: string) => void; onAdd: (company: string) => void }) {
   const byCo = new Map<string, Contract[]>();
   for (const c of list) byCo.set(c.company, [...(byCo.get(c.company) ?? []), c]);
   if (!list.length) return <p className="card muted">아직 올린 계약서가 없어요. '＋ 계약서 올리기'로 시작해요.</p>;
@@ -198,11 +284,17 @@ function ByCompany({ list, onOpen }: { list: Contract[]; onOpen: (id: string) =>
     <div className="ct-cos">
       {[...byCo.entries()].map(([co, cs]) => (
         <section key={co} className="card ct-co">
-          <h2>{co}</h2>
-          {cs.map((c) => (
+          <div className="ct-co-head">
+            <h2>{co}</h2>
+            <button className="link small" onClick={() => onAdd(co)}>
+              ＋ 이 업체에 계약서 더 올리기
+            </button>
+          </div>
+          {[...cs].sort((a, b) => Number(!!b.latest) - Number(!!a.latest) || Number(!!b.main) - Number(!!a.main) || (b.signedAt ?? '').localeCompare(a.signedAt ?? '')).map((c) => (
             <button key={c.id} className="trip-row" onClick={() => onOpen(c.id)}>
               <span className="trip-row-icon">📄</span>
               <b>{c.title}</b>
+              <Marks c={c} />
               <span className="muted small">{dots(c.signedAt)}</span>
               <span className="muted small">
                 조항 {parseArticles(c.text ?? '').articles.length}개 · 파일 {(c.files ?? []).length}개
@@ -229,10 +321,12 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
         ← 목록
       </button>
       <div className="ct-view">
-        <article className="card ct-doc">
+        <article className="card ct-doc" data-cid={c.id}>
           <div className="ct-doc-head">
             <div>
-              <h2>{c.title}</h2>
+              <h2>
+                {c.title} <Marks c={c} />
+              </h2>
               <span className="muted small">
                 {c.company}
                 {c.signedAt ? ` · 계약일 ${dots(c.signedAt)}` : ''}
@@ -262,7 +356,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
                     <Para key={`i${i}`} p={p} groups={groups} intro />
                   ))}
                   {d.articles.map((a) => (
-                    <section key={a.no} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
+                    <section key={a.no} className={a.section ? 'ct-art ct-section' : 'ct-art'} data-head={a.head}>
                       <div className="ct-art-head">{hl(a.head, groups)}</div>
                       {a.body.map((p, j) => (
                         <Para key={j} p={p} groups={groups} />
@@ -282,7 +376,7 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
             const hit = groups.length > 0 && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
             if (groups.length && !hit) return null;
             return (
-              <section key={a.no} id={`ct-art-${a.no}`} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
+              <section key={a.no} id={`ct-art-${a.no}`} className={a.section ? 'ct-art ct-section' : 'ct-art'} data-head={a.head}>
                 <div className="ct-art-head">{hl(a.head, groups)}</div>
                 {a.body.map((p, j) => (
                   <Para key={j} p={p} groups={groups} />
@@ -360,10 +454,15 @@ function ContractView({ c, onBack, onEdit }: { c: Contract; onBack: () => void; 
   );
 }
 
-function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: (id: string) => void }) {
+function Upload({ init, company0, list, by, onSaved }: { init?: Contract; company0?: string; list: Contract[]; by?: string; onSaved: (id: string) => void }) {
+  const access = useAccess();
   const { companies } = useLookups();
   const [id] = useState(init?.id ?? uid());
-  const [company, setCompany] = useState(init?.company ?? '');
+  const [company, setCompany] = useState(init?.company ?? company0 ?? '');
+  const [latest, setLatest] = useState(init?.latest ?? false);
+  const [main, setMain] = useState(init?.main ?? false);
+  // 같은 업체에 이미 올린 계약서 (새로 올릴 때 보여줌)
+  const sameCo = list.filter((c) => c.id !== init?.id && company.trim() && c.company === company.trim());
   const [title, setTitle] = useState(init?.title ?? '');
   const [signedAt, setSignedAt] = useState(init?.signedAt ?? '');
   const [text, setText] = useState(init?.text ?? '');
@@ -390,7 +489,9 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
   const save = async () => {
     if (!ok) return;
     try {
-      await saveContract({ id, company: company.trim(), title: title.trim(), signedAt: signedAt || undefined, files, text: text || undefined, text2: text2 || undefined, note: note.trim() || undefined, createdAt: init?.createdAt ?? new Date().toISOString(), by: init?.by ?? by });
+      // 같은 업체 · 같은 계약서 이름에서 (최신) 은 하나만: 이걸 최신으로 하면 예전 것의 (최신) 은 뗌
+      if (latest) for (const o of sameCo) if (o.latest && o.title.trim().toLowerCase() === title.trim().toLowerCase()) await saveContract({ ...o, latest: false });
+      await saveContract({ id, company: company.trim(), title: title.trim(), signedAt: signedAt || undefined, files, text: text || undefined, text2: text2 || undefined, note: note.trim() || undefined, latest: latest || undefined, main: main || undefined, team: init?.team ?? access.viewTeam, createdAt: init?.createdAt ?? new Date().toISOString(), by: init?.by ?? by });
       onSaved(id);
     } catch (e) {
       setErr(`저장하지 못했어요: ${(e as Error).message} — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)`);
@@ -419,6 +520,22 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
             <input type="date" value={signedAt} max={today()} onChange={(e) => setSignedAt(e.target.value)} />
           </label>
         </div>
+        <div className="ct-marks-pick">
+          <label className={`ct-mark-toggle ${latest ? 'on new' : ''}`}>
+            <input type="checkbox" checked={latest} onChange={(e) => setLatest(e.target.checked)} /> (최신) 최신 버전
+          </label>
+          <label className={`ct-mark-toggle ${main ? 'on main' : ''}`}>
+            <input type="checkbox" checked={main} onChange={(e) => setMain(e.target.checked)} /> (주요) 주요 계약서
+          </label>
+          <span className="muted small">검색할 때 '최신 버전만' · '주요 계약서만' 으로 골라 찾을 수 있어요</span>
+        </div>
+        {sameCo.length > 0 && (
+          <p className="muted small ct-same-co">
+            이 업체에 올린 계약서 {sameCo.length}개:{' '}
+            {sameCo.map((c) => `${c.title}${c.latest ? ' (최신)' : ''}${c.main ? ' (주요)' : ''}`).join(' · ')} — 새 계약서로 따로 저장돼요
+            {latest && sameCo.some((o) => o.latest && o.title.trim().toLowerCase() === title.trim().toLowerCase()) ? '. 이름이 같은 예전 계약서의 (최신) 은 떼요' : ''}
+          </p>
+        )}
         <div
           className="ct-files-box"
           onDragOver={(e) => e.preventDefault()}
@@ -487,6 +604,198 @@ function Upload({ init, by, onSaved }: { init?: Contract; by?: string; onSaved: 
               </section>
             ))}
           </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** 스크랩 저장: 폴더 고르기 (또는 새 폴더 이름 정해서 만들기) · 메모 */
+function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string; head?: string }; c?: Contract; by?: string; onClose: () => void }) {
+  const folders = useClipFolders(true);
+  const [folderId, setFolderId] = useState('');
+  const [newName, setNewName] = useState('');
+  const [note, setNote] = useState('');
+  const [err, setErr] = useState('');
+  const making = folderId === '__new' || (folders?.length === 0 && !folderId);
+  const save = async () => {
+    try {
+      let fid = folderId;
+      if (making) {
+        const name = newName.trim();
+        if (!name) return setErr('폴더 이름을 정해 주세요');
+        const exist = folders?.find((f) => f.name === name);
+        fid = exist?.id ?? uid();
+        if (!exist) await saveClipFolder({ id: fid, name, createdAt: new Date().toISOString(), by });
+      }
+      if (!fid) return setErr('폴더를 골라 주세요');
+      await saveClip({ id: uid(), folderId: fid, text: sel.text, contractId: sel.cid, company: c?.company ?? '', title: c?.title ?? '', head: sel.head, note: note.trim() || undefined, at: new Date().toISOString(), by });
+      onClose();
+    } catch (e) {
+      setErr(`저장하지 못했어요: ${(e as Error).message} — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)`);
+    }
+  };
+  return (
+    <Modal title="✂️ 스크랩" onClose={onClose}>
+      <p className="muted small" style={{ marginTop: 0 }}>
+        {c?.company} · {c?.title}
+        {sel.head ? ` · ${sel.head}` : ''}
+      </p>
+      <blockquote className="ct-clip-quote">{sel.text}</blockquote>
+      <div className="ct-scrap-form">
+        <label>
+          <span>폴더</span>
+          <select value={making ? '__new' : folderId} onChange={(e) => setFolderId(e.target.value)}>
+            <option value="">폴더 고르기</option>
+            {(folders ?? []).map((f) => (
+              <option key={f.id} value={f.id}>
+                📁 {f.name}
+              </option>
+            ))}
+            <option value="__new">＋ 새 폴더 만들기</option>
+          </select>
+        </label>
+        {making && (
+          <label>
+            <span>새 폴더 이름</span>
+            <input autoFocus placeholder="예: 보증금 조항 모음" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
+          </label>
+        )}
+        <label>
+          <span>메모 (선택)</span>
+          <input placeholder="예: 몽골은 5만 달러" value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+      </div>
+      {err && <p className="warn small">{err}</p>}
+      <div className="btn-row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+        <button onClick={onClose}>취소</button>
+        <button className="primary" onClick={() => void save()}>
+          저장
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** 📌 스크랩: 폴더별로 모아 보기 · 폴더 이름 바꾸기 · 찾기 (글 · 업체 · 조항 · 메모 · 폴더 이름) */
+function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
+  const folders = useClipFolders(true);
+  const clips = useClips(true);
+  const [fid, setFid] = useState(''); // '' = 모든 폴더
+  const [q, setQ] = useState('');
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [nameText, setNameText] = useState('');
+  const [newName, setNewName] = useState('');
+  const groups = useMemo(() => expandQuery(q), [q]);
+  const folderName = (id: string) => folders?.find((f) => f.id === id)?.name ?? '(지운 폴더)';
+  const shown = (clips ?? []).filter((c) => (!fid || c.folderId === fid) && (!groups.length || groups.every((g) => has(`${c.text}\n${c.company}\n${c.title}\n${c.head ?? ''}\n${c.note ?? ''}\n${folderName(c.folderId)}`, g))));
+  // 폴더 이름으로 찾기: 찾는 말이 폴더 이름에 들어가면 그 폴더도 위에 보여줌
+  const matchFolders = q.trim() ? (folders ?? []).filter((f) => f.name.toLowerCase().includes(q.trim().toLowerCase())) : [];
+  const count = (id: string) => (clips ?? []).filter((c) => c.folderId === id).length;
+  return (
+    <div className="ct-scrap">
+      <aside className="card ct-folders">
+        <button className={`ct-folder ${!fid ? 'on' : ''}`} onClick={() => setFid('')}>
+          📚 모든 스크랩 <span className="muted small">{(clips ?? []).length}</span>
+        </button>
+        {(folders ?? []).map((f) =>
+          renaming === f.id ? (
+            <input
+              key={f.id}
+              autoFocus
+              className="ct-folder-rename"
+              value={nameText}
+              onChange={(e) => setNameText(e.target.value)}
+              onBlur={() => {
+                if (nameText.trim() && nameText.trim() !== f.name) void saveClipFolder({ ...f, name: nameText.trim() });
+                setRenaming(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                if (e.key === 'Escape') setRenaming(null);
+              }}
+            />
+          ) : (
+            <div key={f.id} className={`ct-folder ${fid === f.id ? 'on' : ''}`}>
+              <button className="ct-folder-name" onClick={() => setFid(f.id)}>
+                📁 {f.name} <span className="muted small">{count(f.id)}</span>
+              </button>
+              <button className="icon-btn" title="폴더 이름 바꾸기" onClick={() => (setRenaming(f.id), setNameText(f.name))}>
+                ✎
+              </button>
+              <button
+                className="icon-btn"
+                title="폴더 지우기"
+                onClick={async () => {
+                  if (!confirm(`'${f.name}' 폴더를 지울까요? (안의 스크랩 ${count(f.id)}개도 같이 지워요)`)) return;
+                  for (const c of (clips ?? []).filter((x) => x.folderId === f.id)) await deleteClip(c.id);
+                  await deleteClipFolder(f.id);
+                  if (fid === f.id) setFid('');
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ),
+        )}
+        <div className="ct-folder-new">
+          <input placeholder="＋ 새 폴더 이름" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && newName.trim() && (void saveClipFolder({ id: uid(), name: newName.trim(), createdAt: new Date().toISOString() }), setNewName(''))} />
+        </div>
+        <p className="muted small" style={{ margin: '6px 4px 0' }}>
+          계약서 글을 긁으면 '✂️ 스크랩' 이 떠요. 폴더는 모두 같이 써요.
+        </p>
+      </aside>
+      <section className="ct-scrap-main">
+        <div className="card ct-search">
+          <input className="search" placeholder="🔍 스크랩 찾기 (글 · 업체 · 조항 · 메모 · 폴더 이름)" value={q} onChange={(e) => setQ(e.target.value)} />
+          <span className="muted small">
+            {fid ? `📁 ${folderName(fid)} · ` : ''}
+            {shown.length}개
+          </span>
+        </div>
+        {matchFolders.length > 0 && (
+          <div className="ct-folder-hits">
+            <span className="muted small">이름이 맞는 폴더:</span>
+            {matchFolders.map((f) => (
+              <button key={f.id} className="cchip" onClick={() => (setFid(f.id), setQ(''))}>
+                📁 {f.name} ({count(f.id)})
+              </button>
+            ))}
+          </div>
+        )}
+        {clips === null ? (
+          <p className="muted small">불러오는 중…</p>
+        ) : shown.length === 0 ? (
+          <p className="muted small">{q ? '맞는 스크랩이 없어요.' : '아직 스크랩이 없어요. 계약서나 검색 결과에서 글을 긁어 보세요.'}</p>
+        ) : (
+          shown.map((c) => (
+            <article key={c.id} className="card ct-clip">
+              <div className="ct-clip-head">
+                <span className="tag small">📁 {folderName(c.folderId)}</span>
+                <b>{c.company}</b>
+                <span className="muted small">
+                  {c.title}
+                  {c.head ? ` · ${c.head}` : ''}
+                </span>
+                <span className="ct-result-tools">
+                  {list.some((x) => x.id === c.contractId) && (
+                    <button className="link small" onClick={() => onOpen(c.contractId)}>
+                      계약서 열기 ›
+                    </button>
+                  )}
+                  <button className="icon-btn" title="스크랩 지우기" onClick={() => confirm('이 스크랩을 지울까요?') && void deleteClip(c.id)}>
+                    ✕
+                  </button>
+                </span>
+              </div>
+              <blockquote className="ct-clip-quote">{hl(c.text, groups)}</blockquote>
+              {c.note && <p className="ct-clip-note">📝 {hl(c.note, groups)}</p>}
+              <p className="muted small" style={{ margin: 0 }}>
+                {c.by ? `${c.by} · ` : ''}
+                {dots(c.at.slice(0, 10))}
+              </p>
+            </article>
+          ))
         )}
       </section>
     </div>

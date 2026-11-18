@@ -8222,3 +8222,42 @@ span.rp-ack { cursor: default; }
 .rp-sub-box { margin-left: 34px; }
 .rp-new-dot { width: 8px; height: 8px; border-radius: 50%; background: #e0352b; flex: none; box-shadow: 0 0 0 3px rgba(224, 53, 43, 0.15); }
 .rp-thread.has-new > .rp-reply:first-child { border-color: #f1a8a2; }
+
+/* 계약서 스크랩 */
+.ct-scrap-pop { position: fixed; z-index: 60; padding: 6px 12px; border-radius: 999px; background: var(--primary); color: #fff; border: none; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.18); cursor: pointer; }
+.ct-clip-quote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--primary); background: var(--primary-soft); border-radius: 4px; white-space: pre-wrap; line-height: 1.6; }
+.ct-scrap-form { display: grid; gap: 10px; }
+.ct-scrap-form label { display: grid; gap: 4px; }
+.ct-scrap-form label > span { font-size: 12px; color: var(--mut); }
+.ct-scrap { display: grid; grid-template-columns: 240px 1fr; gap: 14px; align-items: start; }
+.ct-folders { display: grid; gap: 2px; padding: 10px; position: sticky; top: 12px; }
+.ct-folder { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+button.ct-folder, .ct-folder-name { flex: 1; text-align: left; background: none; border: none; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.ct-folder.on, button.ct-folder.on { background: var(--primary-soft); font-weight: 600; }
+.ct-folder .icon-btn { opacity: 0; }
+.ct-folder:hover .icon-btn, .ct-folder.on .icon-btn { opacity: .7; }
+.ct-folder-rename, .ct-folder-new input { width: 100%; box-sizing: border-box; }
+.ct-folder-new { margin-top: 6px; }
+.ct-scrap-main { display: grid; gap: 10px; min-width: 0; }
+.ct-folder-hits { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ct-clip { padding: 12px 14px; }
+.ct-clip-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ct-clip-head .ct-result-tools { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.ct-clip-note { margin: 0 0 4px; font-size: 13px; }
+@media (max-width: 600px) {
+  .ct-scrap { grid-template-columns: 1fr; }
+  .ct-folders { position: static; }
+  .ct-folder .icon-btn { opacity: .7; }
+}
+.ct-mark { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 4px; vertical-align: middle; line-height: 1.6; }
+.ct-mark-new { background: var(--olive-soft); color: var(--olive); }
+.ct-mark-main { background: var(--amber-soft); color: var(--amber); }
+.ct-opt { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; white-space: nowrap; }
+.ct-co-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ct-co-head .link { margin-left: auto; }
+.ct-marks-pick { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+.ct-mark-toggle { display: inline-flex; gap: 5px; align-items: center; padding: 5px 10px; border: 1px solid var(--line, #e5e7eb); border-radius: 999px; cursor: pointer; font-size: 13px; }
+.ct-mark-toggle.on.new { background: var(--olive-soft); border-color: var(--olive); }
+.ct-mark-toggle.on.main { background: var(--amber-soft); border-color: var(--amber); }
+.ct-same-co { margin: 0 0 8px; }
+.ct-scope button { padding: 5px 10px; font-size: 13px; }
