@@ -90,24 +90,30 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
   const [co, setCo] = useState('');
   const groups = useMemo(() => expandQuery(q), [q]);
   const companies = [...new Set(list.map((c) => c.company))];
-  // 업체 → [계약서, 맞는 조항들]
+  // 업체 → [계약서, 맞는 조항들] — 보여주는 건 원문, 번역본은 같은 순서의 조항 (번역 버튼)
+  type Part = { head: string; body: string[]; section?: boolean };
   const results = useMemo(() => {
     if (!groups.length) return [];
-    const out: { c: Contract; hits: { head: string; body: string[]; lang?: string }[] }[] = [];
+    const out: { c: Contract; orig: Part[]; trans: (Part | undefined)[] }[] = [];
+    const partsOf = (t?: string): Part[] => {
+      if (!t) return [];
+      const { intro, articles } = parseArticles(t);
+      return [...(intro.length ? [{ head: '(앞부분)', body: intro }] : []), ...articles];
+    };
+    const hit = (a?: Part) => !!a && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
     for (const c of list) {
       if (co && c.company !== co) continue;
-      // 원문 + 번역본 둘 다에서 찾기
-      const hits: { head: string; body: string[]; lang?: string }[] = [];
-      for (const [t, lang] of [
-        [c.text, c.text2 ? langOf(c.text) : undefined],
-        [c.text2, c.text2 ? `${langOf(c.text2)} 번역본` : undefined],
-      ] as const) {
-        if (!t) continue;
-        const { intro, articles } = parseArticles(t);
-        const parts = [...(intro.length ? [{ head: '(앞부분)', body: intro }] : []), ...articles];
-        for (const a of parts) if (groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g))) hits.push({ ...a, lang });
-      }
-      if (hits.length) out.push({ c, hits });
+      const O = partsOf(c.text);
+      const T = partsOf(c.text2);
+      // 원문이나 번역본 어느 쪽에서든 맞으면 그 순서의 조항 (원문/번역본 조항 수가 다르면 제목 번호로 맞춤)
+      const num = (h: string) => h.match(/\d+/)?.[0];
+      const pairOf = (k: number) => (T.length === O.length ? T[k] : T.find((x) => num(x.head) && num(x.head) === num(O[k]?.head ?? '') && !!x.section === !!O[k]?.section));
+      const idx = new Set<number>();
+      O.forEach((a, k) => (hit(a) || hit(pairOf(k))) && idx.add(k));
+      if (T.length && T.length !== O.length) T.forEach((a) => hit(a) && O.forEach((o, k) => num(o.head) && num(o.head) === num(a.head) && idx.add(k)));
+      if (!O.length) T.forEach((a, k) => hit(a) && idx.add(k));
+      const ks = [...idx].sort((a, b) => a - b);
+      if (ks.length) out.push({ c, orig: O.length ? ks.map((k) => O[k]) : ks.map((k) => T[k]), trans: O.length ? ks.map(pairOf) : [] });
     }
     return out;
   }, [list, groups, co]);
@@ -133,34 +139,54 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
         <p className="muted small">맞는 조항이 없어요.</p>
       ) : (
         <div className="ct-results">
-          {results.map(({ c, hits }) => (
-            <section key={c.id} className="card ct-result">
-              <div className="ct-result-head">
-                <b>{c.company}</b>
-                <span className="muted small">
-                  {c.title}
-                  {c.signedAt ? ` · ${dots(c.signedAt)}` : ''}
-                </span>
-                <button className="link small" onClick={() => onOpen(c.id)}>
-                  계약서 열기 ›
-                </button>
-              </div>
-              {hits.map((a, i) => (
-                <div key={i} className="ct-art">
-                  <div className="ct-art-head">
-                    {a.lang && <span className="ct-lang">{a.lang}</span>}
-                    {hl(a.head, groups)}
-                  </div>
-                  {a.body.map((p, j) => (
-                    <Para key={j} p={p} groups={groups} />
-                  ))}
-                </div>
-              ))}
-            </section>
+          {results.map((r) => (
+            <SearchCard key={r.c.id} r={r} groups={groups} onOpen={onOpen} />
           ))}
         </div>
       )}
     </>
+  );
+}
+
+/** 검색 결과 한 업체: 원문 조항 · 코너 '번역' 누르면 같은 조항의 번역본 */
+function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: string; body: string[]; section?: boolean }[]; trans: ({ head: string; body: string[]; section?: boolean } | undefined)[] }; groups: string[][]; onOpen: (id: string) => void }) {
+  const [tr, setTr] = useState(false);
+  const { c } = r;
+  const show = tr ? r.trans : r.orig;
+  return (
+    <section className="card ct-result">
+      <div className="ct-result-head">
+        <b>{c.company}</b>
+        <span className="muted small">
+          {c.title}
+          {c.signedAt ? ` · ${dots(c.signedAt)}` : ''}
+        </span>
+        <span className="ct-result-tools">
+          {c.text2?.trim() && r.trans.length > 0 && (
+            <button className={`ct-tr-btn ${tr ? 'on' : ''}`} onClick={() => setTr(!tr)} title={tr ? '원문으로' : '이 조항들의 번역본 보기'}>
+              {tr ? `원문 (${langOf(c.text)})` : `번역 (${langOf(c.text2)})`}
+            </button>
+          )}
+          <button className="link small" onClick={() => onOpen(c.id)}>
+            계약서 열기 ›
+          </button>
+        </span>
+      </div>
+      {show.map((a, i) =>
+        a ? (
+          <div key={i} className={a.section ? 'ct-art ct-section' : 'ct-art'}>
+            <div className="ct-art-head">{hl(a.head, groups)}</div>
+            {a.body.map((p, j) => (
+              <Para key={j} p={p} groups={groups} />
+            ))}
+          </div>
+        ) : (
+          <p key={i} className="muted small">
+            (이 조항은 번역본에서 못 찾았어요)
+          </p>
+        ),
+      )}
+    </section>
   );
 }
 

@@ -120,6 +120,10 @@ export function parseArticles(text: string): { intro: string[]; articles: Articl
   const isPage = (l: string) => /^[=\-_~*\s]*(page|페이지)\s*\d+[=\-_~*\s]*$/i.test(l) || /^[=\-_]{4,}$/.test(l);
   const lines = text
     .replace(/\r/g, '')
+    // 페이지 표시 지우기: '===== 9쪽 =====' · '===== Page 3 =====' (줄 중간에 붙어 있어도)
+    .replace(/[=\-_~]{2,}\s*(\d+\s*쪽|page\s*\d+|p\.?\s*\d+|페이지\s*\d+)\s*[=\-_~]{2,}/gi, '\n')
+    // ① ② ③ … 항목은 줄마다
+    .replace(/\s+([①-⑳])/g, '\n$1')
     .split('\n')
     .map((l) => l.trim())
     .map((l) => (isPage(l) ? '' : l));
@@ -144,13 +148,15 @@ export function parseArticles(text: string): { intro: string[]; articles: Articl
     const prevBlank = !lines[i - 1];
     const nextBlank = !lines[i + 1];
     // 소제목: 'Company:' 처럼 짧고 : 로 끝나는 줄, 또는 앞뒤가 빈 짧은 줄 (마침표 없이)
-    if ((line.length <= 50 && /:$/.test(line)) || (line.length <= 70 && prevBlank && nextBlank && !/[.;,]$/.test(line) && !isField(line))) {
+    // (소문자로 시작하는 줄은 앞 문장이 이어지는 것 — 'received by the Franchisee, excluding:' 같은)
+    const startsUpper = /^[A-Z가-힣"“(]/.test(line);
+    if ((line.length <= 50 && /:$/.test(line) && startsUpper && (prevBlank || !para)) || (line.length <= 70 && prevBlank && nextBlank && startsUpper && !/[.;,]$/.test(line) && !isField(line))) {
       flush();
       push(SUB + line.replace(/\s+/g, ' '));
       return;
     }
     // 'Store Name: ARTBOX' 같은 항목 줄 · 목록 항목은 새 문단
-    if (isField(line) || /^(\(?[a-z0-9ivx]{1,3}[.)]|[•·\-–*])\s+/i.test(line)) flush();
+    if (isField(line) || /^(\(?[a-z0-9ivx]{1,3}[.)]|[•·\-–*])\s+/i.test(line) || /^[①-⑳]/.test(line)) flush();
     // 하이픈으로 끊긴 단어는 붙이고, 아니면 띄어서 이어 붙임
     para = para ? (para.endsWith('-') ? para.slice(0, -1) + line : `${para} ${line}`) : line;
   });

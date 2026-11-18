@@ -8208,3 +8208,8 @@ span.rp-ack { cursor: default; }
 .ct-toc li.ct-toc-sec:first-child { margin-top: 0; }
 .ct-toc li.ct-toc-sub { padding-left: 12px; position: relative; }
 .ct-toc li.ct-toc-sub::before { content: ''; position: absolute; left: 3px; top: 0.75em; width: 5px; height: 1px; background: #c9b3ae; }
+.ct-result-tools { margin-left: auto; display: inline-flex; gap: 10px; align-items: center; }
+.ct-result-head .ct-result-tools .link { margin-left: 0; }
+.ct-tr-btn { border: 1px solid #d9c6e8; background: #fff; color: #5b3a8a; border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+.ct-tr-btn.on { background: #efe7fa; font-weight: 700; }
+.ct-result p { overflow-wrap: anywhere; }
