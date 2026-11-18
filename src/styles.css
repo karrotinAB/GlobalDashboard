@@ -8213,3 +8213,12 @@ span.rp-ack { cursor: default; }
 .ct-tr-btn { border: 1px solid #d9c6e8; background: #fff; color: #5b3a8a; border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
 .ct-tr-btn.on { background: #efe7fa; font-weight: 700; }
 .ct-result p { overflow-wrap: anywhere; }
+/* 보고방: 대댓글 */
+.rp-thread { display: flex; flex-direction: column; gap: 4px; }
+.rp-subs { display: flex; flex-direction: column; gap: 4px; margin-left: 34px; }
+.rp-reply.sub { padding: 7px 12px; font-size: 13.5px; background: #fffdfb; }
+.rp-sub-btn { flex: none; font-size: 12px; opacity: 0.75; }
+.rp-sub-btn:hover { opacity: 1; }
+.rp-sub-box { margin-left: 34px; }
+.rp-new-dot { width: 8px; height: 8px; border-radius: 50%; background: #e0352b; flex: none; box-shadow: 0 0 0 3px rgba(224, 53, 43, 0.15); }
+.rp-thread.has-new > .rp-reply:first-child { border-color: #f1a8a2; }

@@ -70,6 +70,7 @@ export interface ReportReply {
   role?: string; // 'lead' | 'director' | 'member' | 'admin'
   text: string;
   at: string;
+  parentId?: string; // 대댓글: 어느 답글에 단 것인지
   ack?: { at: string; by?: string }; // (예전) 👍 담당 확인 — 지금은 reactions 로
   reactions?: Record<string, { email?: string; name: string; at: string }[]>; // 이모지 → 누른 사람들
 }
@@ -164,8 +165,27 @@ export const lastLeaderEvent = (r: Report, myEmail?: string) => {
     .map((c) => c.at);
   return [...replies, ...checks].sort().pop();
 };
+/** 내 답글에 다른 사람이 단 대댓글 (가장 최근 시각) */
+export const lastReplyToMe = (r: Report, myEmail?: string) => {
+  const me = (myEmail ?? '').toLowerCase();
+  if (!me) return undefined;
+  const mine = new Set((r.replies ?? []).filter((x) => (x.email ?? '').toLowerCase() === me).map((x) => x.id));
+  return (r.replies ?? [])
+    .filter((x) => x.parentId && mine.has(x.parentId) && (x.email ?? '').toLowerCase() !== me)
+    .map((x) => x.at)
+    .sort()
+    .pop();
+};
+/** 이 보고를 열기 전에 마지막으로 본 때 (열면서 바뀌기 전 값 — 새 대댓글 점 표시용) */
+export const seenBefore = (id: string) => {
+  try {
+    return localStorage.getItem(`gd:reportSeenPrev:${id}`) ?? '';
+  } catch {
+    return '';
+  }
+};
 export function isUnseen(r: Report, myEmail?: string) {
-  const last = lastLeaderEvent(r, myEmail);
+  const last = [lastLeaderEvent(r, myEmail) ?? '', lastReplyToMe(r, myEmail) ?? ''].sort().pop();
   if (!last) return false;
   try {
     return (localStorage.getItem(seenKey(r.id)) ?? '') < last;
@@ -175,6 +195,7 @@ export function isUnseen(r: Report, myEmail?: string) {
 }
 export function markSeen(r: Report) {
   try {
+    localStorage.setItem(`gd:reportSeenPrev:${r.id}`, localStorage.getItem(seenKey(r.id)) ?? '');
     localStorage.setItem(seenKey(r.id), new Date().toISOString());
   } catch {
     /* 무시 */
@@ -184,7 +205,8 @@ export function markSeen(r: Report) {
 
 /** 팀장님·이사님 쪽 알림: 내가 확인자인 보고가 새로 올라왔거나 다른 사람이 답글을 달았는데 아직 안 열어 본 것 */
 export function isUnseenLeader(r: Report, role: CheckRole, myEmail?: string) {
-  if (!needsCheck(r, role)) return false;
+  // 확인자가 아니어도 내 답글에 대댓글이 달리면 알림
+  if (!needsCheck(r, role)) return isUnseen({ ...r, checks: {}, replies: (r.replies ?? []).filter((x) => x.parentId) }, myEmail);
   const me = (myEmail ?? '').toLowerCase();
   const last = [r.createdAt, r.updatedAt ?? '', ...(r.replies ?? []).filter((x) => (x.email ?? '').toLowerCase() !== me).map((x) => x.at)].sort().pop() ?? '';
   // 이미 확인 체크한 보고는 그 뒤에 생긴 것만

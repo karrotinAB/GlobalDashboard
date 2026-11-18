@@ -9,7 +9,7 @@ import { usePeople } from '../components/AddressBook';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
-import { downloadFile, isUnseenLeader, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, useReports, type CheckRole, type Report, type ReportReply, REACTIONS } from '../lib/reports';
+import { downloadFile, isUnseenLeader, needsCheck, uploadReportFile, CHECK_LABEL, deleteReport, isLeaderRole, isUnseen, markSeen, saveReport, seenBefore, useReports, type CheckRole, type Report, type ReportReply, REACTIONS } from '../lib/reports';
 
 const when = (iso?: string) => {
   if (!iso) return '';
@@ -300,6 +300,11 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
   const [editing, setEditing] = useState(false);
   const [reply, setReply] = useState('');
   const [replying, setReplying] = useState(false);
+  const [subTo, setSubTo] = useState<string | null>(null); // 대댓글 다는 답글
+  const [subText, setSubText] = useState('');
+  // 이 보고를 열기 전에 본 때 — 그 뒤에 내 답글에 달린 대댓글은 빨간 점
+  const [prevSeen] = useState(() => seenBefore(r.id));
+  const me = (access.email ?? '').toLowerCase();
   const [zoom, setZoom] = useState<RequestFile | null>(null);
   if (editing)
     return (
@@ -318,6 +323,17 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
         }}
       />
     );
+  const sendSub = (parentId: string) => {
+    const text = subText.trim();
+    if (!text) return;
+    void saveReport({
+      ...r,
+      replies: [...(r.replies ?? []), { id: uid(), name: myName, email: access.email || undefined, role: access.role ?? undefined, text, at: new Date().toISOString(), parentId }],
+    });
+    setSubText('');
+    setSubTo(null);
+    markSeen(r);
+  };
   const send = () => {
     const text = reply.trim();
     if (!text) return;
@@ -329,6 +345,40 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
     setReplying(false);
     markSeen(r); // 내가 쓴 답변은 알림 안 띄움
   };
+  const parentMine = (x: ReportReply) => ((r.replies ?? []).find((y) => y.id === x.parentId)?.email ?? '').toLowerCase() === me && !!me;
+  const renderReply = (x: ReportReply) => (
+          <div key={x.id} className={`rp-reply ${isLeaderRole(x.role) ? 'leader' : ''} ${x.parentId ? 'sub' : ''}`}>
+            <span className="rp-reply-arrow" aria-hidden="true">
+              ↳
+            </span>
+            <span className="rp-reply-who">
+              {nameOf(x.email, x.name)}
+              {isLeaderRole(x.role) && <span className="rp-role">{CHECK_LABEL[x.role]}</span>}
+            </span>
+            <span className="rp-reply-text">{x.text}</span>
+            {/* 내 답글에 새로 달린 대댓글 */}
+            {x.parentId && parentMine(x) && x.at > prevSeen && (x.email ?? '').toLowerCase() !== me && <span className="rp-new-dot" title="내 답글에 새 답글" />}
+            <span className="muted small">{when(x.at)}</span>
+            {/* 이모지 반응: 누구나 (다시 누르면 취소) · 올려 보면 누가 눌렀는지 */}
+            <Reactions
+              x={x}
+              me={access.email}
+              myName={myName}
+              nameOf={nameOf}
+              onChange={(reactions) => void saveReport({ ...r, replies: (r.replies ?? []).map((y) => (y.id === x.id ? { ...y, reactions, ack: undefined } : y)) })}
+            />
+            {!x.parentId && (
+              <button className="link small rp-sub-btn" onClick={() => (setSubTo(subTo === x.id ? null : x.id), setSubText(''))}>
+                ↳ 답글
+              </button>
+            )}
+            {x.email && x.email === access.email && (
+              <button className="icon-btn" title="답변 지우기" onClick={() => confirm('이 답변을 지울까요?') && void saveReport({ ...r, replies: (r.replies ?? []).filter((y) => y.id !== x.id && y.parentId !== x.id) })}>
+                ✕
+              </button>
+            )}
+          </div>
+  );
   return (
     <div className="rp-detail">
       {r.body ? <div className="rp-body memo-rich-view" dangerouslySetInnerHTML={{ __html: memoHtml(r.body) }} /> : <div className="rp-body muted">내용 없음</div>}
@@ -398,32 +448,34 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
         </div>
       )}
       <div className="rp-replies">
-        {(r.replies ?? []).map((x) => (
-          <div key={x.id} className={`rp-reply ${isLeaderRole(x.role) ? 'leader' : ''}`}>
-            <span className="rp-reply-arrow" aria-hidden="true">
-              ↳
-            </span>
-            <span className="rp-reply-who">
-              {nameOf(x.email, x.name)}
-              {isLeaderRole(x.role) && <span className="rp-role">{CHECK_LABEL[x.role]}</span>}
-            </span>
-            <span className="rp-reply-text">{x.text}</span>
-            <span className="muted small">{when(x.at)}</span>
-            {/* 이모지 반응: 누구나 (다시 누르면 취소) · 올려 보면 누가 눌렀는지 */}
-            <Reactions
-              x={x}
-              me={access.email}
-              myName={myName}
-              nameOf={nameOf}
-              onChange={(reactions) => void saveReport({ ...r, replies: (r.replies ?? []).map((y) => (y.id === x.id ? { ...y, reactions, ack: undefined } : y)) })}
-            />
-            {x.email && x.email === access.email && (
-              <button className="icon-btn" title="답변 지우기" onClick={() => confirm('이 답변을 지울까요?') && void saveReport({ ...r, replies: (r.replies ?? []).filter((y) => y.id !== x.id) })}>
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
+        {(r.replies ?? [])
+          .filter((x) => !x.parentId || !(r.replies ?? []).some((y) => y.id === x.parentId))
+          .map((x) => {
+            const kids = (r.replies ?? []).filter((y) => y.parentId === x.id);
+            const newKid = kids.some((y) => y.at > prevSeen && (y.email ?? '').toLowerCase() !== me) && (x.email ?? '').toLowerCase() === me;
+            return (
+              <div key={x.id} className={`rp-thread ${newKid ? 'has-new' : ''}`}>
+                {renderReply(x)}
+                {kids.length > 0 && <div className="rp-subs">{kids.map((y) => renderReply(y))}</div>}
+                {subTo === x.id && (
+                  <div className="rp-reply-box rp-sub-box">
+                    <textarea
+                      rows={2}
+                      autoFocus
+                      placeholder={`${nameOf(x.email, x.name)}님 답글에 답하기 (Ctrl+Enter 로 올리기)`}
+                      value={subText}
+                      onChange={(e) => setSubText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && sendSub(x.id)}
+                    />
+                    <button onClick={() => setSubTo(null)}>취소</button>
+                    <button className="primary" disabled={!subText.trim()} onClick={() => sendSub(x.id)}>
+                      올리기
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         {/* 답글: '답글쓰기'를 눌렀을 때만 */}
         {replying && (
         <div className="rp-reply-box">
