@@ -8184,3 +8184,12 @@ span.rp-ack { cursor: default; }
 .ct-toc-btn:hover { background: #f6eeec; color: #8c2f3c; }
 .ct-art { scroll-margin-top: 80px; transition: background 0.4s; border-radius: 8px; }
 .ct-art.ct-flash { background: #fff6cc; }
+/* 계약서: 조항 하나를 한 덩어리로 (안은 촘촘히, 조항 사이는 넉넉히) */
+.ct-doc .ct-art { margin: 0 0 26px; padding: 4px 0 4px 16px; border-left: 3px solid #e8d9d5; }
+.ct-doc .ct-art .ct-art-head { margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px dotted #e3d3cf; }
+.ct-doc .ct-art p { margin: 0 0 3px; line-height: 1.6; }
+.ct-doc .ct-art p + p { margin-top: 3px; }
+.ct-doc .ct-art .ct-sub { margin: 8px 0 2px; }
+.ct-doc .ct-art.ct-flash { background: #fff6cc; }
+.ct-result .ct-art { padding-left: 12px; border-left: 3px solid #e8d9d5; margin-bottom: 14px; }
+.ct-result .ct-art p { margin: 0 0 3px; }
