@@ -4,6 +4,7 @@
 //   [올리기] 업체 · 계약서 이름 · 계약일 · 원본 파일 · OCR 텍스트 붙여넣기 (조항 자동 정리 미리보기)
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useAccess } from '../components/AuthGate';
+import { useFullName } from './Petty';
 import { Modal } from '../components/ui';
 import { useLookups } from '../data/store';
 import { today, uid } from '../lib/date';
@@ -768,36 +769,55 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
         ) : shown.length === 0 ? (
           <p className="muted small">{q ? '맞는 스크랩이 없어요.' : '아직 스크랩이 없어요. 계약서나 검색 결과에서 글을 긁어 보세요.'}</p>
         ) : (
-          shown.map((c) => (
-            <article key={c.id} className="card ct-clip">
-              <div className="ct-clip-head">
-                <span className="tag small">📁 {folderName(c.folderId)}</span>
-                <b>{c.company}</b>
-                <span className="muted small">
-                  {c.title}
-                  {c.head ? ` · ${c.head}` : ''}
-                </span>
-                <span className="ct-result-tools">
-                  {list.some((x) => x.id === c.contractId) && (
-                    <button className="link small" onClick={() => onOpen(c.contractId)}>
-                      계약서 열기 ›
-                    </button>
-                  )}
-                  <button className="icon-btn" title="스크랩 지우기" onClick={() => confirm('이 스크랩을 지울까요?') && void deleteClip(c.id)}>
-                    ✕
-                  </button>
-                </span>
+          // 같은 폴더 스크랩은 한 카드에 붙여서
+          [...new Set(shown.map((c) => c.folderId))].map((f) => (
+            <article key={f} className="card ct-clip-group">
+              <div className="ct-clip-group-head">
+                <button className="link" onClick={() => setFid(f)}>
+                  📁 {folderName(f)}
+                </button>
+                <span className="muted small">{shown.filter((c) => c.folderId === f).length}개</span>
               </div>
-              <blockquote className="ct-clip-quote">{hl(c.text, groups)}</blockquote>
-              {c.note && <p className="ct-clip-note">📝 {hl(c.note, groups)}</p>}
-              <p className="muted small" style={{ margin: 0 }}>
-                {c.by ? `${c.by} · ` : ''}
-                {dots(c.at.slice(0, 10))}
-              </p>
+              {shown
+                .filter((c) => c.folderId === f)
+                .map((c) => (
+                  <div key={c.id} className="ct-clip">
+                    <div className="ct-clip-head">
+                      <b>{c.company}</b>
+                      <span className="muted small">
+                        {c.title}
+                        {c.head ? ` · ${c.head}` : ''}
+                      </span>
+                      <span className="ct-result-tools">
+                        {list.some((x) => x.id === c.contractId) && (
+                          <button className="link small" onClick={() => onOpen(c.contractId)}>
+                            계약서 열기 ›
+                          </button>
+                        )}
+                        <button className="icon-btn" title="스크랩 지우기" onClick={() => confirm('이 스크랩을 지울까요?') && void deleteClip(c.id)}>
+                          ✕
+                        </button>
+                      </span>
+                    </div>
+                    <blockquote className="ct-clip-quote">{hl(c.text, groups)}</blockquote>
+                    {c.note && <p className="ct-clip-note">📝 {hl(c.note, groups)}</p>}
+                    <p className="muted small ct-clip-by">
+                      <ByName v={c.by} />
+                      {dots(c.at.slice(0, 10))}
+                    </p>
+                  </div>
+                ))}
             </article>
           ))
         )}
       </section>
     </div>
   );
+}
+
+/** 넣은 사람: 이메일로 저장된 것도 이름으로 */
+function ByName({ v }: { v?: string }) {
+  const name = useFullName(v ?? '');
+  if (!v) return null;
+  return <>{(v.includes('@') ? name : v) + ' · '}</>;
 }

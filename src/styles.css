@@ -8240,7 +8240,13 @@ button.ct-folder, .ct-folder-name { flex: 1; text-align: left; background: none;
 .ct-folder-new { margin-top: 6px; }
 .ct-scrap-main { display: grid; gap: 10px; min-width: 0; }
 .ct-folder-hits { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.ct-clip { padding: 12px 14px; }
+.ct-clip-group { padding: 12px 16px; }
+.ct-clip-group-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.ct-clip-group-head .link { font-weight: 700; font-size: 15px; padding: 0; }
+.ct-clip { padding: 8px 0; }
+.ct-clip + .ct-clip { border-top: 1px dashed var(--line); }
+.ct-clip .ct-clip-quote { margin: 4px 0; padding: 6px 10px; }
+.ct-clip-by { margin: 0; }
 .ct-clip-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ct-clip-head .ct-result-tools { margin-left: auto; display: flex; gap: 6px; align-items: center; }
 .ct-clip-note { margin: 0 0 4px; font-size: 13px; }
