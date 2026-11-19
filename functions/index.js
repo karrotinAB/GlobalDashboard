@@ -406,10 +406,20 @@ async function fxCurrencies() {
   }
   return [...set];
 }
+/** 로열티 판매 통화 (대미달러환율 731Y002 로 달러 환산) */
+async function royaltyCurrencies() {
+  const set = new Set();
+  for (const space of await allSpaces()) {
+    for (const d of (await db.collection(colOf(space, 'companies')).get()).docs) {
+      if (d.get('royalty') && d.get('salesCurrency')) set.add(String(d.get('salesCurrency')));
+    }
+  }
+  return [...set];
+}
 async function runFx(months) {
   const key = await ecosKey();
   if (!key) return { saved: 0, errors: ['ECOS 인증키가 아직 없어요 (설정 > 판매 데이터 API)'] };
-  return syncFx(db, key, await fxCurrencies(), months);
+  return syncFx(db, key, await fxCurrencies(), months, fetch, await royaltyCurrencies());
 }
 export const syncFxNow = onCall({ region: REGION, timeoutSeconds: 300 }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');

@@ -63,10 +63,57 @@ export async function monthRates(key, cur, month, fetchImpl = fetch) {
   return { days, item: item.code, unit: item.name };
 }
 
-/** 여러 통화 · 여러 달 → fxRates 에 저장 */
-export async function syncFx(db, key, currencies, months, fetchImpl = fetch) {
+// ---------- 대미달러환율: 통계표 731Y002 '주요국 통화의 대미달러환율' (예: 몽골투그릭/달러 = 달러당 MNT) ----------
+//   로열티 달러 = 판매(현지) ÷ 그날 (현지/달러) × 5%  → fxRates/{통화}PERUSD_{YYYY-MM} = { days: { '01': 3599, … } } (반올림 안 함)
+const TABLE_USD = '731Y002';
+export const perUsdKey = (cur) => `${cur}PERUSD`;
+let usdItemCache = null;
+/** 통화 코드 → 731Y002 항목 { code, name, inverse } ('달러/유로' 처럼 반대로 나오면 inverse) */
+export async function ecosUsdItem(key, cur, fetchImpl = fetch) {
+  if (!usdItemCache) usdItemCache = await ecos(`StatisticItemList/${encodeURIComponent(key)}/json/kr/1/500/${TABLE_USD}`, fetchImpl);
+  const words = NAMES[cur];
+  if (!words) return null;
+  const hit = usdItemCache.find((r) => {
+    const n = String(r.ITEM_NAME ?? '');
+    return n.includes('/') && words.some((w) => n.includes(w));
+  });
+  if (!hit) return null;
+  const name = String(hit.ITEM_NAME);
+  return { code: String(hit.ITEM_CODE), name, inverse: /^\s*(미국)?달러\s*\//.test(name) };
+}
+/** 한 달 일별 (현지 통화 / 1달러). ECOS 값 그대로 (반올림 안 함) */
+export async function monthUsdRates(key, cur, month, fetchImpl = fetch) {
+  if (cur === 'USD' || cur === 'KRW') return null;
+  const item = await ecosUsdItem(key, cur, fetchImpl);
+  if (!item) throw new Error(`${cur}: ECOS 대미달러환율표(731Y002)에서 이 통화를 못 찾았어요`);
+  const [y, m] = month.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const rows = await ecos(`StatisticSearch/${encodeURIComponent(key)}/json/kr/1/100/${TABLE_USD}/D/${ymd(`${month}-01`)}/${ymd(`${month}-${String(last).padStart(2, '0')}`)}/${item.code}`, fetchImpl);
+  const days = {};
+  for (const r of rows) {
+    const t = String(r.TIME ?? '');
+    const v = Number(String(r.DATA_VALUE ?? '').replace(/,/g, ''));
+    if (t.length === 8 && Number.isFinite(v) && v > 0) days[t.slice(6, 8)] = item.inverse ? 1 / v : v;
+  }
+  return { days, item: item.code, unit: item.name, table: TABLE_USD };
+}
+
+/** 여러 통화 · 여러 달 → fxRates 에 저장. usdCurrencies: 대미달러환율도 받을 통화 (로열티 판매 통화) */
+export async function syncFx(db, key, currencies, months, fetchImpl = fetch, usdCurrencies = []) {
   const errors = [];
   let saved = 0;
+  for (const cur of [...new Set(usdCurrencies)].filter((c) => c && c !== 'KRW' && c !== 'USD')) {
+    for (const month of months) {
+      try {
+        const r = await monthUsdRates(key, cur, month, fetchImpl);
+        if (!r) continue;
+        await db.doc(`fxRates/${perUsdKey(cur)}_${month}`).set({ cur: perUsdKey(cur), month, ...r, at: new Date().toISOString() });
+        saved++;
+      } catch (e) {
+        errors.push(`${cur}/USD ${month}: ${e.message}`);
+      }
+    }
+  }
   for (const cur of [...new Set(currencies)].filter((c) => c && c !== 'KRW')) {
     for (const month of months) {
       try {

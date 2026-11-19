@@ -165,6 +165,8 @@ export function useStoreBranches(codes: string[]) {
   return map;
 }
 
+/** 대미달러환율 키 (ECOS 731Y002, 현지 통화 / 1달러, 예: MNTPERUSD = 3599): fxRates/{통화}PERUSD_{YYYY-MM} */
+export const perUsdKey = (cur: string) => `${cur}PERUSD`;
 /** ECOS 일별 환율 (원 / 현지통화 1단위): fxRates/{통화}_{YYYY-MM} */
 export type FxTable = Record<string, Record<string, Record<string, number>>>; // cur → month → dd → rate
 export function useFxRates(curs: string[], months: string[]) {
@@ -178,7 +180,7 @@ export function useFxRates(curs: string[], months: string[]) {
       const demo: FxTable = {};
       for (const id of list) {
         const [cur, month] = id.split('_');
-        const base = cur === 'USD' ? 1385 : cur === 'MNT' ? 0.41 : cur === 'KZT' ? 2.8 : cur === 'GBP' ? 1820 : cur === 'EUR' ? 1500 : 1;
+        const base = cur === 'MNTPERUSD' ? 3599 : cur === 'KZTPERUSD' ? 480 : cur.endsWith('PERUSD') ? 1 : cur === 'USD' ? 1385 : cur === 'MNT' ? 0.41 : cur === 'KZT' ? 2.8 : cur === 'GBP' ? 1820 : cur === 'EUR' ? 1500 : 1;
         const days: Record<string, number> = {};
         for (let d = 1; d <= 31; d++) {
           const dow = new Date(`${month}-${pad(d)}T00:00:00`).getDay();

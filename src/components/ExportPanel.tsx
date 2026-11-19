@@ -8,7 +8,7 @@ import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { physName, DEFAULT_TEAM } from '../lib/team';
-import { exportCur, fmtCur, fullAmt, rateOn, shortAmt, toUsd, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
+import { exportCur, fmtCur, fullAmt, perUsdKey, rateOn, shortAmt, toUsd, useFxRates, useSales, useStoreBranches, type FxTable } from '../lib/sales';
 import { isOrderDone, type Company, type Order } from '../types';
 import { CoSelect, LIST, MobileCoList } from './MobilePick';
 
@@ -103,15 +103,18 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
   const branchNames = useStoreBranches(royaltyCos.flatMap((c) => c.storeCodes ?? []));
   // 판매일 ECOS 환율 (주말·공휴일은 그 전 영업일). 앞 달도 같이 (월초 주말용)
   // + 수출 통화가 USD 가 아닌 업체 (주문 외화 → USD)
-  const fxTable = useFxRates([...royaltyCos.map((c) => c.salesCurrency ?? ''), ...companies.map((c) => exportCur(c)), 'USD'], [shiftMonth(month, -1), month]);
+  const fxTable = useFxRates([...royaltyCos.map((c) => c.salesCurrency ?? ''), ...royaltyCos.map((c) => (c.salesCurrency ? perUsdKey(c.salesCurrency) : '')), ...companies.map((c) => exportCur(c)), 'USD'], [shiftMonth(month, -1), month]);
   const salesOf = (c: Company, mo: string = month, fx: FxTable = fxTable) => {
     const docs = sales.filter((m) => m.month === mo && (c.storeCodes ?? []).includes(m.code));
-    const cur0 = c.salesCurrency;
-    const conv = (date: string, roy: number) => {
-      const kr = cur0 ? rateOn(fx, cur0, date) : null;
+    const cur = c.salesCurrency;
+    // 판매일 하루 → 달러 = 판매(현지) ÷ 그날 (현지/달러, ECOS 대미달러환율) × 5% · 원화 = 달러 × 그날 원/달러 (참고)
+    //  중간에 반올림 안 함 (화면에 보일 때만)
+    const conv = (date: string, amt: number) => {
       const ur = rateOn(fx, 'USD', date);
-      const krw = kr ? roy * kr.rate : null;
-      return { krw, usd: cur0 === 'USD' ? roy : krw !== null && ur ? krw / ur.rate : null };
+      const pu = !cur ? null : cur === 'USD' ? { rate: 1, date } : cur === 'KRW' ? ur : rateOn(fx, perUsdKey(cur), date);
+      const usd = pu ? (amt / pu.rate) * ROYALTY_RATE : null;
+      const krw = usd !== null && ur ? usd * ur.rate : null;
+      return { pu, ur, usd, krw };
     };
     const branches = docs.flatMap((d) =>
       Object.entries(d.branches).map(([sid, b]) => {
@@ -120,28 +123,20 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
         let usd = 0;
         let miss = 0;
         for (const [dd, v] of Object.entries(b.days)) {
-          const x = conv(`${mo}-${dd}`, v * ROYALTY_RATE);
-          if (x.krw === null) miss++;
+          const x = conv(`${mo}-${dd}`, v);
+          if (x.usd === null) miss++;
           krw += x.krw ?? 0;
           usd += x.usd ?? 0;
         }
         return { sid, name: branchNames[sid] || b.name || '', total, days: Object.keys(b.days).length, roy: total * ROYALTY_RATE, krw, usd, miss };
       }),
     );
-    // 날짜별 합계 → 로열티(현지) × 그날 환율
+    // 날짜별 합계 (지점 합) → 그날 환율
     const byDay = new Map<string, number>();
     for (const d of docs) for (const b of Object.values(d.branches)) for (const [dd, v] of Object.entries(b.days)) byDay.set(`${mo}-${dd}`, (byDay.get(`${mo}-${dd}`) ?? 0) + v);
-    const cur = c.salesCurrency;
     const days = [...byDay.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, amt]) => {
-        const roy = amt * ROYALTY_RATE;
-        const kr = cur ? rateOn(fx, cur, date) : null;
-        const ur = rateOn(fx, 'USD', date);
-        const krw = kr ? roy * kr.rate : null;
-        const usd = cur === 'USD' ? roy : krw !== null && ur ? krw / ur.rate : null;
-        return { date, amt, roy, kr, ur, krw, usd };
-      });
+      .map(([date, amt]) => ({ date, amt, roy: amt * ROYALTY_RATE, ...conv(date, amt) }));
     return {
       cur,
       days,
@@ -150,7 +145,7 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
       royLocal: days.reduce((a, d) => a + d.roy, 0),
       royK: days.reduce((a, d) => a + (d.krw ?? 0), 0),
       royF: days.reduce((a, d) => a + (d.usd ?? 0), 0),
-      missing: days.filter((d) => d.krw === null).length,
+      missing: days.filter((d) => d.usd === null).length,
     };
   };
 
@@ -221,7 +216,7 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
   for (let mo = `${year}-01`; mo <= `${year}-12` && mo <= thisMonth(); mo = shiftMonth(mo, 1)) yearMonths.push(mo);
   const wantYear = view === 'pie' && pieYear;
   const erpYear = useExportYear(companies.flatMap((c) => c.storeCodes ?? []), wantYear ? yearMonths : []);
-  const fxYear = useFxRates(wantYear ? [...royaltyCos.map((c) => c.salesCurrency ?? ''), ...companies.map((c) => exportCur(c)), 'USD'] : [], wantYear ? [shiftMonth(yearMonths[0], -1), ...yearMonths] : []);
+  const fxYear = useFxRates(wantYear ? [...royaltyCos.map((c) => c.salesCurrency ?? ''), ...royaltyCos.map((c) => (c.salesCurrency ? perUsdKey(c.salesCurrency) : '')), ...companies.map((c) => exportCur(c)), 'USD'] : [], wantYear ? [shiftMonth(yearMonths[0], -1), ...yearMonths] : []);
   const yearRows = useMemo(() => {
     if (!wantYear) return [];
     const by = new Map<string, { c: Company; total: number; totalF: number }>();
@@ -406,7 +401,7 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
           {open === 'royalty' && (
             <div className="export-detail">
               <h3>③ 로열티 — {m}월 판매 합계 × {ROYALTY_RATE * 100}%</h3>
-              <p className="muted small detail-note">{m}월 판매 × {ROYALTY_RATE * 100}% · 판매일마다 ECOS 매매기준율로 원화·달러 환산 (주말·공휴일은 그 전 영업일 환율)</p>
+              <p className="muted small detail-note">{m}월 판매 × {ROYALTY_RATE * 100}% · 달러 = 판매 ÷ 그날 현지통화/USD (ECOS 대미달러환율) × {ROYALTY_RATE * 100}% · 원화 = 달러 × 그날 원/USD (참고) · 주말·공휴일은 그 전 영업일 환율 · 반올림은 화면에서만</p>
               {scope.filter((r) => r.sale).length === 0 && <p className="muted small">로열티 매장이 없어요. 설정 &gt; 매장 설정에서 업체의 ⚙ 를 눌러 <b>로열티</b>를 켜 주세요.</p>}
               {scope
                 .filter((r) => r.sale)
@@ -545,8 +540,10 @@ type Sale = {
   royK: number;
   royF: number;
   missing: number;
-  days: { date: string; amt: number; roy: number; kr: { rate: number; date: string } | null; ur: { rate: number; date: string } | null; krw: number | null; usd: number | null }[];
+  days: { date: string; amt: number; roy: number; pu: { rate: number; date: string } | null; ur: { rate: number; date: string } | null; krw: number | null; usd: number | null }[];
 };
+/** 소수 둘째 자리까지 (표시할 때만 반올림) */
+const n2 = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const rateTxt = (r: number) => (r >= 100 ? r.toLocaleString(undefined, { maximumFractionDigits: 2 }) : r.toLocaleString(undefined, { maximumFractionDigits: 4 }));
 
 /** 로열티: 업체 하나 — 표 (합계 맨 위) + '일별 계산 보기' */
@@ -589,15 +586,15 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
                 <td className="r">{sale.days.length}일</td>
                 <td className="r">
                   {sym}
-                  {fullAmt(sale.total)}
+                  {n2(sale.total)}
                 </td>
                 <td className="c muted">×{pct}</td>
                 <td className="r">
                   {sym}
-                  {fullAmt(sale.royLocal)}
+                  {n2(sale.royLocal)}
                 </td>
                 <td className="r">{cur ? won(sale.royK) : '—'}</td>
-                <td className="r">{cur ? fx(sale.royF) : '—'}</td>
+                <td className="r">{cur ? `$${n2(sale.royF)}` : '—'}</td>
               </tr>
               {sale.branches.map((b) => (
                 <tr key={b.sid}>
@@ -605,11 +602,11 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
                     {b.name || '지점'} <span className="muted small">{b.sid}</span>
                   </td>
                   <td className="r">{b.days}일</td>
-                  <td className="r">{fullAmt(b.total)}</td>
+                  <td className="r">{n2(b.total)}</td>
                   <td className="c muted">×{pct}</td>
-                  <td className="r">{fullAmt(b.roy)}</td>
+                  <td className="r">{n2(b.roy)}</td>
                   <td className="r">{cur ? won(b.krw) : '—'}</td>
-                  <td className="r">{cur ? fx(b.usd) : '—'}</td>
+                  <td className="r">{cur ? `$${n2(b.usd)}` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -626,38 +623,43 @@ function RoyaltyBox({ c, sale, live }: { c: Company; sale: Sale; live: boolean }
                 <tr>
                   <th>판매일</th>
                   <th className="r">판매 ({cur ?? '?'})</th>
-                  <th className="r">로열티 {ROYALTY_RATE * 100}%</th>
-                  <th className="r">환율 (원/{cur ?? '?'})</th>
-                  <th className="r">원화</th>
-                  <th className="r">환율 (원/USD)</th>
+                  <th className="r">
+                    로열티 {ROYALTY_RATE * 100}% ({cur ?? '?'})
+                  </th>
+                  <th className="r">환율 ({cur ?? '?'}/USD)</th>
                   <th className="r">달러</th>
+                  <th className="r">원/USD</th>
+                  <th className="r">원화</th>
                 </tr>
               </thead>
               <tbody>
                 {sale.days.map((d) => (
                   <tr key={d.date}>
                     <td>{d.date.slice(5).replace('-', '/')}</td>
-                    <td className="r">{fullAmt(d.amt)}</td>
-                    <td className="r">{d.roy.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="r" title={d.kr && d.kr.date !== d.date ? `${d.kr.date} 환율 (그 전 영업일)` : undefined}>
-                      {d.kr ? rateTxt(d.kr.rate) : <span className="warn">없음</span>}
-                      {d.kr && d.kr.date !== d.date && <span className="muted small"> ({d.kr.date.slice(5).replace('-', '/')})</span>}
+                    <td className="r">{n2(d.amt)}</td>
+                    <td className="r">{n2(d.roy)}</td>
+                    <td className="r" title={d.pu && d.pu.date !== d.date ? `${d.pu.date} 환율 (그 전 영업일)` : undefined}>
+                      {d.pu ? rateTxt(d.pu.rate) : <span className="warn">없음</span>}
+                      {d.pu && d.pu.date !== d.date && <span className="muted small"> ({d.pu.date.slice(5).replace('-', '/')})</span>}
+                    </td>
+                    <td className="r">{d.usd !== null ? n2(d.usd) : '—'}</td>
+                    <td className="r" title={d.ur && d.ur.date !== d.date ? `${d.ur.date} 환율 (그 전 영업일)` : undefined}>
+                      {d.ur ? rateTxt(d.ur.rate) : '—'}
+                      {d.ur && d.ur.date !== d.date && <span className="muted small"> ({d.ur.date.slice(5).replace('-', '/')})</span>}
                     </td>
                     <td className="r">{d.krw !== null ? fullAmt(d.krw) : '—'}</td>
-                    <td className="r">{d.ur ? rateTxt(d.ur.rate) : '—'}</td>
-                    <td className="r">{d.usd !== null ? d.usd.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
                   <th>합계</th>
-                  <td className="r">{fullAmt(sale.total)}</td>
-                  <td className="r">{sale.royLocal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                  <td className="r">{n2(sale.total)}</td>
+                  <td className="r">{n2(sale.royLocal)}</td>
+                  <td />
+                  <td className="r">{n2(sale.royF)}</td>
                   <td />
                   <td className="r">{fullAmt(sale.royK)}</td>
-                  <td />
-                  <td className="r">{sale.royF.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                 </tr>
               </tfoot>
             </table>
