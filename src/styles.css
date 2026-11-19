@@ -8321,3 +8321,20 @@ mark.ct-kw { background: #fde2b8; color: inherit; border-radius: 3px; padding: 0
 .k-note-tip { position: fixed; z-index: 60; width: max-content; max-width: 280px; padding: 8px 10px; background: var(--ink); color: #fff; border-radius: 8px; font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; text-align: left; box-shadow: var(--shadow-h); pointer-events: none; }
 .k-note-pop { position: fixed; z-index: 61; width: 300px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-h); }
 .k-note-pop textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; resize: vertical; }
+/* 처리자 미정 카드: 새로 들어온 요청 NEW (빨간 원 · 흰 숫자) */
+.member-card.unassigned { position: relative; }
+.un-new { position: absolute; top: -9px; right: -6px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 2px 3px 2px 8px; border-radius: 999px; background: #fff; border: 1.5px solid #e03131; color: #e03131; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; box-shadow: 0 2px 6px rgba(224, 49, 49, .25); animation: un-pop .35s ease-out; }
+.un-new b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: #e03131; color: #fff; font-size: 12px; letter-spacing: 0; }
+.member-card.unassigned.has-new { border-color: #e03131 !important; }
+@keyframes un-pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.un-new { position: static; margin-left: auto; align-self: center; }
+.un-new + .un-num { margin-left: 10px; }
+@media (max-width: 600px) {
+  .trade-sum .unassigned .un-new { position: absolute; top: 4px; right: 4px; margin: 0; padding: 1px 2px 1px 5px; font-size: 9px; gap: 2px; }
+  .trade-sum .unassigned .un-new b { min-width: 16px; height: 16px; font-size: 10px; }
+  .trade-sum .unassigned .un-new + .un-num { margin-left: 0; }
+}
+@media (max-width: 600px) {
+  .trade-sum .unassigned .un-new { top: 40px; right: 10px; padding: 0; border: none; background: none; box-shadow: none; font-size: 0; }
+  .trade-sum .unassigned .un-new b { min-width: 18px; height: 18px; font-size: 11px; }
+}

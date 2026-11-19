@@ -9,8 +9,9 @@ import OrderLinkPicker from './OrderLinkPicker';
 import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
-import { today, uid } from '../lib/date';
-import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload, isLeaderRequester, requesterPatch } from '../lib/trade';
+import { toISO, today, uid } from '../lib/date';
+import { holidayName } from '../lib/holidays';
+import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload, isLeaderRequester, requesterPatch, isOpen } from '../lib/trade';
 
 const dot = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -863,6 +864,7 @@ export function TradeSummaryCards({
   onSelect: (id: string) => void;
 }) {
   const load = workload(requests, trade);
+  const fresh = useNewUnassigned(requests);
   return (
     <div className="team compact trade-sum">
       {load.rows.map((w) => {
@@ -894,13 +896,23 @@ export function TradeSummaryCards({
           </button>
         );
       })}
-      <button className={`member-card unassigned ${selected === '-' ? 'selected' : ''}`} onClick={() => onSelect('-')} title="처리자가 아직 안 정해진 요청">
+      <button
+        className={`member-card unassigned ${selected === '-' ? 'selected' : ''} ${fresh.count ? 'has-new' : ''}`}
+        onClick={() => onSelect('-')}
+        title={fresh.count ? `새로 들어온 요청 ${fresh.count}건 (들어온 날 · 다음 영업일까지 NEW) · 눌러서 보기` : '처리자가 아직 안 정해진 요청'}
+      >
+
         <div className="mc-top">
           <span className="tw-q big">?</span>
           <div className="mc-name">
             <b>처리자 미정</b>
             <span className="muted small">무역사무가 정하기 전</span>
           </div>
+          {fresh.count > 0 && (
+            <span className="un-new">
+              NEW <b>{fresh.count}</b>
+            </span>
+          )}
           <span className="un-num">
             {load.unassigned}
             <small>건</small>
@@ -1052,4 +1064,27 @@ function RequestOrderLinker({
       onClose={onClose}
     />
   );
+}
+
+/** 처리자 미정 카드의 NEW: 처리자가 정해지기 전 + 들어온 날과 그 다음 영업일까지 (주말 · 공휴일 빼고) */
+const isWorkday = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`).getDay();
+  return d !== 0 && d !== 6 && !holidayName(iso);
+};
+const nextDay = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return toISO(d);
+};
+const nextWorkday = (iso: string) => {
+  let d = nextDay(iso);
+  for (let i = 0; i < 20 && !isWorkday(d); i++) d = nextDay(d);
+  return d;
+};
+/** NEW 가 보이는 마지막 날: 들어온 날 (주말·공휴일이면 다음 영업일) 의 다음 영업일 */
+const newUntil = (created: string) => nextWorkday(isWorkday(created) ? created : nextWorkday(created));
+function useNewUnassigned(requests: TradeRequest[]) {
+  const t = today();
+  const fresh = requests.filter((r) => isOpen(r) && !r.assigneeId && r.createdAt && t <= newUntil(toISO(new Date(r.createdAt))));
+  return { count: fresh.length };
 }
