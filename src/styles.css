@@ -8313,3 +8313,11 @@ mark.ct-kw { background: #fde2b8; color: inherit; border-radius: 3px; padding: 0
 .rp-guide b, .rp-guide .rp-done-tag { white-space: nowrap; }
 .rp-guide b { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
 @media (max-width: 600px) { .rp-guide { flex-direction: column; gap: 5px; margin-top: 0; } .rp-guide li { align-items: flex-start; } }
+/* 클레임 비고: 📝 · 올리면 메모 · 누르면 아래로 */
+.k-note-cell { position: relative; display: flex; justify-content: center; }
+.k-note-btn { background: none; border: 1px solid transparent; border-radius: 8px; padding: 2px 8px; cursor: pointer; font-size: 15px; color: var(--mut); opacity: .5; }
+.k-note-btn.has { opacity: 1; }
+.k-note-btn:hover { border-color: var(--line); background: var(--surface); opacity: 1; }
+.k-note-tip { position: fixed; z-index: 60; width: max-content; max-width: 280px; padding: 8px 10px; background: var(--ink); color: #fff; border-radius: 8px; font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; text-align: left; box-shadow: var(--shadow-h); pointer-events: none; }
+.k-note-pop { position: fixed; z-index: 61; width: 300px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-h); }
+.k-note-pop textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; resize: vertical; }

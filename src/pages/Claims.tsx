@@ -1,5 +1,5 @@
 import { useMirrorClaims } from '../lib/teamClaims';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsMobile } from '../lib/useMobile';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
@@ -388,7 +388,11 @@ export default function Claims() {
                     </div>
                   </td>
                   <td className="k-note" data-label="비고">
-                    <EditableText value={c.note ?? ''} oneLine expand placeholder="비고" onSave={(v) => patch(c, { note: v || undefined })} />
+                    {isMobile ? (
+                      <EditableText value={c.note ?? ''} oneLine expand placeholder="비고" onSave={(v) => patch(c, { note: v || undefined })} />
+                    ) : (
+                      <NoteCell value={c.note ?? ''} onSave={(v) => patch(c, { note: v || undefined })} />
+                    )}
                   </td>
                   <td className="k-more">
                     {/* 휴대폰: 펼쳤을 때 포함된 주문 보기 */}
@@ -651,4 +655,73 @@ function ClaimDetail({ title, orders, companyName, onClose }: { title: string; o
 /** 순서 기준값 (클수록 위): 직접 옮긴 순서, 없으면 출고날짜 (날짜 없는 건 맨 위) */
 function claimKey(c: Claim) {
   return c.sort ?? (c.shipDate ? Date.parse(c.shipDate) : Date.parse('9999-01-01'));
+}
+
+/** 비고: 칸에는 📝 만 · 마우스 올리면 메모 보이고 · 누르면 아래로 펼쳐서 쓰기
+ *  (표가 스크롤 상자라 잘리지 않게 화면 기준 위치로 띄움) */
+function NoteCell({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [edit, setEdit] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [text, setText] = useState(value);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const place = () => {
+    const r = btn.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+  };
+  // 쓰는 중에 화면을 굴리면 상자도 따라가게
+  useEffect(() => {
+    if (!edit) return;
+    const f = () => {
+      const r = btn.current?.getBoundingClientRect();
+      if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    };
+    window.addEventListener('scroll', f, true);
+    window.addEventListener('resize', f);
+    return () => (window.removeEventListener('scroll', f, true), window.removeEventListener('resize', f));
+  }, [edit]);
+  const commit = () => {
+    setEdit(false);
+    if (text.trim() !== value) onSave(text.trim());
+  };
+  return (
+    <div className="k-note-cell">
+      <button
+        ref={btn}
+        className={`k-note-btn ${value ? 'has' : ''}`}
+        onMouseEnter={() => (place(), setHover(true))}
+        onMouseLeave={() => setHover(false)}
+        onClick={() => (place(), setText(value), setEdit(true), setHover(false))}
+        aria-label="비고"
+      >
+        {value ? '📝' : '＋'}
+      </button>
+      {value && hover && !edit && pos && (
+        <div className="k-note-tip" style={{ top: pos.top, right: pos.right }}>
+          {value}
+        </div>
+      )}
+      {edit && pos && (
+        <div className="k-note-pop" style={{ top: pos.top, right: pos.right }}>
+          <textarea
+            autoFocus
+            rows={4}
+            value={text}
+            placeholder="비고 (Enter 저장 · Shift+Enter 줄바꿈 · Esc 취소)"
+            onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                commit();
+              }
+              if (e.key === 'Escape') setEdit(false);
+            }}
+          />
+          <div className="muted small">Enter 저장 · Shift+Enter 줄바꿈</div>
+        </div>
+      )}
+    </div>
+  );
 }
