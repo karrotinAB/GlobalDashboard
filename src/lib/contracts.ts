@@ -104,10 +104,13 @@ const HEAD_RE = [
 ];
 /** '5. Security Deposit' · '5. 보증금' 처럼 번호 + 짧은 제목 (문장으로 이어지는 번호 목록은 제목 아님) */
 const isNumberedTitle = (line: string) => {
-  const m = line.match(/^\s*\d{1,2}\s*[.)]\s+(.+)$/);
+  // '1. 제목' 만 (1) 2) 처럼 괄호 번호는 목록 항목이라 제목 아님)
+  const m = line.match(/^\s*\d{1,2}\s*\.\s+(.+)$/);
   if (!m) return false;
   const t = m[1].trim();
   if (/[.,;:]$/.test(t) || t.length > 45) return false;
+  // 'Deposit: USD 3,000' 처럼 '이름: 값' 은 항목 줄
+  if (/:\s*\S/.test(t)) return false;
   if (/[가-힣]/.test(t)) return t.length <= 20 && !/(다|요|함|음)$/.test(t);
   const words = t.split(/\s+/);
   // 영어: 6단어 이하, 짧은 연결어 빼고 모두 대문자로 시작
