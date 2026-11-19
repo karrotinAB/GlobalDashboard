@@ -120,11 +120,13 @@ export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line)) || isN
  *   (빈 줄 · 목록 기호 (a) 1) • - 로 시작하는 줄은 새 문단)
  */
 export function parseArticles(text: string): { intro: string[]; articles: Article[] } {
-  const isPage = (l: string) => /^[=\-_~*\s]*(page|페이지)\s*\d+[=\-_~*\s]*$/i.test(l) || /^[=\-_]{4,}$/.test(l);
+  // 페이지 표시 줄: 'Page 3' · 'PDF Page 5' · 'Page 3 of 20' · '- 3 -' 아닌 '9쪽' · '페이지 2' · '=====' 만 있는 줄
+  const isPage = (l: string) => /^[=\-_~*#\s]*(pdf\s*)?(page|pg\.?|페이지)\s*\d+(\s*(of|\/)\s*\d+)?[=\-_~*#\s]*$/i.test(l) || /^[=\-_~*#\s]*\d+\s*쪽[=\-_~*#\s]*$/.test(l) || /^[=\-_~*#]{4,}$/.test(l);
   const lines = text
     .replace(/\r/g, '')
     // 페이지 표시 지우기: '===== 9쪽 =====' · '===== Page 3 =====' (줄 중간에 붙어 있어도)
-    .replace(/[=\-_~]{2,}\s*(\d+\s*쪽|page\s*\d+|p\.?\s*\d+|페이지\s*\d+)\s*[=\-_~]{2,}/gi, '\n')
+    //   '===== PDF Page 5 =====' 처럼 앞에 다른 말이 붙어도
+    .replace(/[=\-_~]{2,}[^=\-_~\n]{0,20}?(\d+\s*쪽|page\s*\d+(\s*(of|\/)\s*\d+)?|p\.?\s*\d+|페이지\s*\d+)\s*[=\-_~]{2,}/gi, '\n')
     // ① ② ③ … 항목은 줄마다
     .replace(/\s+([①-⑳])/g, '\n$1')
     .split('\n')
