@@ -132,7 +132,7 @@ export interface Claim {
   source: 'bundle' | 'order' | 'manual';
   sourceId?: string; // 묶음 id 또는 주문 id
   title: string; // 묶음 이름 / 주문명 (가져온 뒤 고칠 수 있음)
-  currency: 'KRW' | 'FOREIGN';
+  currency: string; // 'KRW' · 통화 코드 (USD · JPY …) · 예전 기록 'FOREIGN' = 업체 수출 통화
   packingOverride?: number; // 직접 쓴 패킹금액 (없으면 주문에서 자동)
   claimAmount?: number;
   shipDate?: string; // 출고날짜 YYYY-MM-DD

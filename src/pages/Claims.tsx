@@ -12,6 +12,8 @@ import DateInput from '../components/DateInput';
 import CompanyPicker from '../components/CompanyPicker';
 import { LinkedTeamView } from './Overview';
 import { storage } from '../firebase';
+import { claimConverted, claimCur, claimCurOptions, claimPacking, curOptionLabel, fmtMoney, useClaimFx } from '../lib/claimCur';
+import { exportCur } from '../lib/sales';
 
 type Source = {
   key: string;
@@ -27,7 +29,6 @@ type Source = {
   detail?: string; // 묶음 안 주문 이름들
 };
 
-const fmt = (cur: Claim['currency'], n?: number) => (n === undefined ? '' : cur === 'KRW' ? fmtKRW(n) : fmtFX(n));
 const sum = (os: Order[], k: 'amountKRW' | 'amountForeign') => os.reduce((a, o) => a + (o[k] ?? 0), 0);
 
 export default function Claims() {
@@ -96,17 +97,10 @@ export default function Claims() {
     return list;
   }, [data.orders]);
 
-  /** 패킹금액: 직접 쓴 값이 있으면 그것, 없으면 묶음/주문의 원화·외화 금액 (실시간) */
-  const packingOf = (c: Claim): number | undefined => {
-    if (c.packingOverride !== undefined) return c.packingOverride;
-    const k = c.currency === 'KRW' ? 'amountKRW' : 'amountForeign';
-    if (c.source === 'bundle') {
-      const os = data.orders.filter((o) => o.bundle?.id === c.sourceId);
-      return os.some((o) => o[k] !== undefined) ? sum(os, k) : undefined;
-    }
-    if (c.source === 'order') return data.orders.find((o) => o.id === c.sourceId)?.[k];
-    return undefined;
-  };
+  /** 패킹금액: 직접 쓴 값이 있으면 그것, 없으면 묶음/주문의 원화·외화 금액 (실시간, 통화가 다르면 출고날짜 환율로) */
+  const fxTable = useClaimFx(data.claims, (k) => companyById.get(k.companyId ?? ''));
+  const packingOf = (c: Claim): number | undefined => claimPacking(c, data.orders, companyById.get(c.companyId ?? ''), fxTable);
+  const curOptions = claimCurOptions([...companies, ...(data.companies ?? [])]);
 
   const rows = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -182,7 +176,7 @@ export default function Claims() {
         <div>
           <h1>클레임</h1>
           <p className="muted">
-            묶음이나 주문을 고르면 패킹금액을 주문 관리에서 자동으로 가져와요 (원화/외화 선택). 클레임 금액을 쓰면 비율이 계산돼요.
+            묶음이나 주문을 고르면 패킹금액을 주문 관리에서 자동으로 가져와요 (통화 선택 · 업체 수출 통화와 다르면 출고날짜 환율로 바꿔요). 클레임 금액을 쓰면 비율이 계산돼요.
           </p>
         </div>
       </div>
@@ -274,6 +268,8 @@ export default function Claims() {
               const packing = packingOf(c);
               const rate = packing && c.claimAmount !== undefined ? (c.claimAmount / packing) * 100 : undefined;
               const company = companyById.get(c.companyId ?? '');
+              const cur = claimCur(c, company);
+              const money = (v: number) => fmtMoney(cur, v);
               return (
                 <tr
                   key={c.id}
@@ -323,26 +319,37 @@ export default function Claims() {
                     </div>
                   </td>
                   <td className="k-cur" data-label="통화">
-                    <button
-                      className={`cur-pill ${c.currency === 'KRW' ? 'krw' : 'fx'}`}
-                      title="눌러서 원화 ↔ 외화"
-                      onClick={() => patch(c, { currency: c.currency === 'KRW' ? 'FOREIGN' : 'KRW', packingOverride: undefined })}
+                    <select
+                      className={`cur-pill cur-sel ${cur === 'KRW' ? 'krw' : 'fx'}`}
+                      title="통화 바꾸기 (패킹금액은 주문에서 다시 가져와요)"
+                      value={cur}
+                      onChange={(e) => patch(c, { currency: e.target.value, packingOverride: undefined })}
                     >
-                      {c.currency === 'KRW' ? '₩ 원화' : '$ 외화'}
-                    </button>
+                      {[...curOptions, ...(curOptions.includes(cur) ? [] : [cur])].map((x) => (
+                        <option key={x} value={x}>
+                          {curOptionLabel(x)}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="k-amt" data-label="패킹금액">
                     <div className="k-amt-wrap" title={c.packingOverride !== undefined ? '직접 쓴 금액' : '주문 관리에서 자동으로 가져온 금액'}>
                       <AmountCell
                         value={packing}
-                        kind={c.currency === 'KRW' ? 'krw' : 'fx'}
+                        kind={cur === 'KRW' ? 'krw' : 'fx'}
+                        display={money}
+                        ph={cur === 'KRW' ? '₩' : fmtMoney(cur, 0).replace(/0$/, '')}
                         onSave={(v) => patch(c, { packingOverride: v })}
                       />
-                      {c.packingOverride === undefined && packing !== undefined && <span className="auto-tag">자동</span>}
+                      {c.packingOverride === undefined && packing !== undefined && (
+                        <span className="auto-tag" title={claimConverted(c, company) ? `${exportCur(company)} 주문 금액을 출고날짜 환율로 바꾼 금액` : undefined}>
+                          {claimConverted(c, company) ? '환산' : '자동'}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="k-amt" data-label="클레임 금액">
-                    <AmountCell value={c.claimAmount} kind={c.currency === 'KRW' ? 'krw' : 'fx'} onSave={(v) => patch(c, { claimAmount: v })} />
+                    <AmountCell value={c.claimAmount} kind={cur === 'KRW' ? 'krw' : 'fx'} display={money} ph={cur === 'KRW' ? '₩' : fmtMoney(cur, 0).replace(/0$/, '')} onSave={(v) => patch(c, { claimAmount: v })} />
                   </td>
                   <td className="k-rate">{rate === undefined ? '' : `${rate.toFixed(3)}%`}</td>
                   <td className="k-chk">
@@ -403,6 +410,8 @@ export default function Claims() {
               </tr>
             )}
             <AddClaimRow
+              curOptions={curOptions}
+              defaultCur={exportCur(sheet)}
               sources={sources.filter((s) => s.companyId === sheet.id)}
               onAdd={(c) => save('claims', { ...c, companyId: sheet.id })}
             />
@@ -435,10 +444,10 @@ function ClaimDate({ value, onSave }: { value?: string; onSave: (v?: string) => 
 }
 
 /** 표 맨 아래 '+ 클레임 추가': 묶음/주문 고르기 → 통화 · 출고날짜 · 클레임 금액 */
-function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) => void }) {
+function AddClaimRow({ sources, curOptions, defaultCur, onAdd }: { sources: Source[]; curOptions: string[]; defaultCur: string; onAdd: (c: Claim) => void }) {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState('');
-  const [currency, setCurrency] = useState<Claim['currency']>('FOREIGN');
+  const [currency, setCurrency] = useState<string>(defaultCur);
   const [shipDate, setShipDate] = useState<string | undefined>();
   const [claim, setClaim] = useState('');
   const [picking, setPicking] = useState(false);
@@ -460,7 +469,7 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
     setKey(k);
     const s = sources.find((x) => x.key === k);
     if (s) {
-      setCurrency(s.fx > 0 || s.krw === 0 ? 'FOREIGN' : 'KRW');
+      setCurrency(s.fx > 0 || s.krw === 0 ? defaultCur : 'KRW');
     }
   };
   const submit = () => {
@@ -511,12 +520,15 @@ function AddClaimRow({ sources, onAdd }: { sources: Source[]; onAdd: (c: Claim) 
         )}
       </td>
       <td className="k-cur">
-        <select className="cell-input" value={currency} onChange={(e) => setCurrency(e.target.value as Claim['currency'])}>
-          <option value="FOREIGN">$ 외화</option>
-          <option value="KRW">₩ 원화</option>
+        <select className="cell-input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+          {curOptions.map((x) => (
+            <option key={x} value={x}>
+              {curOptionLabel(x)}
+            </option>
+          ))}
         </select>
       </td>
-      <td className="k-amt muted small">{src ? fmt(currency, currency === 'KRW' ? src.krw : src.fx) || '금액 없음' : '자동'}</td>
+      <td className="k-amt muted small">{src ? (currency === 'KRW' ? fmtMoney('KRW', src.krw || undefined) : currency === defaultCur ? fmtMoney(currency, src.fx || undefined) : '환율로 바꿔요') || '금액 없음' : '자동'}</td>
       <td className="k-amt">
         <input
           className="cell-input amt"

@@ -1,4 +1,5 @@
 // 무역사무 '업체 메모': 업체 고르기 → 각 조 메모(주간 할일 업체 메모, 고정·읽기만) + 무역사무 체크박스 메모
+import { claimCur, claimPacking, fmtMoney, useClaimFx } from '../lib/claimCur';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useSpaceData } from '../data/store';
 import { useAccess } from '../components/AuthGate';
@@ -9,7 +10,6 @@ import { uid } from '../lib/date';
 import { coKey, saveCoMemo, useTradeMemos, type MemoItem } from '../lib/tradeMemos';
 import type { Claim, Company } from '../types';
 import { Modal } from '../components/ui';
-import { fmtFX, fmtKRW } from '../components/OrderCells';
 
 export type TeamCo = Company & { team: string };
 
@@ -186,13 +186,9 @@ function TeamClaimsBtn({ c }: { c: TeamCo }) {
   const waiting = claims.filter((k) => !k.refunded).length;
   const titleOf = (k: Claim) =>
     (k.source === 'bundle' ? orders.find((o) => o.bundle?.id === k.sourceId)?.bundle?.name : k.source === 'order' ? orders.find((o) => o.id === k.sourceId)?.name : undefined) || k.title;
-  const packingOf = (k: Claim): number | undefined => {
-    if (k.packingOverride !== undefined) return k.packingOverride;
-    const f = k.currency === 'KRW' ? 'amountKRW' : 'amountForeign';
-    const os = k.source === 'bundle' ? orders.filter((o) => o.bundle?.id === k.sourceId) : k.source === 'order' ? orders.filter((o) => o.id === k.sourceId) : [];
-    return os.some((o) => o[f] !== undefined) ? os.reduce((a, o) => a + (o[f] ?? 0), 0) : undefined;
-  };
-  const money = (k: Claim, v?: number) => (v === undefined ? '' : k.currency === 'KRW' ? fmtKRW(v) : fmtFX(v));
+  const fxTable = useClaimFx(open ? claims : [], () => c);
+  const packingOf = (k: Claim): number | undefined => claimPacking(k, orders, c, fxTable);
+  const money = (k: Claim, v?: number) => fmtMoney(claimCur(k, c), v);
   return (
     <>
       <button className={`tm-claim-btn ${waiting ? 'on' : ''}`} onClick={() => setOpen(true)} title={`${c.team}조 대시보드에 저장된 이 업체 클레임`}>

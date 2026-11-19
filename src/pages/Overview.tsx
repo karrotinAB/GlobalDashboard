@@ -1,5 +1,6 @@
 // 조 현황 (팀장님·이사님·관리자): 1~3조의 이번 주 할일 · 주문 · 클레임을 한눈에 (읽기 전용)
 // 조 대시보드에 '들어가는' 게 아니라, 모든 조 정보를 한 화면에서 확인하는 용도
+import { claimCur, claimPacking, fmtMoney, useClaimFx } from '../lib/claimCur';
 import { useOrderUsd } from '../lib/sales';
 import { Fragment, useMemo, useState, type CSSProperties } from 'react';
 import { useIsMobile } from '../lib/useMobile';
@@ -581,16 +582,16 @@ function ClaimsView({ teams, q }: { teams: TeamData[]; q: string }) {
     .filter(({ k }) => tab === 'all' || !k.refunded)
     .filter(({ k, c }) => !query || `${k.title} ${c?.name ?? ''} ${k.note ?? ''}`.toLowerCase().includes(query))
     .sort((a, b) => a.t.team.localeCompare(b.t.team) || (b.k.shipDate ?? '').localeCompare(a.k.shipDate ?? ''));
-  const packing = (t: TeamData, k: Claim) => {
-    if (k.packingOverride !== undefined) return k.packingOverride;
-    const key = k.currency === 'KRW' ? 'amountKRW' : 'amountForeign';
-    const os = k.source === 'bundle' ? t.orders.filter((o) => o.bundle?.id === k.sourceId) : k.source === 'order' ? t.orders.filter((o) => o.id === k.sourceId) : [];
-    return os.some((o) => o[key] !== undefined) ? sumOf(os, key) : undefined;
-  };
+  const coOf = (k: Claim) => teams.find((t) => t.claims.includes(k))?.companies.find((c) => c.id === k.companyId);
+  const fxTable = useClaimFx(
+    teams.flatMap((t) => t.claims),
+    coOf,
+  );
+  const packing = (t: TeamData, k: Claim) => claimPacking(k, t.orders, t.companies.find((c) => c.id === k.companyId), fxTable);
   const title = (t: TeamData, k: Claim) =>
     (k.source === 'bundle' ? t.orders.find((o) => o.bundle?.id === k.sourceId)?.bundle?.name : k.source === 'order' ? t.orders.find((o) => o.id === k.sourceId)?.name : undefined) ||
     k.title;
-  const fmt = (k: Claim, n?: number) => (n === undefined ? '' : k.currency === 'KRW' ? fmtKRW(n) : fmtFX(n));
+  const fmt = (k: Claim, n?: number) => fmtMoney(claimCur(k, coOf(k)), n);
   return (
     <>
       <div className="seg ov-sub">
