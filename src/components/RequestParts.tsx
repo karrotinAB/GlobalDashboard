@@ -10,7 +10,7 @@ import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
 import { today, uid } from '../lib/date';
-import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload, isLeaderRequester } from '../lib/trade';
+import { deleteRequestFile, memberLabel, PRIORITY_CLASS, tradeChar, uploadRequestFile, workload, isLeaderRequester, requesterPatch } from '../lib/trade';
 
 const dot = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -561,6 +561,8 @@ export function RequestDetail({
       const v = typeof d[k] === 'string' ? (d[k] as string).trim() || undefined : d[k];
       if (JSON.stringify(v) !== JSON.stringify(r[k])) (patch as Record<string, unknown>)[k] = v;
     }
+    // 요청자를 바꿨으면 요청 쪽 (조 · 팀장님 · 이사님) 도 같이
+    if ('requesterId' in patch) Object.assign(patch, requesterPatch(patch.requesterId, team, r));
     if (Object.keys(patch).length) onSave(patch);
     setEditing(false);
   };

@@ -191,9 +191,26 @@ export const isLeaderRequester = (id?: string) => id === '__lead' || id === '__d
 /** 무역사무가 직접 넣은 자체 업무 (요청한 조가 없음) */
 export const isSelfTask = (r: TradeRequest) => !r.team && !r.requesterId && !r.requesterEmail && !r.teamName;
 /** 요청한 조: 자체 업무는 'trade', 옛 요청(조 표시 없음)은 2조 */
-export const teamOfRequest = (r: TradeRequest) => r.team ?? (isSelfTask(r) ? 'trade' : '2');
+//   요청자가 팀장님·이사님이면 (조 기록이 빠졌어도) 그분 쪽
+const leaderOf = (r: TradeRequest) => (isLeaderRequester(r.requesterId) ? LEADER_REQUESTERS.find((m) => m.id === r.requesterId) : undefined);
+export const teamOfRequest = (r: TradeRequest) => leaderOf(r)?.team ?? r.team ?? (isSelfTask(r) ? 'trade' : '2');
 /** 화면에 보일 요청 쪽 이름 */
-export const requestSideLabel = (r: TradeRequest) => r.teamName ?? (isSelfTask(r) ? '무역사무' : `${teamOfRequest(r)}조`);
+export const requestSideLabel = (r: TradeRequest) => leaderOf(r)?.name ?? r.teamName ?? (isSelfTask(r) ? '무역사무' : `${teamOfRequest(r)}조`);
+
+/** 요청자를 바꿀 때 같이 바뀌는 요청 쪽 (조 · 이름 · 이메일) */
+export function requesterPatch(id: string | undefined, team: Member[], r: TradeRequest): Partial<TradeRequest> {
+  const m = team.find((x) => x.id === id);
+  if (!m) return { requesterId: undefined, requesterName: undefined, requesterEmail: undefined, team: undefined, teamName: undefined };
+  if (isLeaderRequester(m.id)) return { requesterId: m.id, requesterName: m.name, requesterEmail: undefined, team: m.team, teamName: m.name };
+  const wasLeader = isLeaderRequester(r.requesterId) || /^p/.test(r.team ?? '');
+  return {
+    requesterId: m.id,
+    requesterName: m.name,
+    requesterEmail: m.email ?? (wasLeader ? undefined : r.requesterEmail),
+    team: m.team ?? (wasLeader ? undefined : r.team),
+    teamName: m.team || wasLeader ? undefined : r.teamName,
+  };
+}
 
 /** 요청 쪽 태그 색: 1조 · 2조 · 3조 · 무역사무 · 팀장님·이사님 */
 export const teamTagClass = (r: TradeRequest) => {
