@@ -8,7 +8,7 @@ import { useFullName } from './Petty';
 import { Modal } from '../components/ui';
 import { useLookups } from '../data/store';
 import { today, uid } from '../lib/date';
-import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type Contract, type ContractFile } from '../lib/contracts';
+import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type ClipFolder, type Contract, type ContractFile } from '../lib/contracts';
 
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -29,6 +29,22 @@ function hl(text: string, groups: string[][]): ReactNode {
   const re = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
   return text.split(re).map((p, i) => (i % 2 ? <mark key={i}>{p}</mark> : <Fragment key={i}>{p}</Fragment>));
 }
+/** 폴더 강조 말 → 같은 뜻 말까지 (claim ↔ 클레임) */
+const kwGroups = (words?: string[]) => (words ?? []).flatMap((w) => expandQuery(w));
+/** 찾는 말(노랑) + 폴더 강조 말(폴더 색) 같이 칠하기 */
+function hl2(text: string, search: string[][], kw: string[][]): ReactNode {
+  const s = search.flat().filter(Boolean);
+  const k = kw.flat().filter(Boolean);
+  const words = [...s, ...k].sort((a, b) => b.length - a.length);
+  if (!words.length) return text;
+  const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(${words.map(esc).join('|')})`, 'gi');
+  const isSearch = (p: string) => s.some((w) => w.toLowerCase() === p.toLowerCase());
+  return text.split(re).map((p, i) => (i % 2 ? <mark key={i} className={isSearch(p) ? '' : 'ct-kw'}>{p}</mark> : <Fragment key={i}>{p}</Fragment>));
+}
+/** 쉼표로 나눈 말 목록 */
+const splitWords = (t: string) => [...new Set(t.split(/[,，、\n]/).map((w) => w.trim()).filter(Boolean))];
+
 /** 문단 하나: 소제목은 굵게 · 'Label: value' 는 라벨 굵게 · 나머지는 보통 문단 */
 function Para({ p, groups, intro }: { p: string; groups: string[][]; intro?: boolean }) {
   if (p.startsWith(TITLE)) return <div className="ct-sub ct-doc-title">{hl(p.slice(1), groups)}</div>;
@@ -619,6 +635,14 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
   const [note, setNote] = useState('');
   const [err, setErr] = useState('');
   const making = folderId === '__new' || (folders?.length === 0 && !folderId);
+  const picked = folders?.find((f) => f.id === folderId);
+  // 폴더 강조할 말: 고른 폴더에 이미 있는 말로 채워 두고, 고치면 폴더에 저장
+  const [wordsText, setWordsText] = useState('');
+  const [wordsFor, setWordsFor] = useState('');
+  if (wordsFor !== folderId) {
+    setWordsFor(folderId);
+    setWordsText((picked?.words ?? []).join(', '));
+  }
   const save = async () => {
     try {
       let fid = folderId;
@@ -627,9 +651,11 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
         if (!name) return setErr('폴더 이름을 정해 주세요');
         const exist = folders?.find((f) => f.name === name);
         fid = exist?.id ?? uid();
-        if (!exist) await saveClipFolder({ id: fid, name, createdAt: new Date().toISOString(), by });
+        if (!exist) await saveClipFolder({ id: fid, name, words: splitWords(wordsText), createdAt: new Date().toISOString(), by });
       }
       if (!fid) return setErr('폴더를 골라 주세요');
+      const f = folders?.find((x) => x.id === fid);
+      if (f && JSON.stringify(f.words ?? []) !== JSON.stringify(splitWords(wordsText))) await saveClipFolder({ ...f, words: splitWords(wordsText) });
       await saveClip({ id: uid(), folderId: fid, text: sel.text, contractId: sel.cid, company: c?.company ?? '', title: c?.title ?? '', head: sel.head, note: note.trim() || undefined, at: new Date().toISOString(), by });
       onClose();
     } catch (e) {
@@ -660,6 +686,12 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
           <label>
             <span>새 폴더 이름</span>
             <input autoFocus placeholder="예: 보증금 조항 모음" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
+          </label>
+        )}
+        {(making || picked) && (
+          <label>
+            <span>이 폴더에서 강조할 말 (쉼표로 나눠요 · 폴더 모든 스크랩에 칠해져요)</span>
+            <input placeholder="예: claim, credit note, 클레임, 3 months" value={wordsText} onChange={(e) => setWordsText(e.target.value)} />
           </label>
         )}
         <label>
@@ -772,12 +804,7 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
           // 같은 폴더 스크랩은 한 카드에 붙여서
           [...new Set(shown.map((c) => c.folderId))].map((f) => (
             <article key={f} className="card ct-clip-group">
-              <div className="ct-clip-group-head">
-                <button className="link" onClick={() => setFid(f)}>
-                  📁 {folderName(f)}
-                </button>
-                <span className="muted small">{shown.filter((c) => c.folderId === f).length}개</span>
-              </div>
+              <FolderHead f={folders?.find((x) => x.id === f)} name={folderName(f)} count={shown.filter((c) => c.folderId === f).length} onPick={() => setFid(f)} />
               {shown
                 .filter((c) => c.folderId === f)
                 .map((c) => (
@@ -791,7 +818,7 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
                       </span>
                     </div>
                     <div className="ct-clip-body">
-                      <div className="ct-clip-text">{hl(c.text, groups)}</div>
+                      <div className="ct-clip-text">{hl2(c.text, groups, kwGroups(folders?.find((x) => x.id === c.folderId)?.words))}</div>
                       {c.note && <div className="ct-clip-note">📝 {hl(c.note, groups)}</div>}
                       <div className="ct-clip-by muted">
                         <ByName v={c.by} />
@@ -823,4 +850,50 @@ function ByName({ v }: { v?: string }) {
   const name = useFullName(v ?? '');
   if (!v) return null;
   return <>{(v.includes('@') ? name : v) + ' · '}</>;
+}
+
+/** 스크랩 폴더 머리: 이름 · 개수 · 🖍 강조할 말 (눌러서 고치기) */
+function FolderHead({ f, name, count, onPick }: { f?: ClipFolder; name: string; count: number; onPick: () => void }) {
+  const [edit, setEdit] = useState(false);
+  const [text, setText] = useState('');
+  const save = () => {
+    setEdit(false);
+    if (f && JSON.stringify(splitWords(text)) !== JSON.stringify(f.words ?? [])) void saveClipFolder({ ...f, words: splitWords(text) });
+  };
+  return (
+    <div className="ct-clip-group-head">
+      <button className="link" onClick={onPick}>
+        📁 {name}
+      </button>
+      <span className="muted small">{count}개</span>
+      {f &&
+        (edit ? (
+          <input
+            className="ct-kw-input"
+            autoFocus
+            placeholder="강조할 말 (쉼표로) 예: claim, credit note, 클레임"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              if (e.key === 'Escape') setEdit(false);
+            }}
+          />
+        ) : (
+          <button className="ct-kw-btn" title="이 폴더 스크랩에서 칠할 말 정하기" onClick={() => (setText((f.words ?? []).join(', ')), setEdit(true))}>
+            🖍{' '}
+            {f.words?.length ? (
+              f.words.map((w) => (
+                <mark key={w} className="ct-kw">
+                  {w}
+                </mark>
+              ))
+            ) : (
+              <span className="muted">강조할 말 넣기</span>
+            )}
+          </button>
+        ))}
+    </div>
+  );
 }

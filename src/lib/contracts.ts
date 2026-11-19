@@ -235,6 +235,7 @@ export const langOf = (t?: string) => {
 export interface ClipFolder {
   id: string;
   name: string;
+  words?: string[]; // 이 폴더 스크랩에서 강조할 말 (예: claim · credit note · 클레임)
   createdAt: string;
   by?: string;
 }
