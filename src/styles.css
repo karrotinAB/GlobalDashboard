@@ -8269,3 +8269,29 @@ button.ct-folder, .ct-folder-name { flex: 1; text-align: left; background: none;
 .ct-scope button { padding: 5px 10px; font-size: 13px; }
 /* 클레임 통화 고르기 (pill 모양 select) */
 select.cur-pill.cur-sel { appearance: none; -webkit-appearance: none; padding-right: 20px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 11px) 55%, calc(100% - 7px) 55%; background-size: 4px 4px; background-repeat: no-repeat; cursor: pointer; font: inherit; }
+/* 스크랩: 업체끼리 비교하기 좋게 한 줄씩 */
+.ct-clip-group { padding: 12px 0 4px; overflow: hidden; }
+.ct-clip-group-head { padding: 0 16px 8px; border-bottom: 1px solid var(--line); margin-bottom: 0; }
+.ct-clip-row { display: grid; grid-template-columns: 190px 1fr auto; gap: 16px; align-items: start; padding: 10px 16px; border-top: 1px solid var(--line); }
+.ct-clip-row:first-of-type { border-top: none; }
+.ct-clip-row:hover { background: var(--primary-soft); }
+.ct-clip-co { display: grid; gap: 2px; min-width: 0; }
+.ct-clip-co b { font-size: 14px; }
+.ct-clip-co .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.ct-clip-text { font-size: 14.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
+.ct-clip-body .ct-clip-note { margin-top: 4px; font-size: 12.5px; color: var(--mut); }
+.ct-clip-side { display: flex; gap: 6px; align-items: center; justify-content: flex-end; width: 76px; }
+.ct-clip-side .ct-clip-by { display: none; }
+.ct-clip-side .icon-btn { opacity: .35; }
+.ct-clip-row:hover .icon-btn { opacity: 1; }
+@media (max-width: 600px) {
+  .ct-clip-row { grid-template-columns: 1fr auto; gap: 4px 10px; }
+  .ct-clip-co { grid-column: 1; }
+  .ct-clip-side { grid-column: 2; grid-row: 1; }
+  .ct-clip-body { grid-column: 1 / -1; }
+  .ct-clip-side .ct-clip-by { display: none; }
+}
+.ct-clip-body .ct-clip-by { font-size: 10.5px; margin-top: 2px; opacity: 0; transition: opacity .15s; }
+.ct-clip-row:hover .ct-clip-body .ct-clip-by { opacity: 1; }
+.ct-clip-row { position: relative; }
+.ct-clip-body .ct-clip-by { position: absolute; right: 16px; bottom: 3px; margin: 0; }

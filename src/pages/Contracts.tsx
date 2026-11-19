@@ -781,30 +781,33 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
               {shown
                 .filter((c) => c.folderId === f)
                 .map((c) => (
-                  <div key={c.id} className="ct-clip">
-                    <div className="ct-clip-head">
+                  // 비교해서 보기 좋게: 왼쪽 업체 · 가운데 스크랩한 글 · 오른쪽 열기/지우기 (한 줄씩)
+                  <div key={c.id} className="ct-clip-row">
+                    <div className="ct-clip-co">
                       <b>{c.company}</b>
-                      <span className="muted small">
+                      <span className="muted small" title={`${c.title}${c.head && c.head !== '(앞부분)' ? ` · ${c.head}` : ''}`}>
                         {c.title}
-                        {c.head ? ` · ${c.head}` : ''}
-                      </span>
-                      <span className="ct-result-tools">
-                        {list.some((x) => x.id === c.contractId) && (
-                          <button className="link small" onClick={() => onOpen(c.contractId)}>
-                            계약서 열기 ›
-                          </button>
-                        )}
-                        <button className="icon-btn" title="스크랩 지우기" onClick={() => confirm('이 스크랩을 지울까요?') && void deleteClip(c.id)}>
-                          ✕
-                        </button>
+                        {c.head && c.head !== '(앞부분)' ? ` · ${c.head}` : ''}
                       </span>
                     </div>
-                    <blockquote className="ct-clip-quote">{hl(c.text, groups)}</blockquote>
-                    {c.note && <p className="ct-clip-note">📝 {hl(c.note, groups)}</p>}
-                    <p className="muted small ct-clip-by">
-                      <ByName v={c.by} />
-                      {dots(c.at.slice(0, 10))}
-                    </p>
+                    <div className="ct-clip-body">
+                      <div className="ct-clip-text">{hl(c.text, groups)}</div>
+                      {c.note && <div className="ct-clip-note">📝 {hl(c.note, groups)}</div>}
+                      <div className="ct-clip-by muted">
+                        <ByName v={c.by} />
+                        {dots(c.at.slice(0, 10))}
+                      </div>
+                    </div>
+                    <div className="ct-clip-side">
+                      {list.some((x) => x.id === c.contractId) && (
+                        <button className="link small" onClick={() => onOpen(c.contractId)}>
+                          열기 ›
+                        </button>
+                      )}
+                      <button className="icon-btn" title="스크랩 지우기" onClick={() => confirm('이 스크랩을 지울까요?') && void deleteClip(c.id)}>
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ))}
             </article>
