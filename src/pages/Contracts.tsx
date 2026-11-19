@@ -8,7 +8,7 @@ import { useFullName } from './Petty';
 import { Modal } from '../components/ui';
 import { useLookups } from '../data/store';
 import { today, uid } from '../lib/date';
-import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type ClipFolder, type Contract, type ContractFile } from '../lib/contracts';
+import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type ClipFolder, type Contract, type ContractFile, canSeeFolder, canSetFolderVis, FOLDER_VIS } from '../lib/contracts';
 
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -647,9 +647,30 @@ function Upload({ init, company0, list, by, onSaved }: { init?: Contract; compan
   );
 }
 
+/** 볼 수 있는 폴더만 (나만 · 우리 조 · 전체) */
+function useMyFolders() {
+  const access = useAccess();
+  const all = useClipFolders(true);
+  const email = (access.email ?? '').toLowerCase();
+  return { folders: all?.filter((f) => canSeeFolder(f, email, access.viewTeam)) ?? null, email, team: access.viewTeam };
+}
+/** 공개 범위 고르기 */
+function VisSelect({ value, onChange, disabled }: { value: ClipFolder['vis']; onChange: (v: 'me' | 'team' | 'all') => void; disabled?: boolean }) {
+  return (
+    <select className="ct-vis" value={value ?? 'all'} disabled={disabled} title={disabled ? '만든 사람만 바꿀 수 있어요' : '이 폴더를 누가 볼 수 있나'} onChange={(e) => onChange(e.target.value as 'me' | 'team' | 'all')}>
+      {(Object.keys(FOLDER_VIS) as (keyof typeof FOLDER_VIS)[]).map((k) => (
+        <option key={k} value={k}>
+          {FOLDER_VIS[k]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** 스크랩 저장: 폴더 고르기 (또는 새 폴더 이름 정해서 만들기) · 메모 */
 function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string; head?: string }; c?: Contract; by?: string; onClose: () => void }) {
-  const folders = useClipFolders(true);
+  const { folders, email, team } = useMyFolders();
+  const [vis, setVis] = useState<'me' | 'team' | 'all'>('all');
   const [folderId, setFolderId] = useState('');
   const [newName, setNewName] = useState('');
   const [note, setNote] = useState('');
@@ -671,7 +692,7 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
         if (!name) return setErr('폴더 이름을 정해 주세요');
         const exist = folders?.find((f) => f.name === name);
         fid = exist?.id ?? uid();
-        if (!exist) await saveClipFolder({ id: fid, name, words: splitWords(wordsText), createdAt: new Date().toISOString(), by });
+        if (!exist) await saveClipFolder({ id: fid, name, words: splitWords(wordsText), vis, email: email || undefined, team, createdAt: new Date().toISOString(), by });
       }
       if (!fid) return setErr('폴더를 골라 주세요');
       const f = folders?.find((x) => x.id === fid);
@@ -696,7 +717,7 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
             <option value="">폴더 고르기</option>
             {(folders ?? []).map((f) => (
               <option key={f.id} value={f.id}>
-                📁 {f.name}
+                {f.vis === 'me' ? '🔒' : f.vis === 'team' ? '👥' : '📁'} {f.name}
               </option>
             ))}
             <option value="__new">＋ 새 폴더 만들기</option>
@@ -706,6 +727,12 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
           <label>
             <span>새 폴더 이름</span>
             <input autoFocus placeholder="예: 보증금 조항 모음" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
+          </label>
+        )}
+        {making && (
+          <label>
+            <span>공개 범위</span>
+            <VisSelect value={vis} onChange={setVis} />
           </label>
         )}
         {(making || picked) && (
@@ -732,8 +759,11 @@ function ScrapModal({ s: sel, c, by, onClose }: { s: { text: string; cid: string
 
 /** 📌 스크랩: 폴더별로 모아 보기 · 폴더 이름 바꾸기 · 찾기 (글 · 업체 · 조항 · 메모 · 폴더 이름) */
 function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
-  const folders = useClipFolders(true);
-  const clips = useClips(true);
+  const { folders, email, team } = useMyFolders();
+  const allClips = useClips(true);
+  // 볼 수 없는 폴더 (남의 '나만' · 다른 조 '우리 조') 의 스크랩은 빼고
+  const clips = allClips && folders ? allClips.filter((c) => folders.some((f) => f.id === c.folderId)) : null;
+  const [newVis, setNewVis] = useState<'me' | 'team' | 'all'>('all');
   const [fid, setFid] = useState(''); // '' = 모든 폴더
   const [q, setQ] = useState('');
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -771,7 +801,7 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
           ) : (
             <div key={f.id} className={`ct-folder ${fid === f.id ? 'on' : ''}`}>
               <button className="ct-folder-name" onClick={() => setFid(f.id)}>
-                📁 {f.name} <span className="muted small">{count(f.id)}</span>
+                {f.vis === 'me' ? '🔒' : f.vis === 'team' ? '👥' : '📁'} {f.name} <span className="muted small">{count(f.id)}</span>
               </button>
               <button className="icon-btn" title="폴더 이름 바꾸기" onClick={() => (setRenaming(f.id), setNameText(f.name))}>
                 ✎
@@ -792,10 +822,11 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
           ),
         )}
         <div className="ct-folder-new">
-          <input placeholder="＋ 새 폴더 이름" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && newName.trim() && (void saveClipFolder({ id: uid(), name: newName.trim(), createdAt: new Date().toISOString() }), setNewName(''))} />
+          <input placeholder="＋ 새 폴더 이름" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && newName.trim() && (void saveClipFolder({ id: uid(), name: newName.trim(), vis: newVis, email: email || undefined, team, createdAt: new Date().toISOString() }), setNewName(''))} />
+          <VisSelect value={newVis} onChange={setNewVis} />
         </div>
         <p className="muted small" style={{ margin: '6px 4px 0' }}>
-          계약서 글을 긁으면 '✂️ 스크랩' 이 떠요. 폴더는 모두 같이 써요.
+          계약서 글을 긁으면 '✂️ 스크랩' 이 떠요. 🔒 나만 · 👥 우리 조 · 📁 전체 공개 (폴더 머리에서 바꿔요)
         </p>
       </aside>
       <section className="ct-scrap-main">
@@ -824,7 +855,7 @@ function ScrapTab({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => 
           // 같은 폴더 스크랩은 한 카드에 붙여서
           [...new Set(shown.map((c) => c.folderId))].map((f) => (
             <article key={f} className="card ct-clip-group">
-              <FolderHead f={folders?.find((x) => x.id === f)} name={folderName(f)} count={shown.filter((c) => c.folderId === f).length} onPick={() => setFid(f)} />
+              <FolderHead email={email} team={team} f={folders?.find((x) => x.id === f)} name={folderName(f)} count={shown.filter((c) => c.folderId === f).length} onPick={() => setFid(f)} />
               {shown
                 .filter((c) => c.folderId === f)
                 .map((c) => (
@@ -873,7 +904,7 @@ function ByName({ v }: { v?: string }) {
 }
 
 /** 스크랩 폴더 머리: 이름 · 개수 · 🖍 강조할 말 (눌러서 고치기) */
-function FolderHead({ f, name, count, onPick }: { f?: ClipFolder; name: string; count: number; onPick: () => void }) {
+function FolderHead({ f, name, count, onPick, email, team }: { f?: ClipFolder; name: string; count: number; onPick: () => void; email: string; team: string }) {
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState('');
   const save = () => {
@@ -883,9 +914,10 @@ function FolderHead({ f, name, count, onPick }: { f?: ClipFolder; name: string; 
   return (
     <div className="ct-clip-group-head">
       <button className="link" onClick={onPick}>
-        📁 {name}
+        {f?.vis === 'me' ? '🔒' : f?.vis === 'team' ? '👥' : '📁'} {name}
       </button>
       <span className="muted small">{count}개</span>
+      {f && <VisSelect value={f.vis} disabled={!canSetFolderVis(f, email)} onChange={(v) => void saveClipFolder({ ...f, vis: v, email: f.email ?? (email || undefined), team: f.team ?? team })} />}
       {f &&
         (edit ? (
           <input

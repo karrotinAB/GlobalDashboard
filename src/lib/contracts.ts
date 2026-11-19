@@ -236,9 +236,18 @@ export interface ClipFolder {
   id: string;
   name: string;
   words?: string[]; // 이 폴더 스크랩에서 강조할 말 (예: claim · credit note · 클레임)
+  vis?: 'me' | 'team' | 'all'; // 공개 범위: 나만 · 우리 조 · 전체 (없으면 전체)
+  email?: string; // 만든 사람 (공개 범위 정하기 · 나만 보기)
+  team?: string; // 만든 조 (우리 조 공개)
   createdAt: string;
   by?: string;
 }
+export const FOLDER_VIS = { me: '🔒 나만', team: '👥 우리 조', all: '🌐 전체' } as const;
+/** 이 폴더를 볼 수 있나 */
+export const canSeeFolder = (f: ClipFolder, email: string, team: string) => !f.vis || f.vis === 'all' || !f.email || f.email === email || (f.vis === 'team' && f.team === team);
+/** 공개 범위를 바꿀 수 있나 (만든 사람 · 예전 폴더는 누구나) */
+export const canSetFolderVis = (f: ClipFolder, email: string) => !f.email || f.email === email;
+
 export interface Clip {
   id: string;
   folderId: string;
