@@ -8301,3 +8301,4 @@ mark.ct-kw { background: #fde2b8; color: inherit; border-radius: 3px; padding: 0
 .ct-kw-btn:hover { border-color: var(--line); background: var(--surface); }
 .ct-kw-input { margin-left: 6px; flex: 1; min-width: 200px; font-size: 13px; padding: 4px 8px; }
 .ct-clip-group-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ct-cos-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }

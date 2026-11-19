@@ -151,12 +151,41 @@ export default function Contracts() {
   );
 }
 
-function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
+/** 우리 조만 / 전체 (검색 · 업체별 계약서 같이 기억)
+ *  우리 조 계약서: 올린 조가 지금 조이거나, (조 기록이 없는 예전 것은) 업체가 우리 조 업체 */
+function useCtScope() {
   const access = useAccess();
   const { companies: myCos } = useLookups();
-  // 우리 조 계약서: 올린 조가 지금 조이거나, (조 기록이 없는 예전 것은) 업체가 우리 조 업체
-  const [scope, setScope] = useState<'mine' | 'all'>(() => (localStorage.getItem('gd:ctScope') === 'mine' ? 'mine' : 'all'));
+  const [scope, setScopeState] = useState<'mine' | 'all'>(() => {
+    try {
+      return localStorage.getItem('gd:ctScope') === 'mine' ? 'mine' : 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const setScope = (k: 'mine' | 'all') => {
+    setScopeState(k);
+    try {
+      localStorage.setItem('gd:ctScope', k);
+    } catch {
+      /* 무시 */
+    }
+  };
   const isMine = (c: Contract) => (c.team ? c.team === access.viewTeam : myCos.some((m) => m.name === c.company));
+  const seg = (onChange?: () => void) => (
+    <div className="seg ct-scope">
+      {(['mine', 'all'] as const).map((k) => (
+        <button key={k} className={scope === k ? 'on' : ''} onClick={() => (setScope(k), onChange?.())}>
+          {k === 'mine' ? `우리 조만 (${access.viewLabel})` : '전체'}
+        </button>
+      ))}
+    </div>
+  );
+  return { scope, isMine, seg, access, myCos };
+}
+
+function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
+  const { scope, isMine, seg, access, myCos } = useCtScope();
   const [q, setQ] = useState('');
   const [co, setCo] = useState('');
   const [onlyNew, setOnlyNew] = useState(false); // 최신 버전만
@@ -198,25 +227,7 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
     <>
       <div className="card ct-search">
         <input className="search" autoFocus placeholder="🔍 조항 찾기 (예: 보증금 · 로열티 · 해지 · deposit)" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="seg ct-scope">
-          {(['mine', 'all'] as const).map((k) => (
-            <button
-              key={k}
-              className={scope === k ? 'on' : ''}
-              onClick={() => {
-                setScope(k);
-                setCo('');
-                try {
-                  localStorage.setItem('gd:ctScope', k);
-                } catch {
-                  /* 무시 */
-                }
-              }}
-            >
-              {k === 'mine' ? `우리 조만 (${access.viewLabel})` : '전체'}
-            </button>
-          ))}
-        </div>
+        {seg(() => setCo(''))}
         <select value={co} onChange={(e) => setCo(e.target.value)}>
           <option value="">업체 전체</option>
           {companies.map((c) => (
@@ -293,12 +304,21 @@ function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: str
   );
 }
 
-function ByCompany({ list, onOpen, onAdd }: { list: Contract[]; onOpen: (id: string) => void; onAdd: (company: string) => void }) {
+function ByCompany({ list: all, onOpen, onAdd }: { list: Contract[]; onOpen: (id: string) => void; onAdd: (company: string) => void }) {
+  const { scope, isMine, seg } = useCtScope();
+  const list = scope === 'all' ? all : all.filter(isMine);
   const byCo = new Map<string, Contract[]>();
   for (const c of list) byCo.set(c.company, [...(byCo.get(c.company) ?? []), c]);
-  if (!list.length) return <p className="card muted">아직 올린 계약서가 없어요. '＋ 계약서 올리기'로 시작해요.</p>;
+  if (!all.length) return <p className="card muted">아직 올린 계약서가 없어요. '＋ 계약서 올리기'로 시작해요.</p>;
   return (
     <div className="ct-cos">
+      <div className="ct-cos-bar">
+        {seg()}
+        <span className="muted small">
+          업체 {byCo.size}곳 · 계약서 {list.length}개
+        </span>
+      </div>
+      {list.length === 0 && <p className="card muted">우리 조 계약서가 아직 없어요. '전체'를 눌러 보세요.</p>}
       {[...byCo.entries()].map(([co, cs]) => (
         <section key={co} className="card ct-co">
           <div className="ct-co-head">
