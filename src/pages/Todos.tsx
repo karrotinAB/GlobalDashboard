@@ -90,8 +90,17 @@ export default function Todos() {
     }
     const map = new Map<string, string>();
     for (const list of byCompany.values()) {
+      // 직접 번호가 '3' 이면 다음 자동은 4, '1-1' 처럼 하위 번호면 자동 번호는 그대로 (1 · 1-1 · 2)
       let n = 0;
-      for (const t of list.sort((a, b) => a.order - b.order)) map.set(t.id, t.num || String(++n));
+      for (const t of list.sort((a, b) => a.order - b.order)) {
+        const sub = t.num?.match(/^\d+-(.+)$/);
+        if (sub) map.set(t.id, `${n || parseInt(t.num!, 10)}-${sub[1]}`); // 하위 번호는 바로 위 번호를 따라감 (위 줄이 2) 가 되면 2-1)
+        else if (t.num && /^\d+$/.test(t.num)) {
+          n = Number(t.num);
+          map.set(t.id, t.num);
+        } else if (t.num) map.set(t.id, t.num);
+        else map.set(t.id, String(++n));
+      }
     }
     return map;
   }, [weekRows]);
@@ -110,6 +119,12 @@ export default function Todos() {
     );
   }, [data.tasks, saveMany]);
 
+  // 예전에 직접 넣은 그냥 숫자 번호('1', '3')는 자동 번호와 꼬이므로 지움 (이제 숫자를 넣으면 그 자리로 옮겨짐)
+  useEffect(() => {
+    const fix = data.tasks.filter((t) => t.num && /^\d+$/.test(t.num));
+    if (fix.length) saveMany('tasks', fix.map((t) => ({ ...t, num: undefined })));
+  }, [data.tasks, saveMany]);
+
   // 업무 끌어서 순서 바꾸기 (업체별 보기에서, 다른 업체로 옮기면 업체도 바뀜)
   const taskDragRef = useRef<string | null>(null);
   const [taskDrag, setTaskDrag] = useState<string | null>(null);
@@ -119,17 +134,61 @@ export default function Todos() {
     setTaskDrag(null);
     setTaskOver(null);
   };
-  const moveTask = (fromId: string, companyId: string | null, toId: string | null, after: boolean) => {
+  const moveTask = (fromId: string, companyId: string | null, toId: string | null, after: boolean, extra?: Partial<Task>) => {
     const from = data.tasks.find((t) => t.id === fromId);
     if (!from || fromId === toId) return;
     const list = data.tasks.filter((t) => (t.companyId ?? null) === companyId && t.id !== fromId).sort((a, b) => a.order - b.order);
     const at = toId ? list.findIndex((t) => t.id === toId) + (after ? 1 : 0) : list.length;
-    list.splice(at < 0 ? list.length : at, 0, { ...from, companyId });
+    list.splice(at < 0 ? list.length : at, 0, { ...from, companyId, ...extra });
     const before = new Map(data.tasks.map((t) => [t.id, t]));
     saveMany(
       'tasks',
-      list.map((t, i) => ({ ...t, order: i })).filter((t) => before.get(t.id)?.order !== t.order || (before.get(t.id)?.companyId ?? null) !== t.companyId),
+      list.map((t, i) => ({ ...t, order: i })).filter((t) => t.id === fromId || before.get(t.id)?.order !== t.order || (before.get(t.id)?.companyId ?? null) !== t.companyId),
     );
+  };
+  /**
+   * 번호 고치기: 그 번호 자리로 줄도 옮김
+   *   '1-1' → 1) 바로 밑 (이미 1-1, 1-2 … 가 있으면 그 순서대로) · '3' → 3번째 자리로 (번호는 다시 자동)
+   *   비우면 자동 번호
+   */
+  const setNum = (task: Task, raw: string) => {
+    const v = raw.trim();
+    const co = task.companyId ?? null;
+    if (!v) return save('tasks', { ...task, num: undefined });
+    const others = weekRows
+      .map((r) => r.task)
+      .filter((t) => (t.companyId ?? null) === co && t.id !== task.id)
+      .sort((a, b) => a.order - b.order);
+    const label = (t: Task) => numberMap.get(t.id) ?? '';
+    if (/^\d+$/.test(v)) {
+      // 이 줄 + 바로 밑 하위 줄들(1-1 …)을 같이 k 번째 자리로
+      const k = Number(v);
+      const week = weekRows.map((r) => r.task).filter((t) => (t.companyId ?? null) === co).sort((a, b) => a.order - b.order);
+      const i0 = week.findIndex((t) => t.id === task.id);
+      const block = [task];
+      for (let i = i0 + 1; i < week.length && /^\d+-/.test(week[i].num ?? ''); i++) block.push(week[i]);
+      const ids = new Set(block.map((t) => t.id));
+      // 옮길 줄들을 뺀 나머지 중 큰 번호 줄(하위 번호 아닌 것)의 k 번째 앞으로
+      const mains = others.filter((t) => !ids.has(t.id) && !/^\d+-/.test(t.num ?? ''));
+      const target = mains[k - 1];
+      const all = data.tasks.filter((t) => (t.companyId ?? null) === co && !ids.has(t.id)).sort((a, b) => a.order - b.order);
+      const at = target ? all.findIndex((t) => t.id === target.id) : all.length;
+      all.splice(at < 0 ? all.length : at, 0, { ...task, num: undefined }, ...block.slice(1));
+      const before = new Map(data.tasks.map((t) => [t.id, t]));
+      return saveMany(
+        'tasks',
+        all.map((t, i) => ({ ...t, order: i })).filter((t) => t.id === task.id || before.get(t.id)?.order !== t.order),
+      );
+    }
+    const m = v.match(/^(\d+)-(\d+)/);
+    if (!m) return save('tasks', { ...task, num: v });
+    const [main, sub] = [m[1], Number(m[2])];
+    const parent = others.find((t) => label(t) === main);
+    if (!parent) return save('tasks', { ...task, num: v });
+    // 부모 밑에서 번호가 더 작은 하위 줄들 다음
+    const subs = others.filter((t) => label(t).startsWith(`${main}-`) && Number(label(t).split('-')[1]) < sub);
+    const anchor = subs.length ? subs[subs.length - 1] : parent;
+    moveTask(task.id, co, anchor.id, true, { num: v });
   };
 
   const filtered = useMemo(() => {
@@ -568,7 +627,7 @@ export default function Todos() {
                               ⠿
                             </span>
                           )}
-                          <NumCell value={numberMap.get(task.id) ?? ''} custom={!!task.num} disabled={readOnly} onSave={(v) => patch({ num: v || undefined })} />
+                          <NumCell value={numberMap.get(task.id) ?? ''} custom={!!task.num} disabled={readOnly} onSave={(v) => setNum(task, v)} />
                         </td>
                         {showCompany && (
                           <td className="c-company">

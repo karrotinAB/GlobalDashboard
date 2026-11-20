@@ -106,7 +106,7 @@ export function NumCell({ value, custom, disabled, onSave }: { value: string; cu
     return (
       <span
         className={`num ${custom ? 'custom' : ''} ${disabled ? '' : 'editable'}`}
-        title={disabled ? undefined : custom ? '직접 정한 번호 (지우면 자동 번호)' : '눌러서 번호 바꾸기 (예: 1-1)'}
+        title={disabled ? undefined : custom ? '직접 정한 번호 (지우면 자동 번호) · 번호를 바꾸면 그 자리로 옮겨져요' : '눌러서 번호 바꾸기 — 1-1 은 1) 밑으로, 3 은 3번째 자리로 옮겨져요'}
         onClick={() => {
           if (disabled) return;
           setV(custom ? value : '');
