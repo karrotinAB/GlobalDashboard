@@ -8338,3 +8338,7 @@ mark.ct-kw { background: #fde2b8; color: inherit; border-radius: 3px; padding: 0
   .trade-sum .unassigned .un-new { top: 40px; right: 10px; padding: 0; border: none; background: none; box-shadow: none; font-size: 0; }
   .trade-sum .unassigned .un-new b { min-width: 18px; height: 18px; font-size: 11px; }
 }
+/* 무역사무 업체 메모 › 클레임: 첨부 파일 */
+.tm-claim-files { min-width: 120px; max-width: 200px; }
+.tm-claim-files .file-chip { display: flex; max-width: 100%; margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; text-decoration: none; }
+.tm-claim-files .file-chip:hover { text-decoration: underline; }

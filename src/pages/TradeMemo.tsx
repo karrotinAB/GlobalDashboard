@@ -214,6 +214,7 @@ function TeamClaimsBtn({ c }: { c: TeamCo }) {
                     <th className="r">비율</th>
                     <th>서류</th>
                     <th>환급</th>
+                    <th>파일</th>
                     <th>비고</th>
                   </tr>
                 </thead>
@@ -230,6 +231,13 @@ function TeamClaimsBtn({ c }: { c: TeamCo }) {
                         <td className="r nowrap">{rate === undefined ? '' : `${rate.toFixed(3)}%`}</td>
                         <td className="c">{k.docDone ? '✅' : '—'}</td>
                         <td className="c">{k.refunded ? '✅' : '—'}</td>
+                        <td className="tm-claim-files">
+                          {(k.files ?? []).map((f) => (
+                            <a key={f.url} className="file-chip" href={f.url} target="_blank" rel="noreferrer" title={f.name}>
+                              📎 {f.name}
+                            </a>
+                          ))}
+                        </td>
                         <td className="muted small">{k.note ?? ''}</td>
                       </tr>
                     );
