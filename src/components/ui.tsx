@@ -158,7 +158,7 @@ export function Ring({
 }
 
 /** 노션 커버 자리. 이미지가 정해지면 public/cover.jpg 를 넣고 styles.css 의 .cover 배경만 바꾸면 됨 */
-export function Cover({ tall }: { tall?: boolean }) {
+export function Cover({ tall, children }: { tall?: boolean; children?: ReactNode }) {
   // 헤더 날씨 효과: 지금 비 · 눈이 오면 (기상청 · 강수량으로 세기). 관리자가 설정에서 미리보기를 켰으면 그게 먼저
   const { realRole, role } = useAccess();
   const fx = useFxSetting();
@@ -172,6 +172,7 @@ export function Cover({ tall }: { tall?: boolean }) {
     <div className={`cover ${tall ? 'tall' : ''}`}>
       {show && (show.mode === 'frost' ? <FrostFx /> : <WeatherFx mode={show.mode} level={show.level} />)}
       {showLights && <LightsFx palette={lights.palette} blink={lights.blink} strands={lights.strands} />}
+      {children}
     </div>
   );
 }

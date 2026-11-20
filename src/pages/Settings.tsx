@@ -1,4 +1,6 @@
 import { SALES_CURRENCIES } from '../lib/sales';
+import { setBubblePreview, setWishOn, useBubblePreview, useWishOn } from '../lib/bdayMsgs';
+import { openWishPreview } from '../components/BirthdayWish';
 import { useFxSetting, writeFx, type FxLevel, type FxMode } from '../components/WeatherFx';
 import { BLINKS, isXmas, PALETTES, XMAS_FROM, XMAS_TO, useLightsSetting, writeLights, type LightBlink, type LightPalette, type LightsCfg } from '../components/LightsFx';
 import { saveWorkTypes, useWorkTypes } from '../lib/workTypes';
@@ -107,14 +109,15 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
 
   // 일반 설정 (모두에게 보이는 것) · 관리자 설정 (관리자에게만 보이는 것) 탭
   const hasAdminTab = access.role !== 'trade' && (access.role === 'admin' || access.role === null || access.canManage);
-  const [stab, setStab] = useState<'general' | 'admin'>(() => {
+  const [stab, setStab] = useState<'general' | 'admin' | 'header'>(() => {
     try {
-      return localStorage.getItem('gd:settingsTab') === 'admin' ? 'admin' : 'general';
+      const t = localStorage.getItem('gd:settingsTab');
+      return t === 'admin' || t === 'header' ? t : 'general';
     } catch {
       return 'general';
     }
   });
-  const pickTab = (t: 'general' | 'admin') => {
+  const pickTab = (t: 'general' | 'admin' | 'header') => {
     setStab(t);
     try {
       localStorage.setItem('gd:settingsTab', t);
@@ -124,6 +127,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
   };
   const showGen = !hasAdminTab || stab === 'general';
   const showAdm = hasAdminTab && stab === 'admin';
+  const showHdr = hasAdminTab && stab === 'header' && (access.realRole === 'admin' || access.role === null);
 
   return (
     <div className="page">
@@ -156,6 +160,11 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           <button className={stab === 'admin' ? 'on' : ''} onClick={() => pickTab('admin')}>
             🛡 관리자 설정
           </button>
+          {(access.realRole === 'admin' || access.role === null) && (
+            <button className={stab === 'header' ? 'on' : ''} onClick={() => pickTab('header')}>
+              🎨 헤더 설정
+            </button>
+          )}
         </div>
       )}
       {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
@@ -173,9 +182,12 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       ) : (
       <>
       {showGen && access.email && <ChangePassword />}
-      {showAdm && (access.realRole === 'admin' || access.role === null) && <WeatherFxSection />}
-      {/* 꼬마전구: 크리스마스 기간엔 모두의 일반 설정에, 그 밖엔 관리자 설정에 (미리보기) */}
-      {(isXmas() ? showGen : showAdm && (access.realRole === 'admin' || access.role === null)) && <LightsSection />}
+      {/* 헤더 설정 (관리자): 날씨 효과 · 꼬마전구 · 생일 한마디 */}
+      {showHdr && <WishSection />}
+      {showHdr && <WeatherFxSection />}
+      {showHdr && <LightsSection />}
+      {/* 꼬마전구: 크리스마스 기간엔 모두의 일반 설정에도 */}
+      {isXmas() && showGen && <LightsSection />}
       {showGen && (
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
@@ -1225,6 +1237,37 @@ function LightsSection() {
           ))}
         </div>
       </div>
+    </section>
+  );
+}
+
+/** 생일 한마디 (헤더 설정 · 관리자): 켜면 모두에게 · 미리보기는 이 브라우저에서만 */
+function WishSection() {
+  const on = useWishOn();
+  const bubbles = useBubblePreview();
+  const [err, setErr] = useState('');
+  return (
+    <section className="card">
+      <h2>🎂 생일 한마디</h2>
+      <p className="muted small">
+        생일인 날 접속한 사람들에게 '생일자에게 한마디' 팝업이 떠요 (25자까지 · 빠른 문구 3개). 보낸 한마디는 생일자 홈 헤더에 말풍선으로 (“생일축하드려요” -가영) 떠요. 생일은 관리자 설정 › 대시보드 사용자의 생일 칸에서 넣어요.
+      </p>
+      {err && <p className="warn small">{err}</p>}
+      <div className="wxfx-ctl">
+        <div className="seg">
+          <button className={!on ? 'on' : ''} onClick={() => setWishOn(false).catch((e) => setErr(`저장 실패: ${(e as Error).message} (deploy.bat)`))}>
+            끔
+          </button>
+          <button className={on ? 'on' : ''} onClick={() => setWishOn(true).catch((e) => setErr(`저장 실패: ${(e as Error).message} (deploy.bat)`))}>
+            켬 (모두에게)
+          </button>
+        </div>
+        <button onClick={openWishPreview}>🔍 팝업 미리보기</button>
+        <button className={bubbles ? 'primary' : ''} onClick={() => setBubblePreview(!bubbles)}>
+          {bubbles ? '💬 말풍선 미리보기 끄기' : '💬 헤더 말풍선 미리보기'}
+        </button>
+      </div>
+      <p className="muted small" style={{ marginBottom: 0 }}>미리보기는 관리자 이 브라우저에서만 보이고 저장되지 않아요. 말풍선 미리보기는 홈 헤더에서 확인하세요.</p>
     </section>
   );
 }

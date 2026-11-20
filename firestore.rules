@@ -164,6 +164,16 @@ service cloud.firestore {
       allow read: if isAny();
       allow write: if isAdmin();
     }
+    // 생일 한마디: 누구나 읽고, 내 이름으로만 25자까지 남김 · 지우기는 쓴 사람 · 관리자
+    match /bdayMsgs/{id} {
+      allow read: if isAny();
+      allow create: if isAny()
+        && request.resource.data.from == myEmail()
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 25;
+      allow delete: if isAdmin() || (isAny() && resource.data.from == myEmail());
+    }
     match /exportMonthly/{id} {
       allow read: if isAny();
     }

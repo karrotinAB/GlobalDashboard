@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BirthdayBubbles, BirthdayWishPopup } from './components/BirthdayWish';
 import { rectOf } from './lib/zoom';
 import AddressBook from './components/AddressBook';
 import TradeExport from './pages/TradeExport';
@@ -243,7 +244,10 @@ export default function App() {
           </aside>
         </div>
       )}
-      <Cover tall={page === 'home' || page === 'thome'} />
+      <Cover tall={page === 'home' || page === 'thome'}>
+        <BirthdayBubbles tall={page === 'home' || page === 'thome'} />
+      </Cover>
+      <BirthdayWishPopup />
       <div className="top-actions">
         {role !== 'trade' && !leader && canTrade && side === 'team' && (
           <TeamSwitch />
