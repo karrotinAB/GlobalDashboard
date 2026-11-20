@@ -61,7 +61,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
   }
 }
 import { useAccess } from '../components/AuthGate';
-import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuSeason } from '../lib/sku';
+import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
@@ -304,19 +304,22 @@ function TranslateTab() {
     const c = cell(v.row, 'code');
     return /^\d{2}/.test(c) ? c.slice(0, 2) : undefined;
   };
+  // 제품 정보의 SKU 분류 (대›중›소) — 같은 SKU 분류 제품들이 간 수출 분류를 추천에 참고
+  const skuPaths = useSkuPaths();
+  const pathOf = (code?: string) => (code && skuPaths ? skuPaths.get(code.trim()) : undefined);
   const recommend = useMemo(() => {
     const inFile = view
       .filter((v) => v.ko && cell(v.row, 'mainCode') && cell(v.row, 'subCode'))
-      .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}`, season: v.season, pre: preOf(v) }));
-    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre }))]);
+      .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}`, season: v.season, pre: preOf(v), path: pathOf(cell(v.row, 'code')) }));
+    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre, path: pathOf(p.code) }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, picks, seasonSet]);
+  }, [view, picks, seasonSet, skuPaths]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
   const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
   const sugOf = (v: (typeof view)[number]) => {
     if (!v.ko || !needCat(v)) return null;
-    if (!sugCache.has(v.row.r)) sugCache.set(v.row.r, recommend(v.ko, v.season, preOf(v)));
+    if (!sugCache.has(v.row.r)) sugCache.set(v.row.r, recommend(v.ko, v.season, preOf(v), pathOf(cell(v.row, 'code'))));
     return sugCache.get(v.row.r)!;
   };
   // 같은 제품명으로 고른 적 있으면 바로 그 분류
@@ -1338,6 +1341,7 @@ function SkuSyncBtn() {
 /** 분류 탭 › 로직: 추천이 어떻게 정해지는지 + 분류마다 반응하는 단어 · 코드 앞자리 · 헷갈리는 분류 (고른 기록으로 계산) */
 function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWord: (w: string) => void }) {
   const seasonSet = useSkuSeason();
+  const skuPaths = useSkuPaths();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const stats = useMemo(() => {
@@ -1348,7 +1352,15 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
     const wordAll = new Map<string, number>();
     const preCat = new Map<string, Map<string, number>>(); // 코드 앞자리 → 분류 → 수
     const byCat = new Map<string, { n: number; season: number; pres: Map<string, number> }>();
+    // SKU 분류 (대›중›소) → 수출 분류 수
+    const pathCat = new Map<string, Map<string, number>>();
     for (const p of list) {
+      const sp = p.code && skuPaths ? skuPaths.get(p.code.trim()) : undefined;
+      if (sp) {
+        const m = pathCat.get(sp) ?? new Map<string, number>();
+        m.set(p.cat, (m.get(p.cat) ?? 0) + 1);
+        pathCat.set(sp, m);
+      }
       const c = byCat.get(p.cat) ?? { n: 0, season: 0, pres: new Map() };
       c.n++;
       if (seasonOfCode(seasonSet, p.code) === 'S') c.season++;
@@ -1388,8 +1400,15 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
       const [cat, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
       if (all >= 3 && n / all >= 0.6) preRule.set(cat, [...(preRule.get(cat) ?? []), { pre, n, all }]);
     }
-    return { total: list.length, byCat, words, preRule, wordCat };
-  }, [picks, seasonSet]);
+    // 분류마다: 이 분류로 많이 오는 SKU 분류 (그 SKU 분류 제품 중 이 분류 비율)
+    const paths = new Map<string, { path: string; n: number; all: number }[]>();
+    for (const [sp, m] of pathCat) {
+      const all = [...m.values()].reduce((a, b) => a + b, 0);
+      for (const [cat, n] of m) paths.set(cat, [...(paths.get(cat) ?? []), { path: sp, n, all }]);
+    }
+    for (const [cat, arr] of paths) paths.set(cat, arr.sort((a, b) => b.n - a.n).slice(0, 6));
+    return { total: list.length, byCat, words, preRule, wordCat, paths };
+  }, [picks, seasonSet, skuPaths]);
   const name = (k: string) => {
     const c = rows.find((x) => catKey(x) === k);
     return c ? `${c.mainName} › ${c.subName}` : '(분류표에 없음)';
@@ -1413,6 +1432,9 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
           </li>
           <li>
             <b>보정</b>: 시즌 여부(제품 정보의 팀·분류에 '시즌')가 같으면 ×1.15 · 다르면 ×0.7 / 제품코드 앞 2자리가 같으면 ×1.15 · 다르면 ×0.9
+          </li>
+          <li>
+            <b>SKU 분류 연결</b>: 제품 정보의 대›중›소분류가 같은 제품들(기록 3개 이상)이 간 수출 분류 비율 × 0.4 를 점수에 더해요 (소분류 기록이 적으면 대›중분류 5개 이상 × 0.25). 글자가 안 닮아도 그 분류 비율이 70% 이상이면 그 분류를 추천해요.
           </li>
           <li>
             <b>코드 앞자리 대체</b>: 글자로 못 찾으면 같은 코드 앞 2자리 제품(3개 이상) 중 60% 이상이 간 분류 (점수 30%)
@@ -1470,6 +1492,14 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
                     <div>
                       <span className="tr-logic-label">코드 대체 규칙</span>{' '}
                       {rule.length ? rule.map((r) => `${r.pre}… 제품은 글자로 못 찾으면 이 분류 (${r.n}/${r.all})`).join(' · ') : '없음 (글자 유사도로만)'}
+                    </div>
+                    <div>
+                      <span className="tr-logic-label">연결된 SKU 분류 (대›중›소)</span>{' '}
+                      {!skuPaths
+                        ? '제품 정보를 받으면 보여요'
+                        : (stats.paths.get(k) ?? []).length
+                          ? (stats.paths.get(k) ?? []).map((x) => `${x.path} ${x.n}개 (그 분류의 ${Math.round((x.n / x.all) * 100)}%)`).join(' · ')
+                          : '아직 없음'}
                     </div>
                     <div>
                       <span className="tr-logic-label">헷갈릴 수 있는 분류</span> {confTop.length ? confTop.map(([o, n]) => `${o} ${name(o)} (${n})`).join(' · ') : '거의 없음'}

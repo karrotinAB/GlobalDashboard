@@ -152,10 +152,17 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
     // 이 쪽의 제품을 앞 4자리 묶음 문서에 합쳐 저장 (다른 제품은 그대로)
     const chunks = new Map();
     const season = {};
+    // 제품코드 → 'SKU 대분류›중분류›소분류' (수출 분류 추천에 참고) : skuPath/{앞 2자리}.codes
+    const paths = new Map();
     for (const it of list) {
       const n = normalize(it);
       if (!n.code) continue;
       if (isSeasonSku(n)) season[n.code] = true;
+      if (n.l || n.m || n.s) {
+        const p2 = n.code.slice(0, 2);
+        if (!paths.has(p2)) paths.set(p2, {});
+        paths.get(p2)[n.code] = [n.l, n.m, n.s].join('›');
+      }
       const { code, ...info } = n;
       const p = code.slice(0, 4);
       if (!chunks.has(p)) chunks.set(p, {});
@@ -167,6 +174,7 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
       const at = new Date().toISOString();
       for (const [p, items] of chunks) batch.set(db.doc(`skuInfo/${p}`), { items, at }, { merge: true });
       if (Object.keys(season).length) batch.set(seasonRef, { codes: season, at }, { merge: true });
+      for (const [p2, codes] of paths) batch.set(db.doc(`skuPath/${p2}`), { codes, at }, { merge: true });
       await batch.commit();
     }
     if (list.length < PAGE_SIZE) {

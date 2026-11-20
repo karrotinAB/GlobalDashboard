@@ -1,7 +1,7 @@
 // 제품 정보 (이미지 · 팀 · 대/중/소분류): 서버가 getSkuList 로 받아 skuInfo/{제품코드 앞 4자리} 에 저장해 둔 것
 //   마우스를 올린 제품의 묶음 문서만 읽음 (한 번 읽은 건 기억)
 import { useEffect, useState } from 'react';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase';
 import { DATA_MODE } from '../data/store';
@@ -72,6 +72,31 @@ export function useSkuSeason(): Set<string> | null {
   }, []);
   return set;
 }
+/** 제품코드 → 'SKU 대분류›중분류›소분류' (skuPath 문서들 · 수출 분류 추천에 참고). null = 아직 못 받음 */
+let pathCache: Map<string, string> | null = null;
+export function useSkuPaths(): Map<string, string> | null {
+  const [m, setM] = useState<Map<string, string> | null>(pathCache);
+  useEffect(() => {
+    if (DATA_MODE === 'local') {
+      // 로컬 테스트: 코드 앞 2자리로 예시 분류
+      const fake = new Map<string, string>();
+      setM({ get: (c: string) => (fake.get(c) ?? `분류${c.slice(0, 2)}›중${c.slice(2, 3)}›소${c.slice(3, 4)}`), size: 1 } as unknown as Map<string, string>);
+      return;
+    }
+    return onSnapshot(
+      collection(db, 'skuPath'),
+      (snap) => {
+        const out = new Map<string, string>();
+        snap.docs.forEach((d) => Object.entries((d.get('codes') as Record<string, string>) ?? {}).forEach(([c, p]) => out.set(c, p)));
+        pathCache = out.size ? out : null;
+        setM(pathCache);
+      },
+      () => setM(null),
+    );
+  }, []);
+  return m;
+}
+
 /** 제품코드 → 시즌(S) / 비시즌(N) / 모름 */
 export const seasonOfCode = (set: Set<string> | null, code?: string): 'S' | 'N' | undefined => (set && code ? (set.has(code.trim()) ? 'S' : 'N') : undefined);
 

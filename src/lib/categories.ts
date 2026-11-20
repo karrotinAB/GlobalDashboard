@@ -140,7 +140,7 @@ export interface Suggestion {
 }
 
 /** 예시들(고른 기록 + 이 파일에서 이미 분류가 채워진 줄)로 이 제품의 분류를 추천 */
-export function makeRecommender(examples: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[]) {
+export function makeRecommender(examples: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string; path?: string }[]) {
   // 같은 제품명은 하나로 (마지막 것)
   const uniq = new Map(examples.filter((e) => e.ko && e.cat).map((e) => [e.ko.trim(), e]));
   const ex = [...uniq.entries()].map(([k, e]) => ({ k, cat: e.cat, season: e.season, pre: e.pre, g: gramsOf(k) }));
@@ -148,12 +148,37 @@ export function makeRecommender(examples: { ko: string; cat: string; season?: 'S
   const byPre = new Map<string, Map<string, number>>();
   for (const e of ex) if (e.pre) byPre.set(e.pre, (byPre.get(e.pre) ?? new Map()).set(e.cat, ((byPre.get(e.pre) ?? new Map()).get(e.cat) ?? 0) + 1));
   const exact = new Map(ex.map((e) => [e.k, e.cat]));
+  // SKU 분류 (제품 정보의 대›중›소) → 수출 분류 수: 같은 소분류 제품들이 어느 수출 분류로 갔는지
+  const byPath = new Map<string, Map<string, number>>();
+  const byMid = new Map<string, Map<string, number>>();
+  const add = (m: Map<string, Map<string, number>>, k: string, cat: string) => {
+    const x = m.get(k) ?? new Map<string, number>();
+    x.set(cat, (x.get(cat) ?? 0) + 1);
+    m.set(k, x);
+  };
+  for (const e of uniq.values()) {
+    if (!e.path) continue;
+    add(byPath, e.path, e.cat);
+    add(byMid, e.path.split('›').slice(0, 2).join('›'), e.cat);
+  }
   // 글자 묶음 → 예시 번호 (흔한 묶음은 건너뜀)
   const index = new Map<string, number[]>();
   ex.forEach((e, i) => e.g.forEach((x) => index.set(x, [...(index.get(x) ?? []), i])));
   // season: 이 제품이 시즌품(S)/비시즌품(N)이면 같은 구분 예시를 더 믿고, 다른 구분 예시는 덜 믿음
   //   pre: 제품코드 앞 2자리가 같은 예시를 더 믿고, 다른 앞자리는 덜 믿음
-  return (name: string, season?: 'S' | 'N', pre?: string): Suggestion | null => {
+  /** 이 SKU 분류의 수출 분류 비율 (소분류 기록 3개 이상 → 가중치 0.4, 아니면 중분류 5개 이상 → 0.25) */
+  const pathDist = (path?: string) => {
+    if (!path) return null;
+    const full = byPath.get(path);
+    const fn = full ? [...full.values()].reduce((a, b) => a + b, 0) : 0;
+    if (full && fn >= 3) return { m: full, n: fn, w: 0.4, label: path };
+    const mid = path.split('›').slice(0, 2).join('›');
+    const mm = byMid.get(mid);
+    const mn = mm ? [...mm.values()].reduce((a, b) => a + b, 0) : 0;
+    if (mm && mn >= 5) return { m: mm, n: mn, w: 0.25, label: mid };
+    return null;
+  };
+  return (name: string, season?: 'S' | 'N', pre?: string, path?: string): Suggestion | null => {
     const k = name.trim();
     if (!k) return null;
     if (exact.has(k)) return { cat: exact.get(k)!, score: 1, like: k, exact: true };
@@ -180,7 +205,19 @@ export function makeRecommender(examples: { ko: string; cat: string; season?: 'S
       }
       by.set(e.cat, cur);
     }
-    const top = [...by.entries()].sort((a, b) => b[1].best + b[1].score * 0.2 - (a[1].best + a[1].score * 0.2))[0];
+    // SKU 분류 연결: 같은 소(중)분류 제품들이 간 수출 분류에 비율 × 가중치를 더함
+    const pd = pathDist(path);
+    const bonus = new Map<string, number>();
+    if (pd) for (const [cat, n] of pd.m) bonus.set(cat, (n / pd.n) * pd.w);
+    for (const cat of bonus.keys()) if (!by.has(cat)) by.set(cat, { score: 0, best: 0, like: '' });
+    const val = (c: string, v: { score: number; best: number }) => v.best + v.score * 0.2 + (bonus.get(c) ?? 0);
+    const top = [...by.entries()].sort((a, b) => val(b[0], b[1]) - val(a[0], a[1]))[0];
+    const tb = top ? (bonus.get(top[0]) ?? 0) : 0;
+    // 글자로는 약해도 SKU 분류가 확실하면 (그 분류 비율 70% 이상) 추천
+    if (top && top[1].best < 0.3 && pd && tb >= pd.w * 0.7) {
+      const n = pd.m.get(top[0]) ?? 0;
+      return { cat: top[0], score: Math.min(1, top[1].best + tb), like: `SKU 분류 ${pd.label} 제품 ${pd.n}개 중 ${n}개`, exact: false };
+    }
     if (!top || top[1].best < 0.3) {
       // 글자로 못 찾으면: 같은 코드 앞자리 제품들이 가장 많이 고른 분류 (그 앞자리 예시의 60% 이상일 때만)
       const m = pre ? byPre.get(pre) : undefined;
@@ -190,7 +227,7 @@ export function makeRecommender(examples: { ko: string; cat: string; season?: 'S
       if (all < 3 || n / all < 0.6) return null;
       return { cat, score: 0.3, like: `코드 ${pre}… 제품 ${all}개 중 ${n}개`, exact: false };
     }
-    return { cat: top[0], score: Math.min(1, top[1].best), like: top[1].like, exact: false };
+    return { cat: top[0], score: Math.min(1, top[1].best + tb), like: top[1].like, exact: false };
   };
 }
 
