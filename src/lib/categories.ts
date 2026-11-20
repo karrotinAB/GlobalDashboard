@@ -26,6 +26,7 @@ export interface CatPick {
   by?: string;
   season?: 'S' | 'N'; // 시즌품 / 비시즌품 (엑셀 '시즌품구분')
   pre?: string; // 제품코드 앞 2자리
+  code?: string; // 제품코드 (분류 찾기에서 눌러서 복사)
 }
 
 const lsGet = <T,>(k: string, d: T): T => {
@@ -90,18 +91,18 @@ export function useCatPicks() {
 }
 
 /** 고른 분류 기록 (같은 제품명은 마지막에 고른 걸로) */
-export async function savePicks(picks: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[], by?: string) {
+export async function savePicks(picks: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string; code?: string }[], by?: string) {
   const at = new Date().toISOString();
   const clean = picks.filter((p) => p.ko.trim() && p.cat);
   if (DATA_MODE === 'local') {
     const m = new Map(lsGet<CatPick[]>('gd:catPicks', []).map((p) => [p.id, p]));
-    for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by, ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) });
+    for (const p of clean) m.set(dictId(p.ko), { id: dictId(p.ko), ko: p.ko.trim(), cat: p.cat, at, by, ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}), ...(p.code ? { code: p.code } : {}) });
     return lsSet('gd:catPicks', [...m.values()], 'gd-catpicks');
   }
   // 많으면 400개씩 묶어서 (분류된 엑셀을 통째로 올릴 때)
   for (let i = 0; i < clean.length; i += 400) {
     const b = writeBatch(db);
-    for (const p of clean.slice(i, i + 400)) b.set(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}) });
+    for (const p of clean.slice(i, i + 400)) b.set(doc(db, 'catPicks', dictId(p.ko)), { ko: p.ko.trim(), cat: p.cat, at, ...(by ? { by } : {}), ...(p.season ? { season: p.season } : {}), ...(p.pre ? { pre: p.pre } : {}), ...(p.code ? { code: p.code } : {}) });
     await b.commit();
   }
 }

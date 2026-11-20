@@ -8356,3 +8356,8 @@ mark.ct-kw { background: #fde2b8; color: inherit; border-radius: 3px; padding: 0
 .tr-catfind-item { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--ink); }
 .tr-catfind-item mark { background: #ffe58a; padding: 0 1px; border-radius: 2px; }
 .tr-catfind-item .tr-season { margin: 0 0 0 4px; font-size: 10px; }
+button.tr-catfind-item { border: 1px solid transparent; cursor: pointer; font: inherit; font-size: 12.5px; }
+button.tr-catfind-item:hover { border-color: var(--primary); background: #fff; }
+button.tr-catfind-item.no-code { cursor: default; opacity: .75; }
+button.tr-catfind-item.no-code:hover { border-color: transparent; background: var(--bg); }
+button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-color: #bfdcc5; font-weight: 600; }

@@ -334,7 +334,7 @@ function TranslateTab() {
   const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
   const pickCat = (v: (typeof view)[number], key: string) => {
     setCatSel((x) => ({ ...x, [v.row.r]: key }));
-    if (key && v.ko) void savePicks([{ ko: v.ko, cat: key, season: v.season, pre: preOf(v) }], accountName ?? email);
+    if (key && v.ko) void savePicks([{ ko: v.ko, cat: key, season: v.season, pre: preOf(v), code: cell(v.row, 'code') || undefined }], accountName ?? email);
   };
   // 자동 적용 초기화: 지금 보고 있는 페이지(검색 결과 · 이 페이지) 줄만 — 고른 분류 비우고 그 제품명들의 고른 기록도 지움
   const resetAuto = async () => {
@@ -354,14 +354,14 @@ function TranslateTab() {
   };
   const applyAllSuggestions = () => {
     const next: Record<number, string> = {};
-    const save: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[] = [];
+    const save: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string; code?: string }[] = [];
     // 지금 보고 있는 쪽(검색 결과 · 페이지)에 보이는 줄에만
     for (const v of shown.slice(page * PAGE, page * PAGE + PAGE)) {
       if (!needCat(v) || chosen(v)) continue;
       const sg = sugOf(v);
       if (sg && catByKey.has(sg.cat)) {
         next[v.row.r] = sg.cat;
-        save.push({ ko: v.ko, cat: sg.cat, season: v.season, pre: preOf(v) });
+        save.push({ ko: v.ko, cat: sg.cat, season: v.season, pre: preOf(v), code: cell(v.row, 'code') || undefined });
       }
     }
     setCatSel((x) => ({ ...x, ...next }));
@@ -766,7 +766,7 @@ function CatsTab() {
       const XLSX = await import('xlsx');
       const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
       const known = new Set((rows ?? []).map((c) => `${c.mainCode}-${c.subCode}`));
-      const out: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string }[] = [];
+      const out: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string; code?: string }[] = [];
       let skipped = 0;
       for (const sn of wb.SheetNames) {
         const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sn], { header: 1, defval: '', raw: false });
@@ -790,7 +790,7 @@ function CatsTab() {
             }
             const sv = g(r, 'season');
             const code = g(r, 'code');
-            out.push({ ko, cat, season: /비시즌/.test(sv) ? 'N' : /시즌/.test(sv) ? 'S' : undefined, pre: /^\d{2}/.test(code) ? code.slice(0, 2) : undefined });
+            out.push({ ko, cat, season: /비시즌/.test(sv) ? 'N' : /시즌/.test(sv) ? 'S' : undefined, pre: /^\d{2}/.test(code) ? code.slice(0, 2) : undefined, code: code || undefined });
           }
           break;
         }
@@ -1111,6 +1111,24 @@ function ProductCatFinder({ picks, rows }: { picks: CatPick[]; rows: Cat[] }) {
     return t.split(re).map((x, i) => (i % 2 ? <mark key={i}>{x}</mark> : x));
   };
   const SHOW = 12;
+  const [copied, setCopied] = useState('');
+  const copy = async (p: CatPick) => {
+    if (!p.code) return;
+    try {
+      await navigator.clipboard.writeText(p.code);
+    } catch {
+      // 클립보드 권한이 없으면 예전 방식
+      const t = document.createElement('textarea');
+      t.value = p.code;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      t.remove();
+    }
+    setCopied(p.id);
+    setTimeout(() => setCopied((x) => (x === p.id ? '' : x)), 1200);
+  };
+  const noCode = hits.filter((p) => !p.code).length;
   return (
     <div className="tr-catfind">
       <input className="search" autoFocus placeholder="🔎 제품명에 들어간 단어 (예: 키링 · 파우치 · 볼펜)" value={q} onChange={(e) => (setQ(e.target.value), setOpenCat(null))} />
@@ -1121,7 +1139,8 @@ function ProductCatFinder({ picks, rows }: { picks: CatPick[]; rows: Cat[] }) {
       ) : (
         <>
           <p className="muted small">
-            '{word}' 들어간 제품 <b>{hits.length.toLocaleString()}개</b> → 분류 {groups.length}곳
+            '{word}' 들어간 제품 <b>{hits.length.toLocaleString()}개</b> → 분류 {groups.length}곳 · 제품명을 누르면 제품코드가 복사돼요
+            {noCode > 0 && ` (제품코드 기록이 없는 ${noCode}개는 '추천 배우기'로 그 엑셀을 다시 올리면 생겨요)`}
           </p>
           <div className="tr-catfind-list">
             {groups.map(([k, ps]) => {
@@ -1145,10 +1164,15 @@ function ProductCatFinder({ picks, rows }: { picks: CatPick[]; rows: Cat[] }) {
                   </div>
                   <div className="tr-catfind-items">
                     {(open ? ps : ps.slice(0, SHOW)).map((p) => (
-                      <span key={p.id} className="tr-catfind-item">
-                        {mark(p.ko)}
-                        {p.season === 'S' && <span className="tr-season">시즌</span>}
-                      </span>
+                      <button
+                        key={p.id}
+                        className={`tr-catfind-item ${p.code ? '' : 'no-code'} ${copied === p.id ? 'copied' : ''}`}
+                        title={p.code ? `${p.code} · 눌러서 제품코드 복사` : '제품코드 기록 없음'}
+                        onClick={() => void copy(p)}
+                      >
+                        {copied === p.id ? `✓ ${p.code} 복사됨` : mark(p.ko)}
+                        {copied !== p.id && p.season === 'S' && <span className="tr-season">시즌</span>}
+                      </button>
                     ))}
                     {ps.length > SHOW && (
                       <button className="link small" onClick={() => setOpenCat(open ? null : k)}>
