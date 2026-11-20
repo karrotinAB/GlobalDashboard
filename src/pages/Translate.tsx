@@ -270,7 +270,7 @@ function TranslateTab() {
   const shownAll = useMemo(() => {
     const base0 = view;
     const base1 = codePre ? base0.filter((v) => cell(v.row, 'code').startsWith(codePre)) : base0;
-    const base = seasonF ? base1.filter((v) => v.season === seasonF) : base1;
+    const base = seasonF && seasonSet ? base1.filter((v) => v.season === seasonF) : base1;
     const words = rowQ.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return base;
     return base.filter((v) => {
@@ -278,7 +278,7 @@ function TranslateTab() {
       return words.every((w) => h.includes(w));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, rowQ, codePre, seasonF]);
+  }, [view, rowQ, codePre, seasonF, seasonSet]);
   const needEn = useMemo(() => todo.filter((v) => v.empty.includes('enName')), [todo]);
   const unknownAll = useMemo(() => {
     const c = new Map<string, number>();
@@ -468,13 +468,24 @@ function TranslateTab() {
                 {codePre && !codePres.some(([k]) => k === codePre) && <option value={codePre}>{codePre}… (0줄)</option>}
               </select>
             )}
-            {seasonSet && sheet.col.code !== undefined && (
-              <select className={`tr-code-pre ${seasonF ? 'set' : ''}`} value={seasonF} onChange={(e) => (setSeasonF(e.target.value as '' | 'S' | 'N'), setPage(0))} title="시즌으로 거르기 (제품 정보의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품)">
-                <option value="">시즌 전체</option>
-                <option value="S">🎄 시즌품만 ({view.filter((v) => v.season === 'S').length})</option>
-                <option value="N">비시즌품만</option>
-              </select>
-            )}
+            {/* 시즌 구분: 제품 정보(getSkuList)의 팀 · 대/중/소분류에 '시즌' 이 있으면 시즌품 (제품 정보를 받기 전엔 고를 수 없음) */}
+            <select
+              className={`tr-code-pre ${seasonF ? 'set' : ''}`}
+              value={seasonSet ? seasonF : ''}
+              disabled={!seasonSet || sheet.col.code === undefined}
+              onChange={(e) => (setSeasonF(e.target.value as '' | 'S' | 'N'), setPage(0))}
+              title={
+                sheet.col.code === undefined
+                  ? '엑셀에 제품코드 칸이 없어서 시즌을 알 수 없어요'
+                  : seasonSet
+                    ? "시즌으로 거르기 (제품 정보의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품)"
+                    : '제품 정보를 아직 안 받아서 시즌을 알 수 없어요 (관리자: 🖼 제품 정보 받기)'
+              }
+            >
+              <option value="">{seasonSet ? '시즌 전체' : '시즌 (제품 정보 받기 전)'}</option>
+              <option value="S">🎄 시즌품만 ({view.filter((v) => v.season === 'S').length})</option>
+              <option value="N">비시즌품만 ({view.filter((v) => v.season === 'N').length})</option>
+            </select>
             <span className="muted small">{shown.length}줄</span>
             {rowF === 'left' && (
               <button className="link small" onClick={() => (setRefilter((n) => n + 1), setPage(0))} title="방금 채운 줄을 빼고 다시 거르기">
