@@ -743,7 +743,18 @@ function CatsTab() {
           Object.assign(col, m);
         }
       }
-      if (h < 0) return setMsg("머리줄에서 '대분류코드' · '중분류코드' · '중분류명' 칸을 못 찾았어요.");
+      if (h < 0) {
+        // 제품명 + 수출 대분류 · 중분류 칸이 있으면 '분류된 제품' 엑셀 → 추천 배우기로
+        const isProducts = aoa.slice(0, 15).some((r) => {
+          const ks = (r ?? []).map((x) => classify(x));
+          return ks.includes('koName') && ks.includes('mainCode') && ks.includes('subCode');
+        });
+        if (isProducts) {
+          if (confirm("이 엑셀은 분류표가 아니라 '분류된 제품' 엑셀이에요 (제품명 · 수출 대분류 · 중분류).\n'분류된 제품 엑셀로 추천 배우기'로 넣을까요? (분류표는 그대로예요)")) return void learn(f);
+          return setMsg("이 엑셀은 '분류된 제품' 엑셀이에요 — [📥 분류된 제품 엑셀로 추천 배우기] 버튼으로 올려 주세요.");
+        }
+        return setMsg("머리줄에서 '대분류코드' · '중분류코드' · '중분류명' 칸을 못 찾았어요.");
+      }
       const get = (r: unknown[], k: string) => (col[k] >= 0 ? String(r[col[k]] ?? '').trim() : '');
       const list: Cat[] = aoa
         .slice(h + 1)
