@@ -1,4 +1,5 @@
 import { SALES_CURRENCIES } from '../lib/sales';
+import { disablePush, enablePush, usePushState } from '../lib/push';
 import { setBubblePreview, setWishOn, useBubblePreview, useWishOn } from '../lib/bdayMsgs';
 import { openWishPreview } from '../components/BirthdayWish';
 import { useFxSetting, writeFx, type FxLevel, type FxMode } from '../components/WeatherFx';
@@ -176,11 +177,13 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       )}
       {access.role === 'trade' ? (
         <>
+          {access.email && <PushSection email={access.email} />}
           {access.email && <ChangePassword />}
           {isXmas() && <LightsSection />}
         </>
       ) : (
       <>
+      {showGen && access.email && <PushSection email={access.email} />}
       {showGen && access.email && <ChangePassword />}
       {/* 헤더 설정 (관리자): 날씨 효과 · 꼬마전구 · 생일 한마디 */}
       {showHdr && <WishSection />}
@@ -1268,6 +1271,51 @@ function WishSection() {
         </button>
       </div>
       <p className="muted small" style={{ marginBottom: 0 }}>미리보기는 관리자 이 브라우저에서만 보이고 저장되지 않아요. 말풍선 미리보기는 홈 헤더에서 확인하세요.</p>
+    </section>
+  );
+}
+
+/** 🔔 휴대폰 알림 (이 기기): 보고방 새 보고 · 답글 · 반응, 전도금 마감 전날 */
+function PushSection({ email }: { email: string }) {
+  const [st, recheck, why] = usePushState();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const run = async (on: boolean) => {
+    setBusy(true);
+    setMsg('');
+    try {
+      if (on) await enablePush(email);
+      else await disablePush();
+      setMsg(on ? '이 기기에서 알림을 받아요 ✓' : '이 기기 알림을 껐어요');
+    } catch (e) {
+      setMsg(`못 했어요: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+      recheck();
+    }
+  };
+  return (
+    <section className="card">
+      <h2>🔔 휴대폰 알림</h2>
+      <p className="muted small">
+        보고방에 새 보고가 올라오거나, 내 보고 · 댓글에 답글이나 반응이 달리면 알려줘요. 전도금 마감 전날(14일 · 말일 전날) 오전 10시에도 알려줘요. 알림을 누르면 그 페이지로 바로 열려요. 기기마다 따로 켜요.
+      </p>
+      <div className="wxfx-ctl" style={{ alignItems: 'center' }}>
+        {st === 'on' ? (
+          <>
+            <span className="tag green">켜짐 · 이 기기</span>
+            <button disabled={busy} onClick={() => void run(false)}>
+              끄기
+            </button>
+          </>
+        ) : (
+          <button className="primary" disabled={busy || st !== 'off'} onClick={() => void run(true)}>
+            {busy ? '켜는 중…' : '🔔 이 기기에서 알림 받기'}
+          </button>
+        )}
+      </div>
+      {why && <p className="muted small" style={{ marginBottom: 0 }}>{why}</p>}
+      {msg && <p className="small" style={{ marginBottom: 0 }}>{msg}</p>}
     </section>
   );
 }

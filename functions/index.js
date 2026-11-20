@@ -784,3 +784,21 @@ export const removeUser = onCall({ region: REGION }, async (req) => {
   }
   return { ok: true, name, account };
 });
+
+// ---------- 휴대폰 알림 (웹 푸시) ----------
+//   보고방 새 보고 · 답글 · 반응 → 관련된 사람 / 전도금 마감 전날 오전 10시 → 알림 켠 모두
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onReportCreated, onReportUpdated, pettyReminder } from './push.js';
+export const pushReportCreated = onDocumentCreated({ document: 'reports/{id}', region: REGION }, async (e) => {
+  const r = e.data?.data();
+  if (r) await onReportCreated(db, e.params.id, r).catch((err) => logger.warn('push report', err.message));
+});
+export const pushReportUpdated = onDocumentUpdated({ document: 'reports/{id}', region: REGION }, async (e) => {
+  const before = e.data?.before.data();
+  const after = e.data?.after.data();
+  if (before && after) await onReportUpdated(db, e.params.id, before, after).catch((err) => logger.warn('push reply', err.message));
+});
+export const pushPettyReminder = onSchedule({ schedule: '0 10 * * *', region: REGION, timeZone: 'Asia/Seoul' }, async () => {
+  const r = await pettyReminder(db).catch((err) => ({ error: err.message }));
+  if (!r.skipped) logger.info('petty reminder', r);
+});

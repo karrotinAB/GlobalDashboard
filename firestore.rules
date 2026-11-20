@@ -164,6 +164,11 @@ service cloud.firestore {
       allow read: if isAny();
       allow write: if isAdmin();
     }
+    // 휴대폰 알림 주소: 내 기기 것만 쓰고 지움 (보내기는 서버 함수)
+    match /pushTokens/{token} {
+      allow create, update: if signedIn() && request.resource.data.email == myEmail();
+      allow read, delete: if signedIn() && resource.data.email == myEmail();
+    }
     // 생일 한마디: 누구나 읽고, 내 이름으로만 25자까지 남김 · 지우기는 쓴 사람 · 관리자
     match /bdayMsgs/{id} {
       allow read: if isAny();
