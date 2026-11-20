@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import WeatherFx, { useFxSetting } from './WeatherFx';
 import FrostFx from './FrostFx';
+import LightsFx, { useLightsSetting } from './LightsFx';
 import { useAccess } from './AuthGate';
 import { useWeather, weatherFxOf } from '../lib/weather';
 import { createPortal } from 'react-dom';
@@ -164,9 +165,13 @@ export function Cover({ tall }: { tall?: boolean }) {
   const real = weatherFxOf(useWeather());
   const preview = (realRole === 'admin' || role === null) && fx.mode !== 'off' ? fx : null;
   const show = preview ?? real;
+  // 꼬마전구 (지금은 관리자 미리보기만)
+  const lights = useLightsSetting();
+  const showLights = (realRole === 'admin' || role === null) && lights.on;
   return (
     <div className={`cover ${tall ? 'tall' : ''}`}>
       {show && (show.mode === 'frost' ? <FrostFx /> : <WeatherFx mode={show.mode} level={show.level} />)}
+      {showLights && <LightsFx palette={lights.palette} blink={lights.blink} strands={lights.strands} />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { SALES_CURRENCIES } from '../lib/sales';
 import { useFxSetting, writeFx, type FxLevel, type FxMode } from '../components/WeatherFx';
+import { BLINKS, PALETTES, useLightsSetting, writeLights, type LightBlink, type LightPalette, type LightsCfg } from '../components/LightsFx';
 import { saveWorkTypes, useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
@@ -170,6 +171,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       <>
       {showGen && access.email && <ChangePassword />}
       {showAdm && (access.realRole === 'admin' || access.role === null) && <WeatherFxSection />}
+      {showAdm && (access.realRole === 'admin' || access.role === null) && <LightsSection />}
       {showGen && (
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
@@ -1190,6 +1192,49 @@ function WeatherFxSection() {
           ).map(([k, l]) => (
             <button key={k} className={fx.level === k ? 'on' : ''} disabled={fx.mode === 'off' || fx.mode === 'frost'} onClick={() => set({ level: k })}>
               {l}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** 헤더 꼬마전구 미리보기 (관리자 · 이 브라우저에서만) */
+function LightsSection() {
+  const v = useLightsSetting();
+  const set = (p: Partial<LightsCfg>) => writeLights({ ...v, ...p });
+  return (
+    <section className="card">
+      <h2>🎄 헤더 꼬마전구 미리보기</h2>
+      <p className="muted small">헤더 위쪽에 꼬마전구를 달아 봐요. 지금은 관리자 이 브라우저에서만 보여요 (나중에 크리스마스 주간에 모두에게 자동으로).</p>
+      <div className="wxfx-ctl">
+        <div className="seg">
+          <button className={!v.on ? 'on' : ''} onClick={() => set({ on: false })}>
+            끔
+          </button>
+          <button className={v.on ? 'on' : ''} onClick={() => set({ on: true })}>
+            켬
+          </button>
+        </div>
+        <div className="seg">
+          {(Object.keys(PALETTES) as LightPalette[]).map((k) => (
+            <button key={k} className={v.palette === k ? 'on' : ''} disabled={!v.on} onClick={() => set({ palette: k })}>
+              {PALETTES[k].label}
+            </button>
+          ))}
+        </div>
+        <div className="seg">
+          {(Object.keys(BLINKS) as LightBlink[]).map((k) => (
+            <button key={k} className={v.blink === k ? 'on' : ''} disabled={!v.on} onClick={() => set({ blink: k })}>
+              {BLINKS[k]}
+            </button>
+          ))}
+        </div>
+        <div className="seg">
+          {([1, 2, 3] as const).map((k) => (
+            <button key={k} className={v.strands === k ? 'on' : ''} disabled={!v.on} onClick={() => set({ strands: k })}>
+              {k}줄
             </button>
           ))}
         </div>
