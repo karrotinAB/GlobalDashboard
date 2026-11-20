@@ -802,3 +802,13 @@ export const pushPettyReminder = onSchedule({ schedule: '0 10 * * *', region: RE
   const r = await pettyReminder(db).catch((err) => ({ error: err.message }));
   if (!r.skipped) logger.info('petty reminder', r);
 });
+// 무역사무: 새 업무 요청 → 무역사무 사람들 (1·2·3조 요청 컬렉션 · 2조 = requests)
+import { onRequestCreated } from './push.js';
+const reqTrigger = (col, team) =>
+  onDocumentCreated({ document: `${col}/{id}`, region: REGION }, async (e) => {
+    const r = e.data?.data();
+    if (r) await onRequestCreated(db, e.params.id, r, team).catch((err) => logger.warn('push request', err.message));
+  });
+export const pushRequestT2 = reqTrigger('requests', '2');
+export const pushRequestT1 = reqTrigger('t1_requests', '1');
+export const pushRequestT3 = reqTrigger('t3_requests', '3');

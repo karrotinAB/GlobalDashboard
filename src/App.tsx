@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, startTransition, useEffect, useState } from 'react';
+// 가끔 쓰는 무거운 페이지는 처음 열 때만 따로 받음 (앱 처음 켜는 속도)
+const TradeExport = lazy(() => import('./pages/TradeExport'));
+const Translate = lazy(() => import('./pages/Translate'));
+const Trip = lazy(() => import('./pages/Trip'));
+const Contracts = lazy(() => import('./pages/Contracts'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Import = lazy(() => import('./pages/Import'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Petty = lazy(() => import('./pages/Petty'));
 import { BirthdayBubbles, BirthdayWishPopup } from './components/BirthdayWish';
 import { rectOf } from './lib/zoom';
 import AddressBook from './components/AddressBook';
-import TradeExport from './pages/TradeExport';
-import Reports from './pages/Reports';
 import TradeMemo from './pages/TradeMemo';
-import Translate from './pages/Translate';
-import Petty from './pages/Petty';
-import Trip from './pages/Trip';
-import Contracts from './pages/Contracts';
 import ToolsMenu, { TOOLS } from './components/ToolsMenu';
 import ProfileMenu from './components/ProfileMenu';
 import ReportTaskSync from './components/ReportTaskSync';
@@ -22,12 +26,9 @@ import Home from './pages/Home';
 import Todos from './pages/Todos';
 import Orders from './pages/Orders';
 import Claims from './pages/Claims';
-import Settings from './pages/Settings';
 import RequestBoard from './pages/RequestBoard';
 import TradeHome from './pages/TradeHome';
 import Overview from './pages/Overview';
-import Calendar from './pages/Calendar';
-import Import from './pages/Import';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
 import TeamSwitch from './components/TeamSwitch';
@@ -111,8 +112,9 @@ export default function App() {
   }, [loading]);
 
   useEffect(() => {
+    // 탭을 누르면 메뉴(서랍 닫기 · 탭 표시)가 먼저 반응하고, 새 페이지는 그 뒤에 그림
     const h = () => {
-      setPage(readHash());
+      startTransition(() => setPage(readHash()));
       window.scrollTo({ top: 0 });
     };
     window.addEventListener('hashchange', h);
@@ -335,6 +337,7 @@ export default function App() {
           </div>
         )}
         <main>
+          <Suspense fallback={<div className="page muted">불러오는 중…</div>}>
           {loading ? (
             <div className="page muted">불러오는 중…</div>
           ) : page === 'home' ? (
@@ -376,6 +379,7 @@ export default function App() {
           ) : (
             <Settings side={side} />
           )}
+          </Suspense>
         </main>
         <footer className="site-footer">© 2026 Karrot in AB</footer>
       </div>

@@ -1,7 +1,7 @@
 // 생일 한마디: ① 생일인 날 접속하면 '생일자에게 한마디' 팝업 ② 생일자 헤더에 받은 한마디가 말풍선으로
 import { useEffect, useMemo, useState } from 'react';
 import { useAccess } from './AuthGate';
-import { useFullName } from '../pages/Petty';
+import { useFullName } from '../lib/fullName';
 import { birthdaysOn, useBirthdays, type Birthday } from '../lib/birthdays';
 import { markAsked, SAMPLE_MSGS, sendBdayMsg, useBdayMsgs, useBubblePreview, useWishOn, wasAsked, WISH_MAX, WISH_QUICK, type BdayMsg } from '../lib/bdayMsgs';
 import { today } from '../lib/date';

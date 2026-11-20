@@ -6,7 +6,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { unzoom, viewW } from '../lib/zoom';
 import { isLeader, useAccess } from '../components/AuthGate';
 import { isPersonal } from '../lib/team';
-import { useFullName } from './Petty';
+import { useFullName } from '../lib/fullName';
 import { Modal } from '../components/ui';
 import { useLookups, useSpaceData } from '../data/store';
 import { today, uid } from '../lib/date';

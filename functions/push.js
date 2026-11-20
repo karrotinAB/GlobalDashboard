@@ -101,3 +101,14 @@ export async function pettyReminder(db, now = new Date()) {
   if (!half) return { sent: 0, skipped: true };
   return sendPushAll(db, { title: `💰 ${m}월 ${half} 전도금 마감이 내일이에요!`, body: '눌러서 전도금을 기록해 주세요', link: './#/petty', tag: `petty-${y}-${m}-${half}` });
 }
+
+/** 무역사무: 새 업무(요청) 등록 → 무역사무 사람들 (등록한 사람 빼고) */
+export async function onRequestCreated(db, id, r, team) {
+  const roles = (await db.collection('roles').get()).docs.map((d) => ({ email: low(d.id), level: d.get('level') }));
+  const by = low(r.createdByEmail || r.requesterEmail);
+  const to = roles.filter((x) => x.level === 'trade' && x.email !== by).map((x) => x.email);
+  const self = !r.team && !r.requesterId && !r.requesterEmail && !r.teamName;
+  const side = r.teamName || (self ? '무역사무' : `${r.team || team}조`);
+  const who = r.requesterName ? ` ${r.requesterName}` : '';
+  return sendPush(db, to, { title: `📨 새 업무 · ${side}${who}`, body: `${r.priority ? `[${r.priority}] ` : ''}${cut(r.title, 80)}`, link: './#/twork', tag: `rq-${id}` });
+}

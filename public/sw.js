@@ -1,7 +1,7 @@
 // 홈 화면 앱(PWA)용 서비스 워커: 아무것도 저장(캐시)하지 않음 → 사이트를 올리면 휴대폰도 바로 새 버전
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', () => {});
+// (요청 가로채기 fetch 는 안 둠 — 아무것도 안 하는 fetch 도 모든 요청을 한 번 더 거치게 해서 느려짐)
 
 // 휴대폰 알림 (서버가 보내는 웹 푸시: data = { title, body, link, tag })
 self.addEventListener('push', (e) => {
