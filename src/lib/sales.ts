@@ -233,7 +233,8 @@ export function guessCurrency(country?: string): string | undefined {
 
 // ---------- 수출 통화 (업체마다, 기본 USD) → 화면에는 USD 로 바꿔서 ----------
 /** 이 업체 수출 외화 통화 (없으면 USD) */
-export const exportCur = (c?: { exportCurrency?: string } | null) => (c?.exportCurrency && c.exportCurrency !== 'USD' && c.exportCurrency !== 'KRW' ? c.exportCurrency : 'USD');
+//   KRW 업체: 원화로 거래 → 화면의 외화(USD) 칸은 원화를 그날 환율로 바꾼 달러
+export const exportCur = (c?: { exportCurrency?: string } | null) => (c?.exportCurrency && c.exportCurrency !== 'USD' ? c.exportCurrency : 'USD');
 /** 표 안에서 그 통화의 가장 최근 환율 (그날 환율이 아직 없을 때) */
 function latestRate(table: FxTable, cur: string) {
   const months = Object.keys(table[cur] ?? {}).sort().reverse();
@@ -251,7 +252,7 @@ export function toUsd(table: FxTable, cur: string, amount: number, iso?: string 
   const u = rateOn(table, 'USD', day) ?? latestRate(table, 'USD');
   return a && u ? (amount * a.rate) / u.rate : null;
 }
-const CUR_SIGN: Record<string, string> = { JPY: '¥', EUR: '€', GBP: '£', CNY: 'CN¥', USD: '$' };
+const CUR_SIGN: Record<string, string> = { JPY: '¥', EUR: '€', GBP: '£', CNY: 'CN¥', USD: '$', KRW: '₩' };
 /** 원래 외화 표시 (예: ¥1,234,567) */
 export const fmtCur = (cur: string, n?: number | null) => (n === undefined || n === null ? '' : `${CUR_SIGN[cur] ?? `${cur} `}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
 const monthOf = (iso?: string | null) => (iso && /^\d{4}-\d{2}/.test(iso) ? iso.slice(0, 7) : '');

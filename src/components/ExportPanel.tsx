@@ -181,8 +181,10 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
           // 수출 통화가 USD 가 아니면 외화를 USD 로 (출고일 · 주문일 환율), 원래 외화는 fo 에
           const cur = exportCur(c);
           const cv = (f: number, d?: string | null) => (cur === 'USD' || !f ? f : (toUsd(fx, cur, f, d) ?? f));
-          const shipU = ship.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: x.v.f, f: cv(x.v.f, x.v.date ?? x.o.orderDate) } }));
-          const pack = pack0.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: x.v.f, f: cv(x.v.f, x.o.orderDate) } }));
+          // KRW 업체는 원화 금액을 달러로 (외화 칸이 비어 있어도)
+          const src = (v: { k: number; f: number }) => (cur === 'KRW' ? v.k : v.f);
+          const shipU = ship.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: src(x.v), f: cv(src(x.v), x.v.date ?? x.o.orderDate) } }));
+          const pack = pack0.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: src(x.v), f: cv(src(x.v), x.o.orderDate) } }));
           // 로열티 받기 시작한 달 전에는 없음
           const sale = c.royalty && (!c.royaltyFrom || month >= c.royaltyFrom) ? salesOf(c, month, fx) : null;
           const r = {
@@ -190,8 +192,8 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
             ship: shipU,
             pack,
             cur,
-            shipFo: cur === 'USD' ? 0 : ship.reduce((a, x) => a + x.v.f, 0),
-            packFo: cur === 'USD' ? 0 : pack0.reduce((a, x) => a + x.v.f, 0),
+            shipFo: cur === 'USD' ? 0 : ship.reduce((a, x) => a + src(x.v), 0),
+            packFo: cur === 'USD' ? 0 : pack0.reduce((a, x) => a + src(x.v), 0),
             sale,
             shipK: ship.reduce((a, x) => a + x.v.k, 0),
             shipF: shipU.reduce((a, x) => a + x.v.f, 0),

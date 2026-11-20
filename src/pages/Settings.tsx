@@ -598,7 +598,7 @@ function CompanyRow({
   );
   const curEl = (
     <select value={c.exportCurrency ?? 'USD'} onChange={(e) => onSave({ ...c, exportCurrency: e.target.value === 'USD' ? undefined : e.target.value })} title="주문 외화 통화 (기본 USD)">
-      {SALES_CURRENCIES.filter((x) => x !== 'KRW').map((x) => (
+      {['USD', 'KRW', ...SALES_CURRENCIES.filter((x) => x !== 'KRW' && x !== 'USD')].map((x) => (
         <option key={x}>{x}</option>
       ))}
     </select>
