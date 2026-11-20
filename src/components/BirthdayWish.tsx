@@ -105,22 +105,19 @@ export function BirthdayBubbles({ tall }: { tall?: boolean }) {
   const msgs: BdayMsg[] = preview && isAdmin ? SAMPLE_MSGS : on && myBday ? real : [];
   if (!msgs.length) return null;
   // 헤더를 칸으로 나눠 하나씩 (오른쪽 위 버튼 자리는 피함), 칸 안에서 조금씩 엇갈리게
-  const rows = tall ? 3 : 2;
-  const cols = 5;
-  const shown = msgs.slice(-rows * cols);
+  // 정해 둔 자리 (헤더 위쪽 · 오른쪽 위 버튼에서 떨어지게, 왼쪽 아래 캐릭터는 피해서) — 최대 11개
+  const SLOTS: [number, number][] = tall
+    ? [[5, 56], [29, 56], [53, 56], [76, 64], [15, 98], [39, 98], [62, 102], [82, 106], [25, 138], [49, 138], [71, 142]]
+    : [[5, 52], [29, 52], [53, 52], [76, 58], [15, 96], [39, 96], [63, 98], [83, 100]];
+  const shown = msgs.slice(0, SLOTS.length);
   return (
     <div className="bday-bubbles" aria-label="생일 축하 한마디">
       {shown.map((m, i) => {
-        // 옆으로 먼저 채우고 다음 줄로 (헤더 전체에 고르게)
-        const c = i % cols;
-        const r = Math.floor(i / cols) % rows;
-        const jx = seeded(m.id + 'x');
-        const jy = seeded(m.id + 'y');
-        // 오른쪽 위(버튼 자리) 칸은 아래로 비켜감
-        const top = 14 + r * (tall ? 52 : 58) + jy * 10 + (c >= 3 && r === 0 ? 46 : 0);
-        const left = 4 + c * 19 + jx * 6;
+        const [left, top] = SLOTS[i];
+        const jx = seeded(m.id + 'x') - 0.5; // 아주 조금만 엇갈리게
+        const jy = seeded(m.id + 'y') - 0.5;
         return (
-          <div key={m.id} className="bday-bubble" style={{ left: `${left}%`, top, animationDelay: `${i * 0.12}s, ${jx * 3}s` }} title={m.at ? new Date(m.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}>
+          <div key={m.id} className="bday-bubble" style={{ left: `${left + jx * 2}%`, top: top + jy * 6, animationDelay: `${i * 0.1}s` }} title={m.at ? new Date(m.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}>
             <span className="bb-text">“{m.text}”</span> <span className="bb-from">-{m.fromName}</span>
           </div>
         );

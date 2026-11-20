@@ -8437,13 +8437,12 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 .wish-quick button:hover { border-color: var(--primary); }
 /* 생일 한마디: 헤더 말풍선 */
 .bday-bubbles { position: absolute; inset: 0; pointer-events: none; }
-.bday-bubble { position: absolute; max-width: 18%; padding: 6px 11px; background: rgba(255, 255, 255, 0.92); color: var(--ink); border-radius: 14px; font-size: 12.5px; line-height: 1.35; box-shadow: 0 3px 10px rgba(91, 40, 40, 0.12); pointer-events: auto;
-  animation: bb-pop 0.45s cubic-bezier(.2, 1.4, .4, 1) both, bb-bob 4s ease-in-out infinite; }
+.bday-bubble { position: absolute; white-space: nowrap; padding: 5px 11px; background: rgba(255, 255, 255, 0.92); color: var(--ink); border-radius: 14px; font-size: 12px; line-height: 1.35; box-shadow: 0 3px 10px rgba(91, 40, 40, 0.12); pointer-events: auto;
+  animation: bb-pop 0.45s cubic-bezier(.2, 1.4, .4, 1) both; }
 .bday-bubble::after { content: ''; position: absolute; left: 16px; bottom: -6px; border: 6px solid transparent; border-top-color: rgba(255, 255, 255, 0.92); border-bottom: 0; }
 .bday-bubble .bb-text { font-weight: 600; }
 .bday-bubble .bb-from { color: var(--primary); font-size: 11.5px; white-space: nowrap; }
 .bday-bubble-more { position: absolute; right: 18px; bottom: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); font-size: 12px; font-weight: 700; color: var(--primary); }
 @keyframes bb-pop { from { opacity: 0; transform: scale(.5) translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes bb-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 @media (max-width: 600px) { .bday-bubble { max-width: 40%; font-size: 11px; } .bday-bubble:nth-child(n + 5) { display: none; } }
 @media (prefers-reduced-motion: reduce) { .bday-bubble { animation: none; } }

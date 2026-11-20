@@ -114,6 +114,10 @@ export const SAMPLE_MSGS: BdayMsg[] = [
   ['늘 고마워요! 생일 축하해요', '문정'],
   ['최고의 하루 되세요', '서현'],
   ['생일 진심으로 축하해요🎉', '지민'],
+  ['맛있는 거 많이 드세요', '상현'],
+  ['Happy Birthday', '예진'],
+  ['올해도 좋은 일만 가득하길 바라요!', '윤경'],
+  ['생일축하드려요', '승재'],
 ].map(([text, fromName], i) => ({ id: `s${i}`, date: '', to: '', from: '', fromName, text, at: '' }));
 export function useBubblePreview() {
   const [on, setOn] = useState(() => {
