@@ -1,7 +1,7 @@
 // 번역: [번역] 엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
 import { useNameOf } from '../components/AddressBook';
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 
 // 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 자동 저장:
 //   다른 탭·페이지 = 메모리에 그대로, 새로고침·창 닫기 = 이 브라우저에 저장된 걸로 다시 (엑셀 파일은 IndexedDB)
@@ -62,7 +62,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
 }
 import { useAccess } from '../components/AuthGate';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
-import { catKey, catLabel, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat } from '../lib/categories';
+import { catKey, catLabel, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
 
@@ -723,6 +723,7 @@ function CatsTab() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
   const [q, setQ] = useState('');
+  const [mode, setMode] = useState<'cats' | 'find'>('cats'); // 분류표 · 제품명으로 찾기
   const upload = async (f: File) => {
     setMsg('');
     try {
@@ -810,7 +811,7 @@ function CatsTab() {
   return (
     <div className="card tr-dict">
       <div className="tr-dict-tools">
-        <input className="search" placeholder="🔍 분류 이름 · 영문 · 코드" value={q} onChange={(e) => setQ(e.target.value)} />
+        {mode === 'cats' && <input className="search" placeholder="🔍 분류 이름 · 영문 · 코드" value={q} onChange={(e) => setQ(e.target.value)} />}
         <span className="muted small">
           {(rows ?? []).length}개 분류 · 고른 기록 {picks.length}개{meta.at ? ` · 올린 날 ${new Date(meta.at).toLocaleDateString('ko-KR')}` : ''}
         </span>
@@ -827,7 +828,17 @@ function CatsTab() {
         분류표를 올리면 전체가 새 분류표로 바뀌어요. 번역 탭에서 줄마다 분류를 고르면 기록이 남고, 다음에 비슷한 제품명이 나오면 그 분류를 추천해요. 이미 분류가 채워진 제품 엑셀을 '추천 배우기'로 올리면 그 제품들도 한꺼번에 추천 예시가 돼요.
       </p>
       {msg && <p className="small">{msg}</p>}
-      {rows === null ? (
+      <div className="seg tr-cat-mode">
+        <button className={mode === 'cats' ? 'on' : ''} onClick={() => setMode('cats')}>
+          📋 분류표
+        </button>
+        <button className={mode === 'find' ? 'on' : ''} onClick={() => setMode('find')}>
+          🔎 제품명으로 분류 찾기
+        </button>
+      </div>
+      {mode === 'find' ? (
+        <ProductCatFinder picks={picks} rows={rows ?? []} />
+      ) : rows === null ? (
         <p className="muted small">불러오는 중…</p>
       ) : !rows.length ? (
         <p className="muted small">아직 분류표가 없어요. [분류표 엑셀 올리기]로 넣어 주세요.</p>
@@ -1076,6 +1087,80 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
             {!list.length && <div className="cat-empty">맞는 분류가 없어요</div>}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** 분류 탭 › 제품명으로 찾기: 그 단어가 들어간 제품들이 어느 분류로 골라졌는지 (분류별 개수 · 제품명 예시) */
+function ProductCatFinder({ picks, rows }: { picks: CatPick[]; rows: Cat[] }) {
+  const [q, setQ] = useState('');
+  const [openCat, setOpenCat] = useState<string | null>(null);
+  const word = q.trim();
+  const squash = (t: string) => t.toLowerCase().replace(/\s+/g, '');
+  const hits = useMemo(() => (word ? picks.filter((p) => squash(p.ko).includes(squash(word))) : []), [picks, word]);
+  const groups = useMemo(() => {
+    const m = new Map<string, CatPick[]>();
+    for (const p of hits) m.set(p.cat, [...(m.get(p.cat) ?? []), p]);
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+  }, [hits]);
+  const catOf = (k: string) => rows.find((c) => catKey(c) === k);
+  // 단어 칠하기 (띄어쓰기 달라도)
+  const mark = (t: string): ReactNode => {
+    const re = new RegExp(`(${[...word.replace(/\s+/g, '')].map((ch) => ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*')})`, 'gi');
+    return t.split(re).map((x, i) => (i % 2 ? <mark key={i}>{x}</mark> : x));
+  };
+  const SHOW = 12;
+  return (
+    <div className="tr-catfind">
+      <input className="search" autoFocus placeholder="🔎 제품명에 들어간 단어 (예: 키링 · 파우치 · 볼펜)" value={q} onChange={(e) => (setQ(e.target.value), setOpenCat(null))} />
+      {!word ? (
+        <p className="muted small">단어를 넣으면 그 단어가 들어간 제품(고른 기록 {picks.length.toLocaleString()}개)이 어느 분류로 분류됐는지 많은 순으로 보여줘요.</p>
+      ) : !hits.length ? (
+        <p className="muted small">'{word}' 가 들어간 제품 기록이 없어요.</p>
+      ) : (
+        <>
+          <p className="muted small">
+            '{word}' 들어간 제품 <b>{hits.length.toLocaleString()}개</b> → 분류 {groups.length}곳
+          </p>
+          <div className="tr-catfind-list">
+            {groups.map(([k, ps]) => {
+              const c = catOf(k);
+              const pct = Math.round((ps.length / hits.length) * 100);
+              const open = openCat === k;
+              return (
+                <section key={k} className="tr-catfind-row">
+                  <div className="tr-catfind-head">
+                    <span className="tr-code">{k}</span>
+                    <span className="muted">{c?.mainName ?? '(분류표에 없음)'}</span>
+                    <span className="muted">›</span>
+                    <b>{c?.subName ?? ''}</b>
+                    <span className="muted small">{c?.subEn}</span>
+                    <span className="tr-catfind-bar" title={`${pct}%`}>
+                      <i style={{ width: `${pct}%` }} />
+                    </span>
+                    <span className="tr-catfind-n">
+                      {ps.length.toLocaleString()}개 <span className="muted small">({pct}%)</span>
+                    </span>
+                  </div>
+                  <div className="tr-catfind-items">
+                    {(open ? ps : ps.slice(0, SHOW)).map((p) => (
+                      <span key={p.id} className="tr-catfind-item">
+                        {mark(p.ko)}
+                        {p.season === 'S' && <span className="tr-season">시즌</span>}
+                      </span>
+                    ))}
+                    {ps.length > SHOW && (
+                      <button className="link small" onClick={() => setOpenCat(open ? null : k)}>
+                        {open ? '접기' : `+ ${ps.length - SHOW}개 더 보기`}
+                      </button>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
