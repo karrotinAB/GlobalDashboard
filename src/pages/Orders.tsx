@@ -658,6 +658,17 @@ export default function Orders() {
         <td className="c-more">
           <div className="status-cell">
             {done && <span className="tag green">완료</span>}
+            {/* ERP 출고일 (출고승인) — 여러 번 나눠 나갔으면 마지막 날 */}
+            {(() => {
+              const d = (o.outRows ?? []).map((x) => x.date ?? '').concat(o.outDate ?? '').filter(Boolean).sort().pop();
+              if (!d) return null;
+              const iso = d.replace(/[^\d]/g, '').replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3');
+              return (
+                <span className="out-date" title={`ERP 출고일 (출고승인) ${iso}`}>
+                  출고 {iso.slice(2).replace(/-/g, '.')}
+                </span>
+              );
+            })()}
             <MoreMenu
               title="완료 처리 · 삭제"
               items={[
