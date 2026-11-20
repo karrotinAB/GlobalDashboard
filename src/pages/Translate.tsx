@@ -64,7 +64,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
 import { useAccess } from '../components/AuthGate';
 import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
-import { catKey, catLabel, gramsOf, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
+import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
 
@@ -327,7 +327,7 @@ function TranslateTab() {
   const chosen = (v: (typeof view)[number]) => {
     if (catSel[v.row.r] !== undefined) return catSel[v.row.r];
     const sg = sugOf(v);
-    return sg?.exact && catByKey.has(sg.cat) ? sg.cat : '';
+    return sg?.exact && (catByKey.has(sg.cat) || sg.cat === NO_CAT) ? sg.cat : '';
   };
   // '아직 덜 채운 줄만': 영문 제품명이 비었거나 [모르는 단어] 가 남은 줄 · 수출 분류를 아직 안 고른 줄
   //   고치는 중에 줄이 사라지지 않게, 체크하거나 거르기를 바꿀 때만 다시 거름
@@ -750,6 +750,7 @@ function CatsTab() {
   const [q, setQ] = useState('');
   const [mode, setMode] = useState<'cats' | 'find' | 'logic'>('cats'); // 분류표 · 제품명으로 찾기 · 로직
   const [findQ, setFindQ] = useState(''); // 로직 탭에서 단어 누르면 그 단어로 찾기
+  const realPicks = useMemo(() => picks.filter((p) => p.cat !== NO_CAT), [picks]); // '선택 안 함' 기록은 빼고
   const upload = async (f: File) => {
     setMsg('');
     try {
@@ -876,9 +877,9 @@ function CatsTab() {
         </button>
       </div>
       {mode === 'logic' ? (
-        <CatLogic picks={picks} rows={rows ?? []} onWord={(w) => (setFindQ(w), setMode('find'))} />
+        <CatLogic picks={realPicks} rows={rows ?? []} onWord={(w) => (setFindQ(w), setMode('find'))} />
       ) : mode === 'find' ? (
-        <ProductCatFinder key={findQ} q0={findQ} picks={picks} rows={rows ?? []} />
+        <ProductCatFinder key={findQ} q0={findQ} picks={realPicks} rows={rows ?? []} />
       ) : rows === null ? (
         <p className="muted small">불러오는 중…</p>
       ) : !rows.length ? (
@@ -1048,6 +1049,7 @@ function UnknownWords({
 
 /** 수출 분류 고르기: 고르기 상자 모양 그대로, 열면 맨 위에 검색칸 (코드 · 대분류 · 중분류 · 영문) */
 function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cur?: Cat; groups: [string, Cat[]][]; disabled: boolean; onPick: (k: string) => void }) {
+  const none = value === NO_CAT;
   const [pos, setPos] = useState<{ left: number; top: number; width: number; up: boolean } | null>(null);
   const [q, setQ] = useState('');
   const btn = useRef<HTMLButtonElement>(null);
@@ -1089,7 +1091,7 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
   return (
     <div className="cat-pick">
       <button ref={btn} type="button" className={`cat-pick-btn ${value ? 'set' : ''}`} disabled={disabled} title={disabled ? '분류 탭에서 분류표를 먼저 올려 주세요' : ''} onClick={openIt}>
-        <span>{cur ? catLabel(cur) : disabled ? '분류표 없음' : '분류 고르기'}</span>
+        <span>{none ? '🚫 선택 안 함' : cur ? catLabel(cur) : disabled ? '분류표 없음' : '분류 고르기'}</span>
         <span className="cat-caret">⌄</span>
       </button>
       {pos && (
@@ -1111,9 +1113,14 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
           />
           <div className="cat-pop-list">
             {!words.length && (
-              <button className={`cat-opt none ${!value ? 'on' : ''}`} onClick={() => pick('')}>
-                분류 고르기
-              </button>
+              <>
+                <button className={`cat-opt none ${!value ? 'on' : ''}`} onClick={() => pick('')}>
+                  분류 고르기
+                </button>
+                <button className={`cat-opt none ${none ? 'on' : ''}`} onClick={() => pick(NO_CAT)} title="이 제품은 수출 분류를 비워 둬요 (같은 제품명도 다음부터 비워 둠 · 추천 넣기에서도 빠짐)">
+                  🚫 선택 안 함 (비워 두기)
+                </button>
+              </>
             )}
             {list.map(([g, l]) => (
               <div key={g}>

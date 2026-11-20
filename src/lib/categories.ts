@@ -15,6 +15,8 @@ export interface Cat {
   subName: string;
   subEn: string;
 }
+/** '선택 안 함' (이 제품은 수출 분류를 비워 둠) — 고른 기록에도 이 값으로 남아 같은 제품명은 자동으로 비워 둠 */
+export const NO_CAT = '__none';
 export const catKey = (c: Pick<Cat, 'mainCode' | 'subCode'>) => `${c.mainCode}-${c.subCode}`;
 export const catLabel = (c: Cat) => `${c.mainName} › ${c.subName}`;
 
@@ -143,11 +145,13 @@ export interface Suggestion {
 export function makeRecommender(examples: { ko: string; cat: string; season?: 'S' | 'N'; pre?: string; path?: string }[]) {
   // 같은 제품명은 하나로 (마지막 것)
   const uniq = new Map(examples.filter((e) => e.ko && e.cat).map((e) => [e.ko.trim(), e]));
-  const ex = [...uniq.entries()].map(([k, e]) => ({ k, cat: e.cat, season: e.season, pre: e.pre, g: gramsOf(k) }));
+  const exAll = [...uniq.entries()].map(([k, e]) => ({ k, cat: e.cat, season: e.season, pre: e.pre, g: gramsOf(k) }));
+  // '선택 안 함' 은 같은 제품명일 때만 (비슷한 제품 추천에는 안 씀)
+  const ex = exAll.filter((e) => e.cat !== NO_CAT);
   // 제품코드 앞 2자리별 분류 수 (글자로 못 찾을 때 그 앞자리에서 가장 많은 분류)
   const byPre = new Map<string, Map<string, number>>();
   for (const e of ex) if (e.pre) byPre.set(e.pre, (byPre.get(e.pre) ?? new Map()).set(e.cat, ((byPre.get(e.pre) ?? new Map()).get(e.cat) ?? 0) + 1));
-  const exact = new Map(ex.map((e) => [e.k, e.cat]));
+  const exact = new Map(exAll.map((e) => [e.k, e.cat]));
   // SKU 분류 (제품 정보의 대›중›소) → 수출 분류 수: 같은 소분류 제품들이 어느 수출 분류로 갔는지
   const byPath = new Map<string, Map<string, number>>();
   const byMid = new Map<string, Map<string, number>>();
@@ -157,7 +161,7 @@ export function makeRecommender(examples: { ko: string; cat: string; season?: 'S
     m.set(k, x);
   };
   for (const e of uniq.values()) {
-    if (!e.path) continue;
+    if (!e.path || e.cat === NO_CAT) continue;
     add(byPath, e.path, e.cat);
     add(byMid, e.path.split('›').slice(0, 2).join('›'), e.cat);
   }
