@@ -8396,7 +8396,5 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 /* 주문 관리: 완료 옆 ERP 출고일 */
 .status-cell .out-date { font-size: 11px; color: var(--mut); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .order-table .c-more { width: 190px; }
-/* 화면 비율: 컴퓨터에서는 80% 가 기본 (휴대폰은 그대로). 위치 계산은 src/lib/zoom.ts 로 맞춤 */
-@media (min-width: 601px) {
-  html { zoom: 0.8; }
-}
+/* 화면 비율 80% (html zoom) 는 크롬에서 스크롤할 때 표 · 고정 머리줄이 겹쳐 그려지는 문제가 있어서 뺐어요.
+   위치 계산 도우미(src/lib/zoom.ts)는 그대로 둠 — zoom 이 없으면 비율 1 로 동작 */
