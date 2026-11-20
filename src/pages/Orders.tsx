@@ -658,10 +658,10 @@ export default function Orders() {
         <td className="c-more">
           <div className="status-cell">
             {done && <span className="tag green">완료</span>}
-            {/* ERP 출고일 (출고승인) — 여러 번 나눠 나갔으면 마지막 날 */}
+            {/* ERP 출고일 (출고승인) — 완료건에만 · 여러 번 나눠 나갔으면 마지막 날 */}
             {(() => {
               const d = (o.outRows ?? []).map((x) => x.date ?? '').concat(o.outDate ?? '').filter(Boolean).sort().pop();
-              if (!d) return null;
+              if (!done || !d) return null; // 완료건에만
               const iso = d.replace(/[^\d]/g, '').replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3');
               return (
                 <span className="out-date" title={`ERP 출고일 (출고승인) ${iso}`}>
