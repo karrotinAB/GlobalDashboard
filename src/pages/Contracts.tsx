@@ -67,7 +67,7 @@ export default function Contracts() {
   const access = useAccess();
   const isAdmin = access.role === 'admin' || access.role === null;
   const list = useContracts(isAdmin);
-  const [tab, setTab] = useState<'search' | 'list' | 'new' | 'scrap'>('search');
+  const [tab, setTab] = useState<'search' | 'list' | 'new' | 'scrap'>('list');
   // 글을 긁으면 '✂️ 스크랩' 버튼 → 폴더 골라 저장
   const [pick, setPick] = useState<{ text: string; cid: string; head?: string; x: number; y: number } | null>(null);
   const [scrap, setScrap] = useState<{ text: string; cid: string; head?: string } | null>(null);
@@ -121,11 +121,11 @@ export default function Contracts() {
         <p className="muted">계약서를 업체별로 보관하고, 조항으로 찾아봐요. 원본(스캔본)은 참고용으로 같이 올려 두고, 내용은 OCR 텍스트를 붙여넣으면 조항별로 정리돼요.</p>
       </div>
       <div className="seg pc-tabs">
-        <button className={tab === 'search' && !open ? 'on' : ''} onClick={() => (setTab('search'), setOpenId(null))}>
-          🔍 조항 검색
-        </button>
         <button className={tab === 'list' && !open ? 'on' : ''} onClick={() => (setTab('list'), setOpenId(null))}>
           📁 업체별 계약서
+        </button>
+        <button className={tab === 'search' && !open ? 'on' : ''} onClick={() => (setTab('search'), setOpenId(null))}>
+          🔍 조항 검색
         </button>
         <button className={tab === 'scrap' && !open ? 'on' : ''} onClick={() => (setTab('scrap'), setOpenId(null))}>
           📌 스크랩
