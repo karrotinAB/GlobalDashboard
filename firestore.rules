@@ -142,6 +142,13 @@ service cloud.firestore {
     match /fxRates/{id} {
       allow read: if isAny();
     }
+    // 제품 정보 (이미지 · 팀 · 분류): 서버 함수만 씀
+    match /skuInfo/{id} {
+      allow read: if isAny();
+    }
+    match /skuMeta/{id} {
+      allow read: if isAny();
+    }
     match /exportMonthly/{id} {
       allow read: if isAny();
     }

@@ -717,3 +717,20 @@ export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, 
   }
   return { created, skipped, perTeam, total: all.length };
 });
+
+// ---------- 제품 정보 (이미지 · 팀 · 대/중/소분류): getSkuList → skuInfo ----------
+//   키: secrets/sku 문서 apiKey · 매주 월요일 6:20 자동 + 번역 페이지 '제품 정보 받기' (관리자)
+import { syncSku } from './sku.js';
+const skuOpts = { region: REGION, timeoutSeconds: 540, memory: '512MiB' };
+export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '20 6 * * 1', timeZone: 'Asia/Seoul' }, async () => {
+  const r = await syncSku(db).catch((e) => ({ error: e.message }));
+  logger.info('sku sync', r);
+});
+export const syncSkuNow = onCall(skuOpts, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
+  try {
+    return await syncSku(db);
+  } catch (e) {
+    throw new HttpsError('failed-precondition', e.message);
+  }
+});

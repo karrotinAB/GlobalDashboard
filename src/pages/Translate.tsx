@@ -1,7 +1,7 @@
 // 번역: [번역] 엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
 import { useNameOf } from '../components/AddressBook';
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react';
 
 // 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 자동 저장:
 //   다른 탭·페이지 = 메모리에 그대로, 새로고침·창 닫기 = 이 브라우저에 저장된 걸로 다시 (엑셀 파일은 IndexedDB)
@@ -61,6 +61,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
   }
 }
 import { useAccess } from '../components/AuthGate';
+import { syncSkuNow, useSku, useSkuMeta } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
@@ -143,6 +144,8 @@ function useDictMap() {
 function TranslateTab() {
   const { email, accountName, role } = useAccess();
   const isAdmin = role === 'admin' || role === null; // 관리자 (로컬 모드 포함)
+  // 제품코드 · 제품명에 마우스 올리면 제품 이미지 · 팀 · 분류 (getSkuList)
+  const { bind: skuHover, card: skuCard } = useSkuHover();
   const { list, map, keys } = useDictMap();
   const [sheet, setSheet] = useKept<Sheet | null>('sheet', null);
   const [err, setErr] = useState('');
@@ -432,6 +435,7 @@ function TranslateTab() {
             ⬇ 채운 엑셀 받기
           </button>
         )}
+        {isAdmin && <SkuSyncBtn />}
         {sheet && isAdmin && (
           <button className="tr-dl tr-dl-all" onClick={() => void download(true)} title="관리자만: 모르는 단어가 [ ] 로 남은 영문 제품명도 그대로 채워서 받아요">
             ⬇ 덜 된 것도 받기
@@ -440,6 +444,7 @@ function TranslateTab() {
       </div>
       {err && <p className="warn small">{err}</p>}
       {list === null && <p className="muted small">사전 불러오는 중…</p>}
+      {skuCard}
 
       {sheet && unknownAll.length > 0 && <UnknownWords words={unknownAll} hidden={hidden} setHidden={setHidden} rowsOf={(w) => needEn.filter((v) => v.tr.unknown.includes(w) || v.tr.skipped.includes(w)).map((v) => ({ r: v.row.r, ko: v.ko, en: v.tr.en }))} />}
 
@@ -510,8 +515,12 @@ function TranslateTab() {
                   return (
                     <tr key={v.row.r}>
                       <td className="muted">{v.row.r + 1}</td>
-                      {sheet.col.code !== undefined && <td className="tr-code">{cell(v.row, 'code')}</td>}
-                      <td className="tr-ko-name">
+                      {sheet.col.code !== undefined && (
+                        <td className="tr-code" {...skuHover(cell(v.row, 'code'))}>
+                          {cell(v.row, 'code')}
+                        </td>
+                      )}
+                      <td className="tr-ko-name" {...skuHover(cell(v.row, 'code'))}>
                         {v.season === 'S' && (
                           <span className="tr-season" title="시즌품 (엑셀 시즌품구분)">
                             🎄 시즌
@@ -1198,5 +1207,105 @@ function ProductCatFinder({ picks, rows }: { picks: CatPick[]; rows: Cat[] }) {
         </>
       )}
     </div>
+  );
+}
+
+/** 마우스 올린 칸 옆에 제품 이미지 카드 (잠깐 머무르면 뜨고, 카드 위로 옮겨도 유지) */
+function useSkuHover() {
+  const [hov, setHov] = useState<{ code: string; x: number; y: number; below: boolean } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const hideTimer = useRef<number | undefined>(undefined);
+  const info = useSku(hov?.code ?? null);
+  const bind = (code: string) =>
+    code
+      ? {
+          onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            window.clearTimeout(timer.current);
+            window.clearTimeout(hideTimer.current);
+            timer.current = window.setTimeout(() => {
+              // 칸 오른쪽에 (화면 끝이면 왼쪽), 위아래는 화면 안으로
+              const x = r.right + 10 + 270 < window.innerWidth ? r.right + 10 : Math.max(8, r.left - 280);
+              const y = Math.max(8, Math.min(r.top - 30, window.innerHeight - 370));
+              setHov({ code, x, y, below: true });
+            }, 250);
+          },
+          onMouseLeave: () => {
+            window.clearTimeout(timer.current);
+            hideTimer.current = window.setTimeout(() => setHov(null), 150);
+          },
+        }
+      : {};
+  const card = hov ? (
+    <div
+      className={`sku-card ${hov.below ? '' : 'up'}`}
+      style={{ left: hov.x, top: hov.y }}
+      onMouseEnter={() => window.clearTimeout(hideTimer.current)}
+      onMouseLeave={() => setHov(null)}
+    >
+      {info === undefined ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : info === null ? (
+        <p className="muted small">
+          {hov.code} 제품 정보가 없어요
+          <br />
+          (관리자: 🖼 제품 정보 받기)
+        </p>
+      ) : (
+        <>
+          {info.i ? (
+            <a href={info.i} target="_blank" rel="noreferrer" title="눌러서 새 창으로 크게 보기">
+              <img
+                key={info.i}
+                src={info.i}
+                alt={hov.code}
+                onError={(e) => {
+                  e.currentTarget.replaceWith(Object.assign(document.createElement('div'), { className: 'sku-noimg', textContent: '이미지를 못 불러왔어요 (눌러서 열기)' }));
+                }}
+              />
+            </a>
+          ) : (
+            <div className="sku-noimg">이미지 없음</div>
+          )}
+          <div className="sku-meta">
+            <b>{hov.code}</b>
+            {info.t && <span className="sku-team">{info.t}</span>}
+            <span className="sku-path">{[info.l, info.m, info.s].filter(Boolean).join(' › ') || '분류 없음'}</span>
+          </div>
+        </>
+      )}
+    </div>
+  ) : null;
+  return { bind, card };
+}
+
+/** 관리자: 제품 정보 (이미지 · 팀 · 분류) 새로 받기 — 매주 월요일 아침에도 자동으로 받아요 */
+function SkuSyncBtn() {
+  const meta = useSkuMeta();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  return (
+    <>
+      <button
+        className="tr-dl"
+        disabled={busy}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 새로 받아요 (매주 월요일 아침 자동)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}`}
+        onClick={async () => {
+          setBusy(true);
+          setMsg('');
+          try {
+            const r = await syncSkuNow();
+            setMsg(`제품 정보 ${r.count.toLocaleString()}개 받았어요 ✓`);
+          } catch (e) {
+            setMsg(`못 받았어요: ${(e as Error).message}`);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}
+      </button>
+      {msg && <span className="small">{msg}</span>}
+    </>
   );
 }
