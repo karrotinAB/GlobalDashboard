@@ -758,3 +758,29 @@ export const syncWeatherNow = onCall({ region: REGION }, async (req) => {
     throw new HttpsError('failed-precondition', e.message);
   }
 });
+
+// ---------- 대시보드 사용자 빼기 (관리자): 로그인 계정은 지우고, 이름 · 기록은 그대로 ----------
+//   roles/{이메일} 지움 → 사이트 권한 없음 · Firebase 로그인 계정 삭제 → 로그인 안 됨
+//   이름은 contacts/{이메일}.name 에 남겨서 예전 기록(보고 · 댓글 · 업무)에 계속 이름으로 보임
+import { getAuth } from 'firebase-admin/auth';
+export const removeUser = onCall({ region: REGION }, async (req) => {
+  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
+  const email = String(req.data?.email ?? '').trim().toLowerCase();
+  if (!email || !email.includes('@')) throw new HttpsError('invalid-argument', '이메일이 없어요');
+  if (email === req.auth?.token?.email?.toLowerCase()) throw new HttpsError('failed-precondition', '나 자신은 뺄 수 없어요');
+  const roleRef = db.doc(`roles/${email}`);
+  const role = (await roleRef.get()).data() ?? {};
+  const contact = (await db.doc(`contacts/${email}`).get()).data() ?? {};
+  const name = contact.name || role.name || email.split('@')[0];
+  await db.doc(`contacts/${email}`).set({ name, removed: true, removedAt: new Date().toISOString() }, { merge: true });
+  await roleRef.delete();
+  let account = 'deleted';
+  try {
+    const u = await getAuth().getUserByEmail(email);
+    await getAuth().deleteUser(u.uid);
+  } catch (e) {
+    if (e?.code === 'auth/user-not-found') account = 'none';
+    else throw new HttpsError('internal', `권한은 뺐는데 로그인 계정을 못 지웠어요: ${e.message}`);
+  }
+  return { ok: true, name, account };
+});

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { usePeople } from './AddressBook';
 import { saveBirthdays, useBirthdays, type Birthday } from '../lib/birthdays';
 import { uid } from '../lib/date';
 import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
-import { db, firebaseConfig } from '../firebase';
+import { db, firebaseConfig, functions } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
 import { isLeader, ROLE_NAME, useAccess, type Role } from './AuthGate';
 import { DEFAULT_TEAM, newPersonalSpace, teamLabel, TEAMS } from '../lib/team';
 
@@ -203,11 +204,13 @@ export default function AccessAdmin() {
                     <button
                       className="danger small"
                       onClick={async () => {
-                        if (!confirm(`${r.email}  을(를) 대시보드 사용자에서 뺄까요?`)) return;
+                        if (!confirm(`${r.name || r.email} 을(를) 대시보드 사용자에서 뺄까요?\n\n· 로그인 계정이 지워져서 더 이상 로그인할 수 없어요\n· 남긴 기록(보고 · 댓글 · 업무 등)과 이름은 그대로 남아요`)) return;
                         try {
-                          await deleteDoc(doc(db, 'roles', r.email));
+                          const res = await httpsCallable(functions, 'removeUser')({ email: r.email });
+                          const d = res.data as { name: string; account: 'deleted' | 'none' };
+                          setMsg(`${d.name} 님을 뺐어요 ✓ ${d.account === 'deleted' ? '로그인 계정도 지웠어요' : '(로그인 계정은 원래 없었어요)'}`);
                         } catch (err) {
-                          setMsg(`삭제 실패: ${(err as Error).message}`);
+                          setMsg(`빼지 못했어요: ${(err as Error).message} — 서버 함수를 새로 올렸는지 확인해 주세요 (deploy.bat)`);
                         }
                       }}
                     >
