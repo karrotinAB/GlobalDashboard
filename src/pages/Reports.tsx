@@ -111,7 +111,12 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
             <b>확인자 설정</b> 보고 쓸 때 확인할 분(팀장님 · 이사님)을 고를 수 있어요
           </li>
           <li>
-            <b>☑ 확인</b> 팀장님 · 이사님은 확인란을 눌러 주세요 → 확인자가 모두 누르면 <span className="rp-done-tag">✅ 확인 완료</span>
+            <b>☑ 확인</b> 팀장님 · 이사님은 확인란을 눌러 주세요
+          </li>
+          {/* 두 번째 줄: 확인 완료 · 반응 (늘 같은 줄) */}
+          <li className="rp-guide-break" aria-hidden="true" />
+          <li>
+            → 확인자가 모두 누르면 <span className="rp-done-tag">✅ 확인 완료</span>
           </li>
           <li>
             <b>😊 반응</b> 내용·댓글을 봤으면 이모티콘으로 반응해 주세요
