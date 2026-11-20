@@ -3,7 +3,8 @@
 //   [계약서] 업체별 목록 → 열면 조항으로 정리된 본문 (제목 굵게) + 원본 파일
 //   [올리기] 업체 · 계약서 이름 · 계약일 · 원본 파일 · OCR 텍스트 붙여넣기 (조항 자동 정리 미리보기)
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { useAccess } from '../components/AuthGate';
+import { isLeader, useAccess } from '../components/AuthGate';
+import { isPersonal } from '../lib/team';
 import { useFullName } from './Petty';
 import { Modal } from '../components/ui';
 import { useLookups } from '../data/store';
@@ -171,8 +172,10 @@ function useCtScope() {
       /* 무시 */
     }
   };
+  // 팀장님 · 이사님 공간: 조 구분 없이 모든 계약서 (버튼도 안 보임)
+  const leaderSpace = isLeader(access.role) || isPersonal(access.viewTeam);
   const isMine = (c: Contract) => (c.team ? c.team === access.viewTeam : myCos.some((m) => m.name === c.company));
-  const seg = (onChange?: () => void) => (
+  const seg = (onChange?: () => void) => (leaderSpace ? null : (
     <div className="seg ct-scope">
       {(['mine', 'all'] as const).map((k) => (
         <button key={k} className={scope === k ? 'on' : ''} onClick={() => (setScope(k), onChange?.())}>
@@ -180,8 +183,8 @@ function useCtScope() {
         </button>
       ))}
     </div>
-  );
-  return { scope, isMine, seg, access, myCos };
+  ));
+  return { scope: leaderSpace ? ('all' as const) : scope, isMine, seg, access, myCos };
 }
 
 function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
