@@ -1,6 +1,6 @@
 import { SALES_CURRENCIES } from '../lib/sales';
 import { useFxSetting, writeFx, type FxLevel, type FxMode } from '../components/WeatherFx';
-import { BLINKS, PALETTES, useLightsSetting, writeLights, type LightBlink, type LightPalette, type LightsCfg } from '../components/LightsFx';
+import { BLINKS, isXmas, PALETTES, XMAS_FROM, XMAS_TO, useLightsSetting, writeLights, type LightBlink, type LightPalette, type LightsCfg } from '../components/LightsFx';
 import { saveWorkTypes, useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
@@ -166,12 +166,16 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         </>
       )}
       {access.role === 'trade' ? (
-        access.email && <ChangePassword />
+        <>
+          {access.email && <ChangePassword />}
+          {isXmas() && <LightsSection />}
+        </>
       ) : (
       <>
       {showGen && access.email && <ChangePassword />}
       {showAdm && (access.realRole === 'admin' || access.role === null) && <WeatherFxSection />}
-      {showAdm && (access.realRole === 'admin' || access.role === null) && <LightsSection />}
+      {/* 꼬마전구: 크리스마스 기간엔 모두의 일반 설정에, 그 밖엔 관리자 설정에 (미리보기) */}
+      {(isXmas() ? showGen : showAdm && (access.realRole === 'admin' || access.role === null)) && <LightsSection />}
       {showGen && (
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
@@ -1184,8 +1188,12 @@ function LightsSection() {
   const set = (p: Partial<LightsCfg>) => writeLights({ ...v, ...p });
   return (
     <section className="card">
-      <h2>🎄 헤더 꼬마전구 미리보기</h2>
-      <p className="muted small">헤더 위쪽에 꼬마전구를 달아 봐요. 지금은 관리자 이 브라우저에서만 보여요 (나중에 크리스마스 주간에 모두에게 자동으로).</p>
+      <h2>{isXmas() ? '🎄 헤더 꼬마전구' : '🎄 헤더 꼬마전구 미리보기'}</h2>
+      <p className="muted small">
+        {isXmas()
+          ? `메리 크리스마스! ${XMAS_FROM.replace('-', '/')} ~ ${XMAS_TO.replace('-', '/')} 동안 헤더에 꼬마전구가 켜져요. 색 · 깜빡임 · 줄 수를 골라 보세요 (이 브라우저에 저장 · 끌 수도 있어요).`
+          : `헤더 위쪽에 꼬마전구를 달아 봐요. 지금은 관리자 이 브라우저에서만 보여요 (${XMAS_FROM.replace('-', '/')} ~ ${XMAS_TO.replace('-', '/')} 크리스마스 기간엔 모두에게 켜지고, 일반 설정에서 각자 고를 수 있어요).`}
+      </p>
       <div className="wxfx-ctl">
         <div className="seg">
           <button className={!v.on ? 'on' : ''} onClick={() => set({ on: false })}>

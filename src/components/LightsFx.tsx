@@ -12,16 +12,24 @@ export const PALETTES: Record<LightPalette, { label: string; colors: string[] }>
 };
 export const BLINKS: Record<LightBlink, string> = { soft: '은은하게', twinkle: '반짝반짝', chase: '번갈아' };
 
-// ---------- 미리보기 설정 (이 브라우저에만) ----------
+/** 크리스마스 기간 (12/18 ~ 12/26): 모두에게 꼬마전구가 켜지고, 일반 설정에서 각자 고를 수 있어요 */
+export const XMAS_FROM = '12-18';
+export const XMAS_TO = '12-26';
+export const isXmas = (d = new Date()) => {
+  const md = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return md >= XMAS_FROM && md <= XMAS_TO;
+};
+
+// ---------- 설정 (이 브라우저에만 · 크리스마스 기간엔 처음부터 켜짐) ----------
 const KEY = 'gd:lightsFx';
 const EVT = 'gd-lightsfx';
 export type LightsCfg = { on: boolean; palette: LightPalette; blink: LightBlink; strands: 1 | 2 | 3 };
 export function readLights(): LightsCfg {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<LightsCfg>;
-    return { on: !!v.on, palette: v.palette && PALETTES[v.palette] ? v.palette : 'rainbow', blink: v.blink && BLINKS[v.blink] ? v.blink : 'twinkle', strands: v.strands ?? 2 };
+    return { on: v.on ?? isXmas(), palette: v.palette && PALETTES[v.palette] ? v.palette : 'warm', blink: v.blink && BLINKS[v.blink] ? v.blink : 'twinkle', strands: v.strands ?? 2 };
   } catch {
-    return { on: false, palette: 'rainbow', blink: 'twinkle', strands: 2 };
+    return { on: isXmas(), palette: 'warm', blink: 'twinkle', strands: 2 };
   }
 }
 export function writeLights(v: LightsCfg) {

@@ -1,7 +1,7 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import WeatherFx, { useFxSetting } from './WeatherFx';
 import FrostFx from './FrostFx';
-import LightsFx, { useLightsSetting } from './LightsFx';
+import LightsFx, { isXmas, useLightsSetting } from './LightsFx';
 import { useAccess } from './AuthGate';
 import { useWeather, weatherFxOf } from '../lib/weather';
 import { createPortal } from 'react-dom';
@@ -165,9 +165,9 @@ export function Cover({ tall }: { tall?: boolean }) {
   const real = weatherFxOf(useWeather());
   const preview = (realRole === 'admin' || role === null) && fx.mode !== 'off' ? fx : null;
   const show = preview ?? real;
-  // 꼬마전구 (지금은 관리자 미리보기만)
+  // 꼬마전구: 크리스마스 기간엔 모두 (각자 끌 수 있음) · 그 밖엔 관리자 미리보기만
   const lights = useLightsSetting();
-  const showLights = (realRole === 'admin' || role === null) && lights.on;
+  const showLights = lights.on && (isXmas() || realRole === 'admin' || role === null);
   return (
     <div className={`cover ${tall ? 'tall' : ''}`}>
       {show && (show.mode === 'frost' ? <FrostFx /> : <WeatherFx mode={show.mode} level={show.level} />)}
