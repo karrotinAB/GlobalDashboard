@@ -1122,8 +1122,10 @@ function WeatherFxSection() {
   const set = (p: Partial<{ mode: FxMode; level: FxLevel }>) => writeFx({ ...fx, ...p });
   return (
     <section className="card">
-      <h2>🧪 헤더 날씨 효과 (실험)</h2>
-      <p className="muted small">맨 위 헤더에 눈 · 빗방울 효과를 미리 봐요. 관리자 이 브라우저에서만 보이고, 다른 사람에겐 안 보여요. 실제 날씨와는 아직 연결 안 했어요.</p>
+      <h2>🌧 헤더 날씨 효과 미리보기</h2>
+      <p className="muted small">
+        실제로는 지금 비 · 눈이 오면 (기상청) 모두의 헤더에 자동으로 떠요. 세기는 1시간 강수량으로: 3mm 미만 약하게 · 15mm 미만 보통 · 그 이상 강하게. 여기서 켜면 관리자 이 브라우저에서만 미리 봐요 (실제 날씨보다 먼저 · 끄면 실제 날씨대로).
+      </p>
       <div className="wxfx-ctl">
         <div className="seg">
           {(

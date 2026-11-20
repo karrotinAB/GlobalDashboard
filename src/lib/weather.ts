@@ -11,7 +11,22 @@ export interface Weather {
   sky?: number; // 1 맑음 · 3 구름많음 · 4 흐림
   now?: WxKind; // 지금 내리는 것
   rain?: { at: string; kind: Exclude<WxKind, null> } | null; // 6시간 안에 처음 내리는 때
+  hours?: { at: string; kind: WxKind; rn?: string }[]; // 시간별 (rn: 1시간 강수량 '강수없음' · '1mm 미만' · '2.0mm' · '30.0~50.0mm' …)
   at?: string;
+}
+
+/** 1시간 강수량 글자 → mm (강수없음 0 · '1mm 미만' 0.5 · 범위면 앞 숫자) */
+export const rnMm = (rn?: string) => {
+  if (!rn || /없음/.test(rn)) return 0;
+  if (/미만/.test(rn)) return 0.5;
+  const n = parseFloat(rn.replace(/[^\d.~]/g, '').split('~')[0]);
+  return Number.isFinite(n) ? n : 0;
+};
+/** 헤더 날씨 효과: 지금 비 · 눈이 오면 그 종류와 세기 (강수량: 3mm 미만 약하게 · 15mm 미만 보통 · 그 이상 강하게) */
+export function weatherFxOf(w: Weather | null): { mode: 'rain' | 'snow'; level: 1 | 2 | 3 } | null {
+  if (!w?.now) return null;
+  const mm = rnMm(w.hours?.[0]?.rn);
+  return { mode: w.now === 'snow' ? 'snow' : 'rain', level: mm >= 15 ? 3 : mm >= 3 ? 2 : 1 };
 }
 
 export function useWeather(): Weather | null {

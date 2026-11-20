@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import WeatherFx, { useFxSetting } from './WeatherFx';
 import { useAccess } from './AuthGate';
+import { useWeather, weatherFxOf } from '../lib/weather';
 import { createPortal } from 'react-dom';
 import type { Member } from '../types';
 
@@ -156,13 +157,15 @@ export function Ring({
 
 /** 노션 커버 자리. 이미지가 정해지면 public/cover.jpg 를 넣고 styles.css 의 .cover 배경만 바꾸면 됨 */
 export function Cover({ tall }: { tall?: boolean }) {
-  // 헤더 날씨 효과: 지금은 관리자 실험용 (설정 > 헤더 날씨 효과) — 실제 날씨와는 아직 연결 안 함
+  // 헤더 날씨 효과: 지금 비 · 눈이 오면 (기상청 · 강수량으로 세기). 관리자가 설정에서 미리보기를 켰으면 그게 먼저
   const { realRole, role } = useAccess();
   const fx = useFxSetting();
-  const canTry = realRole === 'admin' || role === null;
+  const real = weatherFxOf(useWeather());
+  const preview = (realRole === 'admin' || role === null) && fx.mode !== 'off' ? fx : null;
+  const show = preview ?? real;
   return (
     <div className={`cover ${tall ? 'tall' : ''}`} aria-hidden="true">
-      {canTry && fx.mode !== 'off' && <WeatherFx mode={fx.mode} level={fx.level} />}
+      {show && <WeatherFx mode={show.mode} level={show.level} />}
     </div>
   );
 }
