@@ -8474,3 +8474,9 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .order-table .row-handle { display: none; }
   .order-table .c-name { left: 40px; }
 }
+/* 휴대폰: 버튼 묶음(탭)이 화면보다 길면 옆으로 밀어서 보기 (줄바꿈 · 잘림 없이) */
+@media (max-width: 600px) {
+  .seg { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
+  .seg::-webkit-scrollbar { display: none; }
+  .seg button { flex: none; white-space: nowrap; }
+}
