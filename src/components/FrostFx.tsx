@@ -1,10 +1,10 @@
 // 헤더 서리: 영하 10도 이하인 날 헤더 유리창에 뿌연 서리가 끼고,
-//   마우스(손가락)로 문지르면 그 자리가 투명해짐 (자동차 창문에 그림 그리듯) → 1분 뒤부터 서서히 다시 서리가 낌
+//   마우스(손가락)로 문지르면 그 자리가 투명해짐 (자동차 창문에 그림 그리듯) → 그린 때부터 1분 동안 서서히 다시 서리가 낌
 import { useEffect, useRef } from 'react';
 
 type Stroke = { pts: { x: number; y: number }[]; t: number; w: number };
-const HOLD = 60; // 이 시간(초) 동안은 투명하게
-const FADE = 25; // 그 뒤 이 시간(초) 동안 서서히 다시 서리
+const HOLD = 0; // 그린 바로 뒤부터
+const FADE = 60; // 1분 동안 서서히 다시 서리
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -139,7 +139,7 @@ export default function FrostFx() {
     const move = (e: PointerEvent) => {
       if (!cur) return;
       cur.pts.push(pos(e));
-      cur.t = performance.now() / 1000; // 마지막으로 그린 때부터 1분
+      // 획마다 그린 때부터 1분 (먼저 그린 부분이 먼저 흐려지게 점마다 시각을 따로 두진 않음)
     };
     const up = () => {
       cur = null;
