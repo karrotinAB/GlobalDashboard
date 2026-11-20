@@ -8453,3 +8453,14 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 button.drawer-tools-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; text-align: left; font: inherit; font-size: 15px; color: var(--ink); padding: 10px 12px; cursor: pointer; border-radius: 10px; }
 button.drawer-tools-head:hover { background: var(--primary-soft); }
 .drawer-tools-caret { margin-left: auto; color: var(--mut); font-size: 12px; }
+/* 주문 표: 옆으로 스크롤할 때 (표가 상자 안에 있는 화면) 왼쪽 선택칸 · 주문 이름은 고정 */
+@media (max-width: 1299px) {
+  .order-table .c-gutter, .order-table .c-name { position: sticky; z-index: 4; background-color: var(--surface); }
+  .order-table .c-gutter { left: 0; }
+  .order-table .c-name { left: 82px; box-shadow: 6px 0 8px -6px rgba(91, 40, 40, 0.18); }
+  .order-table thead th.c-gutter, .order-table thead th.c-name { z-index: 22; background-color: #fbf3ef; }
+  tr.bundle-head td.c-gutter, tr.in-bundle td.c-gutter { background-color: var(--surface) !important; }
+}
+@media (max-width: 600px) {
+  .order-table .c-name { left: 76px; }
+}
