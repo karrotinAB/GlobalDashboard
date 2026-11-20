@@ -114,6 +114,21 @@ export function normalize(raw) {
  * 모든 페이지 받아서 저장. 페이지 사이에 쉬고 (gapMs), 받은 쪽은 바로 저장 (중간에 멈춰도 남음).
  * 다 못 받고 멈추면 skuMeta/main.resumePage 에 다음 쪽을 적어 두고, 다음에 거기서부터 이어서 받음.
  */
+/** 묶음 문서 읽기: 새 모양 data(JSON 글자) · 예전 모양 지도(map 칸) 둘 다. asKeys 면 키 목록 */
+function readJson(snap, oldField, asKeys = false) {
+  const d = snap?.exists === false ? undefined : snap?.data?.();
+  let v = {};
+  if (d && typeof d.data === 'string') {
+    try {
+      v = JSON.parse(d.data);
+    } catch {
+      v = {};
+    }
+  } else if (d && d[oldField] && typeof d[oldField] === 'object') v = d[oldField];
+  if (asKeys) return Array.isArray(v) ? v : Object.keys(v);
+  return Array.isArray(v) ? {} : v;
+}
+
 /** 시즌품: 팀 · 대/중/소분류 이름 중 '시즌' 이 들어간 게 있으면 ('비시즌' 은 빼고) */
 export const isSeasonSku = (n) => [n.t, n.l, n.m, n.s].some((x) => x && /시즌/.test(x) && !/비시즌/.test(x));
 
@@ -131,9 +146,9 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
   let page = start;
   let noCat = start > 1 ? Number(meta.noCat ?? 0) : 0;
   const noCatSamples = start > 1 ? [...(meta.noCatSamples ?? [])].slice(0, 3) : [];
-  // 시즌품 목록: skuSeason/main.codes { 제품코드: true } (처음부터 받을 때 비우고 다시 채움)
+  // 시즌품 목록: skuSeason/main.data = '["제품코드", …]' (처음부터 받을 때 비우고 다시 채움)
   const seasonRef = db.doc('skuSeason/main');
-  if (start === 1) await seasonRef.set({ codes: {}, at: new Date().toISOString() });
+  const seasonAll = new Set(start === 1 ? [] : readJson(await seasonRef.get(), 'codes', true));
   for (; page < start + maxPages; page++) {
     if (Date.now() - t0 > budgetMs) {
       stopped = '시간이 다 돼서';
@@ -175,12 +190,23 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
       chunks.get(p)[code] = Object.fromEntries(Object.entries(info).filter(([, v]) => v));
       count++;
     }
-    if (chunks.size) {
-      const batch = db.batch();
+    // 묶음 문서는 글자 한 칸(JSON)으로 저장 — 칸이 수천 개인 지도(map)로 두면 Firestore 색인 한도(문서당 4만)에 걸림
+    //   이미 있는 묶음은 읽어서 합친 뒤 통째로 다시 씀
+    if (chunks.size || paths.size || Object.keys(season).length || page === start) {
       const at = new Date().toISOString();
-      for (const [p, items] of chunks) batch.set(db.doc(`skuInfo/${p}`), { items, at }, { merge: true });
-      if (Object.keys(season).length) batch.set(seasonRef, { codes: season, at }, { merge: true });
-      for (const [p2, codes] of paths) batch.set(db.doc(`skuPath/${p2}`), { codes, at }, { merge: true });
+      const batch = db.batch();
+      for (const [p, items] of chunks) {
+        const ref = db.doc(`skuInfo/${p}`);
+        const old = readJson(await ref.get(), 'items');
+        batch.set(ref, { data: JSON.stringify({ ...old, ...items }), at });
+      }
+      for (const [p2, codes] of paths) {
+        const ref = db.doc(`skuPath/${p2}`);
+        const old = readJson(await ref.get(), 'codes');
+        batch.set(ref, { data: JSON.stringify({ ...old, ...codes }), at });
+      }
+      for (const c of Object.keys(season)) seasonAll.add(c);
+      batch.set(seasonRef, { data: JSON.stringify([...seasonAll]), at });
       await batch.commit();
     }
     if (list.length < PAGE_SIZE) {

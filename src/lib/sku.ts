@@ -24,7 +24,7 @@ function chunkOf(prefix: string): Promise<Chunk> {
       DATA_MODE === 'local'
         ? Promise.resolve(demoChunk(prefix))
         : getDoc(doc(db, 'skuInfo', prefix))
-            .then((d) => (d.get('items') as Chunk | undefined) ?? {})
+            .then((d) => (typeof d.get('data') === 'string' ? (JSON.parse(d.get('data') as string) as Chunk) : ((d.get('items') as Chunk | undefined) ?? {})))
             .catch(() => {
               cache.delete(prefix);
               return {};
@@ -63,8 +63,9 @@ export function useSkuSeason(): Set<string> | null {
     return onSnapshot(
       doc(db, 'skuSeason', 'main'),
       (d) => {
-        const codes = d.get('codes') as Record<string, boolean> | undefined;
-        seasonCache = d.exists() ? new Set(Object.keys(codes ?? {})) : null;
+        const raw = d.get('data');
+        const list: string[] = typeof raw === 'string' ? (JSON.parse(raw) as string[]) : Object.keys((d.get('codes') as Record<string, boolean> | undefined) ?? {});
+        seasonCache = d.exists() ? new Set(list) : null;
         setSet(seasonCache);
       },
       () => setSet(null),
@@ -87,7 +88,11 @@ export function useSkuPaths(): Map<string, string> | null {
       collection(db, 'skuPath'),
       (snap) => {
         const out = new Map<string, string>();
-        snap.docs.forEach((d) => Object.entries((d.get('codes') as Record<string, string>) ?? {}).forEach(([c, p]) => out.set(c, p)));
+        snap.docs.forEach((d) => {
+          const raw = d.get('data');
+          const codes = typeof raw === 'string' ? (JSON.parse(raw) as Record<string, string>) : ((d.get('codes') as Record<string, string>) ?? {});
+          Object.entries(codes).forEach(([c, p]) => out.set(c, p));
+        });
         pathCache = out.size ? out : null;
         setM(pathCache);
       },
