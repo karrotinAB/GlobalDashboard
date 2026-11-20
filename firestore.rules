@@ -155,6 +155,10 @@ service cloud.firestore {
     match /skuPath/{id} {
       allow read: if isAny();
     }
+    // 날씨 (서버 함수만 씀)
+    match /weatherNow/{id} {
+      allow read: if isAny();
+    }
     match /exportMonthly/{id} {
       allow read: if isAny();
     }

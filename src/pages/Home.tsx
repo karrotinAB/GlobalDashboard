@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useWeather, weatherLine } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
 import SalesPanel from '../components/SalesPanel';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
@@ -565,13 +566,19 @@ export function Hero({ title }: { title: string }) {
   const todayDate = fromISO(todayIso);
   const daysToFri = Math.round((fromISO(friday).getTime() - todayDate.getTime()) / 86400000);
   const nowAp = ampm(`${seoul.h}:${seoul.mi}`);
+  // 기상청: 비 · 눈이 오거나 곧 오면 인사말 옆에
+  const weather = useWeather();
+  const wx = weather ? weatherLine(weather) : null;
   return (
     <>
     {/* 제목 + 오늘 / 이번주 구역 */}
     <header className="hero">
       <h1>{title}</h1>
       <div className="hero-greet-row">
-        <p className="hero-greet">{greeting(seoul.h, seoul.mi)}</p>
+        <p className="hero-greet">
+          {greeting(seoul.h, seoul.mi)}
+          {wx && <span className="hero-wx">{wx}</span>}
+        </p>
         <a href="#/calendar" className="hero-cal" title="부서 구글 캘린더 일정 보기">
           📅 달력
         </a>
