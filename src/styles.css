@@ -8464,3 +8464,13 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 @media (max-width: 600px) {
   .order-table .c-name { left: 76px; }
 }
+/* 휴대폰 주문 표: 왼쪽 빈 여백(36px) 없애고 표를 카드 왼쪽에 딱 붙임 */
+@media (max-width: 600px) {
+  .order-table .c-gutter { width: 40px !important; min-width: 40px; padding-left: 8px !important; }
+  .order-table th.c-gutter, .order-table td.c-gutter { box-shadow: none !important; }
+  .order-table .bundle-bar, tr.bundle-head .bundle-bar.top { left: 0 !important; }
+  tr.bundle-head td.c-gutter { background: var(--bc) !important; }
+  tr.in-bundle td.c-gutter { background: color-mix(in srgb, var(--bc) 6%, var(--surface)) !important; }
+  .order-table .row-handle { display: none; }
+  .order-table .c-name { left: 40px; }
+}
