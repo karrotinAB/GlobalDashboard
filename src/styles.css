@@ -8413,3 +8413,4 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
   .zone-today .zone-foot { flex-wrap: wrap; }
   .zone-bday { margin-left: 0; white-space: normal; font-size: 11.5px; padding: 3px 9px; }
 }
+.settings-tabs { margin: 0 0 14px; }

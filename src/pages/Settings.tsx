@@ -104,6 +104,26 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
     setMsg('기본 담당자를 넣었어요.');
   };
 
+  // 일반 설정 (모두에게 보이는 것) · 관리자 설정 (관리자에게만 보이는 것) 탭
+  const hasAdminTab = access.role !== 'trade' && (access.role === 'admin' || access.role === null || access.canManage);
+  const [stab, setStab] = useState<'general' | 'admin'>(() => {
+    try {
+      return localStorage.getItem('gd:settingsTab') === 'admin' ? 'admin' : 'general';
+    } catch {
+      return 'general';
+    }
+  });
+  const pickTab = (t: 'general' | 'admin') => {
+    setStab(t);
+    try {
+      localStorage.setItem('gd:settingsTab', t);
+    } catch {
+      /* 무시 */
+    }
+  };
+  const showGen = !hasAdminTab || stab === 'general';
+  const showAdm = hasAdminTab && stab === 'admin';
+
   return (
     <div className="page">
       {(() => {
@@ -126,8 +146,19 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         )}
       </div>
 
+      {/* 일반 설정 · 관리자 설정 (관리자에게만 탭이 보임) */}
+      {hasAdminTab && (
+        <div className="seg settings-tabs">
+          <button className={stab === 'general' ? 'on' : ''} onClick={() => pickTab('general')}>
+            ⚙️ 일반 설정
+          </button>
+          <button className={stab === 'admin' ? 'on' : ''} onClick={() => pickTab('admin')}>
+            🛡 관리자 설정
+          </button>
+        </div>
+      )}
       {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
-      {(access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && (
+      {showGen && (access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && (
         <>
           <TradeMembersSection />
           <WorkTypesSection />
@@ -137,8 +168,9 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         access.email && <ChangePassword />
       ) : (
       <>
-      {access.email && <ChangePassword />}
-      {(access.realRole === 'admin' || access.role === null) && <WeatherFxSection />}
+      {showGen && access.email && <ChangePassword />}
+      {showAdm && (access.realRole === 'admin' || access.role === null) && <WeatherFxSection />}
+      {showGen && (
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
         <table className="settings-table members-table">
@@ -165,8 +197,10 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           + 담당자 추가
         </button>
       </section>
-      {access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
-      {access.role === 'admin' && <CalendarAdmin />}
+      )}
+      {showGen && access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
+      {showAdm && access.role === 'admin' && <CalendarAdmin />}
+      {showGen && (
       <section className="card">
         <h2>업체 관리</h2>
         <p className="muted small">
@@ -230,7 +264,9 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           + 업체 추가
         </button>
       </section>
-      {side !== 'trade' && <StoreAreaSection />}
+      )}
+      {showGen && side !== 'trade' && <StoreAreaSection />}
+      {showGen && (
       <section className="card">
         <h2>데이터</h2>
         <div className="btn-row">
@@ -254,8 +290,10 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           할일 {data.tasks.length} · 주문 {data.orders.length} · 근태 기록 {data.attendance.length} · 무역사무 요청 {data.requests.length}
         </p>
       </section>
+      )}
 
-      {/* 아래는 관리자용 */}
+      {/* 아래는 관리자용 (관리자 설정 탭) */}
+      {showAdm && (
       <section className="card">
         <h2>저장 방식</h2>
         {mode === 'firestore' ? (
@@ -274,9 +312,10 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           </p>
         )}
       </section>
+      )}
 
-      {access.role === 'admin' && <AccessAdmin />}
-      {access.canManage && (
+      {showAdm && access.role === 'admin' && <AccessAdmin />}
+      {showAdm && access.canManage && (
         <section className="card">
           <h2>
             홈 화면 구성 <span className="tag gray">관리자만 보이는 칸</span>
@@ -298,9 +337,9 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
           })}
         </section>
       )}
-      {access.canManage && <HolidayAdmin />}
-      {access.role === 'admin' && <MemAutoSection />}
-      {access.role === 'admin' && <SalesApiAdmin />}
+      {showAdm && access.canManage && <HolidayAdmin />}
+      {showAdm && access.role === 'admin' && <MemAutoSection />}
+      {showAdm && access.role === 'admin' && <SalesApiAdmin />}
 
 
 
