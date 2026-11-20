@@ -62,8 +62,18 @@ async function fetchPage(cfg, page, fetchImpl, { wait = sleep } = {}) {
 
 /** 한 줄 → { code, i, t, l, m, s } (칸 이름 대소문자 · 밑줄 달라도) */
 /** 안쪽 묶음까지 한 겹으로 펼치기 ({ category: { teamName } } → teamName · 배열이면 첫 칸) */
+/** 글자로 된 JSON ('{"teamName":…}') 이면 풀어서 */
+const unjson = (v) => {
+  if (typeof v !== 'string' || !/^\s*[[{]/.test(v)) return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+};
 export function flatten(it, depth = 0, out = {}) {
-  for (const [k, v] of Object.entries(it ?? {})) {
+  for (const [k, v0] of Object.entries(it ?? {})) {
+    const v = unjson(v0);
     const x = Array.isArray(v) && v.length && typeof v[0] === 'object' ? v[0] : v;
     if (x && typeof x === 'object' && !Array.isArray(x)) {
       if (depth < 3) flatten(x, depth + 1, out);
@@ -74,7 +84,8 @@ export function flatten(it, depth = 0, out = {}) {
 /** 확인용: 칸 이름들 (안쪽은 '바깥.안쪽') */
 export function keyPaths(it, pre = '', depth = 0) {
   const out = [];
-  for (const [k, v] of Object.entries(it ?? {})) {
+  for (const [k, v0] of Object.entries(it ?? {})) {
+    const v = unjson(v0);
     const x = Array.isArray(v) && v.length && typeof v[0] === 'object' ? v[0] : v;
     if (x && typeof x === 'object' && !Array.isArray(x) && depth < 3) out.push(...keyPaths(x, `${pre}${k}.`, depth + 1));
     else out.push(`${pre}${k}`);
