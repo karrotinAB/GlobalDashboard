@@ -8480,3 +8480,11 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .seg::-webkit-scrollbar { display: none; }
   .seg button { flex: none; white-space: nowrap; }
 }
+/* 옆으로 스크롤할 때 묶음 제목도 왼쪽에 고정 (주문 이름처럼) */
+@media (max-width: 1299px) {
+  tr.bundle-head .bundle-title { position: sticky; left: 92px; width: max-content; z-index: 3; }
+  tr.bundle-head td.c-gutter { z-index: 5; }
+}
+@media (max-width: 600px) {
+  tr.bundle-head .bundle-title { left: 50px; }
+}
