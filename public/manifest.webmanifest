@@ -1,6 +1,6 @@
 {
   "name": "Global Dashboard",
-  "short_name": "Global",
+  "short_name": "Dashboard",
   "start_url": "./#/home",
   "scope": "./",
   "display": "standalone",
