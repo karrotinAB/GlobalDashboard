@@ -1,5 +1,6 @@
 import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import WeatherFx, { useFxSetting } from './WeatherFx';
+import FrostFx from './FrostFx';
 import { useAccess } from './AuthGate';
 import { useWeather, weatherFxOf } from '../lib/weather';
 import { createPortal } from 'react-dom';
@@ -164,8 +165,8 @@ export function Cover({ tall }: { tall?: boolean }) {
   const preview = (realRole === 'admin' || role === null) && fx.mode !== 'off' ? fx : null;
   const show = preview ?? real;
   return (
-    <div className={`cover ${tall ? 'tall' : ''}`} aria-hidden="true">
-      {show && <WeatherFx mode={show.mode} level={show.level} />}
+    <div className={`cover ${tall ? 'tall' : ''}`}>
+      {show && (show.mode === 'frost' ? <FrostFx /> : <WeatherFx mode={show.mode} level={show.level} />)}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 //   지금은 실험용 (관리자가 설정 > 헤더 날씨 효과에서 켜면 그 브라우저에서만 보임)
 import { useEffect, useRef, useState } from 'react';
 
-export type FxMode = 'off' | 'rain' | 'snow';
+export type FxMode = 'off' | 'rain' | 'snow' | 'frost';
 export type FxLevel = 1 | 2 | 3; // 약 · 보통 · 강
 
 // ---------- 실험 설정 (이 브라우저에만 저장) ----------
@@ -11,7 +11,7 @@ const EVT = 'gd-wxfx';
 export function readFx(): { mode: FxMode; level: FxLevel } {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { mode?: FxMode; level?: FxLevel };
-    return { mode: v.mode === 'rain' || v.mode === 'snow' ? v.mode : 'off', level: v.level ?? 2 };
+    return { mode: v.mode === 'rain' || v.mode === 'snow' || v.mode === 'frost' ? v.mode : 'off', level: v.level ?? 2 };
   } catch {
     return { mode: 'off', level: 2 };
   }
@@ -45,7 +45,7 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const cv = ref.current;
-    if (!cv || mode === 'off') return;
+    if (!cv || mode === 'off' || mode === 'frost') return;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -237,6 +237,6 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
       ro.disconnect();
     };
   }, [mode, level]);
-  if (mode === 'off') return null;
+  if (mode === 'off' || mode === 'frost') return null;
   return <canvas ref={ref} className="wx-fx" aria-hidden="true" />;
 }

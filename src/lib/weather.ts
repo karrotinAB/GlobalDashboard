@@ -11,7 +11,7 @@ export interface Weather {
   sky?: number; // 1 맑음 · 3 구름많음 · 4 흐림
   now?: WxKind; // 지금 내리는 것
   rain?: { at: string; kind: Exclude<WxKind, null> } | null; // 6시간 안에 처음 내리는 때
-  hours?: { at: string; kind: WxKind; rn?: string }[]; // 시간별 (rn: 1시간 강수량 '강수없음' · '1mm 미만' · '2.0mm' · '30.0~50.0mm' …)
+  hours?: { at: string; kind: WxKind; rn?: string; temp?: number }[]; // 시간별 (rn: 1시간 강수량 '강수없음' · '1mm 미만' · '2.0mm' · '30.0~50.0mm' …)
   at?: string;
 }
 
@@ -23,8 +23,12 @@ export const rnMm = (rn?: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 /** 헤더 날씨 효과: 지금 비 · 눈이 오면 그 종류와 세기 (강수량: 3mm 미만 약하게 · 15mm 미만 보통 · 그 이상 강하게) */
-export function weatherFxOf(w: Weather | null): { mode: 'rain' | 'snow'; level: 1 | 2 | 3 } | null {
-  if (!w?.now) return null;
+export function weatherFxOf(w: Weather | null): { mode: 'rain' | 'snow' | 'frost'; level: 1 | 2 | 3 } | null {
+  if (!w) return null;
+  // 비 · 눈이 안 오고 영하 10도 이하 (지금 · 앞으로 몇 시간 중 가장 추운 때) → 서리
+  const temps = [w.temp, ...(w.hours ?? []).map((x) => x.temp)].filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
+  if (!w.now && temps.length && Math.min(...temps) <= -10) return { mode: 'frost', level: 2 };
+  if (!w.now) return null;
   const mm = rnMm(w.hours?.[0]?.rn);
   return { mode: w.now === 'snow' ? 'snow' : 'rain', level: mm >= 15 ? 3 : mm >= 3 ? 2 : 1 };
 }
