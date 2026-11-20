@@ -63,7 +63,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
 import { useAccess } from '../components/AuthGate';
 import { syncSkuNow, useSku, useSkuMeta } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
-import { catKey, catLabel, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
+import { catKey, catLabel, gramsOf, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
 
@@ -732,7 +732,8 @@ function CatsTab() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
   const [q, setQ] = useState('');
-  const [mode, setMode] = useState<'cats' | 'find'>('cats'); // 분류표 · 제품명으로 찾기
+  const [mode, setMode] = useState<'cats' | 'find' | 'logic'>('cats'); // 분류표 · 제품명으로 찾기 · 로직
+  const [findQ, setFindQ] = useState(''); // 로직 탭에서 단어 누르면 그 단어로 찾기
   const upload = async (f: File) => {
     setMsg('');
     try {
@@ -855,9 +856,14 @@ function CatsTab() {
         <button className={mode === 'find' ? 'on' : ''} onClick={() => setMode('find')}>
           🔎 제품명으로 분류 찾기
         </button>
+        <button className={mode === 'logic' ? 'on' : ''} onClick={() => setMode('logic')}>
+          🧠 로직
+        </button>
       </div>
-      {mode === 'find' ? (
-        <ProductCatFinder picks={picks} rows={rows ?? []} />
+      {mode === 'logic' ? (
+        <CatLogic picks={picks} rows={rows ?? []} onWord={(w) => (setFindQ(w), setMode('find'))} />
+      ) : mode === 'find' ? (
+        <ProductCatFinder key={findQ} q0={findQ} picks={picks} rows={rows ?? []} />
       ) : rows === null ? (
         <p className="muted small">불러오는 중…</p>
       ) : !rows.length ? (
@@ -1113,8 +1119,8 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
 }
 
 /** 분류 탭 › 제품명으로 찾기: 그 단어가 들어간 제품들이 어느 분류로 골라졌는지 (분류별 개수 · 제품명 예시) */
-function ProductCatFinder({ picks, rows }: { picks: CatPick[]; rows: Cat[] }) {
-  const [q, setQ] = useState('');
+function ProductCatFinder({ picks, rows, q0 = '' }: { picks: CatPick[]; rows: Cat[]; q0?: string }) {
+  const [q, setQ] = useState(q0);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const word = q.trim();
   const squash = (t: string) => t.toLowerCase().replace(/\s+/g, '');
@@ -1307,5 +1313,154 @@ function SkuSyncBtn() {
       </button>
       {msg && <span className="small">{msg}</span>}
     </>
+  );
+}
+
+/** 분류 탭 › 로직: 추천이 어떻게 정해지는지 + 분류마다 반응하는 단어 · 코드 앞자리 · 헷갈리는 분류 (고른 기록으로 계산) */
+function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWord: (w: string) => void }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
+  const stats = useMemo(() => {
+    // 같은 제품명은 하나로 (추천과 같게)
+    const uniq = new Map(picks.filter((p) => p.ko && p.cat).map((p) => [p.ko.trim(), p]));
+    const list = [...uniq.values()];
+    const wordCat = new Map<string, Map<string, number>>(); // 단어 → 분류 → 제품 수
+    const wordAll = new Map<string, number>();
+    const preCat = new Map<string, Map<string, number>>(); // 코드 앞자리 → 분류 → 수
+    const byCat = new Map<string, { n: number; season: number; pres: Map<string, number> }>();
+    for (const p of list) {
+      const c = byCat.get(p.cat) ?? { n: 0, season: 0, pres: new Map() };
+      c.n++;
+      if (p.season === 'S') c.season++;
+      if (p.pre) {
+        c.pres.set(p.pre, (c.pres.get(p.pre) ?? 0) + 1);
+        const m = preCat.get(p.pre) ?? new Map();
+        m.set(p.cat, (m.get(p.cat) ?? 0) + 1);
+        preCat.set(p.pre, m);
+      }
+      byCat.set(p.cat, c);
+      for (const g of gramsOf(p.ko)) {
+        if (!g.startsWith('w:')) continue; // 단어만 (2글자 묶음은 너무 많아서)
+        const w = g.slice(2);
+        if (w.length < 2) continue;
+        wordAll.set(w, (wordAll.get(w) ?? 0) + 1);
+        const m = wordCat.get(w) ?? new Map();
+        m.set(p.cat, (m.get(p.cat) ?? 0) + 1);
+        wordCat.set(w, m);
+      }
+    }
+    // 분류마다: 반응하는 단어 (이 분류에 2번 이상 · 많이 나오고 이 분류로 많이 가는 순)
+    const words = new Map<string, { w: string; n: number; prec: number }[]>();
+    for (const [w, m] of wordCat) {
+      const all = wordAll.get(w)!;
+      for (const [cat, n] of m) {
+        if (n < 2) continue;
+        const arr = words.get(cat) ?? [];
+        arr.push({ w, n, prec: n / all });
+        words.set(cat, arr);
+      }
+    }
+    for (const [cat, arr] of words) words.set(cat, arr.sort((a, b) => b.n * b.prec ** 2 - a.n * a.prec ** 2).slice(0, 24));
+    // 코드 앞자리 대체 규칙: 앞자리 예시 3개 이상 · 60% 이상이 이 분류
+    const preRule = new Map<string, { pre: string; n: number; all: number }[]>();
+    for (const [pre, m] of preCat) {
+      const all = [...m.values()].reduce((a, b) => a + b, 0);
+      const [cat, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (all >= 3 && n / all >= 0.6) preRule.set(cat, [...(preRule.get(cat) ?? []), { pre, n, all }]);
+    }
+    return { total: list.length, byCat, words, preRule, wordCat };
+  }, [picks]);
+  const name = (k: string) => {
+    const c = rows.find((x) => catKey(x) === k);
+    return c ? `${c.mainName} › ${c.subName}` : '(분류표에 없음)';
+  };
+  const nq = q.trim().toLowerCase();
+  const cats = (rows.length ? rows.map(catKey) : [...stats.byCat.keys()])
+    .filter((k) => !nq || `${k} ${name(k)} ${(stats.words.get(k) ?? []).map((x) => x.w).join(' ')}`.toLowerCase().includes(nq))
+    .sort((a, b) => (stats.byCat.get(b)?.n ?? 0) - (stats.byCat.get(a)?.n ?? 0));
+  return (
+    <div className="tr-logic">
+      <section className="tr-logic-how">
+        <h3>추천은 이렇게 정해져요</h3>
+        <ol>
+          <li>
+            <b>같은 제품명</b>을 고른 기록이 있으면 → 그 분류 그대로 (100%)
+          </li>
+          <li>
+            <b>글자 유사도</b>: 제품명을 <i>단어</i>와 <i>2글자 묶음</i>으로 나눠요 (숫자 · 규격 mm/cm/g/매/개 등은 빼요). 예) "곰돌이 키링 파우치" → 단어 곰돌이 · 키링 · 파우치 + 2글자 곰돌 · 돌이 · 파우 · 우치
+            <br />
+            기록된 제품들과 겹치는 정도(짧은 쪽 기준 겹침 × 전체 닮음)를 재고, 분류마다 가장 비슷한 제품 점수 + 비슷한 제품 수를 더해 제일 높은 분류를 추천해요. 0.2 밑은 무시, 제일 비슷한 게 0.3 밑이면 ③으로.
+          </li>
+          <li>
+            <b>보정</b>: 시즌품구분이 같으면 ×1.15 · 다르면 ×0.7 / 제품코드 앞 2자리가 같으면 ×1.15 · 다르면 ×0.9
+          </li>
+          <li>
+            <b>코드 앞자리 대체</b>: 글자로 못 찾으면 같은 코드 앞 2자리 제품(3개 이상) 중 60% 이상이 간 분류 (점수 30%)
+          </li>
+          <li className="muted">기록 800개 이상에 나오는 너무 흔한 글자 묶음은 후보 찾을 때 건너뛰어요. 고른 기록이 쌓일수록 정확해져요.</li>
+        </ol>
+      </section>
+      <div className="tr-logic-tools">
+        <input className="search" placeholder="🔍 분류 · 단어로 찾기 (예: 키링)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="muted small">기록 {stats.total.toLocaleString()}개 (같은 제품명은 하나로) · 단어를 누르면 그 단어 들어간 제품을 봐요</span>
+      </div>
+      <div className="tr-logic-list">
+        {cats.map((k) => {
+          const c = stats.byCat.get(k);
+          const ws = stats.words.get(k) ?? [];
+          const rule = stats.preRule.get(k) ?? [];
+          const pres = c ? [...c.pres.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4) : [];
+          // 헷갈리는 분류: 이 분류의 주요 단어가 많이 가는 다른 분류
+          const conf = new Map<string, number>();
+          for (const x of ws.slice(0, 10)) for (const [o, n] of stats.wordCat.get(x.w) ?? []) if (o !== k) conf.set(o, (conf.get(o) ?? 0) + n);
+          const confTop = [...conf.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+          const isOpen = open === k;
+          return (
+            <section key={k} className={`tr-logic-row ${!c ? 'empty' : ''}`}>
+              <button className="tr-logic-head" onClick={() => setOpen(isOpen ? null : k)}>
+                <span className="tr-code">{k}</span>
+                <b>{name(k)}</b>
+                <span className="muted small">{c ? `기록 ${c.n.toLocaleString()}개` : '기록 없음 — 아직 추천 안 돼요'}</span>
+                {c && c.season > 0 && <span className="tr-season">시즌 {Math.round((c.season / c.n) * 100)}%</span>}
+                {rule.length > 0 && <span className="tr-logic-rule">코드 {rule.map((r) => r.pre).join(' · ')}… 대체</span>}
+                <span className="tr-logic-words-mini">{ws.slice(0, 6).map((x) => x.w).join(' · ')}</span>
+                <span className="muted">{isOpen ? '▴' : '▾'}</span>
+              </button>
+              {isOpen && c && (
+                <div className="tr-logic-body">
+                  <div>
+                    <div className="tr-logic-label">반응하는 단어 (이 분류 제품 수 · 이 단어가 이 분류로 가는 비율)</div>
+                    <div className="tr-logic-words">
+                      {ws.length ? (
+                        ws.map((x) => (
+                          <button key={x.w} className={`tr-logic-word ${x.prec >= 0.8 ? 'strong' : x.prec < 0.5 ? 'weak' : ''}`} onClick={() => onWord(x.w)} title={`'${x.w}' 들어간 기록 중 ${Math.round(x.prec * 100)}% 가 이 분류`}>
+                            {x.w} <small>{x.n} · {Math.round(x.prec * 100)}%</small>
+                          </button>
+                        ))
+                      ) : (
+                        <span className="muted small">아직 반복되는 단어가 없어요 (기록이 더 필요해요)</span>
+                      )}
+                    </div>
+                    <div className="muted small">진한 색 = 거의 이 분류로만 가는 단어 (80%+) · 흐린 색 = 다른 분류로도 많이 가는 단어 (50% 밑)</div>
+                  </div>
+                  <div className="tr-logic-facts">
+                    <div>
+                      <span className="tr-logic-label">코드 앞자리</span> {pres.map(([p, n]) => `${p}… ${Math.round((n / c.n) * 100)}%`).join(' · ') || '없음'}
+                    </div>
+                    <div>
+                      <span className="tr-logic-label">코드 대체 규칙</span>{' '}
+                      {rule.length ? rule.map((r) => `${r.pre}… 제품은 글자로 못 찾으면 이 분류 (${r.n}/${r.all})`).join(' · ') : '없음 (글자 유사도로만)'}
+                    </div>
+                    <div>
+                      <span className="tr-logic-label">헷갈릴 수 있는 분류</span> {confTop.length ? confTop.map(([o, n]) => `${o} ${name(o)} (${n})`).join(' · ') : '거의 없음'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+    </div>
   );
 }

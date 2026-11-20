@@ -109,7 +109,7 @@ export async function savePicks(picks: { ko: string; cat: string; season?: 'S' |
 
 // ---------- 비슷한 제품 찾기 ----------
 // 제품명을 글자 2개씩 묶음(한글) + 단어(영문·숫자 빼고)로 나눠서 겹치는 정도로 비교
-const gramsOf = (name: string) => {
+export const gramsOf = (name: string) => {
   const s = new Set<string>();
   const words = name
     .toLowerCase()
