@@ -159,6 +159,11 @@ service cloud.firestore {
     match /weatherNow/{id} {
       allow read: if isAny();
     }
+    // 홈 설정 (생일 등): 누구나 읽고 관리자만 씀
+    match /homeCfg/{id} {
+      allow read: if isAny();
+      allow write: if isAdmin();
+    }
     match /exportMonthly/{id} {
       allow read: if isAny();
     }

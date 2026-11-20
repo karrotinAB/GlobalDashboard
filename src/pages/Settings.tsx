@@ -1,4 +1,6 @@
 import { SALES_CURRENCIES } from '../lib/sales';
+import { usePeople } from '../components/AddressBook';
+import { saveBirthdays, useBirthdays, type Birthday } from '../lib/birthdays';
 import { saveWorkTypes, useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_NAME, setViewAsMember, useAccess } from '../components/AuthGate';
@@ -137,6 +139,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       ) : (
       <>
       {access.email && <ChangePassword />}
+      {(access.role === 'admin' || access.role === null) && <BirthdaySection />}
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
         <table className="settings-table members-table">
@@ -1109,6 +1112,75 @@ function WorkTypesSection() {
         <p className="muted small" style={{ marginTop: 10 }}>
           목록에 없는데 업무에 적혀 있는 작업유형: {orphans.map((o) => `'${o}' (${used(o).length}개)`).join(', ')}
         </p>
+      )}
+    </section>
+  );
+}
+
+/** 생일 (관리자만): 당일 본인 홈 인사말이 생일 인사로 · 모두의 TODAY 카드에 '오늘 ○○ 생일이에요' */
+function BirthdaySection() {
+  const list = useBirthdays();
+  const { roles } = usePeople();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [md, setMd] = useState('');
+  const [err, setErr] = useState('');
+  const accounts = (roles ?? []).filter((r) => r.name).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  const save = (next: Birthday[]) => saveBirthdays(next).catch((e) => setErr(`저장하지 못했어요: ${(e as Error).message} — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)`));
+  const add = () => {
+    if (!name.trim() || !/^\d{2}-\d{2}$/.test(md)) return setErr('이름과 생일(월·일)을 넣어 주세요');
+    setErr('');
+    void save([...(list ?? []), { id: uid(), name: name.trim(), email: email.trim().toLowerCase() || undefined, md }]);
+    setName('');
+    setEmail('');
+    setMd('');
+  };
+  const sorted = [...(list ?? [])].sort((a, b) => a.md.localeCompare(b.md));
+  return (
+    <section className="card">
+      <h2>🎂 생일</h2>
+      <p className="muted small">관리자만 볼 수 있어요. 생일 당일에 본인 홈 인사말이 생일 인사로 바뀌고, 모두의 TODAY 카드에 '오늘 ○○ 생일이에요'가 떠요. (본인 인사말은 로그인 이메일로 알아봐요)</p>
+      {err && <p className="warn small">{err}</p>}
+      <div className="bday-add">
+        <select
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            const r = accounts.find((x) => x.email === e.target.value);
+            if (r?.name) setName(r.name);
+          }}
+        >
+          <option value="">계정에서 고르기 (선택)</option>
+          {accounts.map((r) => (
+            <option key={r.email} value={r.email}>
+              {r.name} ({r.email})
+            </option>
+          ))}
+        </select>
+        <input placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} />
+        <input type="date" title="생일 (연도는 상관없어요)" value={md ? `2000-${md}` : ''} onChange={(e) => setMd(e.target.value.slice(5, 10))} />
+        <button className="primary" onClick={add}>
+          ＋ 추가
+        </button>
+      </div>
+      {list === null ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : !sorted.length ? (
+        <p className="muted small">아직 넣은 생일이 없어요.</p>
+      ) : (
+        <ul className="bday-list">
+          {sorted.map((b) => (
+            <li key={b.id}>
+              <b>
+                {Number(b.md.slice(0, 2))}월 {Number(b.md.slice(3, 5))}일
+              </b>{' '}
+              {b.name} {b.email ? <span className="muted small">{b.email}</span> : <span className="muted small">(이메일 없음 — 인사말은 안 바뀜)</span>}
+              <button className="icon-btn" title="지우기" onClick={() => confirm(`${b.name} 생일을 지울까요?`) && void save((list ?? []).filter((x) => x.id !== b.id))}>
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

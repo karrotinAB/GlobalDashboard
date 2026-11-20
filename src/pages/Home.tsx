@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { birthdayGreeting, birthdaysOn, useBirthdays } from '../lib/birthdays';
 import { useWeather, weatherLine } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
 import SalesPanel from '../components/SalesPanel';
@@ -569,6 +570,10 @@ export function Hero({ title }: { title: string }) {
   // 기상청: 비 · 눈이 오거나 곧 오면 인사말 옆에
   const weather = useWeather();
   const wx = weather ? weatherLine(weather) : null;
+  // 생일: 오늘 생일인 사람 (TODAY 카드) · 내가 생일이면 인사말도 생일 인사로
+  const access = useAccess();
+  const bdays = birthdaysOn(useBirthdays(), todayIso);
+  const myBday = !!access.email && bdays.some((b) => b.email?.toLowerCase() === access.email);
   return (
     <>
     {/* 제목 + 오늘 / 이번주 구역 */}
@@ -576,7 +581,7 @@ export function Hero({ title }: { title: string }) {
       <h1>{title}</h1>
       <div className="hero-greet-row">
         <p className="hero-greet">
-          {greeting(seoul.h, seoul.mi)}
+          {myBday ? birthdayGreeting(seoul.h, seoul.mi) : greeting(seoul.h, seoul.mi)}
           {wx && <span className="hero-wx">{wx}</span>}
         </p>
         <a href="#/calendar" className="hero-cal" title="부서 구글 캘린더 일정 보기">
@@ -597,6 +602,7 @@ export function Hero({ title }: { title: string }) {
             </span>
             <span className="muted">{todayDate.getFullYear()}년 · 서울</span>
           </div>
+          {bdays.length > 0 && <div className="zone-bday">🎂 오늘 {bdays.map((b) => b.name).join(' · ')} 생일이에요</div>}
         </div>
         <div className="zone zone-week">
           <span className="zone-tag">THIS WEEK</span>
