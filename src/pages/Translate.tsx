@@ -828,7 +828,7 @@ function CatsTab() {
         </span>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
         <button className="primary" onClick={() => fileRef.current?.click()} title="대분류코드 · 대분류명 · 대분류 영문명 · 중분류코드 · 중분류명 · 중분류 영문명">
-          📤 분류표 엑셀 올리기
+          📤 카테고리 엑셀 올리기
         </button>
         <input ref={learnRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => (e.target.files?.[0] && void learn(e.target.files[0]), (e.target.value = ''))} />
         <button disabled={learning || !rows?.length} onClick={() => learnRef.current?.click()} title="제품명 · 제품코드 · 수출 대분류 · 수출 중분류 (· 시즌품구분) 칸이 있는 엑셀. 분류가 채워진 줄을 추천 예시로 넣어요">
@@ -852,7 +852,7 @@ function CatsTab() {
       ) : rows === null ? (
         <p className="muted small">불러오는 중…</p>
       ) : !rows.length ? (
-        <p className="muted small">아직 분류표가 없어요. [분류표 엑셀 올리기]로 넣어 주세요.</p>
+        <p className="muted small">아직 분류표가 없어요. [카테고리 엑셀 올리기]로 넣어 주세요.</p>
       ) : (
         <div className="tr-table-wrap">
           <table className="tr-table">
