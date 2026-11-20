@@ -81,6 +81,9 @@ export function normalize(it) {
  * 모든 페이지 받아서 저장. 페이지 사이에 쉬고 (gapMs), 받은 쪽은 바로 저장 (중간에 멈춰도 남음).
  * 다 못 받고 멈추면 skuMeta/main.resumePage 에 다음 쪽을 적어 두고, 다음에 거기서부터 이어서 받음.
  */
+/** 시즌품: 팀 · 대/중/소분류 이름 중 '시즌' 이 들어간 게 있으면 ('비시즌' 은 빼고) */
+export const isSeasonSku = (n) => [n.t, n.l, n.m, n.s].some((x) => x && /시즌/.test(x) && !/비시즌/.test(x));
+
 export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1500, budgetMs = 480000, wait = sleep } = {}) {
   const cfg = await skuCfg(db);
   const metaRef = db.doc('skuMeta/main');
@@ -93,6 +96,9 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
   let done = false;
   let stopped = '';
   let page = start;
+  // 시즌품 목록: skuSeason/main.codes { 제품코드: true } (처음부터 받을 때 비우고 다시 채움)
+  const seasonRef = db.doc('skuSeason/main');
+  if (start === 1) await seasonRef.set({ codes: {}, at: new Date().toISOString() });
   for (; page < start + maxPages; page++) {
     if (Date.now() - t0 > budgetMs) {
       stopped = '시간이 다 돼서';
@@ -112,9 +118,11 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
     if (page === 1 && list[0]) keys = Object.keys(list[0]).slice(0, 40);
     // 이 쪽의 제품을 앞 4자리 묶음 문서에 합쳐 저장 (다른 제품은 그대로)
     const chunks = new Map();
+    const season = {};
     for (const it of list) {
       const n = normalize(it);
       if (!n.code) continue;
+      if (isSeasonSku(n)) season[n.code] = true;
       const { code, ...info } = n;
       const p = code.slice(0, 4);
       if (!chunks.has(p)) chunks.set(p, {});
@@ -125,6 +133,7 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
       const batch = db.batch();
       const at = new Date().toISOString();
       for (const [p, items] of chunks) batch.set(db.doc(`skuInfo/${p}`), { items, at }, { merge: true });
+      if (Object.keys(season).length) batch.set(seasonRef, { codes: season, at }, { merge: true });
       await batch.commit();
     }
     if (list.length < PAGE_SIZE) {

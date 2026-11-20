@@ -61,7 +61,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
   }
 }
 import { useAccess } from '../components/AuthGate';
-import { syncSkuNow, useSku, useSkuMeta } from '../lib/sku';
+import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuSeason } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
@@ -212,6 +212,7 @@ function TranslateTab() {
   const cell = (row: { cells: unknown[] }, k: keyof Sheet['col']) => (sheet?.col[k] !== undefined ? String(row.cells[sheet.col[k]!] ?? '').trim() : '');
   // 비어 있는 칸이 있는 줄 + 자동 번역
   const hiddenSet = useMemo(() => new Set(hidden), [hidden]);
+  const seasonSet = useSkuSeason();
   const view = useMemo(() => {
     if (!sheet) return [];
     return sheet.rows.map((row) => {
@@ -228,13 +229,12 @@ function TranslateTab() {
       const skipped = tr0.unknown.filter((u) => hiddenSet.has(u));
       const en = skipped.length ? skipped.reduce((a, w) => a.split(`[${w}]`).join(''), tr0.en).replace(/\s{2,}/g, ' ').replace(/\s+([)\],.])/g, '$1').trim() : tr0.en;
       const tr = { ...tr0, en, unknown: tr0.unknown.filter((u) => !hiddenSet.has(u)), skipped };
-      // 시즌품구분: '01 시즌품' → S, '00 비시즌품' → N
-      const sv = cell(row, 'season');
-      const season: 'S' | 'N' | undefined = /비시즌/.test(sv) ? 'N' : /시즌/.test(sv) ? 'S' : undefined;
+      // 시즌: 제품 정보(getSkuList)의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품 (엑셀 시즌품구분은 안 씀)
+      const season = seasonOfCode(seasonSet, cell(row, 'code'));
       return { row, empty, ko, tr, cut, parens, season };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet, map, keys, keepParen, hiddenSet]);
+  }, [sheet, map, keys, keepParen, hiddenSet, seasonSet]);
   // 괄호 살리기/다시 빼기 (그 줄에 직접 고친 영문은 지우고 새로 번역)
   const toggleParen = (r: number, part: string) => {
     setKeepParen((x) => {
@@ -308,9 +308,9 @@ function TranslateTab() {
     const inFile = view
       .filter((v) => v.ko && cell(v.row, 'mainCode') && cell(v.row, 'subCode'))
       .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}`, season: v.season, pre: preOf(v) }));
-    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: p.season, pre: p.pre }))]);
+    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, picks]);
+  }, [view, picks, seasonSet]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
   const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
@@ -468,8 +468,8 @@ function TranslateTab() {
                 {codePre && !codePres.some(([k]) => k === codePre) && <option value={codePre}>{codePre}… (0줄)</option>}
               </select>
             )}
-            {sheet.col.season !== undefined && (
-              <select className={`tr-code-pre ${seasonF ? 'set' : ''}`} value={seasonF} onChange={(e) => (setSeasonF(e.target.value as '' | 'S' | 'N'), setPage(0))} title="시즌품구분으로 거르기">
+            {seasonSet && sheet.col.code !== undefined && (
+              <select className={`tr-code-pre ${seasonF ? 'set' : ''}`} value={seasonF} onChange={(e) => (setSeasonF(e.target.value as '' | 'S' | 'N'), setPage(0))} title="시즌으로 거르기 (제품 정보의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품)">
                 <option value="">시즌 전체</option>
                 <option value="S">🎄 시즌품만 ({view.filter((v) => v.season === 'S').length})</option>
                 <option value="N">비시즌품만</option>
@@ -522,7 +522,7 @@ function TranslateTab() {
                       )}
                       <td className="tr-ko-name" {...skuHover(cell(v.row, 'code'))}>
                         {v.season === 'S' && (
-                          <span className="tr-season" title="시즌품 (엑셀 시즌품구분)">
+                          <span className="tr-season" title="시즌 (제품 정보의 팀 · 대/중/소분류에 '시즌')">
                             🎄 시즌
                           </span>
                         )}
@@ -727,6 +727,7 @@ function DictTab() {
 /** 분류 탭: 수출 대분류·중분류 표 (엑셀로 올림) + 고른 기록 수 */
 function CatsTab() {
   const { email, accountName } = useAccess();
+  const seasonSet = useSkuSeason();
   const { rows, meta } = useCategories();
   const picks = useCatPicks();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -809,9 +810,8 @@ function CatsTab() {
               skipped++;
               continue;
             }
-            const sv = g(r, 'season');
             const code = g(r, 'code');
-            out.push({ ko, cat, season: /비시즌/.test(sv) ? 'N' : /시즌/.test(sv) ? 'S' : undefined, pre: /^\d{2}/.test(code) ? code.slice(0, 2) : undefined, code: code || undefined });
+            out.push({ ko, cat, season: seasonOfCode(seasonSet, code), pre: /^\d{2}/.test(code) ? code.slice(0, 2) : undefined, code: code || undefined });
           }
           break;
         }
@@ -841,7 +841,7 @@ function CatsTab() {
           📤 카테고리 엑셀 올리기
         </button>
         <input ref={learnRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => (e.target.files?.[0] && void learn(e.target.files[0]), (e.target.value = ''))} />
-        <button disabled={learning || !rows?.length} onClick={() => learnRef.current?.click()} title="제품명 · 제품코드 · 수출 대분류 · 수출 중분류 (· 시즌품구분) 칸이 있는 엑셀. 분류가 채워진 줄을 추천 예시로 넣어요">
+        <button disabled={learning || !rows?.length} onClick={() => learnRef.current?.click()} title="제품명 · 제품코드 · 수출 대분류 · 수출 중분류 칸이 있는 엑셀. 분류가 채워진 줄을 추천 예시로 넣어요">
           {learning ? '넣는 중…' : '📥 분류된 제품 엑셀로 추천 배우기'}
         </button>
       </div>
@@ -1120,6 +1120,7 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
 
 /** 분류 탭 › 제품명으로 찾기: 그 단어가 들어간 제품들이 어느 분류로 골라졌는지 (분류별 개수 · 제품명 예시) */
 function ProductCatFinder({ picks, rows, q0 = '' }: { picks: CatPick[]; rows: Cat[]; q0?: string }) {
+  const seasonSet = useSkuSeason();
   const [q, setQ] = useState(q0);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const word = q.trim();
@@ -1197,7 +1198,7 @@ function ProductCatFinder({ picks, rows, q0 = '' }: { picks: CatPick[]; rows: Ca
                         onClick={() => void copy(p)}
                       >
                         {copied === p.id ? `✓ ${p.code} 복사됨` : mark(p.ko)}
-                        {copied !== p.id && p.season === 'S' && <span className="tr-season">시즌</span>}
+                        {copied !== p.id && seasonOfCode(seasonSet, p.code) === 'S' && <span className="tr-season">시즌</span>}
                       </button>
                     ))}
                     {ps.length > SHOW && (
@@ -1318,6 +1319,7 @@ function SkuSyncBtn() {
 
 /** 분류 탭 › 로직: 추천이 어떻게 정해지는지 + 분류마다 반응하는 단어 · 코드 앞자리 · 헷갈리는 분류 (고른 기록으로 계산) */
 function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWord: (w: string) => void }) {
+  const seasonSet = useSkuSeason();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   const stats = useMemo(() => {
@@ -1331,7 +1333,7 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
     for (const p of list) {
       const c = byCat.get(p.cat) ?? { n: 0, season: 0, pres: new Map() };
       c.n++;
-      if (p.season === 'S') c.season++;
+      if (seasonOfCode(seasonSet, p.code) === 'S') c.season++;
       if (p.pre) {
         c.pres.set(p.pre, (c.pres.get(p.pre) ?? 0) + 1);
         const m = preCat.get(p.pre) ?? new Map();
@@ -1369,7 +1371,7 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
       if (all >= 3 && n / all >= 0.6) preRule.set(cat, [...(preRule.get(cat) ?? []), { pre, n, all }]);
     }
     return { total: list.length, byCat, words, preRule, wordCat };
-  }, [picks]);
+  }, [picks, seasonSet]);
   const name = (k: string) => {
     const c = rows.find((x) => catKey(x) === k);
     return c ? `${c.mainName} › ${c.subName}` : '(분류표에 없음)';
@@ -1392,7 +1394,7 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
             기록된 제품들과 겹치는 정도(짧은 쪽 기준 겹침 × 전체 닮음)를 재고, 분류마다 가장 비슷한 제품 점수 + 비슷한 제품 수를 더해 제일 높은 분류를 추천해요. 0.2 밑은 무시, 제일 비슷한 게 0.3 밑이면 ③으로.
           </li>
           <li>
-            <b>보정</b>: 시즌품구분이 같으면 ×1.15 · 다르면 ×0.7 / 제품코드 앞 2자리가 같으면 ×1.15 · 다르면 ×0.9
+            <b>보정</b>: 시즌 여부(제품 정보의 팀·분류에 '시즌')가 같으면 ×1.15 · 다르면 ×0.7 / 제품코드 앞 2자리가 같으면 ×1.15 · 다르면 ×0.9
           </li>
           <li>
             <b>코드 앞자리 대체</b>: 글자로 못 찾으면 같은 코드 앞 2자리 제품(3개 이상) 중 60% 이상이 간 분류 (점수 30%)

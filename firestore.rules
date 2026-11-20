@@ -149,6 +149,9 @@ service cloud.firestore {
     match /skuMeta/{id} {
       allow read: if isAny();
     }
+    match /skuSeason/{id} {
+      allow read: if isAny();
+    }
     match /exportMonthly/{id} {
       allow read: if isAny();
     }

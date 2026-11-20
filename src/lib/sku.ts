@@ -50,6 +50,31 @@ export function useSku(code: string | null): SkuInfo | null | undefined {
   return v && v.code === normCode(code) ? v.info : undefined;
 }
 
+/** 시즌품 제품코드 (제품 정보의 팀 · 대/중/소분류에 '시즌' — '비시즌' 은 빼고). null = 아직 못 받음 */
+let seasonCache: Set<string> | null = null;
+export function useSkuSeason(): Set<string> | null {
+  const [set, setSet] = useState<Set<string> | null>(seasonCache);
+  useEffect(() => {
+    if (DATA_MODE === 'local') {
+      // 로컬 테스트: 코드 끝자리가 7 이면 시즌품
+      setSet({ has: (c: string) => c.endsWith('7') } as unknown as Set<string>);
+      return;
+    }
+    return onSnapshot(
+      doc(db, 'skuSeason', 'main'),
+      (d) => {
+        const codes = d.get('codes') as Record<string, boolean> | undefined;
+        seasonCache = d.exists() ? new Set(Object.keys(codes ?? {})) : null;
+        setSet(seasonCache);
+      },
+      () => setSet(null),
+    );
+  }, []);
+  return set;
+}
+/** 제품코드 → 시즌(S) / 비시즌(N) / 모름 */
+export const seasonOfCode = (set: Set<string> | null, code?: string): 'S' | 'N' | undefined => (set && code ? (set.has(code.trim()) ? 'S' : 'N') : undefined);
+
 /** 마지막으로 받은 때 · 개수 */
 export function useSkuMeta() {
   const [m, setM] = useState<{ at?: string; count?: number; keys?: string[] } | null>(null);
@@ -76,7 +101,7 @@ function demoChunk(prefix: string): Chunk {
   const out: Chunk = {};
   for (let i = 0; i < 10000; i++) {
     const code = `${prefix}${String(i).padStart(4, '0')}`;
-    out[code] = { i: `https://picsum.photos/seed/${code}/300/300`, t: '디자인지제', l: '지제', m: '카드', s: '일반카드' };
+    out[code] = { i: `https://picsum.photos/seed/${code}/300/300`, t: '디자인지제', l: '지제', m: '카드', s: code.endsWith('7') ? '시즌카드' : '일반카드' };
   }
   return out;
 }
