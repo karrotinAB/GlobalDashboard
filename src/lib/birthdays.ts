@@ -68,5 +68,5 @@ export function birthdayGreeting(h: number, m: number) {
   if (t < LUNCH_END) return '생일밥 야무지게 드세요 🍚';
   if (t < LUNCH_END + 60) return '행복한 점심이었나요? 😊';
   if (t < 18 * 60) return '조금만 더 힘내요 💪';
-  return '생일날 퇴근이라니! 너무 고생했어요 🌙';
+  return '생일날 출근이라니! 너무 고생했어요 🌙';
 }
