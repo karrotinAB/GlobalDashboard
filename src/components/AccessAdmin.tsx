@@ -295,13 +295,39 @@ function BirthdayInput({ email, name, list, onError }: { email: string; name?: s
     const next = md ? [...rest, { id: cur?.id ?? uid(), name: name || email.split('@')[0], email: email.toLowerCase(), md }] : rest;
     saveBirthdays(next).catch((e) => onError(`생일 저장 실패: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`));
   };
+  // 월 · 일만 고르기 (연도 없음). 둘 다 고르면 저장, 월을 비우면 지움
+  const [mm, setMm] = useState(cur?.md.slice(0, 2) ?? '');
+  const [dd, setDd] = useState(cur?.md.slice(3, 5) ?? '');
+  useEffect(() => {
+    setMm(cur?.md.slice(0, 2) ?? '');
+    setDd(cur?.md.slice(3, 5) ?? '');
+  }, [cur?.md]);
+  const pick = (m: string, d: string) => {
+    setMm(m);
+    setDd(d);
+    if (!m) return save('');
+    if (m && d) save(`${m}-${d}`);
+  };
+  const days = mm ? new Date(2000, Number(mm), 0).getDate() : 31; // 2월은 29일까지
+  const two = (n: number) => String(n).padStart(2, '0');
   return (
-    <input
-      type="date"
-      className="bday-input"
-      title="생일 (연도는 상관없어요 · 당일 본인 인사말이 생일 인사로, TODAY 카드에 '오늘 ○○ 생일이에요')"
-      value={cur ? `2000-${cur.md}` : ''}
-      onChange={(e) => save(e.target.value ? e.target.value.slice(5, 10) : '')}
-    />
+    <span className="bday-input" title="생일 (당일 본인 인사말이 생일 인사로, TODAY 카드에 '오늘 ○○ 생일이에요')">
+      <select value={mm} onChange={(e) => pick(e.target.value, dd && Number(dd) <= new Date(2000, Number(e.target.value), 0).getDate() ? dd : '')}>
+        <option value="">월</option>
+        {Array.from({ length: 12 }, (_, i) => (
+          <option key={i} value={two(i + 1)}>
+            {i + 1}월
+          </option>
+        ))}
+      </select>
+      <select value={dd} disabled={!mm} onChange={(e) => pick(mm, e.target.value)}>
+        <option value="">일</option>
+        {Array.from({ length: days }, (_, i) => (
+          <option key={i} value={two(i + 1)}>
+            {i + 1}일
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }

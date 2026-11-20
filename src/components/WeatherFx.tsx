@@ -71,7 +71,17 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     // 빗방울
     const drops: Drop[] = [];
     const bigs: Big[] = [];
-    const maxDrops = () => Math.round(((W * H) / 3400) * k);
+    // 세기별 차이: 약하게 = 드문드문 · 보통 · 강하게 = 타닥타닥 (빨리 맺히고, 맺힐 때 튀김 링 · 오래된 물방울은 새 걸로 바뀜)
+    const P = (
+      {
+        1: { spawn: 5, dens: 6000, big: 0.25, bigMax: 3, splash: 0, pop: 1.5 },
+        2: { spawn: 14, dens: 3400, big: 0.5, bigMax: 6, splash: 0.35, pop: 3 },
+        3: { spawn: 55, dens: 2000, big: 1.3, bigMax: 12, splash: 1, pop: 9 },
+      } as const
+    )[level];
+    const m = small ? 0.5 : 1;
+    const maxDrops = () => Math.round(((W * H) / P.dens) * m);
+    const splashes: { x: number; y: number; r: number; t: number }[] = [];
     const addDrop = (x = rnd(0, W), y = rnd(0, H), r = rnd(1.2, 3.8), a = 0) => drops.push({ x, y, r, a });
     const addBig = () => bigs.push({ x: rnd(10, W - 10), y: rnd(-10, H * 0.55), r: rnd(5, 8), seed: rnd(0, 1000), hold: rnd(0.3, 1.5), move: 0, vy: 0, lastTrail: 0 });
     if (rain) for (let i = 0; i < maxDrops() * 0.6; i++) addDrop(undefined, undefined, undefined, 1);
@@ -121,19 +131,41 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
 
       if (rain) {
         // 1) 작은 물방울이 하나씩 맺힘
-        spawnAcc += dt * 14 * k;
+        spawnAcc += dt * P.spawn * m;
         while (spawnAcc > 1) {
           spawnAcc--;
-          if (drops.length < maxDrops()) addDrop();
+          // 꽉 찼으면 오래된 물방울 하나를 지우고 새로 (계속 타닥타닥)
+          if (drops.length >= maxDrops()) {
+            if (level < 3) continue;
+            drops.splice(Math.floor(Math.random() * drops.length), 1);
+          }
+          addDrop();
+          const d = drops[drops.length - 1];
+          if (Math.random() < P.splash) splashes.push({ x: d.x, y: d.y, r: d.r, t: 0 });
+        }
+        // 맺힐 때 튀김 링 (0.25초 동안 퍼지며 사라짐)
+        for (let i = splashes.length - 1; i >= 0; i--) {
+          const sp = splashes[i];
+          sp.t += dt;
+          const q = sp.t / 0.25;
+          if (q >= 1) {
+            splashes.splice(i, 1);
+            continue;
+          }
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y, sp.r * (1.2 + q * 2.2), 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.45 * (1 - q)})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
         }
         // 2) 가끔 큰 물방울 (옆 물방울을 먹으면서 커지는 느낌)
-        bigAcc += dt * 0.45 * k;
-        if (bigAcc > 1 && bigs.length < 6 * k) {
+        bigAcc += dt * P.big * m;
+        if (bigAcc > 1 && bigs.length < P.bigMax * m) {
           bigAcc = 0;
           addBig();
         }
         for (const d of drops) {
-          if (d.a < 1) d.a = Math.min(1, d.a + dt * 1.5);
+          if (d.a < 1) d.a = Math.min(1, d.a + dt * P.pop);
           drawDrop(d.x, d.y, d.r, d.a);
         }
         // 3) 큰 물방울: 멈췄다 툭 미끄러졌다 (또르륵) · 지나가며 작은 물방울을 먹고 자국을 남김
