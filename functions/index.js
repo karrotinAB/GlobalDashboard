@@ -736,7 +736,7 @@ export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '*/30 1-5 * * *'
 export const syncSkuNow = onCall(skuOpts, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   try {
-    return await syncSku(db, { maxPages: 10 });
+    return await syncSku(db, { maxPages: 10, restart: !!req.data?.restart });
   } catch (e) {
     throw new HttpsError('failed-precondition', e.message);
   }

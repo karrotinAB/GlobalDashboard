@@ -61,7 +61,29 @@ async function fetchPage(cfg, page, fetchImpl, { wait = sleep } = {}) {
 }
 
 /** 한 줄 → { code, i, t, l, m, s } (칸 이름 대소문자 · 밑줄 달라도) */
-export function normalize(it) {
+/** 안쪽 묶음까지 한 겹으로 펼치기 ({ category: { teamName } } → teamName · 배열이면 첫 칸) */
+export function flatten(it, depth = 0, out = {}) {
+  for (const [k, v] of Object.entries(it ?? {})) {
+    const x = Array.isArray(v) && v.length && typeof v[0] === 'object' ? v[0] : v;
+    if (x && typeof x === 'object' && !Array.isArray(x)) {
+      if (depth < 3) flatten(x, depth + 1, out);
+    } else if (!(k in out) || out[k] === '' || out[k] == null) out[k] = x;
+  }
+  return out;
+}
+/** 확인용: 칸 이름들 (안쪽은 '바깥.안쪽') */
+export function keyPaths(it, pre = '', depth = 0) {
+  const out = [];
+  for (const [k, v] of Object.entries(it ?? {})) {
+    const x = Array.isArray(v) && v.length && typeof v[0] === 'object' ? v[0] : v;
+    if (x && typeof x === 'object' && !Array.isArray(x) && depth < 3) out.push(...keyPaths(x, `${pre}${k}.`, depth + 1));
+    else out.push(`${pre}${k}`);
+  }
+  return out;
+}
+
+export function normalize(raw) {
+  const it = flatten(raw);
   const pick = (re) => {
     const k = keyOf(it, re);
     return k ? String(it[k] ?? '').trim() : '';
@@ -70,10 +92,10 @@ export function normalize(it) {
   return {
     code,
     i: pick(/^(imageurl|imgurl|image|img|thumbnail|thumburl)$/i),
-    t: pick(/^teamname$/i),
-    l: pick(/^largename$/i),
-    m: pick(/^middlename$/i),
-    s: pick(/^smallname$/i),
+    t: pick(/^team(name|nm)$/i),
+    l: pick(/^(large|lclass|lcls|big)(name|nm)$/i),
+    m: pick(/^(middle|mid|mclass|mcls)(name|nm)$/i),
+    s: pick(/^(small|sclass|scls)(name|nm)$/i),
   };
 }
 
@@ -84,11 +106,11 @@ export function normalize(it) {
 /** 시즌품: 팀 · 대/중/소분류 이름 중 '시즌' 이 들어간 게 있으면 ('비시즌' 은 빼고) */
 export const isSeasonSku = (n) => [n.t, n.l, n.m, n.s].some((x) => x && /시즌/.test(x) && !/비시즌/.test(x));
 
-export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1500, budgetMs = 480000, wait = sleep } = {}) {
+export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1500, budgetMs = 480000, wait = sleep, restart = false } = {}) {
   const cfg = await skuCfg(db);
   const metaRef = db.doc('skuMeta/main');
   const meta = (await metaRef.get()).data() ?? {};
-  const start = Number(meta.resumePage) > 1 ? Number(meta.resumePage) : 1;
+  const start = !restart && Number(meta.resumePage) > 1 ? Number(meta.resumePage) : 1;
   const t0 = Date.now();
   let pages = 0;
   let count = 0;
@@ -115,7 +137,7 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
       throw e;
     }
     pages++;
-    if (page === 1 && list[0]) keys = Object.keys(list[0]).slice(0, 40);
+    if (page === start && list[0]) keys = keyPaths(list[0]).slice(0, 60);
     // 이 쪽의 제품을 앞 4자리 묶음 문서에 합쳐 저장 (다른 제품은 그대로)
     const chunks = new Map();
     const season = {};

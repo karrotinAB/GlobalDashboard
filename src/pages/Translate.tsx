@@ -1291,28 +1291,35 @@ function SkuSyncBtn() {
   const meta = useSkuMeta();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const run = async (restart: boolean) => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const r = await syncSkuNow(restart);
+      const head = r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `1차로 ${r.count.toLocaleString()}개 받았어요 ✓ 나머지(${r.nextPage}쪽부터)는 새벽에 자동으로 받아요${r.stopped && !r.stopped.includes('다 못') ? ` (${r.stopped})` : ''}`;
+      setMsg(`${head} · 받은 칸: ${r.keys.join(', ')}`);
+    } catch (e) {
+      setMsg(`못 받았어요: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <>
       <button
         className="tr-dl"
         disabled={busy}
-        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 새로 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}`}
-        onClick={async () => {
-          setBusy(true);
-          setMsg('');
-          try {
-            const r = await syncSkuNow();
-            setMsg(r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `1차로 ${r.count.toLocaleString()}개 받았어요 ✓ 나머지(${r.nextPage}쪽부터)는 새벽에 자동으로 받아요${r.stopped && !r.stopped.includes('다 못') ? ` (${r.stopped})` : ''}`);
-          } catch (e) {
-            setMsg(`못 받았어요: ${(e as Error).message}`);
-          } finally {
-            setBusy(false);
-          }
-        }}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}${meta?.keys?.length ? `\n받은 칸: ${meta.keys.join(', ')}` : ''}`}
+        onClick={() => void run(false)}
       >
         {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}
       </button>
-      {msg && <span className="small">{msg}</span>}
+      {!busy && (
+        <button className="link small" onClick={() => confirm('제품 정보를 1쪽부터 다시 받을까요? (1차 10쪽은 지금, 나머지는 새벽에)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
+          처음부터 다시
+        </button>
+      )}
+      {msg && <span className="small tr-sku-msg">{msg}</span>}
     </>
   );
 }

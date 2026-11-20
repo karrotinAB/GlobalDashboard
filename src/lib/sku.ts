@@ -90,8 +90,8 @@ export function useSkuMeta() {
 }
 
 /** 관리자: 지금 제품 정보 새로 받기 */
-export async function syncSkuNow() {
-  const r = await httpsCallable(functions, 'syncSkuNow', { timeout: 560000 })({});
+export async function syncSkuNow(restart = false) {
+  const r = await httpsCallable(functions, 'syncSkuNow', { timeout: 560000 })({ restart });
   cache.clear();
   return r.data as { count: number; pages: number; done: boolean; nextPage: number | null; stopped: string; keys: string[] };
 }

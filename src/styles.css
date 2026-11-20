@@ -8392,3 +8392,4 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 .tr-logic-word.strong small { color: #f6dede; }
 .tr-logic-word.weak { background: #fff; color: var(--mut); }
 .tr-logic-facts { display: grid; gap: 3px; font-size: 12.5px; }
+.tr-sku-msg { max-width: 520px; word-break: break-all; }
