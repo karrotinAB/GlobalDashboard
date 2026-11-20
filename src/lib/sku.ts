@@ -102,12 +102,12 @@ export const seasonOfCode = (set: Set<string> | null, code?: string): 'S' | 'N' 
 
 /** 마지막으로 받은 때 · 개수 */
 export function useSkuMeta() {
-  const [m, setM] = useState<{ at?: string; count?: number; keys?: string[] } | null>(null);
+  const [m, setM] = useState<{ at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[] } | null>(null);
   useEffect(() => {
     if (DATA_MODE === 'local') return;
     return onSnapshot(
       doc(db, 'skuMeta', 'main'),
-      (d) => setM((d.data() as { at?: string; count?: number; keys?: string[] }) ?? {}),
+      (d) => setM((d.data() as { at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[] }) ?? {}),
       () => setM({}),
     );
   }, []);
@@ -118,7 +118,7 @@ export function useSkuMeta() {
 export async function syncSkuNow(restart = false) {
   const r = await httpsCallable(functions, 'syncSkuNow', { timeout: 560000 })({ restart });
   cache.clear();
-  return r.data as { count: number; pages: number; done: boolean; nextPage: number | null; stopped: string; keys: string[] };
+  return r.data as { count: number; pages: number; done: boolean; nextPage: number | null; stopped: string; keys: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[] };
 }
 
 // 로컬 테스트용 예시

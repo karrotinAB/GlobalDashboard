@@ -129,6 +129,8 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
   let done = false;
   let stopped = '';
   let page = start;
+  let noCat = start > 1 ? Number(meta.noCat ?? 0) : 0;
+  const noCatSamples = start > 1 ? [...(meta.noCatSamples ?? [])].slice(0, 3) : [];
   // 시즌품 목록: skuSeason/main.codes { 제품코드: true } (처음부터 받을 때 비우고 다시 채움)
   const seasonRef = db.doc('skuSeason/main');
   if (start === 1) await seasonRef.set({ codes: {}, at: new Date().toISOString() });
@@ -158,7 +160,11 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
       const n = normalize(it);
       if (!n.code) continue;
       if (isSeasonSku(n)) season[n.code] = true;
-      if (n.l || n.m || n.s) {
+      if (!n.l && !n.m && !n.s) {
+        // 확인용: 분류가 비어서 온 제품 수 · 예시 3개 (category 원래 모양)
+        noCat++;
+        if (noCatSamples.length < 3) noCatSamples.push({ code: n.code, category: JSON.stringify(it.category ?? it.Category ?? null).slice(0, 300) });
+      } else {
         const p2 = n.code.slice(0, 2);
         if (!paths.has(p2)) paths.set(p2, {});
         paths.get(p2)[n.code] = [n.l, n.m, n.s].join('›');
@@ -188,8 +194,8 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
   const total = (start > 1 ? Number(meta.partialCount ?? 0) : 0) + count;
   await metaRef.set(
     done
-      ? { at, count: total, pages: page, keys, resumePage: 1, partialCount: 0, stopped: '' }
-      : { ...meta, keys, resumePage: page, partialCount: total, stopped: stopped || '다 못 받음', triedAt: at },
+      ? { at, count: total, pages: page, keys, resumePage: 1, partialCount: 0, stopped: '', noCat, noCatSamples }
+      : { ...meta, keys, resumePage: page, partialCount: total, stopped: stopped || '다 못 받음', triedAt: at, noCat, noCatSamples },
   );
-  return { count: total, pages, done, nextPage: done ? null : page, stopped, keys, at };
+  return { count: total, pages, done, nextPage: done ? null : page, stopped, keys, at, noCat, noCatSamples };
 }

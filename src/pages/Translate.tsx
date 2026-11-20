@@ -1311,7 +1311,7 @@ function SkuSyncBtn() {
     try {
       const r = await syncSkuNow(restart);
       const head = r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `1차로 ${r.count.toLocaleString()}개 받았어요 ✓ 나머지(${r.nextPage}쪽부터)는 새벽에 자동으로 받아요${r.stopped && !r.stopped.includes('다 못') ? ` (${r.stopped})` : ''}`;
-      setMsg(`${head} · 받은 칸: ${r.keys.join(', ')}`);
+      setMsg(`${head}${r.noCat ? ` · 분류가 비어서 온 제품 ${r.noCat.toLocaleString()}개 (예: ${(r.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ' · 모든 제품에 분류가 있어요'}`);
     } catch (e) {
       setMsg(`못 받았어요: ${(e as Error).message}`);
     } finally {
@@ -1323,7 +1323,7 @@ function SkuSyncBtn() {
       <button
         className="tr-dl"
         disabled={busy}
-        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}${meta?.keys?.length ? `\n받은 칸: ${meta.keys.join(', ')}` : ''}`}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}${meta?.keys?.length ? `\n받은 칸: ${meta.keys.join(', ')}` : ''}${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
         onClick={() => void run(false)}
       >
         {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}
