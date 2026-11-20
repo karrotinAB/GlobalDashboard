@@ -1295,7 +1295,7 @@ function SkuSyncBtn() {
       <button
         className="tr-dl"
         disabled={busy}
-        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 새로 받아요 (매주 월요일 아침 자동)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}`}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 새로 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}`}
         onClick={async () => {
           setBusy(true);
           setMsg('');
