@@ -1,8 +1,8 @@
-// 헤더(커버) 날씨 효과: 눈 · 유리창에 맺혀 또르륵 흘러내리는 빗방울 · 진눈깨비
+// 헤더(커버) 날씨 효과: 눈 · 유리창에 맺혀 또르륵 흘러내리는 빗방울
 //   지금은 실험용 (관리자가 설정 > 헤더 날씨 효과에서 켜면 그 브라우저에서만 보임)
 import { useEffect, useRef, useState } from 'react';
 
-export type FxMode = 'off' | 'rain' | 'snow' | 'sleet';
+export type FxMode = 'off' | 'rain' | 'snow';
 export type FxLevel = 1 | 2 | 3; // 약 · 보통 · 강
 
 // ---------- 실험 설정 (이 브라우저에만 저장) ----------
@@ -11,7 +11,7 @@ const EVT = 'gd-wxfx';
 export function readFx(): { mode: FxMode; level: FxLevel } {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '{}') as { mode?: FxMode; level?: FxLevel };
-    return { mode: v.mode ?? 'off', level: v.level ?? 2 };
+    return { mode: v.mode === 'rain' || v.mode === 'snow' ? v.mode : 'off', level: v.level ?? 2 };
   } catch {
     return { mode: 'off', level: 2 };
   }
@@ -65,20 +65,20 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     ro.observe(cv);
 
     const k = level * (small ? 0.5 : 1); // 세기 (휴대폰은 반)
-    const rain = mode === 'rain' || mode === 'sleet';
-    const snow = mode === 'snow' || mode === 'sleet';
+    const rain = mode === 'rain';
+    const snow = mode === 'snow';
 
     // 빗방울
     const drops: Drop[] = [];
     const bigs: Big[] = [];
-    const maxDrops = () => Math.round(((W * H) / 2200) * k * (mode === 'sleet' ? 0.6 : 1));
-    const addDrop = (x = rnd(0, W), y = rnd(0, H), r = rnd(0.7, 2.4), a = 0) => drops.push({ x, y, r, a });
-    const addBig = () => bigs.push({ x: rnd(10, W - 10), y: rnd(-10, H * 0.55), r: rnd(3, 5), seed: rnd(0, 1000), hold: rnd(0.3, 1.5), move: 0, vy: 0, lastTrail: 0 });
+    const maxDrops = () => Math.round(((W * H) / 3400) * k);
+    const addDrop = (x = rnd(0, W), y = rnd(0, H), r = rnd(1.2, 3.8), a = 0) => drops.push({ x, y, r, a });
+    const addBig = () => bigs.push({ x: rnd(10, W - 10), y: rnd(-10, H * 0.55), r: rnd(5, 8), seed: rnd(0, 1000), hold: rnd(0.3, 1.5), move: 0, vy: 0, lastTrail: 0 });
     if (rain) for (let i = 0; i < maxDrops() * 0.6; i++) addDrop(undefined, undefined, undefined, 1);
 
     // 눈
     const flakes: Flake[] = [];
-    const nFlakes = () => Math.round((W / 14) * k * (mode === 'sleet' ? 0.5 : 1));
+    const nFlakes = () => Math.round((W / 14) * k);
     const addFlake = (y = rnd(-H, H)) => {
       const r = rnd(0.8, 3.6);
       flakes.push({ x: rnd(0, W), y, r, vy: 8 + r * 6 * rnd(0.8, 1.2), ph: rnd(0, Math.PI * 2), amp: rnd(4, 14), al: rnd(0.5, 0.9) });
@@ -101,7 +101,7 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
       ctx.ellipse(x, y, r, ry, 0, 0, Math.PI * 2);
       ctx.fillStyle = g;
       ctx.fill();
-      if (r > 1.6) {
+      if (r > 1.8) {
         ctx.beginPath();
         ctx.arc(x - r * 0.35, y - ry * 0.4, Math.max(0.5, r * 0.22), 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
@@ -160,16 +160,16 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
               const dx = d.x - b.x;
               const dyy = d.y - b.y;
               if (dx * dx + dyy * dyy < (b.r + d.r) * (b.r + d.r)) {
-                b.r = Math.min(7, Math.sqrt(b.r * b.r + d.r * d.r * 0.5));
+                b.r = Math.min(11, Math.sqrt(b.r * b.r + d.r * d.r * 0.5));
                 drops.splice(j, 1);
               }
             }
             // 지나간 자국
-            if (b.y - b.lastTrail > rnd(6, 12)) {
+            if (b.y - b.lastTrail > rnd(9, 16)) {
               b.lastTrail = b.y;
               if (Math.random() < 0.55) {
-                addDrop(b.x + rnd(-1, 1), b.y - b.r * 1.6, rnd(0.5, 1.3), 1);
-                b.r = Math.max(2.5, b.r - 0.04);
+                addDrop(b.x + rnd(-1.5, 1.5), b.y - b.r * 1.6, rnd(0.9, 2), 1);
+                b.r = Math.max(4, b.r - 0.05);
               }
             }
           }

@@ -1131,7 +1131,6 @@ function WeatherFxSection() {
               ['off', '끔'],
               ['rain', '☔ 비'],
               ['snow', '❄️ 눈'],
-              ['sleet', '🌨️ 진눈깨비'],
             ] as [FxMode, string][]
           ).map(([k, l]) => (
             <button key={k} className={fx.mode === k ? 'on' : ''} onClick={() => set({ mode: k })}>
