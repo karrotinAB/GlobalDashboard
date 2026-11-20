@@ -8,7 +8,7 @@ import { isLeader, useAccess } from '../components/AuthGate';
 import { isPersonal } from '../lib/team';
 import { useFullName } from './Petty';
 import { Modal } from '../components/ui';
-import { useLookups } from '../data/store';
+import { useLookups, useSpaceData } from '../data/store';
 import { today, uid } from '../lib/date';
 import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type ClipFolder, type Contract, type ContractFile, canSeeFolder, canSetFolderVis, FOLDER_VIS } from '../lib/contracts';
 
@@ -173,10 +173,43 @@ function useCtScope() {
       /* 무시 */
     }
   };
-  // 팀장님 · 이사님 공간: 조 구분 없이 모든 계약서 (버튼도 안 보임)
+  // 팀장님 · 이사님 공간: 모든 계약서 + 전체 / 1조 / 2조 / 3조 고르기
   const leaderSpace = isLeader(access.role) || isPersonal(access.viewTeam);
   const isMine = (c: Contract) => (c.team ? c.team === access.viewTeam : myCos.some((m) => m.name === c.company));
-  const seg = (onChange?: () => void) => (leaderSpace ? null : (
+  const [teamF, setTeamFState] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gd:ctTeamF') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const setTeamF = (t: string) => {
+    setTeamFState(t);
+    try {
+      localStorage.setItem('gd:ctTeamF', t);
+    } catch {
+      /* 무시 */
+    }
+  };
+  // 조 기록이 없는 예전 계약서는 업체 이름으로 어느 조 업체인지 찾음 (팀장님 · 이사님 화면에서만 읽음)
+  const t1 = useSpaceData('1', leaderSpace ? ['companies'] : []).data.companies;
+  const t2 = useSpaceData('2', leaderSpace ? ['companies'] : []).data.companies;
+  const t3 = useSpaceData('3', leaderSpace ? ['companies'] : []).data.companies;
+  const teamOf = (c: Contract): string | undefined => {
+    if (c.team && ['1', '2', '3'].includes(c.team)) return c.team;
+    const by: [string, { name: string }[] | undefined][] = [['1', t1], ['2', t2], ['3', t3]];
+    return by.find(([, cos]) => (cos ?? []).some((x) => x.name === c.company))?.[0];
+  };
+  const keep = (c: Contract) => (leaderSpace ? !teamF || teamOf(c) === teamF : scope === 'all' || isMine(c));
+  const seg = (onChange?: () => void) => (leaderSpace ? (
+    <div className="seg ct-scope">
+      {['', '1', '2', '3'].map((t) => (
+        <button key={t || 'all'} className={teamF === t ? 'on' : ''} onClick={() => (setTeamF(t), onChange?.())}>
+          {t ? `${t}조` : '전체'}
+        </button>
+      ))}
+    </div>
+  ) : (
     <div className="seg ct-scope">
       {(['mine', 'all'] as const).map((k) => (
         <button key={k} className={scope === k ? 'on' : ''} onClick={() => (setScope(k), onChange?.())}>
@@ -185,17 +218,17 @@ function useCtScope() {
       ))}
     </div>
   ));
-  return { scope: leaderSpace ? ('all' as const) : scope, isMine, seg, access, myCos };
+  return { scope: leaderSpace ? ('all' as const) : scope, isMine, keep, teamOf, leaderSpace, teamF, seg, access, myCos };
 }
 
 function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => void }) {
-  const { scope, isMine, seg, access, myCos } = useCtScope();
+  const { keep, teamF, seg, access, myCos } = useCtScope();
   const [q, setQ] = useState('');
   const [co, setCo] = useState('');
   const [onlyNew, setOnlyNew] = useState(false); // 최신 버전만
   const [onlyMain, setOnlyMain] = useState(false); // 주요 계약서만
   const groups = useMemo(() => expandQuery(q), [q]);
-  const companies = [...new Set(list.filter((c) => scope === 'all' || isMine(c)).map((c) => c.company))];
+  const companies = [...new Set(list.filter(keep).map((c) => c.company))];
   // 업체 → [계약서, 맞는 조항들] — 보여주는 건 원문, 번역본은 같은 순서의 조항 (번역 버튼)
   type Part = { head: string; body: string[]; section?: boolean };
   const results = useMemo(() => {
@@ -209,7 +242,7 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
     const hit = (a?: Part) => !!a && groups.every((g) => has(`${a.head}\n${a.body.join('\n')}`, g));
     for (const c of list) {
       if (co && c.company !== co) continue;
-      if (scope === 'mine' && !isMine(c)) continue;
+      if (!keep(c)) continue;
       if (onlyNew && !c.latest) continue;
       if (onlyMain && !c.main) continue;
       const O = partsOf(c.text);
@@ -226,7 +259,7 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list, groups, co, onlyNew, onlyMain, scope, access.viewTeam, myCos]);
+  }, [list, groups, co, onlyNew, onlyMain, keep, teamF, access.viewTeam, myCos]);
   return (
     <>
       <div className="card ct-search">
@@ -309,8 +342,8 @@ function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: str
 }
 
 function ByCompany({ list: all, onOpen, onAdd }: { list: Contract[]; onOpen: (id: string) => void; onAdd: (company: string) => void }) {
-  const { scope, isMine, seg } = useCtScope();
-  const list = scope === 'all' ? all : all.filter(isMine);
+  const { keep, seg, teamOf, leaderSpace } = useCtScope();
+  const list = all.filter(keep);
   const byCo = new Map<string, Contract[]>();
   for (const c of list) byCo.set(c.company, [...(byCo.get(c.company) ?? []), c]);
   if (!all.length) return <p className="card muted">아직 올린 계약서가 없어요. '＋ 계약서 올리기'로 시작해요.</p>;
@@ -326,7 +359,10 @@ function ByCompany({ list: all, onOpen, onAdd }: { list: Contract[]; onOpen: (id
       {[...byCo.entries()].map(([co, cs]) => (
         <section key={co} className="card ct-co">
           <div className="ct-co-head">
-            <h2>{co}</h2>
+            <h2>
+              {co}
+              {leaderSpace && teamOf(cs[0]) && <span className="tag gray small ct-team-tag">{teamOf(cs[0])}조</span>}
+            </h2>
             <button className="link small" onClick={() => onAdd(co)}>
               ＋ 이 업체에 계약서 더 올리기
             </button>

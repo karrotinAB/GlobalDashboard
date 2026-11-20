@@ -8426,3 +8426,4 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 @media (prefers-reduced-motion: reduce) { .lights-fx .lf-bulb, .lights-fx .lf-glow { animation: none; } }
 .rp-guide .rp-guide-break { flex-basis: 100%; height: 0; }
 @media (max-width: 600px) { .rp-guide .rp-guide-break { display: none; } }
+.ct-team-tag { margin-left: 8px; vertical-align: 3px; }
