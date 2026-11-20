@@ -4,7 +4,7 @@ import { useWeather, weatherGreeting } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
 import SalesPanel from '../components/SalesPanel';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
-import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
+import { summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
 import { holidayName } from '../lib/holidays';
 import { COUNTRY_OPTIONS, countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
@@ -12,8 +12,8 @@ import { attendanceOf, adjustLeave } from '../lib/mem';
 import { isPersonal, TEAMS } from '../lib/team';
 import DeptRoster from '../components/DeptRoster';
 import { useIsMobile } from '../lib/useMobile';
-import { isOrderDone, ORDER_STEPS, type Attendance, type ClockPick, type Member } from '../types';
-import { CHARACTERS, characterSrc, CompanyDot, MemberChip, Modal, Ring, charOf } from '../components/ui';
+import { isOrderDone, type Attendance, type ClockPick, type Member } from '../types';
+import { CHARACTERS, characterSrc, Modal, Ring, charOf } from '../components/ui';
 
 const HOME_TZ = 'Asia/Seoul';
 // 휴대폰에서만 쓰는 시계 지도 (지도 데이터는 그때만 불러옴)
@@ -153,12 +153,10 @@ function greeting(h: number, m: number) {
   return '오늘도 수고했어요 🌙';
 }
 
-export default function Home({ go }: { go: (page: string) => void }) {
+export default function Home(_props: { go: (page: string) => void }) {
   const { data, save } = useStore();
   const access = useAccess();
-  // 홈 화면 구성 (설정 > 홈 화면 구성, 관리자만 바꿈). 기본은 숨김
-  const homeCfg = data.config.find((c) => c.id === 'home') ?? { id: 'home' };
-  const { members, companies, memberById, companyById } = useLookups();
+  const { members, companies } = useLookups();
   const now = useNow();
   const todayIso = today();
   const monday = weekStart(todayIso);
@@ -193,9 +191,6 @@ export default function Home({ go }: { go: (page: string) => void }) {
 
   const weekRows = useMemo(() => tasksForWeek(data.tasks, monday), [data.tasks, monday]);
   const summary = useMemo(() => summarize(weekRows, members, todayIso), [weekRows, members, todayIso]);
-  const urgent = weekRows
-    .filter((r) => !r.doneInWeek && ['overdue', 'today', 'tomorrow'].includes(dueState(r.task, todayIso)))
-    .sort((a, b) => (a.task.dueDate ?? '').localeCompare(b.task.dueDate ?? ''));
   const openOrders = data.orders.filter((o) => !isOrderDone(o));
 
   const companyStats = companies.map((c) => {
@@ -254,76 +249,6 @@ export default function Home({ go }: { go: (page: string) => void }) {
 
       <WorldClocks defaults={defaultClocks} picked={picked} onSave={saveClocks} where={myCard ? `${myCard.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'} />
 
-      {(homeCfg.showUrgent || homeCfg.showPipeline) && (
-      <div className="two-col">
-        {homeCfg.showUrgent && (
-        <section className="card">
-          <div className="section-head">
-            <h2>🔥 급한 일</h2>
-            <button className="link" onClick={() => go('todos')}>
-              주간 할일 →
-            </button>
-          </div>
-          {urgent.length === 0 ? (
-            <div className="calm">
-              <span>🍵</span>
-              <p>기한 지난 일도, 오늘·내일 마감도 없어요.</p>
-            </div>
-          ) : (
-            <ul className="urgent-list">
-              {urgent.map(({ task }) => {
-                const c = companyById.get(task.companyId ?? '');
-                const ds = dueState(task, todayIso);
-                return (
-                  <li key={task.id}>
-                    <span className={`due-pill due-${ds}`}>{ds === 'overdue' ? `${shortDate(task.dueDate)} 지남` : ds === 'today' ? '오늘' : '내일'}</span>
-                    {c && <CompanyDot color={c.color} />}
-                    <span className="grow">{task.title}</span>
-                    {task.assigneeIds.map((id) => (
-                      <MemberChip key={id} member={memberById.get(id)} small />
-                    ))}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <p className="muted small hint">미완료 할일 중 마감일이 지났거나 오늘·내일인 것 (마감일을 넣은 할일만)</p>
-        </section>
-        )}
-
-        {homeCfg.showPipeline && (
-        <section className="card">
-          <div className="section-head">
-            <h2>📦 진행중 주문 단계</h2>
-            <button className="link" onClick={() => go('orders')}>
-              주문 관리 →
-            </button>
-          </div>
-          {openOrders.length === 0 ? (
-            <p className="muted small">진행중 주문이 없어요.</p>
-          ) : (
-            <div className="pipeline">
-              {ORDER_STEPS.map((s) => {
-                const done = openOrders.filter((o) => o[s.key]).length;
-                return (
-                  <div key={s.key} className="pl-row" title={`${s.label}: ${done}/${openOrders.length} 완료`}>
-                    <span className="pl-label">{s.label}</span>
-                    <span className="pl-bar">
-                      <span style={{ width: `${(done / openOrders.length) * 100}%` }} />
-                    </span>
-                    <span className="pl-num">
-                      <b>{openOrders.length - done}</b> 남음
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <p className="muted small hint">막대 = 진행중 주문 {openOrders.length}건 중 그 단계까지 끝난 비율</p>
-        </section>
-        )}
-      </div>
-      )}
 
       <section className="section">
         <div className="section-head">
