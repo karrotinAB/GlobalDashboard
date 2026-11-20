@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { usePeople } from './AddressBook';
+import { saveBirthdays, useBirthdays, type Birthday } from '../lib/birthdays';
+import { uid } from '../lib/date';
 import { deleteApp, initializeApp } from 'firebase/app';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { db, firebaseConfig } from '../firebase';
@@ -37,6 +39,7 @@ async function createAccount(email: string, password: string): Promise<'created'
 
 /** 설정 > 대시보드 사용자 (관리자만 보임). 여기 있는 이메일만 대시보드를 쓸 수 있음. 각자 조원/관리자 */
 export default function AccessAdmin() {
+  const bdays = useBirthdays();
   const me = useAccess();
   const [rows, setRows] = useState<Row[]>([]);
   const [email, setEmail] = useState('');
@@ -135,6 +138,7 @@ export default function AccessAdmin() {
             <th>조</th>
             <th>회사번호</th>
             <th>개인번호</th>
+            <th>생일</th>
             <th />
           </tr>
         </thead>
@@ -190,6 +194,9 @@ export default function AccessAdmin() {
                 </td>
                 <td>
                   <PhoneInput email={r.email} field="mobile" value={contacts[r.email]?.mobile} onError={setMsg} />
+                </td>
+                <td>
+                  <BirthdayInput email={r.email} name={r.name} list={bdays} onError={setMsg} />
                 </td>
                 <td>
                   {!self && (
@@ -275,6 +282,26 @@ function NameInput({ value, onSave }: { value?: string; onSave: (n: string) => v
       onChange={(e) => setV(e.target.value)}
       onBlur={() => v.trim() !== (value ?? '') && onSave(v.trim())}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
+  );
+}
+
+/** 생일 칸 (월·일): 고르면 바로 저장 (homeCfg/birthdays · 이메일로 찾아 바꿈) · 비우면 지움 */
+function BirthdayInput({ email, name, list, onError }: { email: string; name?: string; list: Birthday[] | null; onError: (m: string) => void }) {
+  const cur = list?.find((b) => b.email?.toLowerCase() === email.toLowerCase());
+  const save = (md: string) => {
+    if (!list) return;
+    const rest = list.filter((b) => b.email?.toLowerCase() !== email.toLowerCase());
+    const next = md ? [...rest, { id: cur?.id ?? uid(), name: name || email.split('@')[0], email: email.toLowerCase(), md }] : rest;
+    saveBirthdays(next).catch((e) => onError(`생일 저장 실패: ${(e as Error).message} (서버 규칙을 새로 올렸는지 확인 — deploy.bat)`));
+  };
+  return (
+    <input
+      type="date"
+      className="bday-input"
+      title="생일 (연도는 상관없어요 · 당일 본인 인사말이 생일 인사로, TODAY 카드에 '오늘 ○○ 생일이에요')"
+      value={cur ? `2000-${cur.md}` : ''}
+      onChange={(e) => save(e.target.value ? e.target.value.slice(5, 10) : '')}
     />
   );
 }

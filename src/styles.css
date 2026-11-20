@@ -8402,9 +8402,9 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 .hero-wx { display: inline-block; margin-left: 10px; padding: 2px 10px; border-radius: 999px; background: #e3ecf8; color: #2f5a99; font-size: 0.85em; font-weight: 600; vertical-align: 1px; }
 /* 홈 TODAY 카드: 오늘 생일 */
 .zone-bday { margin-top: 10px; padding: 6px 12px; border-radius: 10px; background: rgba(255, 255, 255, .16); font-size: 13px; font-weight: 600; }
-/* 설정 › 생일 */
-.bday-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
-.bday-add select { max-width: 280px; }
-.bday-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
-.bday-list li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: var(--bg); }
-.bday-list li .icon-btn { margin-left: auto; }
+/* 헤더 날씨 효과 (실험) */
+.cover { position: relative; overflow: hidden; }
+.wx-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wxfx-ctl { display: flex; flex-wrap: wrap; gap: 10px; }
+/* 대시보드 사용자 › 생일 칸 */
+.bday-input { width: 130px; font-size: 13px; }
