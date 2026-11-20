@@ -8446,3 +8446,10 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 @keyframes bb-pop { from { opacity: 0; transform: scale(.5) translateY(8px); } to { opacity: 1; transform: none; } }
 @media (max-width: 600px) { .bday-bubble { max-width: 40%; font-size: 11px; } .bday-bubble:nth-child(n + 5) { display: none; } }
 @media (prefers-reduced-motion: reduce) { .bday-bubble { animation: none; } }
+/* 주문 표 제목 줄: 표가 가로 스크롤 상자 안에 있는 화면(1300px 밑 · 휴대폰)에서는 화면 기준 고정이 안 되므로 표 맨 위에 그대로 */
+@media (max-width: 1299px) {
+  .order-table thead th { top: 0; }
+}
+button.drawer-tools-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; text-align: left; font: inherit; font-size: 15px; color: var(--ink); padding: 10px 12px; cursor: pointer; border-radius: 10px; }
+button.drawer-tools-head:hover { background: var(--primary-soft); }
+.drawer-tools-caret { margin-left: auto; color: var(--mut); font-size: 12px; }

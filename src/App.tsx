@@ -120,6 +120,11 @@ export default function App() {
   }, []);
 
   const [drawer, setDrawer] = useState(false);
+  // 서랍 메뉴 › 도구함: 기본 접힘 (도구 페이지에 있으면 펼침)
+  const [toolsOpen, setToolsOpen] = useState(false);
+  useEffect(() => {
+    if (TOOLS.some((t) => t.key === page)) setToolsOpen(true);
+  }, [page]);
   // 보고방 빨간 점: 우리 조 보고에 팀장님·이사님 새 답변 (조 화면에서만)
   const { email: myEmail } = useAccess();
   const leaderRole = role === 'lead' || role === 'director' ? role : null;
@@ -213,8 +218,11 @@ export default function App() {
             {/* 줄 위: 주소록 · 번역 / 줄 아래: 다른 페이지로 가는 링크 · 설정 · 로그아웃 */}
             <div className="drawer-foot drawer-ab">
               {mode === 'firestore' && <AddressBook />}
-              <div className="drawer-tools-head">🧰 도구함</div>
-              {TOOLS.map((t) =>
+              {/* 도구함: 기본은 접힘 · 누르면 펼침 (지금 도구 페이지에 있으면 펼쳐 둠) */}
+              <button className={`drawer-tools-head ${toolsOpen ? 'open' : ''}`} onClick={() => setToolsOpen(!toolsOpen)} aria-expanded={toolsOpen}>
+                🧰 도구함 <span className="drawer-tools-caret">{toolsOpen ? '▴' : '▾'}</span>
+              </button>
+              {toolsOpen && TOOLS.map((t) =>
                 t.ready ? (
                   <a key={t.key} href={t.href} className={`drawer-tool ${page === t.key ? 'active' : ''}`} onClick={closeDrawer}>
                     {t.icon} {t.label}
