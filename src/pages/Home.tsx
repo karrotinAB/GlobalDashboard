@@ -601,8 +601,8 @@ export function Hero({ title }: { title: string }) {
               <small>{nowAp.p}</small>
             </span>
             <span className="muted">{todayDate.getFullYear()}년 · 서울</span>
+            {bdays.length > 0 && <span className="zone-bday">🎂 오늘 {bdays.map((b) => b.name).join(' · ')} 생일이에요</span>}
           </div>
-          {bdays.length > 0 && <div className="zone-bday">🎂 오늘 {bdays.map((b) => b.name).join(' · ')} 생일이에요</div>}
         </div>
         <div className="zone zone-week">
           <span className="zone-tag">THIS WEEK</span>
