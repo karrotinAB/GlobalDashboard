@@ -31,11 +31,23 @@ function listOf(body) {
   return [];
 }
 
-async function fetchPage(cfg, page, fetchImpl) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export class RateLimited extends Error {}
+
+/** 한 페이지. 429 (너무 잦음) · 503 이면 기다렸다 다시 (Retry-After 를 따르고, 없으면 5 · 15 · 30 · 60초) */
+async function fetchPage(cfg, page, fetchImpl, { wait = sleep } = {}) {
   const u = new URL(cfg.url);
   u.searchParams.set('PAGE', String(page));
   u.searchParams.set('PAGE_SIZE', String(PAGE_SIZE));
-  const res = await fetchImpl(u.toString(), { headers: { [cfg.header]: cfg.key, Accept: 'application/json' } });
+  const backoff = [5000, 15000, 30000, 60000];
+  let res;
+  for (let t = 0; ; t++) {
+    res = await fetchImpl(u.toString(), { headers: { [cfg.header]: cfg.key, Accept: 'application/json' } });
+    if (res.status !== 429 && res.status !== 503) break;
+    if (t >= backoff.length) throw new RateLimited(`getSkuList ${res.status} — API 가 요청이 너무 잦다고 막았어요 (${page}쪽에서 멈춤)`);
+    const ra = Number(res.headers?.get?.('retry-after'));
+    await wait(Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 120000) : backoff[t]);
+  }
   if (!res.ok) throw new Error(`getSkuList ${res.status}${res.status === 401 || res.status === 403 ? ' (키 확인)' : ''}`);
   const text = await res.text();
   let body;
@@ -65,40 +77,69 @@ export function normalize(it) {
   };
 }
 
-export async function syncSku(db, { fetchImpl = fetch, maxPages = 400 } = {}) {
+/**
+ * 모든 페이지 받아서 저장. 페이지 사이에 쉬고 (gapMs), 받은 쪽은 바로 저장 (중간에 멈춰도 남음).
+ * 다 못 받고 멈추면 skuMeta/main.resumePage 에 다음 쪽을 적어 두고, 다음에 거기서부터 이어서 받음.
+ */
+export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1500, budgetMs = 480000, wait = sleep } = {}) {
   const cfg = await skuCfg(db);
-  const chunks = new Map(); // 앞4자리 → { 코드: info }
+  const metaRef = db.doc('skuMeta/main');
+  const meta = (await metaRef.get()).data() ?? {};
+  const start = Number(meta.resumePage) > 1 ? Number(meta.resumePage) : 1;
+  const t0 = Date.now();
   let pages = 0;
   let count = 0;
-  let keys = [];
-  for (let page = 1; page <= maxPages; page++) {
-    const list = await fetchPage(cfg, page, fetchImpl);
+  let keys = meta.keys ?? [];
+  let done = false;
+  let stopped = '';
+  let page = start;
+  for (; page < start + maxPages; page++) {
+    if (Date.now() - t0 > budgetMs) {
+      stopped = '시간이 다 돼서';
+      break;
+    }
+    let list;
+    try {
+      list = await fetchPage(cfg, page, fetchImpl, { wait });
+    } catch (e) {
+      if (e instanceof RateLimited) {
+        stopped = e.message;
+        break;
+      }
+      throw e;
+    }
     pages++;
     if (page === 1 && list[0]) keys = Object.keys(list[0]).slice(0, 40);
+    // 이 쪽의 제품을 앞 4자리 묶음 문서에 합쳐 저장 (다른 제품은 그대로)
+    const chunks = new Map();
     for (const it of list) {
       const n = normalize(it);
       if (!n.code) continue;
-      const p = n.code.slice(0, 4);
-      if (!chunks.has(p)) chunks.set(p, {});
       const { code, ...info } = n;
-      // 빈 칸은 빼고 저장 (용량 줄이기)
+      const p = code.slice(0, 4);
+      if (!chunks.has(p)) chunks.set(p, {});
       chunks.get(p)[code] = Object.fromEntries(Object.entries(info).filter(([, v]) => v));
       count++;
     }
-    if (list.length < PAGE_SIZE) break;
-  }
-  if (!count) throw new Error(`제품을 하나도 못 읽었어요 (받은 칸: ${keys.join(', ') || '없음'})`);
-  const at = new Date().toISOString();
-  let batch = db.batch();
-  let n = 0;
-  for (const [p, items] of chunks) {
-    batch.set(db.doc(`skuInfo/${p}`), { items, at });
-    if (++n % 400 === 0) {
+    if (chunks.size) {
+      const batch = db.batch();
+      const at = new Date().toISOString();
+      for (const [p, items] of chunks) batch.set(db.doc(`skuInfo/${p}`), { items, at }, { merge: true });
       await batch.commit();
-      batch = db.batch();
     }
+    if (list.length < PAGE_SIZE) {
+      done = true;
+      break;
+    }
+    await wait(gapMs);
   }
-  await batch.commit();
-  await db.doc('skuMeta/main').set({ at, count, pages, chunks: chunks.size, keys });
-  return { count, pages, chunks: chunks.size, keys, at };
+  if (!count && start === 1 && !stopped) throw new Error(`제품을 하나도 못 읽었어요 (받은 칸: ${keys.join(', ') || '없음'})`);
+  const at = new Date().toISOString();
+  const total = (start > 1 ? Number(meta.partialCount ?? 0) : 0) + count;
+  await metaRef.set(
+    done
+      ? { at, count: total, pages: page, keys, resumePage: 1, partialCount: 0, stopped: '' }
+      : { ...meta, keys, resumePage: page, partialCount: total, stopped: stopped || '다 못 받음', triedAt: at },
+  );
+  return { count: total, pages, done, nextPage: done ? null : page, stopped, keys, at };
 }

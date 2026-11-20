@@ -68,7 +68,7 @@ export function useSkuMeta() {
 export async function syncSkuNow() {
   const r = await httpsCallable(functions, 'syncSkuNow', { timeout: 560000 })({});
   cache.clear();
-  return r.data as { count: number; pages: number; chunks: number; keys: string[] };
+  return r.data as { count: number; pages: number; done: boolean; nextPage: number | null; stopped: string; keys: string[] };
 }
 
 // 로컬 테스트용 예시

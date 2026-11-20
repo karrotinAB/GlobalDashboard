@@ -722,7 +722,11 @@ export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, 
 //   키: secrets/sku 문서 apiKey · 매주 월요일 6:20 자동 + 번역 페이지 '제품 정보 받기' (관리자)
 import { syncSku } from './sku.js';
 const skuOpts = { region: REGION, timeoutSeconds: 540, memory: '512MiB' };
-export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '20 6 * * 1', timeZone: 'Asia/Seoul' }, async () => {
+//   매일 6:20 에 깨서: 월요일이면 새로 받고, 다른 날은 지난번에 다 못 받은 게 있을 때만 이어서 (API 부르는 횟수 줄이기)
+export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '20 6 * * *', timeZone: 'Asia/Seoul' }, async () => {
+  const meta = (await db.doc('skuMeta/main').get()).data() ?? {};
+  const monday = new Date(Date.now() + 9 * 3600000).getUTCDay() === 1;
+  if (!monday && !(Number(meta.resumePage) > 1)) return;
   const r = await syncSku(db).catch((e) => ({ error: e.message }));
   logger.info('sku sync', r);
 });

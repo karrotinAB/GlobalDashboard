@@ -1301,7 +1301,7 @@ function SkuSyncBtn() {
           setMsg('');
           try {
             const r = await syncSkuNow();
-            setMsg(`제품 정보 ${r.count.toLocaleString()}개 받았어요 ✓`);
+            setMsg(r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `지금까지 ${r.count.toLocaleString()}개 받았어요 · ${r.stopped} — ${r.nextPage}쪽부터 이어서 받아요 (버튼을 다시 누르거나 내일 아침 자동)`);
           } catch (e) {
             setMsg(`못 받았어요: ${(e as Error).message}`);
           } finally {
