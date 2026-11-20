@@ -1417,7 +1417,8 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
   const nq = q.trim().toLowerCase();
   const cats = (rows.length ? rows.map(catKey) : [...stats.byCat.keys()])
     .filter((k) => !nq || `${k} ${name(k)} ${(stats.words.get(k) ?? []).map((x) => x.w).join(' ')}`.toLowerCase().includes(nq))
-    .sort((a, b) => (stats.byCat.get(b)?.n ?? 0) - (stats.byCat.get(a)?.n ?? 0));
+    // 분류 코드 순 (01-01, 01-02 …)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   return (
     <div className="tr-logic">
       <section className="tr-logic-how">
