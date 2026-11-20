@@ -722,18 +722,21 @@ export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, 
 //   키: secrets/sku 문서 apiKey · 매주 월요일 6:20 자동 + 번역 페이지 '제품 정보 받기' (관리자)
 import { syncSku } from './sku.js';
 const skuOpts = { region: REGION, timeoutSeconds: 540, memory: '512MiB' };
-//   매일 6:20 에 깨서: 월요일이면 새로 받고, 다른 날은 지난번에 다 못 받은 게 있을 때만 이어서 (API 부르는 횟수 줄이기)
-export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '20 6 * * *', timeZone: 'Asia/Seoul' }, async () => {
+//   새벽 1시~5시 30분마다: 다 못 받은 게 있으면 이어서 (천천히 · 3초 간격)
+//   월요일 새벽 1시에는 처음부터 새로 받기 시작 (그 뒤 새벽 동안 마저)
+export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '*/30 1-5 * * *', timeZone: 'Asia/Seoul' }, async () => {
   const meta = (await db.doc('skuMeta/main').get()).data() ?? {};
-  const monday = new Date(Date.now() + 9 * 3600000).getUTCDay() === 1;
-  if (!monday && !(Number(meta.resumePage) > 1)) return;
-  const r = await syncSku(db).catch((e) => ({ error: e.message }));
+  const kst = new Date(Date.now() + 9 * 3600000);
+  const mondayStart = kst.getUTCDay() === 1 && kst.getUTCHours() === 1 && kst.getUTCMinutes() < 30;
+  if (!mondayStart && !(Number(meta.resumePage) > 1)) return;
+  const r = await syncSku(db, { gapMs: 3000 }).catch((e) => ({ error: e.message }));
   logger.info('sku sync', r);
 });
+// 버튼: 지금은 1차로 10쪽(약 5,000개)만 받고, 나머지는 오늘 새벽에
 export const syncSkuNow = onCall(skuOpts, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   try {
-    return await syncSku(db);
+    return await syncSku(db, { maxPages: 10 });
   } catch (e) {
     throw new HttpsError('failed-precondition', e.message);
   }
