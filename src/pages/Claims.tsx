@@ -1,4 +1,5 @@
 import { useMirrorClaims } from '../lib/teamClaims';
+import { rectOf, viewW } from '../lib/zoom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIsMobile } from '../lib/useMobile';
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
@@ -666,15 +667,15 @@ function NoteCell({ value, onSave }: { value: string; onSave: (v: string) => voi
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const place = () => {
-    const r = btn.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    const r = btn.current ? rectOf(btn.current) : null;
+    if (r) setPos({ top: r.bottom + 4, right: Math.max(8, viewW() - r.right) });
   };
   // 쓰는 중에 화면을 굴리면 상자도 따라가게
   useEffect(() => {
     if (!edit) return;
     const f = () => {
-      const r = btn.current?.getBoundingClientRect();
-      if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+      const r = btn.current ? rectOf(btn.current) : null;
+      if (r) setPos({ top: r.bottom + 4, right: Math.max(8, viewW() - r.right) });
     };
     window.addEventListener('scroll', f, true);
     window.addEventListener('resize', f);

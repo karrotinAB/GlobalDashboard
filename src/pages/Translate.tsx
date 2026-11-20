@@ -1,6 +1,7 @@
 // 번역: [번역] 엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
 import { useNameOf } from '../components/AddressBook';
+import { rectOf, viewH, viewW } from '../lib/zoom';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react';
 
 // 작업 중인 것 (올린 엑셀 · 고친 영문 · 고른 분류 · 채우던 단어)은 자동 저장:
@@ -1081,8 +1082,8 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
   };
   const openIt = () => {
     if (pos) return close();
-    const r = btn.current!.getBoundingClientRect();
-    const up = window.innerHeight - r.bottom < 360 && r.top > window.innerHeight - r.bottom;
+    const r = rectOf(btn.current!);
+    const up = viewH() - r.bottom < 360 && r.top > viewH() - r.bottom;
     setPos({ left: r.left, top: up ? r.top : r.bottom, width: Math.max(r.width, 240), up });
   };
   return (
@@ -1095,7 +1096,7 @@ function CatPicker({ value, cur, groups, disabled, onPick }: { value: string; cu
         <div
           ref={pop}
           className={`cat-pop ${pos.up ? 'up' : ''}`}
-          style={{ left: pos.left, width: pos.width, ...(pos.up ? { bottom: window.innerHeight - pos.top + 2 } : { top: pos.top + 2 }) }}
+          style={{ left: pos.left, width: pos.width, ...(pos.up ? { bottom: viewH() - pos.top + 2 } : { top: pos.top + 2 }) }}
         >
           <input
             autoFocus
@@ -1241,13 +1242,13 @@ function useSkuHover() {
     code
       ? {
           onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => {
-            const r = e.currentTarget.getBoundingClientRect();
+            const r = rectOf(e.currentTarget);
             window.clearTimeout(timer.current);
             window.clearTimeout(hideTimer.current);
             timer.current = window.setTimeout(() => {
               // 칸 오른쪽에 (화면 끝이면 왼쪽), 위아래는 화면 안으로
-              const x = r.right + 10 + 270 < window.innerWidth ? r.right + 10 : Math.max(8, r.left - 280);
-              const y = Math.max(8, Math.min(r.top - 30, window.innerHeight - 370));
+              const x = r.right + 10 + 270 < viewW() ? r.right + 10 : Math.max(8, r.left - 280);
+              const y = Math.max(8, Math.min(r.top - 30, viewH() - 370));
               setHov({ code, x, y, below: true });
             }, 250);
           },

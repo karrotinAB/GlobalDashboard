@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { rectOf } from './lib/zoom';
 import AddressBook from './components/AddressBook';
 import TradeExport from './pages/TradeExport';
 import Reports from './pages/Reports';
@@ -101,7 +102,7 @@ export default function App() {
   useEffect(() => {
     const tabs = document.querySelector('.tabs');
     if (!tabs) return;
-    const set = () => document.documentElement.style.setProperty('--tabs-h', `${Math.round(tabs.getBoundingClientRect().height)}px`);
+    const set = () => document.documentElement.style.setProperty('--tabs-h', `${Math.round(rectOf(tabs).height)}px`);
     set();
     const ro = new ResizeObserver(set);
     ro.observe(tabs);

@@ -3,6 +3,7 @@
 //   오른쪽 = 모든 장 미리보기 (항목별로 묶음, 누르면 그 장을 고침)
 //   종이영수증은 그 자리(1/4)를 비워 두고 글자만 찍음 → 인쇄 후 종이를 붙이면 돼요
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
+import { zoomOf } from '../lib/zoom';
 import { fmtCur } from '../lib/sales';
 import { itemOf, savePettyPeriod, type PettyEntry, type PettyPeriod, type RcptPos, type SheetRow } from '../lib/petty';
 
@@ -129,8 +130,8 @@ export default function PettyReceipts({
     const start = { x: b.x, y: b.y, w: b.w, h: b.h, lx: b.lx, ly: b.ly };
     let last: RcptPos = {};
     const mv = (e: PointerEvent) => {
-      const dx = (e.clientX - sx) / scaleRef.current;
-      const dy = (e.clientY - sy) / scaleRef.current;
+      const dx = (e.clientX - sx) / zoomOf() / scaleRef.current;
+      const dy = (e.clientY - sy) / zoomOf() / scaleRef.current;
       const r1 = (n: number) => Math.round(n * 10) / 10;
       if (mode === 'move') last = { page: b.page, x: r1(Math.max(0, Math.min(PAGE_W - start.w, start.x + dx))), y: r1(Math.max(0, Math.min(PAGE_H - start.h, start.y + dy))) };
       else if (mode === 'size') last = { page: b.page, w: r1(Math.max(20, Math.min(PAGE_W - start.x, start.w + dx))), h: r1(Math.max(20, Math.min(PAGE_H - start.y, start.h + dy))) };

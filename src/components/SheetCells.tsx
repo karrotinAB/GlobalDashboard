@@ -1,4 +1,5 @@
 import { memoHtml, memoLines, sanitize } from '../lib/richtext';
+import { rectOf, viewH, viewW } from '../lib/zoom';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { Company, Member } from '../types';
@@ -579,15 +580,15 @@ export function MoreMenu({ items, title }: { items: MenuItem[]; title?: string }
   const close = () => setPos(null);
   const toggle = () => {
     if (pos) return close();
-    const r = btn.current?.getBoundingClientRect();
-    if (!r) return;
+    if (!btn.current) return;
+    const r = rectOf(btn.current);
     // 카드 밖으로 잘리지 않게 화면 맨 바깥(body)에 띄움. 아래 공간이 모자라면 위로 펼침
     const need = items.length * 34 + 16;
-    const below = window.innerHeight - r.bottom;
+    const below = viewH() - r.bottom;
     setPos(
       below < need && r.top > need
-        ? { position: 'fixed', bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right }
-        : { position: 'fixed', top: r.bottom + 4, right: window.innerWidth - r.right },
+        ? { position: 'fixed', bottom: viewH() - r.top + 4, right: viewW() - r.right }
+        : { position: 'fixed', top: r.bottom + 4, right: viewW() - r.right },
     );
   };
   useEffect(() => {

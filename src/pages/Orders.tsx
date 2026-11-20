@@ -1,4 +1,5 @@
 import { useOrderUsd } from '../lib/sales';
+import { rectOf } from '../lib/zoom';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
@@ -88,7 +89,7 @@ export default function Orders() {
     toolbarRO.current?.disconnect();
     toolbarRO.current = null;
     if (!el) return;
-    const set = () => document.documentElement.style.setProperty('--toolbar-h', `${Math.round(el.getBoundingClientRect().height)}px`);
+    const set = () => document.documentElement.style.setProperty('--toolbar-h', `${Math.round(rectOf(el).height)}px`);
     set();
     const ro = new ResizeObserver(set);
     ro.observe(el);

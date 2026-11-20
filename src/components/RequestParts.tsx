@@ -1,5 +1,6 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
 import { useOrderUsd } from '../lib/sales';
+import { viewH, viewW } from '../lib/zoom';
 import { useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState, type ClipboardEvent, type CSSProperties } from 'react';
 import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, type Member, type Order, type OrderLink, type Priority, type RequestFile, type RequestStatus, type TradeRequest } from '../types';
@@ -63,7 +64,7 @@ export function ImageZoom({ f, onClose }: { f: RequestFile; onClose: () => void 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
   // 화면에 맞는 크기 × 확대 배율
-  const fit = nat ? Math.min(1, (window.innerWidth * 0.96) / nat.w, (window.innerHeight - 110) / nat.h) : 1;
+  const fit = nat ? Math.min(1, (viewW() * 0.96) / nat.w, (viewH() - 110) / nat.h) : 1;
   const width = nat ? Math.round(nat.w * fit * scale) : undefined;
   return (
     <div className="img-zoom" role="dialog" aria-label={f.name}>

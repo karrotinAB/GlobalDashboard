@@ -3,6 +3,7 @@
 //   [계약서] 업체별 목록 → 열면 조항으로 정리된 본문 (제목 굵게) + 원본 파일
 //   [올리기] 업체 · 계약서 이름 · 계약일 · 원본 파일 · OCR 텍스트 붙여넣기 (조항 자동 정리 미리보기)
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { unzoom, viewW } from '../lib/zoom';
 import { isLeader, useAccess } from '../components/AuthGate';
 import { isPersonal } from '../lib/team';
 import { useFullName } from './Petty';
@@ -81,7 +82,7 @@ export default function Contracts() {
       const box = node?.closest('[data-cid]') as HTMLElement | null;
       if (!box) return setPick(null);
       const head = (node?.closest('[data-head]') as HTMLElement | null)?.dataset.head;
-      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      const rect = unzoom(sel.getRangeAt(0).getBoundingClientRect());
       setPick({ text, cid: box.dataset.cid!, head, x: rect.right, y: rect.top });
     }, 0);
   };
@@ -104,7 +105,7 @@ export default function Contracts() {
       {pick && (
         <button
           className="ct-scrap-pop"
-          style={{ left: Math.min(window.innerWidth - 110, pick.x + 6), top: Math.max(8, pick.y - 40) }}
+          style={{ left: Math.min(viewW() - 110, pick.x + 6), top: Math.max(8, pick.y - 40) }}
           onMouseDown={(e) => e.preventDefault()}
           onMouseUp={(e) => e.stopPropagation()}
           onClick={() => {
