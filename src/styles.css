@@ -8398,8 +8398,6 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 .order-table .c-more { width: 190px; }
 /* 화면 비율 80% (html zoom) 는 크롬에서 스크롤할 때 표 · 고정 머리줄이 겹쳐 그려지는 문제가 있어서 뺐어요.
    위치 계산 도우미(src/lib/zoom.ts)는 그대로 둠 — zoom 이 없으면 비율 1 로 동작 */
-/* 홈 인사말 옆 날씨 (비 · 눈 소식) */
-.hero-wx { display: inline-block; margin-left: 10px; padding: 2px 10px; border-radius: 999px; background: #e3ecf8; color: #2f5a99; font-size: 0.85em; font-weight: 600; vertical-align: 1px; }
 /* 홈 TODAY 카드: 오늘 생일 */
 .zone-bday { margin-left: auto; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, .18); font-size: 13px; font-weight: 600; white-space: nowrap; align-self: center; }
 /* 헤더 날씨 효과 (실험) */

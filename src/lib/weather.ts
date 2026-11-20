@@ -36,7 +36,7 @@ export function useWeather(): Weather | null {
       // 로컬 테스트: 2시간 뒤 비
       const t = new Date(Date.now() + 2 * 3600000);
       const at = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}T${String(t.getHours()).padStart(2, '0')}:00`;
-      setW({ temp: 12, sky: 3, now: null, rain: { at, kind: 'rain' }, at: new Date().toISOString() });
+      setW({ temp: 12, sky: 3, now: null, rain: { at, kind: 'rain' }, hours: [{ at, kind: 'rain', rn: '2.0mm' }], at: new Date().toISOString() });
       return;
     }
     return onSnapshot(
@@ -52,11 +52,28 @@ export function useWeather(): Weather | null {
 
 const KIND = { rain: { icon: '☔', word: '비가' }, sleet: { icon: '🌨️', word: '비나 눈이' }, snow: { icon: '❄️', word: '눈이' } } as const;
 
-/** 인사말 옆에 붙는 한 줄: 비 · 눈이 오거나 6시간 안에 올 때만 (시간은 안 씀) */
-export function weatherLine(w: Weather): string | null {
-  if (w.now) return `${KIND[w.now].icon} 지금 ${KIND[w.now].word} 와요`;
-  if (w.rain) return `${KIND[w.rain.kind].icon} 곧 ${KIND[w.rain.kind].word} 와요`;
-  return null;
+// 우리 점심 12:40 ~ 13:40 · 퇴근 18:00 (홈 인사말과 같은 기준)
+const LUNCH_START = 12 * 60 + 40;
+const LUNCH_END = 13 * 60 + 40;
+const OFF = 18 * 60;
+/**
+ * 날씨 인사말: 점심 1시간 전 (11:40~12:40) · 퇴근 1시간 전 (17:00~18:00) 에만 원래 인사말 대신
+ *   지금 오고 있으면 '비가 오고 있어요. 우산을 챙겨요'
+ *   그 일(점심 · 퇴근길)이 끝날 때까지 예보에 비 · 눈이 있으면 '곧 비가 와요. 우산을 챙겨요'
+ *   그 외 시간 · 비 소식 없으면 null (원래 인사말)
+ */
+export function weatherGreeting(w: Weather | null, h: number, m: number, todayIso: string): string | null {
+  if (!w) return null;
+  const t = h * 60 + m;
+  const lunch = t >= LUNCH_START - 60 && t < LUNCH_START;
+  const off = t >= OFF - 60 && t < OFF;
+  if (!lunch && !off) return null;
+  if (w.now) return `${KIND[w.now].icon} ${KIND[w.now].word} 오고 있어요. 우산을 챙겨요`;
+  // 점심 끝(13:40 → 13시 예보까지) · 퇴근길(19시 예보까지) 안에 비 · 눈 예보
+  const untilHour = lunch ? Math.floor(LUNCH_END / 60) : OFF / 60 + 1;
+  const hit = (w.hours ?? []).find((x) => x.kind && x.at.slice(0, 10) === todayIso && Number(x.at.slice(11, 13)) <= untilHour);
+  if (!hit?.kind) return null;
+  return `${KIND[hit.kind].icon} 곧 ${KIND[hit.kind].word} 와요. 우산을 챙겨요`;
 }
 
 export const syncWeatherNow = () => httpsCallable(functions, 'syncWeatherNow')({});

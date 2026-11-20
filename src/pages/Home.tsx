@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { birthdayGreeting, birthdaysOn, useBirthdays } from '../lib/birthdays';
-import { useWeather, weatherLine } from '../lib/weather';
+import { useWeather, weatherGreeting } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
 import SalesPanel from '../components/SalesPanel';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
@@ -569,7 +569,8 @@ export function Hero({ title }: { title: string }) {
   const nowAp = ampm(`${seoul.h}:${seoul.mi}`);
   // 기상청: 비 · 눈이 오거나 곧 오면 인사말 옆에
   const weather = useWeather();
-  const wx = weather ? weatherLine(weather) : null;
+  // 점심 1시간 전 · 퇴근 1시간 전에 비 · 눈 소식이 있으면 인사말을 날씨 문구로 (그 시간대 끝까지)
+  const wxGreet = weatherGreeting(weather, seoul.h, seoul.mi, todayIso);
   // 생일: 오늘 생일인 사람 (TODAY 카드) · 내가 생일이면 인사말도 생일 인사로
   const access = useAccess();
   const bdays = birthdaysOn(useBirthdays(), todayIso);
@@ -581,8 +582,7 @@ export function Hero({ title }: { title: string }) {
       <h1>{title}</h1>
       <div className="hero-greet-row">
         <p className="hero-greet">
-          {myBday ? birthdayGreeting(seoul.h, seoul.mi) : greeting(seoul.h, seoul.mi)}
-          {wx && <span className="hero-wx">{wx}</span>}
+          {myBday ? birthdayGreeting(seoul.h, seoul.mi) : (wxGreet ?? greeting(seoul.h, seoul.mi))}
         </p>
         <a href="#/calendar" className="hero-cal" title="부서 구글 캘린더 일정 보기">
           📅 달력
