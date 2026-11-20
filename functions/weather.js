@@ -1,6 +1,6 @@
 // 날씨: 기상청 초단기예보 (공공데이터포털 VilageFcstInfoService_2.0 / getUltraSrtFcst)
 //   인증키: Firestore 콘솔 > secrets 컬렉션 > weather 문서 > apiKey 칸 (공공데이터포털 '일반 인증키')
-//           (선택) nx · ny 칸: 예보 격자 (없으면 서울 중구 60 · 127)
+//           (선택) nx · ny 칸: 예보 격자 (없으면 사무실 서초구 반포대로 61 · 125)
 //   결과: weatherNow/main = { temp, sky, pty, rain: { at, kind } | null, now: kind | null, hours: [...], at }
 const URL_BASE = 'https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtFcst';
 
@@ -19,7 +19,7 @@ export async function weatherCfg(db) {
   const kf = Object.keys(d).find((k) => k.replace(/[_\s-]/g, '').toLowerCase() === 'apikey');
   const key = kf ? String(d[kf]).trim() : '';
   if (!key) throw new Error('secrets/weather 문서에 apiKey 칸이 없어요');
-  return { key, nx: Number(d.nx) || 60, ny: Number(d.ny) || 127 };
+  return { key, nx: Number(d.nx) || 61, ny: Number(d.ny) || 125 };
 }
 
 export async function fetchWeather(cfg, { fetchImpl = fetch, now = new Date() } = {}) {
