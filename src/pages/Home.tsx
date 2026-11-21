@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useTodayEvents } from '../lib/calToday';
 import { birthdayGreeting, birthdaysOn, useBirthdays } from '../lib/birthdays';
 import { useWeather, weatherGreeting } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
@@ -480,6 +481,132 @@ function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
   );
 }
 
+/** THIS WEEK ↔ TODAY'S SCHEDULE: 30초마다 왼쪽으로 넘어감 · 마우스를 올리면 ‹ › · 멈추기 (멈춤은 이 브라우저에 기억) */
+const SLIDE_MS = 30000;
+function WeekSlider({ week }: { week: ReactNode }) {
+  const slides = [week, <TodaySchedule key="sch" />];
+  const n = slides.length;
+  // 맨 끝에 첫 장을 한 번 더 붙여서 늘 왼쪽으로 넘어가게 (끝 → 처음도 왼쪽)
+  const [i, setI] = useState(0);
+  const [anim, setAnim] = useState(true);
+  const [paused, setPaused] = useState(() => {
+    try {
+      return localStorage.getItem('gd:heroSlidePaused') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [tick, setTick] = useState(0); // 손으로 넘기면 30초 다시 셈
+  useEffect(() => {
+    if (paused) return;
+    const t = window.setTimeout(() => {
+      setAnim(true);
+      setI((x) => x + 1);
+    }, SLIDE_MS);
+    return () => window.clearTimeout(t);
+  }, [i, paused, tick]);
+  const go = (d: number) => {
+    setAnim(true);
+    setTick((t) => t + 1);
+    if (d < 0 && (i === 0 || i === n)) {
+      // 처음에서 ‹ : 붙여 둔 끝 장(= 첫 장과 같은 모양)으로 순간 이동한 뒤 한 칸 뒤로
+      setAnim(false);
+      setI(n);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setAnim(true);
+          setI(n - 1);
+        }),
+      );
+      return;
+    }
+    setI(Math.max(0, Math.min(i + d, n)));
+  };
+  const onEnd = () => {
+    if (i >= n) {
+      setAnim(false);
+      setI(0);
+    }
+  };
+  const togglePause = () => {
+    const v = !paused;
+    setPaused(v);
+    setTick((t) => t + 1);
+    try {
+      localStorage.setItem('gd:heroSlidePaused', v ? '1' : '0');
+    } catch {
+      /* 무시 */
+    }
+  };
+  // 휴대폰: 옆으로 밀어서 넘기기
+  const touch = useRef<number | null>(null);
+  const cur = i % n;
+  return (
+    <div
+      className="zone zone-week zone-slider"
+      onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
+      onTouchEnd={(e) => {
+        if (touch.current === null) return;
+        const dx = e.changedTouches[0].clientX - touch.current;
+        touch.current = null;
+        if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+      }}
+    >
+      <div className="zs-track" style={{ transform: `translateX(-${i * 100}%)`, transition: anim ? undefined : 'none' }} onTransitionEnd={onEnd}>
+        {[...slides, slides[0]].map((sl, k) => (
+          <div key={k} className="zs-slide" aria-hidden={k % n !== cur || (k === n && i !== n)}>
+            {sl}
+          </div>
+        ))}
+      </div>
+      <div className="zs-ctrl">
+        <button type="button" className="zs-arrow zs-prev" onClick={() => go(-1)} aria-label="이전">
+          ‹
+        </button>
+        {slides.map((_, k) => (
+          <span key={k} className={`zs-dot ${k === cur ? 'on' : ''}`} />
+        ))}
+        <button type="button" className="zs-arrow zs-next" onClick={() => go(1)} aria-label="다음">
+          ›
+        </button>
+        <button type="button" className={`zs-pause ${paused ? 'on' : ''}`} onClick={togglePause} title={paused ? '다시 자동으로 넘기기' : '자동으로 넘기지 않기'}>
+          {paused ? '▶' : '❚❚'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 오늘 일정 (부서 구글 캘린더) */
+function TodaySchedule() {
+  const day = today();
+  const { list, error } = useTodayEvents(day);
+  const MAX = 4;
+  return (
+    <>
+      <span className="zone-tag">TODAY'S SCHEDULE</span>
+      {list === null ? (
+        <p className="muted small zs-empty">{error ? `일정을 못 불러왔어요 (${error})` : '일정 불러오는 중…'}</p>
+      ) : list.length === 0 ? (
+        <p className="muted zs-empty">오늘은 달력에 일정이 없어요 ☕</p>
+      ) : (
+        <ul className="zs-events">
+          {list.slice(0, MAX).map((e) => (
+            <li key={e.id} title={[e.calName, e.location].filter(Boolean).join(' · ')}>
+              <span className="zs-bar" style={{ background: e.color }} />
+              <span className={`zs-time ${e.allDay ? 'all' : ''}`}>{e.time}</span>
+              <span className="zs-title">{e.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <a href="#/calendar" className="zs-more muted small">
+        {list && list.length > MAX ? `+${list.length - MAX}개 더 · ` : ''}달력 보기 →
+      </a>
+    </>
+  );
+}
+
 /** 제목 + 인사 + TODAY / THIS WEEK 구역 (2조 홈, 무역사무 홈 같이 씀) */
 export function Hero({ title }: { title: string }) {
   const now = useNow();
@@ -529,7 +656,9 @@ export function Hero({ title }: { title: string }) {
             {bdays.length > 0 && <span className="zone-bday">🎂 오늘 {bdays.map((b) => b.name).join(' · ')} 생일이에요</span>}
           </div>
         </div>
-        <div className="zone zone-week">
+        <WeekSlider
+          week={
+            <>
           <span className="zone-tag">THIS WEEK</span>
           <div className="zone-date">
             {shortDate(monday)} <span className="arrow">→</span> {shortDate(friday)}
@@ -556,7 +685,9 @@ export function Hero({ title }: { title: string }) {
               )}
             </span>
           </div>
-        </div>
+            </>
+          }
+        />
       </div>
     </header>
     </>
