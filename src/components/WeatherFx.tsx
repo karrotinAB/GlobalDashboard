@@ -71,12 +71,12 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     // 빗방울
     const drops: Drop[] = [];
     const bigs: Big[] = [];
-    // 세기별 차이: 약하게 = 드문드문 · 보통 · 강하게 = 타닥타닥 (빨리 맺히고, 맺힐 때 튀김 링 · 오래된 물방울은 새 걸로 바뀜)
+    // 세기별 차이: 약하게 = 물방울만 맺힘 · 보통 = 물방울 + 뒤로 빗줄기 · 강하게 = 타닥타닥 물방울 + 쏴쏴 빗줄기
     const P = (
       {
-        1: { spawn: 5, dens: 6000, big: 0.25, bigMax: 3, splash: 0, pop: 1.5 },
-        2: { spawn: 14, dens: 3400, big: 0.5, bigMax: 6, splash: 0.35, pop: 3 },
-        3: { spawn: 55, dens: 2000, big: 1.3, bigMax: 12, splash: 1, pop: 9 },
+        1: { spawn: 14, dens: 3400, big: 0.5, bigMax: 6, splash: 0.35, pop: 3, streak: 0 },
+        2: { spawn: 20, dens: 3000, big: 0.7, bigMax: 7, splash: 0.5, pop: 4, streak: 1 / 9 },
+        3: { spawn: 55, dens: 2000, big: 1.3, bigMax: 12, splash: 1, pop: 9, streak: 1 / 2.6 },
       } as const
     )[level];
     const m = small ? 0.5 : 1;
@@ -85,6 +85,16 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     const addDrop = (x = rnd(0, W), y = rnd(0, H), r = rnd(1.2, 3.8), a = 0) => drops.push({ x, y, r, a });
     const addBig = () => bigs.push({ x: rnd(10, W - 10), y: rnd(-10, H * 0.55), r: rnd(5, 8), seed: rnd(0, 1000), hold: rnd(0.3, 1.5), move: 0, vy: 0, lastTrail: 0 });
     if (rain) for (let i = 0; i < maxDrops() * 0.6; i++) addDrop(undefined, undefined, undefined, 1);
+    // 뒤로 떨어지는 빗줄기 (보통 · 강하게): 비스듬한 가는 선
+    type Streak = { x: number; y: number; len: number; v: number; al: number; w: number };
+    const streaks: Streak[] = [];
+    const slant = level === 3 ? 0.2 : 0.12; // 옆으로 기울기 (강하면 바람)
+    const nStreaks = () => Math.round(W * P.streak * m);
+    const addStreak = (y = rnd(-H, H)) => {
+      const far = Math.random(); // 0 = 멀리 (가늘고 흐림) · 1 = 가까이
+      streaks.push({ x: rnd(-H * slant, W), y, len: (level === 3 ? 18 : 12) + far * (level === 3 ? 26 : 16), v: (level === 3 ? 900 : 650) + far * 500, al: 0.12 + far * (level === 3 ? 0.35 : 0.25), w: 0.6 + far * 0.9 });
+    };
+    if (rain) for (let i = 0; i < nStreaks(); i++) addStreak();
 
     // 눈
     const flakes: Flake[] = [];
@@ -94,6 +104,11 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
       flakes.push({ x: rnd(0, W), y, r, vy: 8 + r * 6 * rnd(0.8, 1.2), ph: rnd(0, Math.PI * 2), amp: rnd(4, 14), al: rnd(0.5, 0.9) });
     };
     if (snow) for (let i = 0; i < nFlakes(); i++) addFlake();
+    // 눈 쌓임 (보통 조금 · 강하게 더): 헤더 아래 끝에 칸마다 높이를 쌓음
+    const COL = 4;
+    const pileMax = level === 3 ? (small ? 10 : 16) : level === 2 ? (small ? 3 : 5) : 0;
+    let pile: number[] = [];
+    const pileAt = (x: number) => pile[Math.max(0, Math.min(pile.length - 1, Math.floor(x / COL)))] ?? 0;
 
     /** 물방울 하나: 그림자 · 볼록한 몸통 (아래가 밝음) · 테두리 · 반짝임 */
     const drawDrop = (x: number, y: number, r: number, a: number, stretch = 1) => {
@@ -130,6 +145,26 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
       ctx.clearRect(0, 0, W, H);
 
       if (rain) {
+        // 0) 뒤로 빗줄기 (물방울보다 먼저 그려서 뒤에 있는 것처럼)
+        if (streaks.length) {
+          ctx.lineCap = 'round';
+          for (const st of streaks) {
+            st.y += st.v * dt;
+            st.x += st.v * slant * dt;
+            if (st.y - st.len > H) {
+              st.y = rnd(-40, -5);
+              st.x = rnd(-H * slant, W);
+            }
+            ctx.beginPath();
+            ctx.moveTo(st.x, st.y);
+            ctx.lineTo(st.x - st.len * slant, st.y - st.len);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${st.al})`;
+            ctx.lineWidth = st.w;
+            ctx.stroke();
+          }
+          // 강하게: 바닥(헤더 아래 끝)에 튀는 작은 물보라
+          if (level === 3 && Math.random() < dt * 30 * m) splashes.push({ x: rnd(0, W), y: H - rnd(1, 4), r: rnd(0.8, 1.6), t: 0 });
+        }
         // 1) 작은 물방울이 하나씩 맺힘
         spawnAcc += dt * P.spawn * m;
         while (spawnAcc > 1) {
@@ -215,7 +250,19 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
         for (const f of flakes) {
           f.y += f.vy * dt;
           f.x += Math.cos(t * 0.6 + f.ph) * f.amp * dt;
-          if (f.y - f.r > H) {
+          if (pileMax && pile.length !== Math.ceil(W / COL) + 1) pile = Array.from({ length: Math.ceil(W / COL) + 1 }, (_, i) => pile[i] ?? 0);
+          // 쌓인 눈에 닿으면 거기 쌓이고 (옆 칸으로 조금 퍼짐) 새 눈송이로
+          const landed = pileMax > 0 && f.y + f.r >= H - pileAt(f.x);
+          if (landed) {
+            const c = Math.floor(f.x / COL);
+            const add = f.r * 0.9;
+            for (let j = -2; j <= 2; j++) {
+              const q = c + j;
+              if (q < 0 || q >= pile.length) continue;
+              pile[q] = Math.min(pileMax * (0.75 + 0.25 * Math.sin(q * 0.37) * Math.sin(q * 0.11)), pile[q] + add * (1 - Math.abs(j) * 0.3));
+            }
+          }
+          if (landed || f.y - f.r > H) {
             f.y = -f.r - rnd(0, 20);
             f.x = rnd(0, W);
           }
@@ -227,6 +274,32 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
           ctx.fill();
         }
         while (flakes.length < nFlakes()) addFlake(-5);
+        // 쌓인 눈 그리기: 둥글게 이어진 하얀 언덕 + 아래쪽 살짝 그림자
+        if (pileMax && pile.some((h) => h > 0.3)) {
+          // 이웃 칸과 살짝 평평하게
+          for (let i = 1; i < pile.length - 1; i++) pile[i] = pile[i] * 0.96 + (pile[i - 1] + pile[i + 1]) * 0.02;
+          ctx.beginPath();
+          ctx.moveTo(0, H);
+          ctx.lineTo(0, H - pile[0]);
+          for (let i = 1; i < pile.length; i++) {
+            const x0 = (i - 1) * COL;
+            const x1 = i * COL;
+            ctx.quadraticCurveTo(x0, H - pile[i - 1], (x0 + x1) / 2, H - (pile[i - 1] + pile[i]) / 2);
+          }
+          ctx.lineTo(W, H);
+          ctx.closePath();
+          const g = ctx.createLinearGradient(0, H - pileMax, 0, H);
+          g.addColorStop(0, 'rgba(255, 255, 255, 0.97)');
+          g.addColorStop(1, 'rgba(235, 238, 248, 0.95)');
+          ctx.fillStyle = g;
+          ctx.shadowColor = 'rgba(90, 60, 60, 0.18)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = -1;
+          ctx.fill();
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
+        }
       }
 
       if (!reduce) raf = requestAnimationFrame(step);
