@@ -62,7 +62,7 @@ async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
   }
 }
 import { useAccess } from '../components/AuthGate';
-import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
+import { lookupSkus, seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
@@ -315,6 +315,31 @@ function TranslateTab() {
     return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre, path: pathOf(p.code) }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, picks, seasonSet, skuPaths]);
+  // 빈 칸이 있는 줄의 제품코드 중 받아 둔 제품 정보에 없는 것 → 서버가 그것만 찾아옴 (파일마다 한 번 자동)
+  const missingCodes = useMemo(() => {
+    if (!sheet || !skuPaths || sheet.col.code === undefined) return [];
+    return [...new Set(view.filter((v) => v.empty.length).map((v) => cell(v.row, 'code')).filter((c) => c && !skuPaths.get(c)))];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, skuPaths]);
+  const [lookupMsg, setLookupMsg] = useState('');
+  const lookedRef = useRef('');
+  useEffect(() => {
+    const key = sheet ? `${sheet.fileName}|${sheet.rows.length}` : '';
+    if (!key || !missingCodes.length || lookedRef.current === key) return;
+    lookedRef.current = key;
+    setLookupMsg(`🔎 제품 정보가 없는 제품코드 ${missingCodes.length}개를 찾아보는 중…`);
+    lookupSkus(missingCodes)
+      .then((r) =>
+        setLookupMsg(
+          r.unsupported
+            ? '제품코드로 하나씩 찾는 건 회사 API가 안 받아 줘요 (관리자에게 알려 주세요)'
+            : r.asked === 0
+              ? ''
+              : `🔎 없던 제품 ${r.asked}개 찾아봄 → ${r.found}개 새로 받음${r.none ? ` · ${r.none}개는 회사 API에도 없음` : ''}${r.left ? ` · 남은 ${r.left}개는 다음에` : ''}`,
+        ),
+      )
+      .catch((e) => setLookupMsg(`제품 정보 찾기 실패: ${(e as Error).message}`));
+  }, [sheet, missingCodes]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
   const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
@@ -447,6 +472,7 @@ function TranslateTab() {
         )}
       </div>
       {err && <p className="warn small">{err}</p>}
+      {lookupMsg && <p className="muted small">{lookupMsg}</p>}
       {list === null && <p className="muted small">사전 불러오는 중…</p>}
       {skuCard}
 
@@ -1308,7 +1334,7 @@ function useSkuHover() {
   return { bind, card };
 }
 
-/** 관리자: 제품 정보 (이미지 · 팀 · 분류) 새로 받기 — 매주 월요일 아침에도 자동으로 받아요 */
+/** 관리자: 제품 정보 (이미지 · 팀 · 분류) 새로 받기 (그 뒤 새 제품은 엑셀의 빈 제품코드만 자동으로 찾아와요) */
 function SkuSyncBtn() {
   const meta = useSkuMeta();
   const [busy, setBusy] = useState(false);
@@ -1360,7 +1386,7 @@ function SkuSyncBtn() {
       <button
         className="tr-dl"
         disabled={busy || allRun}
-        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 이미지 주소 · 팀 · 대/중/소분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 그 뒤 새 제품은 엑셀의 빈 제품코드만 찾아와요)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 이미지 주소 · 팀 · 대/중/소분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
         onClick={() => void run(false)}
       >
         {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}

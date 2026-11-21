@@ -13,7 +13,7 @@ export async function skuCfg(db) {
   const kf = keyOf(d, /^apikey$/i);
   const key = kf ? String(d[kf]).trim() : '';
   if (!key) throw new Error('secrets/sku 문서에 apiKey 칸이 없어요 (Firestore 콘솔에서 넣어 주세요)');
-  return { key, header: String(d.header ?? 'X-API-Key').trim() || 'X-API-Key', url: String(d.url ?? BASE).trim() || BASE };
+  return { key, header: String(d.header ?? 'X-API-Key').trim() || 'X-API-Key', url: String(d.url ?? BASE).trim() || BASE, codeParam: String(d.codeParam ?? '').trim() };
 }
 
 /** 응답에서 제품 목록 배열 찾기 ({ Infos: [...] } · { data: [...] } · [...] …) */
@@ -35,10 +35,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export class RateLimited extends Error {}
 
 /** 한 페이지. 429 (너무 잦음) · 503 이면 기다렸다 다시 (Retry-After 를 따르고, 없으면 5 · 15 · 30 · 60초) */
-async function fetchPage(cfg, page, fetchImpl, { wait = sleep } = {}) {
+async function fetchPage(cfg, page, fetchImpl, { wait = sleep, extra = {}, size = PAGE_SIZE } = {}) {
   const u = new URL(cfg.url);
   u.searchParams.set('PAGE', String(page));
-  u.searchParams.set('PAGE_SIZE', String(PAGE_SIZE));
+  u.searchParams.set('PAGE_SIZE', String(size));
+  for (const [k, v] of Object.entries(extra)) u.searchParams.set(k, String(v));
   const backoff = [5000, 15000, 30000, 60000];
   let res;
   for (let t = 0; ; t++) {
@@ -261,4 +262,124 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
       : { ...meta, keys, resumePage: page, partialCount: total, stopped: stopped || '다 못 받음', triedAt: at, noCat, noCatSamples, apiTotal: lastTotal ?? meta.apiTotal ?? null },
   );
   return { count: total, pages, done, nextPage: done ? null : page, stopped, keys, at, noCat, noCatSamples };
+}
+
+// ---------- 엑셀에서 정보가 없는 제품코드만 하나씩 찾아오기 ----------
+//   제품코드로 찾는 칸 이름: secrets/sku 의 codeParam (있으면) → 없으면 흔한 이름들을 한 번씩 해 보고
+//   맞는 제품이 돌아오는 이름을 skuMeta/main.codeParam 에 기억 (다음부터는 그것만)
+//   한 번 찾아본 코드는 skuMiss/main 에 7일 동안 기억해서 또 묻지 않음 (회사 API 부담 줄이기)
+const CODE_PARAMS = ['SKU_CODE', 'skuCode', 'SKU_CD', 'sku_code', 'SKU', 'sku', 'CODE', 'code', 'SEARCH_SKU', 'KEYWORD', 'SEARCH_WORD', 'searchWord'];
+const LOOKUP_MAX = 300;
+const MISS_DAYS = 7;
+
+/** 제품 정보 묶어서 저장 (skuInfo · skuPath · skuSeason 에 합침) */
+async function storeItems(db, ns) {
+  const at = new Date().toISOString();
+  const chunks = new Map();
+  const paths = new Map();
+  const season = [];
+  for (const n of ns) {
+    if (isSeasonSku(n)) season.push(n.code);
+    if (n.l || n.m || n.s) {
+      const p2 = n.code.slice(0, 2);
+      if (!paths.has(p2)) paths.set(p2, {});
+      paths.get(p2)[n.code] = [n.l, n.m, n.s].join('›');
+    }
+    const { code, ...info } = n;
+    const p = code.slice(0, 5);
+    if (!chunks.has(p)) chunks.set(p, {});
+    chunks.get(p)[code] = Object.fromEntries(Object.entries(info).filter(([, v]) => v));
+  }
+  const batch = db.batch();
+  for (const [p, items] of chunks) {
+    const ref = db.doc(`skuInfo/${p}`);
+    batch.set(ref, { data: JSON.stringify({ ...readJson(await ref.get(), 'items'), ...items }), at });
+  }
+  for (const [p2, codes] of paths) {
+    const ref = db.doc(`skuPath/${p2}`);
+    const merged = { ...pathMapOf(await ref.get()), ...codes };
+    const list = [...new Set(Object.values(merged))];
+    const idx = new Map(list.map((x, i) => [x, i]));
+    batch.set(ref, { data: JSON.stringify({ p: list, c: Object.fromEntries(Object.entries(merged).map(([k, v]) => [k, idx.get(v)])) }), at });
+  }
+  if (season.length) {
+    const ref = db.doc('skuSeason/main');
+    batch.set(ref, { data: JSON.stringify([...new Set([...readJson(await ref.get(), 'codes', true), ...season])]), at });
+  }
+  await batch.commit();
+}
+
+/** 이 이름으로 code 를 찾으면 그 제품이 (몇 개 안에) 돌아오는지 */
+async function tryCode(cfg, param, code, fetchImpl, wait) {
+  const list = await fetchPage(cfg, 1, fetchImpl, { wait, extra: { [param]: code }, size: 20 });
+  const ns = list.map(normalize).filter((n) => n.code);
+  const hit = ns.find((n) => n.code === code);
+  // 칸 이름을 무시하고 아무 제품이나 돌려주는 경우는 '찾기'가 아님
+  return hit && ns.length <= 10 ? hit : null;
+}
+
+export async function lookupSkus(db, codes0, { fetchImpl = fetch, gapMs = 1000, wait = sleep, budgetMs = 240000 } = {}) {
+  const cfg = await skuCfg(db);
+  const metaRef = db.doc('skuMeta/main');
+  const meta = (await metaRef.get()).data() ?? {};
+  const missRef = db.doc('skuMiss/main');
+  const miss = readJson(await missRef.get(), 'codes');
+  const now = Date.now();
+  for (const [c, t] of Object.entries(miss)) if (now - Date.parse(t) > MISS_DAYS * 86400000) delete miss[c];
+  const want = [...new Set(codes0.map((c) => String(c ?? '').trim()).filter((c) => /^[0-9A-Za-z-]{4,20}$/.test(c)))].filter((c) => !miss[c]);
+  const codes = want.slice(0, LOOKUP_MAX);
+  let param = cfg.codeParam || meta.codeParam || '';
+  const found = [];
+  const none = [];
+  let stopped = '';
+  const t0 = Date.now();
+  // 1) 찾는 칸 이름을 아직 모르면: 앞의 코드 3개까지로 이름들을 한 번씩 해 봄
+  if (!param && codes.length) {
+    outer: for (const code of codes.slice(0, 3)) {
+      for (const p of CODE_PARAMS) {
+        const hit = await tryCode(cfg, p, code, fetchImpl, wait).catch(() => null);
+        await wait(gapMs);
+        if (hit) {
+          param = p;
+          found.push(hit);
+          await metaRef.set({ codeParam: p }, { merge: true });
+          break outer;
+        }
+      }
+      none.push(code);
+    }
+    if (!param) {
+      await metaRef.set({ lookupAt: new Date().toISOString(), lookupNote: '제품코드로 찾는 칸을 못 찾았어요' }, { merge: true });
+      return { asked: codes.length, found: 0, none: 0, left: want.length, unsupported: true };
+    }
+  }
+  // 2) 남은 코드 하나씩 (1초씩 쉬며)
+  const doneSet = new Set([...found.map((n) => n.code), ...none]);
+  for (const code of codes) {
+    if (doneSet.has(code)) continue;
+    if (Date.now() - t0 > budgetMs) {
+      stopped = '시간이 다 돼서';
+      break;
+    }
+    let hit;
+    try {
+      hit = await tryCode(cfg, param, code, fetchImpl, wait);
+    } catch (e) {
+      if (e instanceof RateLimited) {
+        stopped = e.message;
+        break;
+      }
+      throw e;
+    }
+    if (hit) found.push(hit);
+    else none.push(code);
+    doneSet.add(code);
+    await wait(gapMs);
+  }
+  if (found.length) await storeItems(db, found);
+  const at = new Date().toISOString();
+  for (const c of doneSet) miss[c] = at; // 찾았든 못 찾았든 7일 동안은 다시 안 물음
+  await missRef.set({ data: JSON.stringify(miss), at });
+  await metaRef.set({ lookupAt: at, lookupNote: `${found.length}개 찾음 · ${none.length}개 없음` }, { merge: true });
+  return { asked: doneSet.size, found: found.length, none: none.length, left: want.length - doneSet.size, stopped, codeParam: param };
 }

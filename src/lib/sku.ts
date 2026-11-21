@@ -130,6 +130,15 @@ export async function syncSkuNow(restart = false, all = false) {
   return r.data as { count: number; pages: number; done: boolean; nextPage: number | null; stopped: string; keys: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[] };
 }
 
+/** 엑셀에서 정보가 없는 제품코드만 서버가 하나씩 찾아옴 (찾아본 건 7일 동안 다시 안 물음) */
+export type LookupResult = { asked: number; found: number; none: number; left: number; stopped?: string; unsupported?: boolean };
+export async function lookupSkus(codes: string[]): Promise<LookupResult> {
+  if (DATA_MODE === 'local') return { asked: codes.length, found: 0, none: codes.length, left: 0 };
+  const r = await httpsCallable(functions, 'lookupSku', { timeout: 310000 })({ codes });
+  cache.clear();
+  return r.data as LookupResult;
+}
+
 // 로컬 테스트용 예시
 function demoChunk(prefix: string): Chunk {
   const out: Chunk = {};

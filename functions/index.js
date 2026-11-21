@@ -719,16 +719,14 @@ export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, 
 });
 
 // ---------- 제품 정보 (이미지 · 팀 · 대/중/소분류): getSkuList → skuInfo ----------
-//   키: secrets/sku 문서 apiKey · 매주 월요일 6:20 자동 + 번역 페이지 '제품 정보 받기' (관리자)
-import { syncSku } from './sku.js';
+//   키: secrets/sku 문서 apiKey · 번역 페이지 '제품 정보 받기' (관리자) + 엑셀의 빈 제품코드만 찾아오기 (lookupSku)
+import { lookupSkus, syncSku } from './sku.js';
 const skuOpts = { region: REGION, timeoutSeconds: 540, memory: '512MiB' };
 //   새벽 1시~5시 30분마다: 다 못 받은 게 있으면 이어서 (천천히 · 3초 간격)
-//   월요일 새벽 1시에는 처음부터 새로 받기 시작 (그 뒤 새벽 동안 마저)
 export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '*/30 1-5 * * *', timeZone: 'Asia/Seoul' }, async () => {
   const meta = (await db.doc('skuMeta/main').get()).data() ?? {};
-  const kst = new Date(Date.now() + 9 * 3600000);
-  const mondayStart = kst.getUTCDay() === 1 && kst.getUTCHours() === 1 && kst.getUTCMinutes() < 30;
-  if (!mondayStart && !(Number(meta.resumePage) > 1)) return;
+  // (월요일마다 처음부터 새로 받던 건 없앰 — 새 제품은 번역 페이지에서 엑셀의 빈 제품코드만 찾아옴)
+  if (!(Number(meta.resumePage) > 1)) return;
   // 새벽에 돈 기록 (화면에서 확인용): 마지막 시각 · 에러
   const ranAt = new Date().toISOString();
   const r = await syncSku(db, { gapMs: 3000 }).catch((e) => ({ error: e.message }));
@@ -744,6 +742,18 @@ export const syncSkuNow = onCall(skuOpts, async (req) => {
     return await syncSku(db, { maxPages: 10, restart: !!req.data?.restart });
   } catch (e) {
     await db.doc('skuMeta/main').set({ nightError: `버튼: ${e.message}`, nightAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+    throw new HttpsError('failed-precondition', e.message);
+  }
+});
+
+// 번역 페이지: 엑셀에서 정보가 없는 제품코드만 찾아오기 (한 번에 300개까지 · 1초씩 쉬며 · 찾아본 건 7일 동안 다시 안 물음)
+export const lookupSku = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
+  const role = await roleOf(req);
+  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
+  const codes = Array.isArray(req.data?.codes) ? req.data.codes.slice(0, 2000) : [];
+  try {
+    return await lookupSkus(db, codes);
+  } catch (e) {
     throw new HttpsError('failed-precondition', e.message);
   }
 });
