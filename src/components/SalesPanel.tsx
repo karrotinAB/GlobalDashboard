@@ -1372,6 +1372,8 @@ function CompareView({
   const tSym = target === 'USD' ? '$' : '₩';
   const short = (n: number) => `${tSym}${shortConv(n, target)}`;
   const [hide, setHide] = useState<Set<string>>(new Set());
+  // 휴대폰: 점을 누르면 그 달 금액 말풍선 (다시 누르거나 빈 곳을 누르면 닫힘)
+  const [tip, setTip] = useState<{ id: string; i: number } | null>(null);
   // 그래프
   const W = mobile ? 380 : 1000;
   const L = mobile ? 46 : 56;
@@ -1468,7 +1470,7 @@ function CompareView({
                 </button>
               ))}
             </div>
-            <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${year}년 업체별 월 판매 비교`}>
+            <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${year}년 업체별 월 판매 비교`} onClick={() => setTip(null)}>
               {[0, 0.5, 1].map((g) => (
                 <g key={g}>
                   <line x1={L} x2={W - R} y1={y(max * g)} y2={y(max * g)} className="sc-grid" />
@@ -1483,7 +1485,7 @@ function CompareView({
                   {r.vals.map((v, i) =>
                     typeof v === 'number' ? (
                       <g key={i}>
-                        <circle cx={x(i)} cy={y(v)} r={3} fill="#fff" stroke={r.c.color ?? '#999'} strokeWidth={1.8}>
+                        <circle cx={x(i)} cy={y(v)} r={tip?.id === r.c.id && tip.i === i ? 5 : 3} fill={tip?.id === r.c.id && tip.i === i ? (r.c.color ?? '#999') : '#fff'} stroke={r.c.color ?? '#999'} strokeWidth={1.8}>
                           <title>
                             {r.c.name} {i + 1}월: {tSym}
                             {fmtConv(v, target)}
@@ -1493,6 +1495,20 @@ function CompareView({
                           <text x={x(i)} y={y(v) - 9} textAnchor="middle" className="sc-val cmp-val" style={{ fill: r.c.color ?? '#3b2a28' }}>
                             {short(v)}
                           </text>
+                        )}
+                        {mobile && (
+                          // 손가락으로 누르기 쉽게 보이지 않는 큰 원
+                          <circle
+                            cx={x(i)}
+                            cy={y(v)}
+                            r={13}
+                            fill="transparent"
+                            className="cmp-hit"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTip((t) => (t && t.id === r.c.id && t.i === i ? null : { id: r.c.id, i }));
+                            }}
+                          />
                         )}
                       </g>
                     ) : null,
@@ -1504,6 +1520,32 @@ function CompareView({
                   {i + 1}월
                 </text>
               ))}
+              {/* 휴대폰: 누른 점의 금액 (맨 위에 그림) */}
+              {mobile &&
+                tip &&
+                (() => {
+                  const row = shown.find((x2) => x2.c.id === tip.id);
+                  const v = row?.vals[tip.i];
+                  if (!row || typeof v !== 'number') return null;
+                  const label = `${tip.i + 1}월 ${tSym}${fmtConv(v, target)}`;
+                  const name = row.c.name.length > 16 ? `${row.c.name.slice(0, 15)}…` : row.c.name;
+                  const bw = Math.max(label.length * 7.4, name.length * 6.2) + 18;
+                  const bh = 38;
+                  const cx = Math.min(Math.max(x(tip.i), L + bw / 2), W - R - bw / 2 + 12);
+                  const above = y(v) - bh - 10 > 0;
+                  const by = above ? y(v) - bh - 10 : y(v) + 10;
+                  return (
+                    <g className="cmp-tip" pointerEvents="none">
+                      <rect x={cx - bw / 2} y={by} width={bw} height={bh} rx={8} fill="#fff" stroke={row.c.color ?? '#999'} strokeWidth={1.5} />
+                      <text x={cx} y={by + 15} textAnchor="middle" className="cmp-tip-name">
+                        {name}
+                      </text>
+                      <text x={cx} y={by + 31} textAnchor="middle" className="cmp-tip-val" style={{ fill: row.c.color ?? '#3b2a28' }}>
+                        {label}
+                      </text>
+                    </g>
+                  );
+                })()}
             </svg>
           </div>
           {/* 휴대폰: 업체별 연 합계 · 비중 / 컴퓨터: 월 × 업체 표 */}
