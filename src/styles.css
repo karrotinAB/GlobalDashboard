@@ -8505,30 +8505,27 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .zone-slider { padding: 0; overflow: hidden; gap: 0; }
 .zs-track { display: flex; height: 100%; transition: transform .6s cubic-bezier(.4, 0, .2, 1); }
 .zs-slide { flex: 0 0 100%; min-width: 0; padding: 20px 24px 18px; display: flex; flex-direction: column; gap: 10px; }
-.zs-arrow {
-  width: 22px; height: 22px; border-radius: 50%; padding: 0;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
-  font-size: 15px; line-height: 1;
-  opacity: 0; pointer-events: none; transition: opacity .2s;
-}
-.zs-prev { margin-right: 2px; }
-.zs-next { margin-left: 2px; }
-.zs-ctrl {
-  position: absolute; top: 14px; right: 16px; display: flex; align-items: center; gap: 5px;
-}
-.zs-dots { position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); display: flex; gap: 5px; pointer-events: none; }
-.zs-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: background .2s, width .2s; }
+/* 위 오른쪽 구석: ❚❚ ‹ ●● › */
+.zs-ctrl { position: absolute; top: 16px; right: 18px; display: flex; align-items: center; gap: 5px; }
+.zs-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: background .2s, width .2s; flex: none; }
 .zs-dot.on { background: var(--primary); width: 14px; border-radius: 3px; }
-.zs-pause {
-  margin-left: 4px; width: 22px; height: 22px; padding: 0; border-radius: 50%;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 9px; line-height: 1;
-  opacity: 0; pointer-events: none; transition: opacity .2s;
+/* 버튼: 평소엔 폭 0 (안 보이고 자리도 안 차지) → 마우스를 올리면 펼쳐짐 */
+.zs-arrow, .zs-pause {
+  flex: none; width: 0; height: 22px; padding: 0; margin: 0 -2.5px; border-radius: 50%;
+  border: 0 solid var(--line); background: var(--surface); color: var(--ink-2); line-height: 1;
+  overflow: hidden; opacity: 0; pointer-events: none;
+  transition: width .2s, margin .2s, opacity .2s;
 }
-.zs-pause.on { opacity: 1; pointer-events: auto; color: var(--primary); } /* 멈춰 있으면 늘 보여서 다시 켤 수 있게 */
-.zone-slider:hover .zs-arrow,
-.zone-slider:hover .zs-pause,
-.zone-slider:has(:focus-visible) .zs-arrow,
-.zone-slider:has(:focus-visible) .zs-pause { opacity: 1; pointer-events: auto; }
+.zs-arrow { font-size: 15px; }
+.zs-pause { font-size: 9px; }
+.zs-pause { margin-right: 1px; }
+.zone-slider:hover :is(.zs-arrow, .zs-pause),
+.zone-slider:has(:focus-visible) :is(.zs-arrow, .zs-pause),
+.zs-pause.on {
+  width: 22px; margin: 0; border-width: 1px; opacity: 1; pointer-events: auto;
+}
+.zone-slider:hover .zs-pause, .zs-pause.on { margin-right: 4px; }
+.zs-pause.on { color: var(--primary); } /* 멈춰 있으면 ▶ 가 늘 보여서 다시 켤 수 있게 */
 .zs-arrow:hover, .zs-pause:hover { color: var(--primary); border-color: var(--primary); }
 .zs-events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .zs-events li { display: flex; align-items: center; gap: 8px; font-size: 14px; min-width: 0; }
@@ -8540,17 +8537,16 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .zs-more { margin-top: auto; align-self: flex-end; text-decoration: none; }
 .zs-more:hover { color: var(--primary); }
 @media (hover: none) {
-  .zs-arrow { display: none; } /* 휴대폰: 옆으로 밀어서 넘기기 */
-  .zs-pause { opacity: 1; pointer-events: auto; }
+  /* 휴대폰: 옆으로 밀어서 넘기기 · 화살표 없음, 멈추기만 */
+  .zone-slider :is(.zs-arrow) { display: none; }
+  .zone-slider .zs-pause { width: 17px; height: 17px; margin: 0 3px 0 0; border-width: 1px; opacity: 1; pointer-events: auto; font-size: 7px; }
 }
 @media (max-width: 600px) {
   .zs-slide { padding: 12px 12px 10px; gap: 6px; }
-  .zs-ctrl { top: 8px; right: 8px; gap: 3px; }
-  .zs-dots { bottom: 5px; gap: 3px; }
+  .zs-ctrl { top: 10px; right: 10px; gap: 3px; }
   .zs-dot { width: 4px; height: 4px; }
   .zs-dot.on { width: 9px; }
-  .zs-pause { width: 17px; height: 17px; font-size: 7px; margin-left: 2px; }
-  .zs-slide .zone-tag { padding-right: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zs-slide .zone-tag { padding-right: 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .zs-events { gap: 3px; }
   .zs-events li { font-size: 11.5px; gap: 5px; }
   .zs-time { width: 32px; font-size: 10.5px; }

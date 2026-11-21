@@ -559,20 +559,19 @@ function WeekSlider({ week }: { week: ReactNode }) {
           </div>
         ))}
       </div>
-      <div className="zs-dots">
-        {slides.map((_, k) => (
-          <span key={k} className={`zs-dot ${k === cur ? 'on' : ''}`} />
-        ))}
-      </div>
+      {/* 위 오른쪽 구석: ❚❚ ‹ ●● › (마우스를 안 올리면 버튼은 자리도 안 차지해서 점이 구석에) */}
       <div className="zs-ctrl">
+        <button type="button" className={`zs-pause ${paused ? 'on' : ''}`} onClick={togglePause} title={paused ? '다시 자동으로 넘기기' : '자동으로 넘기지 않기'}>
+          {paused ? '▶' : '❚❚'}
+        </button>
         <button type="button" className="zs-arrow zs-prev" onClick={() => go(-1)} aria-label="이전">
           ‹
         </button>
+        {slides.map((_, k) => (
+          <span key={k} className={`zs-dot ${k === cur ? 'on' : ''}`} />
+        ))}
         <button type="button" className="zs-arrow zs-next" onClick={() => go(1)} aria-label="다음">
           ›
-        </button>
-        <button type="button" className={`zs-pause ${paused ? 'on' : ''}`} onClick={togglePause} title={paused ? '다시 자동으로 넘기기' : '자동으로 넘기지 않기'}>
-          {paused ? '▶' : '❚❚'}
         </button>
       </div>
     </div>
