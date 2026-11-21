@@ -107,8 +107,13 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     // 눈 쌓임 (보통 조금 · 강하게 더): 헤더 아래 끝에 칸마다 높이를 쌓음
     const COL = 4;
     const pileMax = level === 3 ? (small ? 10 : 16) : level === 2 ? (small ? 3 : 5) : 0;
+    // 35초 동안 천천히 쌓이고 그 뒤엔 그대로 (내리는 눈은 그냥 지나감). 모양은 처음에 한 번 정해 둠
+    const PILE_MS = 35000;
+    const pileStart = performance.now();
+    const ph1 = rnd(0, 6.3);
+    const ph2 = rnd(0, 6.3);
+    const shapeAt = (q: number) => 0.72 + 0.18 * Math.sin(q * 0.23 + ph1) + 0.1 * Math.sin(q * 0.071 + ph2);
     let pile: number[] = [];
-    const pileAt = (x: number) => pile[Math.max(0, Math.min(pile.length - 1, Math.floor(x / COL)))] ?? 0;
 
     /** 물방울 하나: 그림자 · 볼록한 몸통 (아래가 밝음) · 테두리 · 반짝임 */
     const drawDrop = (x: number, y: number, r: number, a: number, stretch = 1) => {
@@ -250,19 +255,7 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
         for (const f of flakes) {
           f.y += f.vy * dt;
           f.x += Math.cos(t * 0.6 + f.ph) * f.amp * dt;
-          if (pileMax && pile.length !== Math.ceil(W / COL) + 1) pile = Array.from({ length: Math.ceil(W / COL) + 1 }, (_, i) => pile[i] ?? 0);
-          // 쌓인 눈에 닿으면 거기 쌓이고 (옆 칸으로 조금 퍼짐) 새 눈송이로
-          const landed = pileMax > 0 && f.y + f.r >= H - pileAt(f.x);
-          if (landed) {
-            const c = Math.floor(f.x / COL);
-            const add = f.r * 0.9;
-            for (let j = -2; j <= 2; j++) {
-              const q = c + j;
-              if (q < 0 || q >= pile.length) continue;
-              pile[q] = Math.min(pileMax * (0.75 + 0.25 * Math.sin(q * 0.37) * Math.sin(q * 0.11)), pile[q] + add * (1 - Math.abs(j) * 0.3));
-            }
-          }
-          if (landed || f.y - f.r > H) {
+          if (f.y - f.r > H) {
             f.y = -f.r - rnd(0, 20);
             f.x = rnd(0, W);
           }
@@ -275,9 +268,14 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
         }
         while (flakes.length < nFlakes()) addFlake(-5);
         // 쌓인 눈 그리기: 둥글게 이어진 하얀 언덕 + 아래쪽 살짝 그림자
-        if (pileMax && pile.some((h) => h > 0.3)) {
-          // 이웃 칸과 살짝 평평하게
-          for (let i = 1; i < pile.length - 1; i++) pile[i] = pile[i] * 0.96 + (pile[i - 1] + pile[i + 1]) * 0.02;
+        if (pileMax) {
+          // 쌓인 정도 0 → 1 (처음엔 천천히, 끝에 부드럽게 멈춤) · 아래 2px 는 헤더 밖이라 +2
+          const q0 = Math.min(1, (now - pileStart) / PILE_MS);
+          const g0 = q0 * q0 * (3 - 2 * q0);
+          const n = Math.ceil(W / COL) + 1;
+          if (pile.length !== n || q0 < 1 || pile[0] === undefined) pile = Array.from({ length: n }, (_, i) => 2 + pileMax * shapeAt(i) * g0);
+        }
+        if (pileMax && pile.some((h) => h > 2.3)) {
           ctx.beginPath();
           ctx.moveTo(0, H);
           ctx.lineTo(0, H - pile[0]);
