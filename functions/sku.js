@@ -267,7 +267,8 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
 // ---------- 엑셀에서 정보가 없는 제품코드만 하나씩 찾아오기 ----------
 //   제품코드로 찾는 칸 이름: secrets/sku 의 codeParam (있으면) → 없으면 흔한 이름들을 한 번씩 해 보고
 //   맞는 제품이 돌아오는 이름을 skuMeta/main.codeParam 에 기억 (다음부터는 그것만)
-//   한 번 찾아본 코드는 skuMiss/main 에 기억해서 다시는 묻지 않음 (회사 API 부담 줄이기)
+//   이미 받아 둔 정보가 다 있는 코드(이미지 · 팀 · 대/중/소분류)는 안 물음. 하나라도 비었으면 다음에 또 물어봄
+//   (새 제품은 사진이 1~2주 뒤에 올라오기도 해서) — 같은 날 같은 코드를 두 번 묻지는 않음 (skuMiss/main) (회사 API 부담 줄이기)
 const CODE_PARAMS = ['SKU_CODE', 'skuCode', 'SKU_CD', 'sku_code', 'SKU', 'sku', 'CODE', 'code', 'SEARCH_SKU', 'KEYWORD', 'SEARCH_WORD', 'searchWord'];
 const LOOKUP_MAX = 300;
 
@@ -308,6 +309,9 @@ async function storeItems(db, ns) {
   await batch.commit();
 }
 
+/** 필요한 정보가 다 있는지: 이미지 · 팀 · 대/중/소분류 */
+const isComplete = (n) => !!(n && n.i && n.t && n.l && n.m && n.s);
+
 /** 이 이름으로 code 를 찾으면 그 제품이 (몇 개 안에) 돌아오는지 */
 async function tryCode(cfg, param, code, fetchImpl, wait) {
   const list = await fetchPage(cfg, 1, fetchImpl, { wait, extra: { [param]: code }, size: 20 });
@@ -323,7 +327,15 @@ export async function lookupSkus(db, codes0, { fetchImpl = fetch, gapMs = 1000, 
   const meta = (await metaRef.get()).data() ?? {};
   const missRef = db.doc('skuMiss/main');
   const miss = readJson(await missRef.get(), 'codes');
-  const want = [...new Set(codes0.map((c) => String(c ?? '').trim()).filter((c) => /^[0-9A-Za-z-]{4,20}$/.test(c)))].filter((c) => !miss[c]);
+  // 찾는 칸 이름을 못 찾았던 적이 있으면 (codeParam 을 직접 넣기 전까지) 회사 API 에 안 물음
+  if (!cfg.codeParam && !meta.codeParam && meta.lookupUnsupported) return { asked: 0, found: 0, none: 0, left: 0, unsupported: true };
+  const day = (iso) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10); // 한국 날짜
+  const todayK = day(new Date().toISOString());
+  const all = [...new Set(codes0.map((c) => String(c ?? '').trim()).filter((c) => /^[0-9A-Za-z-]{4,20}$/.test(c)))];
+  // 받아 둔 정보 읽기 (앞 5자리 묶음 + 예전 4자리 묶음)
+  const have = {};
+  for (const p of [...new Set(all.flatMap((c) => [c.slice(0, 5), c.slice(0, 4)]))]) Object.assign(have, readJson(await db.doc(`skuInfo/${p}`).get(), 'items'));
+  const want = all.filter((c) => !isComplete(have[c]) && !(miss[c] && day(miss[c]) === todayK));
   const codes = want.slice(0, LOOKUP_MAX);
   let param = cfg.codeParam || meta.codeParam || '';
   const found = [];
@@ -346,7 +358,7 @@ export async function lookupSkus(db, codes0, { fetchImpl = fetch, gapMs = 1000, 
       none.push(code);
     }
     if (!param) {
-      await metaRef.set({ lookupAt: new Date().toISOString(), lookupNote: '제품코드로 찾는 칸을 못 찾았어요' }, { merge: true });
+      await metaRef.set({ lookupAt: new Date().toISOString(), lookupNote: '제품코드로 찾는 칸을 못 찾았어요', lookupUnsupported: true }, { merge: true });
       return { asked: codes.length, found: 0, none: 0, left: want.length, unsupported: true };
     }
   }
@@ -375,7 +387,12 @@ export async function lookupSkus(db, codes0, { fetchImpl = fetch, gapMs = 1000, 
   }
   if (found.length) await storeItems(db, found);
   const at = new Date().toISOString();
-  for (const c of doneSet) miss[c] = at; // 찾았든 못 찾았든 다시는 안 물음
+  // 다 채워진 건 잊고 (다시 물을 일 없음), 비었거나 못 찾은 건 오늘 물어봤다고만 적어 둠 → 내일 이후 또 물음
+  const got = new Map(found.map((n) => [n.code, n]));
+  for (const c of doneSet) {
+    if (isComplete(got.get(c))) delete miss[c];
+    else miss[c] = at;
+  }
   await missRef.set({ data: JSON.stringify(miss), at });
   await metaRef.set({ lookupAt: at, lookupNote: `${found.length}개 찾음 · ${none.length}개 없음` }, { merge: true });
   return { asked: doneSet.size, found: found.length, none: none.length, left: want.length - doneSet.size, stopped, codeParam: param };

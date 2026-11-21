@@ -315,19 +315,19 @@ function TranslateTab() {
     return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre, path: pathOf(p.code) }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, picks, seasonSet, skuPaths]);
-  // 빈 칸이 있는 줄의 제품코드 중 받아 둔 제품 정보에 없는 것 → 서버가 그것만 찾아옴 (파일마다 한 번 자동)
+  // 빈 칸이 있는 줄의 제품코드 → 서버가 받아 둔 정보(이미지 · 팀 · 대/중/소분류)가 하나라도 빈 것만 회사 API에 물어봄 (파일마다 한 번 자동)
   const missingCodes = useMemo(() => {
-    if (!sheet || !skuPaths || sheet.col.code === undefined) return [];
-    return [...new Set(view.filter((v) => v.empty.length).map((v) => cell(v.row, 'code')).filter((c) => c && !skuPaths.get(c)))];
+    if (!sheet || sheet.col.code === undefined) return [];
+    return [...new Set(view.filter((v) => v.empty.length).map((v) => cell(v.row, 'code')).filter(Boolean))];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, skuPaths]);
+  }, [view]);
   const [lookupMsg, setLookupMsg] = useState('');
   const lookedRef = useRef('');
   useEffect(() => {
     const key = sheet ? `${sheet.fileName}|${sheet.rows.length}` : '';
     if (!key || !missingCodes.length || lookedRef.current === key) return;
     lookedRef.current = key;
-    setLookupMsg(`🔎 제품 정보가 없는 제품코드 ${missingCodes.length}개를 찾아보는 중…`);
+    setLookupMsg('🔎 제품 정보(이미지 · 팀 · 분류)가 빈 제품을 찾아보는 중…');
     lookupSkus(missingCodes)
       .then((r) =>
         setLookupMsg(
