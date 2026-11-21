@@ -198,7 +198,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         <>
           {access.email && <PushSection email={access.email} />}
           {access.email && <ChangePassword />}
-          {isXmas() && <LightsBackOn />}
         </>
       ) : (
       <>
@@ -208,8 +207,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       {showHdr && <WishSection />}
       {showHdr && <WeatherFxSection />}
       {showHdr && <LightsSection />}
-      {/* 크리스마스 기간에 꼬마전구를 꺼 둔 사람: 다시 켜는 버튼 (켜면 헤더 오른쪽 아래에서 바꿔요) */}
-      {showGen && isXmas() && <LightsBackOn />}
       {showGen && (
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
@@ -1217,20 +1214,6 @@ function WeatherFxSection() {
 }
 
 /** 헤더 꼬마전구 미리보기 (관리자 · 이 브라우저에서만) */
-function LightsBackOn() {
-  const v = useLightsSetting();
-  if (v.on) return null;
-  return (
-    <section className="card">
-      <h2>🎄 헤더 꼬마전구</h2>
-      <p className="muted small">꼬마전구를 꺼 두셨어요. 다시 켜면 헤더 오른쪽 아래(마우스를 올리면)에서 색 · 깜빡임 · 줄 수를 바꿀 수 있어요.</p>
-      <button className="primary" onClick={() => writeLights({ ...v, on: true })}>
-        🎄 꼬마전구 다시 켜기
-      </button>
-    </section>
-  );
-}
-
 function LightsSection() {
   const v = useLightsSetting();
   const set = (p: Partial<LightsCfg>) => writeLights({ ...v, ...p });
