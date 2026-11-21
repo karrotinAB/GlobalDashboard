@@ -729,7 +729,10 @@ export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '*/30 1-5 * * *'
   const kst = new Date(Date.now() + 9 * 3600000);
   const mondayStart = kst.getUTCDay() === 1 && kst.getUTCHours() === 1 && kst.getUTCMinutes() < 30;
   if (!mondayStart && !(Number(meta.resumePage) > 1)) return;
+  // 새벽에 돈 기록 (화면에서 확인용): 마지막 시각 · 에러
+  const ranAt = new Date().toISOString();
   const r = await syncSku(db, { gapMs: 3000 }).catch((e) => ({ error: e.message }));
+  await db.doc('skuMeta/main').set({ nightAt: ranAt, nightError: r.error ?? '' }, { merge: true });
   logger.info('sku sync', r);
 });
 // 버튼: 지금은 1차로 10쪽(약 5,000개)만 받고, 나머지는 오늘 새벽에
@@ -738,6 +741,7 @@ export const syncSkuNow = onCall(skuOpts, async (req) => {
   try {
     return await syncSku(db, { maxPages: 10, restart: !!req.data?.restart });
   } catch (e) {
+    await db.doc('skuMeta/main').set({ nightError: `버튼: ${e.message}`, nightAt: new Date().toISOString() }, { merge: true }).catch(() => {});
     throw new HttpsError('failed-precondition', e.message);
   }
 });

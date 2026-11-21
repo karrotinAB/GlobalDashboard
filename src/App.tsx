@@ -1,4 +1,4 @@
-import { lazy, Suspense, startTransition, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, useTransition } from 'react';
 // 가끔 쓰는 무거운 페이지는 처음 열 때만 따로 받음 (앱 처음 켜는 속도)
 const TradeExport = lazy(() => import('./pages/TradeExport'));
 const Translate = lazy(() => import('./pages/Translate'));
@@ -70,6 +70,8 @@ function readHash(): PageKey {
 
 export default function App() {
   const [hashPage, setPage] = useState<PageKey>(readHash);
+  // 탭을 누르면 바로 위에 로딩 막대 (새 페이지를 그리는 동안)
+  const [navPending, startNav] = useTransition();
   const { loading, error, mode, data, saveMany } = useStore();
   const { role, viewTeam, viewLabel } = useAccess();
   const leader = isLeader(role); // 팀장님·이사님
@@ -114,7 +116,7 @@ export default function App() {
   useEffect(() => {
     // 탭을 누르면 메뉴(서랍 닫기 · 탭 표시)가 먼저 반응하고, 새 페이지는 그 뒤에 그림
     const h = () => {
-      startTransition(() => setPage(readHash()));
+      startNav(() => setPage(readHash()));
       window.scrollTo({ top: 0 });
     };
     window.addEventListener('hashchange', h);
@@ -336,6 +338,7 @@ export default function App() {
             )}
           </div>
         )}
+        {navPending && <div className="nav-progress" aria-hidden="true" />}
         <main>
           <Suspense fallback={<div className="page muted">불러오는 중…</div>}>
           {loading ? (

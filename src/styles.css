@@ -8489,3 +8489,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   tr.bundle-head .bundle-title { left: 50px; }
 }
 .tr-sku-status { color: var(--mut); }
+/* 탭 누르면 바로 보이는 로딩 막대 */
+.nav-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 200; background: linear-gradient(90deg, transparent, var(--primary), transparent); background-size: 50% 100%; background-repeat: no-repeat; animation: nav-prog 0.8s linear infinite; }
+@keyframes nav-prog { from { background-position: -50% 0; } to { background-position: 150% 0; } }

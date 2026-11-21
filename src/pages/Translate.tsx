@@ -1535,7 +1535,8 @@ function CatLogic({ picks, rows, onWord }: { picks: CatPick[]; rows: Cat[]; onWo
 /** 제품 정보 받은 상태 한 줄: 다 받았는지 · 이어 받는 중인지 */
 function skuStatus(m: SkuMeta) {
   const when = (iso?: string) => (iso ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
-  if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개까지 받음 · ${m.resumePage}쪽부터 새벽에 이어서 받아요${m.triedAt ? ` (${when(m.triedAt)})` : ''}`;
+  const err = m.nightError ? ` · ⚠ ${when(m.nightAt)} 받다가 멈춤: ${m.nightError}` : m.nightAt ? ` · 마지막 자동 받기 ${when(m.nightAt)}` : '';
+  if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개까지 받음 · ${m.resumePage}쪽부터 새벽에 이어서 받아요${m.triedAt ? ` (마지막 ${when(m.triedAt)})` : ''}${err}`;
   if (m.at) return `✅ 제품 정보 ${(m.count ?? 0).toLocaleString()}개 다 받음 · ${when(m.at)}${m.noCat ? ` · 분류 빈 제품 ${m.noCat.toLocaleString()}개` : ''}`;
   return '아직 제품 정보를 안 받았어요';
 }
