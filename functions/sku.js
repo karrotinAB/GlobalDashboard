@@ -146,6 +146,22 @@ function readJson(snap, oldField, asKeys = false) {
   return Array.isArray(v) ? {} : v;
 }
 
+/** skuPath 문서 → { 제품코드: 분류 } (예전 모양 · 새 모양 둘 다) */
+function pathMapOf(snap) {
+  const d = snap?.exists === false ? undefined : snap?.data?.();
+  if (!d) return {};
+  if (typeof d.data === 'string') {
+    try {
+      const v = JSON.parse(d.data);
+      if (v && Array.isArray(v.p) && v.c) return Object.fromEntries(Object.entries(v.c).map(([k, i]) => [k, v.p[i]]));
+      return v && typeof v === 'object' ? v : {};
+    } catch {
+      return {};
+    }
+  }
+  return d.codes && typeof d.codes === 'object' ? d.codes : {};
+}
+
 /** 시즌품: 팀 · 대/중/소분류 이름 중 '시즌' 이 들어간 게 있으면 ('비시즌' 은 빼고) */
 export const isSeasonSku = (n) => [n.t, n.l, n.m, n.s].some((x) => x && /시즌/.test(x) && !/비시즌/.test(x));
 
@@ -202,7 +218,7 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
         paths.get(p2)[n.code] = [n.l, n.m, n.s].join('›');
       }
       const { code, ...info } = n;
-      const p = code.slice(0, 4);
+      const p = code.slice(0, 5); // 앞 5자리 묶음 (4자리 묶음은 1MB 를 넘는 게 있어서)
       if (!chunks.has(p)) chunks.set(p, {});
       chunks.get(p)[code] = Object.fromEntries(Object.entries(info).filter(([, v]) => v));
       count++;
@@ -218,9 +234,13 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
         batch.set(ref, { data: JSON.stringify({ ...old, ...items }), at });
       }
       for (const [p2, codes] of paths) {
+        // 같은 분류 글자를 제품마다 반복하지 않게: { p: [분류들], c: { 제품코드: 분류 번호 } }
         const ref = db.doc(`skuPath/${p2}`);
-        const old = readJson(await ref.get(), 'codes');
-        batch.set(ref, { data: JSON.stringify({ ...old, ...codes }), at });
+        const merged = { ...pathMapOf(await ref.get()), ...codes };
+        const list = [...new Set(Object.values(merged))];
+        const idx = new Map(list.map((x, i) => [x, i]));
+        const c = Object.fromEntries(Object.entries(merged).map(([k, v]) => [k, idx.get(v)]));
+        batch.set(ref, { data: JSON.stringify({ p: list, c }), at });
       }
       for (const c of Object.keys(season)) seasonAll.add(c);
       batch.set(seasonRef, { data: JSON.stringify([...seasonAll]), at });

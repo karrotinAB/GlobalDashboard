@@ -23,8 +23,9 @@ function chunkOf(prefix: string): Promise<Chunk> {
       prefix,
       DATA_MODE === 'local'
         ? Promise.resolve(demoChunk(prefix))
-        : getDoc(doc(db, 'skuInfo', prefix))
-            .then((d) => (typeof d.get('data') === 'string' ? (JSON.parse(d.get('data') as string) as Chunk) : ((d.get('items') as Chunk | undefined) ?? {})))
+        : // 새 묶음 (앞 5자리) + 예전 묶음 (앞 4자리) 둘 다 읽어서 합침
+          Promise.all([getDoc(doc(db, 'skuInfo', prefix)), getDoc(doc(db, 'skuInfo', prefix.slice(0, 4)))])
+            .then((ds) => Object.assign({}, ...ds.reverse().map((d) => (typeof d.get('data') === 'string' ? (JSON.parse(d.get('data') as string) as Chunk) : ((d.get('items') as Chunk | undefined) ?? {})))) as Chunk)
             .catch(() => {
               cache.delete(prefix);
               return {};
@@ -41,7 +42,7 @@ export function useSku(code: string | null): SkuInfo | null | undefined {
     if (!code) return;
     const c = normCode(code);
     let alive = true;
-    void chunkOf(c.slice(0, 4)).then((ch) => alive && setV({ code: c, info: ch[c] ?? null }));
+    void chunkOf(c.slice(0, 5)).then((ch) => alive && setV({ code: c, info: ch[c] ?? null }));
     return () => {
       alive = false;
     };
@@ -90,7 +91,9 @@ export function useSkuPaths(): Map<string, string> | null {
         const out = new Map<string, string>();
         snap.docs.forEach((d) => {
           const raw = d.get('data');
-          const codes = typeof raw === 'string' ? (JSON.parse(raw) as Record<string, string>) : ((d.get('codes') as Record<string, string>) ?? {});
+          const v = typeof raw === 'string' ? JSON.parse(raw) : d.get('codes') ?? {};
+          // 새 모양 { p: [분류들], c: { 코드: 번호 } } · 예전 모양 { 코드: 분류 }
+          const codes: Record<string, string> = v && Array.isArray(v.p) && v.c ? Object.fromEntries(Object.entries(v.c as Record<string, number>).map(([k, i]) => [k, (v.p as string[])[i]])) : v;
           Object.entries(codes).forEach(([c, p]) => out.set(c, p));
         });
         pathCache = out.size ? out : null;
@@ -130,8 +133,9 @@ export async function syncSkuNow(restart = false) {
 // 로컬 테스트용 예시
 function demoChunk(prefix: string): Chunk {
   const out: Chunk = {};
-  for (let i = 0; i < 10000; i++) {
-    const code = `${prefix}${String(i).padStart(4, '0')}`;
+  const n = Math.max(0, 8 - prefix.length);
+  for (let i = 0; i < 10 ** n; i++) {
+    const code = `${prefix}${String(i).padStart(n, '0')}`;
     out[code] = { i: `https://picsum.photos/seed/${code}/300/300`, t: '디자인지제', l: '지제', m: '카드', s: code.endsWith('7') ? '시즌카드' : '일반카드' };
   }
   return out;
