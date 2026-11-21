@@ -8600,3 +8600,13 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .ld-switch-knob { width: 18px; height: 18px; }
   .ld-switch.on .ld-switch-knob { transform: translateX(16px); }
 }
+/* 헤더 설정 › 지금 받아 둔 날씨 */
+.wx-now { margin: 4px 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.wx-now-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wx-now-head b { font-size: 14px; }
+.wx-now-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.wx-now-temp { font-size: 26px; font-weight: 700; font-family: var(--serif); }
+.wx-now-fx { margin-left: auto; }
+.wx-now-hours { display: flex; gap: 6px; overflow-x: auto; }
+.wx-now-hours > div { flex: 0 0 auto; min-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; border-radius: 10px; background: rgba(120, 90, 80, .06); font-size: 12px; }
+.wx-now-hours > div.wet { background: rgba(77, 171, 247, .14); }

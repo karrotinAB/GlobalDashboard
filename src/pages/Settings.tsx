@@ -13,6 +13,7 @@ import { db, functions } from '../firebase';
 import { COUNTRY_NAMES } from '../lib/worldHolidays';
 import DateInput from '../components/DateInput';
 import { DEFAULT_TEAM, TEAMS } from '../lib/team';
+import { isFresh, syncWeatherNow, useWeatherRaw, weatherFxOf } from '../lib/weather';
 import AccessAdmin from '../components/AccessAdmin';
 import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
@@ -1171,6 +1172,76 @@ function WorkTypesSection() {
 }
 
 /** 헤더 날씨 효과 (실험 · 관리자만): 이 브라우저에서만 켜져요. 실제 날씨와는 아직 연결 안 함 */
+/** 지금 받아 둔 기상청 날씨 (서초구 반포대로 · 매시 50분, 아침 6시 ~ 밤 9시) + 그래서 헤더에 뜨는 효과 */
+function WeatherNowBox() {
+  const w = useWeatherRaw();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const SKY: Record<number, string> = { 1: '☀️ 맑음', 3: '⛅ 구름 많음', 4: '☁️ 흐림' };
+  const KIND: Record<string, string> = { rain: '☔ 비', sleet: '🌨️ 비 · 눈', snow: '❄️ 눈' };
+  const hm = (iso: string) => `${Number(iso.slice(11, 13))}시`;
+  const fresh = isFresh(w);
+  const fx = fresh ? weatherFxOf(w) : null;
+  const FXW: Record<string, string> = { rain: '☔ 비', snow: '❄️ 눈', frost: '🧊 서리' };
+  const LV = ['', '약하게', '보통', '강하게'];
+  const refresh = async () => {
+    setBusy(true);
+    setMsg('');
+    try {
+      await syncWeatherNow();
+      setMsg('새로 받았어요 ✓');
+    } catch (e) {
+      setMsg(`못 받았어요: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="wx-now">
+      <div className="wx-now-head">
+        <b>📡 지금 받아 둔 날씨</b>
+        <span className="muted small">기상청 초단기예보 · 서초구 반포대로 · 아침 6시 ~ 밤 9시 매시 50분에 받아요</span>
+        <button className="small" disabled={busy} onClick={() => void refresh()}>
+          {busy ? '받는 중…' : '↻ 지금 다시 받기'}
+        </button>
+        {msg && <span className="small muted">{msg}</span>}
+      </div>
+      {w === undefined ? (
+        <p className="muted small">불러오는 중…</p>
+      ) : !w ? (
+        <p className="muted small">아직 받은 날씨가 없어요 (서버를 올렸는지 · secrets/weather 키가 있는지 확인)</p>
+      ) : (
+        <>
+          <div className="wx-now-main">
+            <span className="wx-now-temp">{typeof w.temp === 'number' ? `${w.temp}°` : '–'}</span>
+            <span>{w.now ? `${KIND[w.now]} 오는 중` : (SKY[w.sky ?? 0] ?? '–')}</span>
+            {w.hours?.[0]?.rn && <span className="muted small">1시간 강수량 {w.hours[0].rn}</span>}
+            <span className="muted small">
+              받은 때 {w.at ? new Date(w.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–'}
+              {!fresh && ' · 3시간 넘게 지나서 지금은 안 써요'}
+            </span>
+            <span className="wx-now-fx">
+              → 헤더 효과: <b>{fx ? `${FXW[fx.mode]}${fx.mode === 'frost' ? '' : ` ${LV[fx.level]}`}` : '없음'}</b>
+            </span>
+          </div>
+          {(w.hours?.length ?? 0) > 0 && (
+            <div className="wx-now-hours">
+              {w.hours!.slice(0, 6).map((x) => (
+                <div key={x.at} className={x.kind ? 'wet' : ''}>
+                  <span className="muted">{hm(x.at)}</span>
+                  <b>{typeof x.temp === 'number' ? `${x.temp}°` : ''}</b>
+                  <span>{x.kind ? KIND[x.kind] : '–'}</span>
+                  {x.rn && !/없음/.test(x.rn) && <span className="muted">{x.rn}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function WeatherFxSection() {
   const fx = useFxSetting();
   const set = (p: Partial<{ mode: FxMode; level: FxLevel }>) => writeFx({ ...fx, ...p });
@@ -1180,6 +1251,7 @@ function WeatherFxSection() {
       <p className="muted small">
         실제로는 지금 비 · 눈이 오면 (기상청) 모두의 헤더에 자동으로 떠요. 세기는 1시간 강수량으로: 3mm 미만 약하게 · 15mm 미만 보통 · 그 이상 강하게. 비는 약하게 = 물방울 + 아주 살짝 빗줄기 · 보통 = 뒤로 빗줄기 · 강하게 = 쏴쏴 쏟아짐. 눈은 보통부터 헤더 아래에 조금씩 쌓여요 (강하게는 더 많이). 비 · 눈 없이 영하 10도 이하면 🧊 서리가 끼고, 마우스로 문지르면 투명해졌다가 그린 때부터 1분 동안 서서히 다시 서리가 껴요. 여기서 켜면 관리자 이 브라우저에서만 미리 봐요 (실제 날씨보다 먼저 · 끄면 실제 날씨대로).
       </p>
+      <WeatherNowBox />
       <div className="wxfx-ctl">
         <div className="seg">
           {(

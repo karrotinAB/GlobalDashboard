@@ -33,8 +33,9 @@ export function weatherFxOf(w: Weather | null): { mode: 'rain' | 'snow' | 'frost
   return { mode: w.now === 'snow' ? 'snow' : 'rain', level: mm >= 15 ? 3 : mm >= 3 ? 2 : 1 };
 }
 
-export function useWeather(): Weather | null {
-  const [w, setW] = useState<Weather | null>(null);
+/** 받아 둔 날씨 그대로 (오래된 것도) · undefined = 읽는 중 */
+export function useWeatherRaw(): Weather | null | undefined {
+  const [w, setW] = useState<Weather | null | undefined>(undefined);
   useEffect(() => {
     if (DATA_MODE === 'local') {
       // 로컬 테스트: 2시간 뒤 비
@@ -49,9 +50,13 @@ export function useWeather(): Weather | null {
       () => setW(null),
     );
   }, []);
-  // 3시간 넘게 지난 예보는 안 보여줌
-  if (!w?.at || Date.now() - new Date(w.at).getTime() > 3 * 3600000) return null;
   return w;
+}
+/** 3시간 넘게 지난 예보는 안 씀 */
+export const isFresh = (w: Weather | null | undefined): w is Weather => !!w?.at && Date.now() - new Date(w.at).getTime() <= 3 * 3600000;
+export function useWeather(): Weather | null {
+  const w = useWeatherRaw();
+  return isFresh(w) ? w : null;
 }
 
 const KIND = { rain: { icon: '☔', word: '비가' }, sleet: { icon: '🌨️', word: '비나 눈이' }, snow: { icon: '❄️', word: '눈이' } } as const;
