@@ -513,7 +513,7 @@ export default function Todos() {
                 {g.company && (
                   <TradeNoteBtn
                     name={g.company.name}
-                    items={(tradeMemos[coKey(g.company.team ?? access.viewTeam, g.company.id)]?.items ?? []).filter((x) => !x.done)}
+                    all={tradeMemos[coKey(g.company.team ?? access.viewTeam, g.company.id)]?.items ?? []}
                   />
                 )}
                 {g.company &&
@@ -810,9 +810,14 @@ function SummaryTable({
 }
 
 /** 업체 메모 옆 📒: 무역사무가 이 업체에 남긴 메모 중 아직 체크 안 한 것 (보기만) */
-function TradeNoteBtn({ name, items }: { name: string; items: MemoItem[] }) {
+function TradeNoteBtn({ name, all }: { name: string; all: MemoItem[] }) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'open' | 'done'>('open');
   const nameOf = useNameOf();
+  const items = all.filter((x) => !x.done);
+  const done = all.filter((x) => x.done).sort((a, b) => (b.doneAt ?? b.at).localeCompare(a.doneAt ?? a.at));
+  const md = (iso?: string) => (iso ? `${new Date(iso).getMonth() + 1}/${new Date(iso).getDate()}` : '');
+  const shown = tab === 'open' ? items : done;
   return (
     <>
       <button
@@ -821,24 +826,33 @@ function TradeNoteBtn({ name, items }: { name: string; items: MemoItem[] }) {
         draggable={false}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={() => setOpen(true)}
-        title={items.length ? `무역사무 노트 ${items.length}개` : '무역사무 노트 없음'}
+        title={`무역사무 메모 · 지금 ${items.length}개 · 완료 ${done.length}개`}
       >
         📒{items.length > 0 && <span className="tn-n">{items.length}</span>}
       </button>
       {open && (
-        <Modal title={`무역사무 노트 · ${name}`} onClose={() => setOpen(false)}>
+        <Modal title={`무역사무 메모 · ${name}`} onClose={() => setOpen(false)}>
+          <div className="seg small" style={{ marginBottom: 8 }}>
+            <button className={tab === 'open' ? 'on' : ''} onClick={() => setTab('open')}>
+              지금 올라온 것 {items.length}
+            </button>
+            <button className={tab === 'done' ? 'on' : ''} onClick={() => setTab('done')}>
+              완료 {done.length}
+            </button>
+          </div>
           <p className="muted small" style={{ marginTop: 0 }}>
-            무역사무가 이 업체에 대해 남긴 메모 중 아직 처리(체크)하지 않은 것이에요. 고치는 건 무역사무 페이지 › 업체 메모에서 해요.
+            {tab === 'open' ? '무역사무가 이 업체에 대해 남긴 메모 중 아직 완료 안 된 것이에요.' : '무역사무가 완료 체크한 메모예요 (최근 완료 순).'} 고치는 건 무역사무 페이지 › 업체 메모에서 해요.
           </p>
-          {items.length === 0 ? (
-            <p className="muted small">남은 무역사무 노트가 없어요 🍵</p>
+          {shown.length === 0 ? (
+            <p className="muted small">{tab === 'open' ? '남은 무역사무 메모가 없어요 🍵' : '완료된 메모가 아직 없어요'}</p>
           ) : (
             <ul className="tn-list">
-              {items.map((x) => (
-                <li key={x.id}>
-                  <span className="tn-text">{x.text}</span>
+              {shown.map((x) => (
+                <li key={x.id} className={x.done ? 'tn-done' : ''}>
+                  <span className="tn-text">{x.done ? '✅ ' : ''}{x.text}</span>
                   <span className="muted small">
-                    {nameOf(x.email, x.by)} {new Date(x.at).getMonth() + 1}/{new Date(x.at).getDate()}
+                    {nameOf(x.email, x.by)} {md(x.at)}
+                    {x.done && x.doneAt ? ` · 완료 ${md(x.doneAt)}` : ''}
                   </span>
                 </li>
               ))}

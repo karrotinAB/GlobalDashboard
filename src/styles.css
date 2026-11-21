@@ -8499,3 +8499,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .app > .shell > .site-footer { margin-top: auto; }
 /* 주간 할일: 화면 밖 업체 묶음은 브라우저가 그리기를 건너뜀 (휴대폰에서 멈춤 줄이기) */
 .groups > section.group { content-visibility: auto; contain-intrinsic-size: auto 600px; }
+.tn-list li.tn-done .tn-text { color: var(--muted); }
