@@ -8402,7 +8402,7 @@ button.tr-catfind-item.copied { background: #e3f4e6; color: #1f6b3a; border-colo
 .zone-bday { margin-left: auto; padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, .18); font-size: 13px; font-weight: 600; white-space: nowrap; align-self: center; }
 /* 헤더 날씨 효과 (실험) */
 .cover { position: relative; overflow: hidden; }
-.wx-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wx-fx { position: absolute; top: 0; left: 0; width: 100%; height: calc(100% + 2px); pointer-events: none; } /* 아래로 2px 더 (125% 화면 배율에서 아래 끝에 생기던 줄 감춤) */
 .wxfx-ctl { display: flex; flex-wrap: wrap; gap: 10px; }
 /* 대시보드 사용자 › 생일 칸 */
 .bday-input { display: inline-flex; gap: 4px; white-space: nowrap; }
