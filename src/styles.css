@@ -8488,3 +8488,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 @media (max-width: 600px) {
   tr.bundle-head .bundle-title { left: 50px; }
 }
+.tr-sku-status { color: var(--mut); }

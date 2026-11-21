@@ -106,13 +106,14 @@ export function useSkuPaths(): Map<string, string> | null {
 export const seasonOfCode = (set: Set<string> | null, code?: string): 'S' | 'N' | undefined => (set && code ? (set.has(code.trim()) ? 'S' : 'N') : undefined);
 
 /** 마지막으로 받은 때 · 개수 */
+export type SkuMeta = { at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[]; resumePage?: number; partialCount?: number; triedAt?: string; stopped?: string };
 export function useSkuMeta() {
-  const [m, setM] = useState<{ at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[] } | null>(null);
+  const [m, setM] = useState<SkuMeta | null>(null);
   useEffect(() => {
     if (DATA_MODE === 'local') return;
     return onSnapshot(
       doc(db, 'skuMeta', 'main'),
-      (d) => setM((d.data() as { at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[] }) ?? {}),
+      (d) => setM((d.data() as SkuMeta) ?? {}),
       () => setM({}),
     );
   }, []);
