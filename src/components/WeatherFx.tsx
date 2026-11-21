@@ -71,10 +71,10 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     // 빗방울
     const drops: Drop[] = [];
     const bigs: Big[] = [];
-    // 세기별 차이: 약하게 = 물방울만 맺힘 · 보통 = 물방울 + 뒤로 빗줄기 · 강하게 = 타닥타닥 물방울 + 쏴쏴 빗줄기
+    // 세기별 차이: 약하게 = 물방울 + 아주 살짝 빗줄기 · 보통 = 물방울 + 뒤로 빗줄기 · 강하게 = 타닥타닥 물방울 + 쏴쏴 빗줄기
     const P = (
       {
-        1: { spawn: 14, dens: 3400, big: 0.5, bigMax: 6, splash: 0.35, pop: 3, streak: 0 },
+        1: { spawn: 14, dens: 3400, big: 0.5, bigMax: 6, splash: 0.35, pop: 3, streak: 1 / 30 },
         2: { spawn: 20, dens: 3000, big: 0.7, bigMax: 7, splash: 0.5, pop: 4, streak: 1 / 9 },
         3: { spawn: 55, dens: 2000, big: 1.3, bigMax: 12, splash: 1, pop: 9, streak: 1 / 2.6 },
       } as const
@@ -92,7 +92,7 @@ export default function WeatherFx({ mode, level }: { mode: FxMode; level: FxLeve
     const nStreaks = () => Math.round(W * P.streak * m);
     const addStreak = (y = rnd(-H, H)) => {
       const far = Math.random(); // 0 = 멀리 (가늘고 흐림) · 1 = 가까이
-      streaks.push({ x: rnd(-H * slant, W), y, len: (level === 3 ? 18 : 12) + far * (level === 3 ? 26 : 16), v: (level === 3 ? 900 : 650) + far * 500, al: 0.12 + far * (level === 3 ? 0.35 : 0.25), w: 0.6 + far * 0.9 });
+      streaks.push({ x: rnd(-H * slant, W), y, len: (level === 3 ? 18 : 12) + far * (level === 3 ? 26 : 16), v: (level === 3 ? 900 : 650) + far * 500, al: level === 1 ? 0.08 + far * 0.14 : 0.12 + far * (level === 3 ? 0.35 : 0.25), w: 0.6 + far * 0.9 });
     };
     if (rain) for (let i = 0; i < nStreaks(); i++) addStreak();
 
