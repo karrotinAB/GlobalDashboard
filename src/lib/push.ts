@@ -7,7 +7,7 @@ import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messa
 import { app, db } from '../firebase';
 
 /** Firebase 콘솔 › 프로젝트 설정 › 클라우드 메시징 › 웹 푸시 인증서의 '키 쌍' (공개 키 · 사이트에 넣어도 되는 값) */
-export const VAPID_KEY = '';
+export const VAPID_KEY = 'BJs4CE9IhFNoKAbf-TzcPHzL-cnm9kcbRbCKgTmMhZr3P-1s4UfYqnxE1A2brAZxhUSvdXi9yuCB6hG4Ior9dhw';
 
 const LS = 'gd:pushToken';
 export type PushState = 'unsupported' | 'not-ready' | 'blocked' | 'off' | 'on';
