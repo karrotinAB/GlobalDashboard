@@ -57,7 +57,24 @@ async function fetchPage(cfg, page, fetchImpl, { wait = sleep } = {}) {
     throw new Error(`getSkuList: JSON 이 아님 (${text.slice(0, 80)})`);
   }
   if (body && body.success === false && !listOf(body).length) return [];
+  // 전체 개수를 같이 주면 기억 (totalCount · total_cnt · totalPage …)
+  const tot = findTotal(body);
+  if (tot) lastTotal = tot;
   return listOf(body);
+}
+let lastTotal = null;
+function findTotal(body, depth = 0) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || depth > 2) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(body)) {
+    const key = k.replace(/[_\s-]/g, '').toLowerCase();
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) {
+      if (/^(total(count|cnt|rows|records|items)?|totcnt|count|recordcount|rowcount)$/.test(key)) out.count = n;
+      if (/^(totalpages?|totpage|pagecount|lastpage)$/.test(key)) out.pages = n;
+    } else if (v && typeof v === 'object' && !Array.isArray(v)) Object.assign(out, findTotal(v, depth + 1) ?? {});
+  }
+  return out.count || out.pages ? out : null;
 }
 
 /** 한 줄 → { code, i, t, l, m, s } (칸 이름 대소문자 · 밑줄 달라도) */
@@ -220,8 +237,8 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
   const total = (start > 1 ? Number(meta.partialCount ?? 0) : 0) + count;
   await metaRef.set(
     done
-      ? { at, count: total, pages: page, keys, resumePage: 1, partialCount: 0, stopped: '', noCat, noCatSamples }
-      : { ...meta, keys, resumePage: page, partialCount: total, stopped: stopped || '다 못 받음', triedAt: at, noCat, noCatSamples },
+      ? { at, count: total, pages: page, keys, resumePage: 1, partialCount: 0, stopped: '', noCat, noCatSamples, apiTotal: lastTotal ?? meta.apiTotal ?? null }
+      : { ...meta, keys, resumePage: page, partialCount: total, stopped: stopped || '다 못 받음', triedAt: at, noCat, noCatSamples, apiTotal: lastTotal ?? meta.apiTotal ?? null },
   );
   return { count: total, pages, done, nextPage: done ? null : page, stopped, keys, at, noCat, noCatSamples };
 }

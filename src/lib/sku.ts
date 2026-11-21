@@ -106,7 +106,7 @@ export function useSkuPaths(): Map<string, string> | null {
 export const seasonOfCode = (set: Set<string> | null, code?: string): 'S' | 'N' | undefined => (set && code ? (set.has(code.trim()) ? 'S' : 'N') : undefined);
 
 /** 마지막으로 받은 때 · 개수 */
-export type SkuMeta = { at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[]; resumePage?: number; partialCount?: number; triedAt?: string; stopped?: string; nightAt?: string; nightError?: string };
+export type SkuMeta = { at?: string; count?: number; keys?: string[]; noCat?: number; noCatSamples?: { code: string; category: string }[]; resumePage?: number; partialCount?: number; triedAt?: string; stopped?: string; nightAt?: string; nightError?: string; apiTotal?: { count?: number; pages?: number } | null };
 export function useSkuMeta() {
   const [m, setM] = useState<SkuMeta | null>(null);
   useEffect(() => {
