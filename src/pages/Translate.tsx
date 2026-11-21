@@ -1313,6 +1313,35 @@ function SkuSyncBtn() {
   const meta = useSkuMeta();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  // 끝까지 받기: 서버가 한 번에 8분 동안 (쪽마다 3초 쉬며) 받고 → 30초 쉬고 → 다시, 다 받을 때까지. 이 화면을 열어 둬야 이어져요
+  const [allRun, setAllRun] = useState(false);
+  const stopRef = useRef(false);
+  const runAll = async () => {
+    if (!confirm('남은 제품 정보를 끝까지 받을까요?\n\n· 서버 부담이 적게 한 쪽(500개)마다 3초씩 쉬고, 8분마다 30초 더 쉬어요\n· 다 받을 때까지 이 화면을 열어 두세요 (닫으면 멈추고, 다음에 이어서 받아요)')) return;
+    stopRef.current = false;
+    setAllRun(true);
+    setMsg('');
+    try {
+      for (let round = 1; !stopRef.current; round++) {
+        setMsg(`끝까지 받는 중… (${round}번째 · 받는 동안 이 화면을 열어 두세요)`);
+        const r = await syncSkuNow(false, true);
+        if (r.done) {
+          setMsg(`제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓`);
+          break;
+        }
+        if (stopRef.current) break;
+        setMsg(`${r.count.toLocaleString()}개까지 받았어요 · 30초 쉬고 ${r.nextPage}쪽부터 이어서 받아요${r.stopped && !r.stopped.includes('다 못') && !r.stopped.includes('시간') ? ` (${r.stopped})` : ''}`);
+        // 429(너무 잦음)로 멈췄으면 더 길게 쉼
+        const rest = r.stopped && /429|잦/.test(r.stopped) ? 180 : 30;
+        for (let t = 0; t < rest && !stopRef.current; t++) await new Promise((res) => setTimeout(res, 1000));
+      }
+      if (stopRef.current) setMsg('멈췄어요 — 다음에 이어서 받아요');
+    } catch (e) {
+      setMsg(`멈췄어요: ${(e as Error).message}`);
+    } finally {
+      setAllRun(false);
+    }
+  };
   const run = async (restart: boolean) => {
     setBusy(true);
     setMsg('');
@@ -1330,13 +1359,24 @@ function SkuSyncBtn() {
     <>
       <button
         className="tr-dl"
-        disabled={busy}
+        disabled={busy || allRun}
         title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 월요일 새벽마다 새로)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 이미지 주소 · 팀 · 대/중/소분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
         onClick={() => void run(false)}
       >
         {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}
       </button>
-      {!busy && (
+      {allRun ? (
+        <button className="danger small" onClick={() => (stopRef.current = true)}>
+          ⏹ 멈추기
+        </button>
+      ) : (
+        !busy && (
+          <button className="primary" onClick={() => void runAll()} title={(meta?.resumePage ?? 1) > 1 ? `남은 쪽(${meta?.resumePage}쪽부터)을 쉬어 가며 끝까지 자동으로 받아요` : '처음부터 끝까지 쉬어 가며 자동으로 새로 받아요'}>
+            ⏩ 끝까지 받기
+          </button>
+        )
+      )}
+      {!busy && !allRun && (
         <button className="link small" onClick={() => confirm('제품 정보를 1쪽부터 다시 받을까요? (1차 10쪽은 지금, 나머지는 새벽에)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
           처음부터 다시
         </button>
