@@ -173,8 +173,8 @@ export function Cover({ tall, children }: { tall?: boolean; children?: ReactNode
       {show && (show.mode === 'frost' ? <FrostFx /> : <WeatherFx mode={show.mode} level={show.level} />)}
       {showLights && <LightsFx palette={lights.palette} blink={lights.blink} strands={lights.strands} />}
       {children}
-      {/* 꼬마전구 바로 바꾸기: 크리스마스 기간엔 모두 · 그 밖엔 관리자 미리보기 (헤더 오른쪽 아래, 마우스를 올리면) */}
-      {(isXmas() || realRole === 'admin' || role === null) && <LightsDock />}
+      {/* 꼬마전구 바로 바꾸기: 헤더에 꼬마전구가 떠 있을 때만 (오른쪽 아래, 마우스를 올리면) */}
+      {showLights && <LightsDock />}
     </div>
   );
 }
