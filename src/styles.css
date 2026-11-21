@@ -8577,7 +8577,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .ld-switch.on .ld-switch-knob { transform: translateX(20px); filter: none; }
 /* 밀어서 고르는 버튼 */
 .ld-seg { position: relative; display: grid; grid-template-columns: repeat(var(--n), 26px); height: 26px; padding: 0; border-radius: 999px; background: rgba(120, 90, 80, .14); flex: none; }
-.ld-seg button { position: relative; z-index: 1; width: 26px; height: 26px; padding: 0; border: 0; background: none; font-size: 13px; line-height: 1; color: var(--ink-2); border-radius: 50%; }
+.ld-seg button { position: relative; z-index: 1; width: 26px; height: 26px; padding: 0; border: 0; background: none; display: grid; place-items: center; font-size: 13px; line-height: 1; color: var(--ink-2); border-radius: 50%; }
 .ld-seg button:disabled { cursor: default; }
 .ld-knob {
   position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #fff;

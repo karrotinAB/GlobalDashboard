@@ -1,6 +1,6 @@
 // 헤더 꼬마전구: 헤더 위쪽에 전선 여러 가닥이 늘어지고, 전구가 깜빡임
 //   지금은 관리자 미리보기 (설정 > 관리자 설정 > 헤더 꼬마전구) — 나중에 크리스마스 주간에 자동으로
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type LightPalette = 'rainbow' | 'warm' | 'xmas' | 'ice';
 export type LightBlink = 'soft' | 'twinkle' | 'chase';
@@ -138,7 +138,7 @@ export default function LightsFx({ palette, blink, strands }: { palette: LightPa
 }
 
 // ---------- 헤더 오른쪽 아래: 꼬마전구 바로 바꾸기 (헤더에 마우스를 올리면 나타남) ----------
-type Opt<K extends string | number> = { k: K; icon: string; title: string };
+type Opt<K extends string | number> = { k: K; icon: ReactNode; title: string };
 /** 밀어서 고르는 버튼 (고른 칸 뒤로 동그란 손잡이가 미끄러짐) */
 function SlideSeg<K extends string | number>({ opts, value, onPick, disabled }: { opts: Opt<K>[]; value: K; onPick: (k: K) => void; disabled?: boolean }) {
   const i = Math.max(0, opts.findIndex((o) => o.k === value));
@@ -164,10 +164,19 @@ const BLINK_OPTS: Opt<LightBlink>[] = [
   { k: 'twinkle', icon: '⭐', title: '반짝반짝' },
   { k: 'chase', icon: '💫', title: '번갈아' },
 ];
+/** 줄 수 아이콘: 가로줄 n개 (글꼴마다 ═ ☰ 모양이 달라서 직접 그림) */
+const Lines = ({ n }: { n: number }) => (
+  <svg width="13" height="11" viewBox="0 0 13 11" aria-hidden="true">
+    {Array.from({ length: n }, (_, i) => {
+      const y = n === 1 ? 5.5 : n === 2 ? 3.5 + i * 4 : 1.5 + i * 4;
+      return <line key={i} x1="1" x2="12" y1={y} y2={y} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />;
+    })}
+  </svg>
+);
 const STRAND_OPTS: Opt<1 | 2 | 3>[] = [
-  { k: 1, icon: '─', title: '1줄' },
-  { k: 2, icon: '═', title: '2줄' },
-  { k: 3, icon: '☰', title: '3줄' },
+  { k: 1, icon: <Lines n={1} />, title: '1줄' },
+  { k: 2, icon: <Lines n={2} />, title: '2줄' },
+  { k: 3, icon: <Lines n={3} />, title: '3줄' },
 ];
 export function LightsDock() {
   const v = useLightsSetting();
