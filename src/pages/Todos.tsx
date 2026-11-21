@@ -276,6 +276,16 @@ export default function Todos() {
       }));
   }, [groupBy, filtered, companies, members, companyById, memberFilter, companyFilter, status, q, todayIso, reportF]);
 
+  // 나눠 그리기: 처음 40줄 → 한 번에 60줄씩 더 (주가 바뀌거나 보기 방식이 바뀌면 다시 처음부터)
+  const totalRows = groups.reduce((a, g) => a + g.rows.length, 0);
+  const [renderCap, setRenderCap] = useState(40);
+  useEffect(() => setRenderCap(40), [groupBy, monday]);
+  useEffect(() => {
+    if (renderCap >= totalRows) return;
+    const id = window.setTimeout(() => setRenderCap((c) => c + 120), 30);
+    return () => window.clearTimeout(id);
+  }, [renderCap, totalRows]);
+
   const toggleDone = (t: Task) => {
     if (readOnly) return;
     // 보고 확인 할일: 보고방 확인 체크를 바꾸면 할일도 따라 바뀜
@@ -403,7 +413,12 @@ export default function Todos() {
       {groups.length === 0 && groupBy !== 'company' && <Empty>조건에 맞는 할일이 없어요.</Empty>}
 
       <div className="groups">
-        {groups.map((g) => {
+        {(() => {
+          // 휴대폰에서 한꺼번에 다 그리면 화면이 멈춰서: 처음엔 위쪽 몇십 줄, 나머지는 조금씩 이어 그림
+          let budget = renderCap;
+          return groups.map((g0) => {
+          const g = { ...g0, rows: g0.rows.slice(0, Math.max(0, budget)) };
+          budget -= g.rows.length;
           const showCompany = groupBy !== 'company';
           const colSpan = showCompany ? 8 : 7;
           const taskMovable = !readOnly && groupBy === 'company';
@@ -718,7 +733,8 @@ export default function Todos() {
               </table>
             </section>
           );
-        })}
+          });
+        })()}
         {groupBy === 'company' && !readOnly && !companyFilter && <AddCompany companies={companies} onAdd={(c) => save('companies', c)} />}
       </div>
 

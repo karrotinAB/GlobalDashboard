@@ -8482,7 +8482,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 }
 /* 옆으로 스크롤할 때 묶음 제목도 왼쪽에 고정 (주문 이름처럼) */
 @media (max-width: 1299px) {
-  tr.bundle-head .bundle-title { position: sticky; left: 92px; width: max-content; z-index: 3; }
+  tr.bundle-head .bundle-title { position: sticky; left: 92px; width: max-content; z-index: 6; } /* 색 고르기 창이 아래 고정된 주문 이름 칸보다 위에 */
   tr.bundle-head td.c-gutter { z-index: 5; }
 }
 @media (max-width: 600px) {
@@ -8497,3 +8497,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .app > .shell { flex: 1 0 auto; display: flex; flex-direction: column; width: 100%; box-sizing: border-box; }
 .app > .shell > main { flex: 1 0 auto; }
 .app > .shell > .site-footer { margin-top: auto; }
+/* 주간 할일: 화면 밖 업체 묶음은 브라우저가 그리기를 건너뜀 (휴대폰에서 멈춤 줄이기) */
+.groups > section.group { content-visibility: auto; contain-intrinsic-size: auto 600px; }
