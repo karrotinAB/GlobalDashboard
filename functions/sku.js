@@ -267,10 +267,9 @@ export async function syncSku(db, { fetchImpl = fetch, maxPages = 400, gapMs = 1
 // ---------- 엑셀에서 정보가 없는 제품코드만 하나씩 찾아오기 ----------
 //   제품코드로 찾는 칸 이름: secrets/sku 의 codeParam (있으면) → 없으면 흔한 이름들을 한 번씩 해 보고
 //   맞는 제품이 돌아오는 이름을 skuMeta/main.codeParam 에 기억 (다음부터는 그것만)
-//   한 번 찾아본 코드는 skuMiss/main 에 7일 동안 기억해서 또 묻지 않음 (회사 API 부담 줄이기)
+//   한 번 찾아본 코드는 skuMiss/main 에 기억해서 다시는 묻지 않음 (회사 API 부담 줄이기)
 const CODE_PARAMS = ['SKU_CODE', 'skuCode', 'SKU_CD', 'sku_code', 'SKU', 'sku', 'CODE', 'code', 'SEARCH_SKU', 'KEYWORD', 'SEARCH_WORD', 'searchWord'];
 const LOOKUP_MAX = 300;
-const MISS_DAYS = 7;
 
 /** 제품 정보 묶어서 저장 (skuInfo · skuPath · skuSeason 에 합침) */
 async function storeItems(db, ns) {
@@ -324,8 +323,6 @@ export async function lookupSkus(db, codes0, { fetchImpl = fetch, gapMs = 1000, 
   const meta = (await metaRef.get()).data() ?? {};
   const missRef = db.doc('skuMiss/main');
   const miss = readJson(await missRef.get(), 'codes');
-  const now = Date.now();
-  for (const [c, t] of Object.entries(miss)) if (now - Date.parse(t) > MISS_DAYS * 86400000) delete miss[c];
   const want = [...new Set(codes0.map((c) => String(c ?? '').trim()).filter((c) => /^[0-9A-Za-z-]{4,20}$/.test(c)))].filter((c) => !miss[c]);
   const codes = want.slice(0, LOOKUP_MAX);
   let param = cfg.codeParam || meta.codeParam || '';
@@ -378,7 +375,7 @@ export async function lookupSkus(db, codes0, { fetchImpl = fetch, gapMs = 1000, 
   }
   if (found.length) await storeItems(db, found);
   const at = new Date().toISOString();
-  for (const c of doneSet) miss[c] = at; // 찾았든 못 찾았든 7일 동안은 다시 안 물음
+  for (const c of doneSet) miss[c] = at; // 찾았든 못 찾았든 다시는 안 물음
   await missRef.set({ data: JSON.stringify(miss), at });
   await metaRef.set({ lookupAt: at, lookupNote: `${found.length}개 찾음 · ${none.length}개 없음` }, { merge: true });
   return { asked: doneSet.size, found: found.length, none: none.length, left: want.length - doneSet.size, stopped, codeParam: param };

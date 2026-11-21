@@ -1341,6 +1341,8 @@ function SkuSyncBtn() {
   const [msg, setMsg] = useState('');
   // 끝까지 받기: 서버가 한 번에 8분 동안 (쪽마다 3초 쉬며) 받고 → 30초 쉬고 → 다시, 다 받을 때까지. 이 화면을 열어 둬야 이어져요
   const [allRun, setAllRun] = useState(false);
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
   const stopRef = useRef(false);
   const runAll = async () => {
     if (!confirm('남은 제품 정보를 끝까지 받을까요?\n\n· 서버 부담이 적게 한 쪽(500개)마다 3초씩 쉬고, 8분마다 30초 더 쉬어요\n· 다 받을 때까지 이 화면을 열어 두세요 (닫으면 멈추고, 다음에 이어서 받아요)')) return;
@@ -1349,7 +1351,7 @@ function SkuSyncBtn() {
     setMsg('');
     try {
       for (let round = 1; !stopRef.current; round++) {
-        setMsg(`끝까지 받는 중… (${round}번째 · 받는 동안 이 화면을 열어 두세요)`);
+        setMsg(`끝까지 받는 중… ${round}번째 묶음 (한 묶음 = 서버가 최대 8분 동안 쉬어 가며 받는 것 · ${(metaRef.current?.resumePage ?? 1) > 1 ? `${metaRef.current?.resumePage}쪽부터 · 지금까지 ${(metaRef.current?.partialCount ?? 0).toLocaleString()}개` : '1쪽부터'}) · 이 화면을 열어 두세요`);
         const r = await syncSkuNow(false, true);
         if (r.done) {
           setMsg(`제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓`);

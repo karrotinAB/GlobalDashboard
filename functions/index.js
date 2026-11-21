@@ -746,7 +746,7 @@ export const syncSkuNow = onCall(skuOpts, async (req) => {
   }
 });
 
-// 번역 페이지: 엑셀에서 정보가 없는 제품코드만 찾아오기 (한 번에 300개까지 · 1초씩 쉬며 · 찾아본 건 7일 동안 다시 안 물음)
+// 번역 페이지: 엑셀에서 정보가 없는 제품코드만 찾아오기 (한 번에 300개까지 · 1초씩 쉬며 · 한 번 찾아본 건 다시 안 물음)
 export const lookupSku = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
   const role = await roleOf(req);
   if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
