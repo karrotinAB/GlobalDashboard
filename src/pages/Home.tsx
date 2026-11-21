@@ -559,13 +559,15 @@ function WeekSlider({ week }: { week: ReactNode }) {
           </div>
         ))}
       </div>
+      <div className="zs-dots">
+        {slides.map((_, k) => (
+          <span key={k} className={`zs-dot ${k === cur ? 'on' : ''}`} />
+        ))}
+      </div>
       <div className="zs-ctrl">
         <button type="button" className="zs-arrow zs-prev" onClick={() => go(-1)} aria-label="이전">
           ‹
         </button>
-        {slides.map((_, k) => (
-          <span key={k} className={`zs-dot ${k === cur ? 'on' : ''}`} />
-        ))}
         <button type="button" className="zs-arrow zs-next" onClick={() => go(1)} aria-label="다음">
           ›
         </button>
