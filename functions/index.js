@@ -739,6 +739,8 @@ export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '*/30 1-5 * * *'
 export const syncSkuNow = onCall(skuOpts, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   try {
+    // all: '끝까지 받기' — 한 번 부를 때 8분 동안 쪽마다 3초 쉬며 최대한 (화면이 다시 불러서 이어감)
+    if (req.data?.all) return await syncSku(db, { maxPages: 400, gapMs: 3000, budgetMs: 470000 });
     return await syncSku(db, { maxPages: 10, restart: !!req.data?.restart });
   } catch (e) {
     await db.doc('skuMeta/main').set({ nightError: `버튼: ${e.message}`, nightAt: new Date().toISOString() }, { merge: true }).catch(() => {});
