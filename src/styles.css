@@ -8557,3 +8557,46 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .cmp-tip rect { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .12)); }
 .cmp-tip-name { font-size: 10px; fill: var(--muted); }
 .cmp-tip-val { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------- 헤더 오른쪽 아래: 꼬마전구 바로 바꾸기 ---------- */
+.lights-dock { position: absolute; right: 14px; bottom: 10px; z-index: 4; display: flex; align-items: center; gap: 6px; }
+.ld-toggle { display: none; }
+.ld-body {
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 999px;
+  background: rgba(255, 250, 246, .72); backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(80, 40, 30, .12);
+  opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.cover:hover .ld-body, .lights-dock:focus-within .ld-body { opacity: 1; transform: none; pointer-events: auto; }
+/* 켜고 끄기 스위치 */
+.ld-switch { position: relative; width: 44px; height: 24px; padding: 0; border-radius: 999px; border: 0; background: rgba(120, 90, 80, .25); transition: background .2s; flex: none; }
+.ld-switch.on { background: #f2b84b; }
+.ld-switch-knob {
+  position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  display: grid; place-items: center; font-size: 11px; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: transform .2s; filter: grayscale(1) opacity(.6);
+}
+.ld-switch.on .ld-switch-knob { transform: translateX(20px); filter: none; }
+/* 밀어서 고르는 버튼 */
+.ld-seg { position: relative; display: grid; grid-template-columns: repeat(var(--n), 26px); height: 26px; padding: 0; border-radius: 999px; background: rgba(120, 90, 80, .14); flex: none; }
+.ld-seg button { position: relative; z-index: 1; width: 26px; height: 26px; padding: 0; border: 0; background: none; font-size: 13px; line-height: 1; color: var(--ink-2); border-radius: 50%; }
+.ld-seg button:disabled { cursor: default; }
+.ld-knob {
+  position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18); transform: translateX(calc(var(--i) * 26px)); transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+}
+.ld-seg.off { opacity: .4; }
+@media (hover: none) {
+  /* 휴대폰: 🎄 를 눌러서 열고 닫기 */
+  .ld-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 0; background: rgba(255, 250, 246, .72); font-size: 14px; box-shadow: 0 2px 8px rgba(80, 40, 30, .12); }
+  .lights-dock { flex-direction: row-reverse; right: 10px; bottom: 8px; }
+  .cover:hover .ld-body { opacity: 0; pointer-events: none; }
+  .lights-dock.open .ld-body { opacity: 1; transform: none; pointer-events: auto; }
+}
+@media (max-width: 600px) {
+  .ld-body { gap: 4px; padding: 3px 4px; }
+  .ld-seg { grid-template-columns: repeat(var(--n), 22px); height: 22px; }
+  .ld-seg button { width: 22px; height: 22px; font-size: 11px; }
+  .ld-knob { width: 18px; height: 18px; transform: translateX(calc(var(--i) * 22px)); }
+  .ld-switch { width: 38px; height: 22px; }
+  .ld-switch-knob { width: 18px; height: 18px; }
+  .ld-switch.on .ld-switch-knob { transform: translateX(16px); }
+}

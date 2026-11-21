@@ -198,7 +198,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         <>
           {access.email && <PushSection email={access.email} />}
           {access.email && <ChangePassword />}
-          {isXmas() && <LightsSection />}
         </>
       ) : (
       <>
@@ -208,8 +207,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       {showHdr && <WishSection />}
       {showHdr && <WeatherFxSection />}
       {showHdr && <LightsSection />}
-      {/* 꼬마전구: 크리스마스 기간엔 모두의 일반 설정에도 */}
-      {isXmas() && showGen && <LightsSection />}
       {showGen && (
       <section className="card">
         <h2>담당자 ({access.viewLabel})</h2>
@@ -1226,7 +1223,7 @@ function LightsSection() {
       <p className="muted small">
         {isXmas()
           ? `메리 크리스마스! ${XMAS_FROM.replace('-', '/')} ~ ${XMAS_TO.replace('-', '/')} 동안 헤더에 꼬마전구가 켜져요. 색 · 깜빡임 · 줄 수를 골라 보세요 (이 브라우저에 저장 · 끌 수도 있어요).`
-          : `헤더 위쪽에 꼬마전구를 달아 봐요. 지금은 관리자 이 브라우저에서만 보여요 (${XMAS_FROM.replace('-', '/')} ~ ${XMAS_TO.replace('-', '/')} 크리스마스 기간엔 모두에게 켜지고, 일반 설정에서 각자 고를 수 있어요).`}
+          : `헤더 위쪽에 꼬마전구를 달아 봐요. 지금은 관리자 이 브라우저에서만 보여요 (${XMAS_FROM.replace('-', '/')} ~ ${XMAS_TO.replace('-', '/')} 크리스마스 기간엔 모두에게 켜지고, 헤더 오른쪽 아래에서 각자 고를 수 있어요 — 헤더에 마우스를 올리면 나와요).`}
       </p>
       <div className="wxfx-ctl">
         <div className="seg">

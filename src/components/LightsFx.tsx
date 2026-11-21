@@ -12,7 +12,7 @@ export const PALETTES: Record<LightPalette, { label: string; colors: string[] }>
 };
 export const BLINKS: Record<LightBlink, string> = { soft: '은은하게', twinkle: '반짝반짝', chase: '번갈아' };
 
-/** 크리스마스 기간 (12/18 ~ 12/26): 모두에게 꼬마전구가 켜지고, 일반 설정에서 각자 고를 수 있어요 */
+/** 크리스마스 기간 (12/18 ~ 12/26): 모두에게 꼬마전구가 켜지고, 헤더 오른쪽 아래(마우스를 올리면)에서 각자 고를 수 있어요 */
 export const XMAS_FROM = '12-18';
 export const XMAS_TO = '12-26';
 export const isXmas = (d = new Date()) => {
@@ -133,6 +133,59 @@ export default function LightsFx({ palette, blink, strands }: { palette: LightPa
           })}
         </svg>
       )}
+    </div>
+  );
+}
+
+// ---------- 헤더 오른쪽 아래: 꼬마전구 바로 바꾸기 (헤더에 마우스를 올리면 나타남) ----------
+type Opt<K extends string | number> = { k: K; icon: string; title: string };
+/** 밀어서 고르는 버튼 (고른 칸 뒤로 동그란 손잡이가 미끄러짐) */
+function SlideSeg<K extends string | number>({ opts, value, onPick, disabled }: { opts: Opt<K>[]; value: K; onPick: (k: K) => void; disabled?: boolean }) {
+  const i = Math.max(0, opts.findIndex((o) => o.k === value));
+  return (
+    <div className={`ld-seg ${disabled ? 'off' : ''}`} style={{ '--n': opts.length, '--i': i } as CSSProperties} role="radiogroup">
+      <span className="ld-knob" />
+      {opts.map((o) => (
+        <button key={String(o.k)} type="button" role="radio" aria-checked={o.k === value} title={o.title} disabled={disabled} onClick={() => onPick(o.k)}>
+          {o.icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+const PAL_OPTS: Opt<LightPalette>[] = [
+  { k: 'warm', icon: '✨', title: '따뜻한 노랑' },
+  { k: 'rainbow', icon: '🌈', title: '알록달록' },
+  { k: 'xmas', icon: '🎄', title: '빨강 · 초록' },
+  { k: 'ice', icon: '❄️', title: '파랑 · 흰색' },
+];
+const BLINK_OPTS: Opt<LightBlink>[] = [
+  { k: 'soft', icon: '🕯️', title: '은은하게' },
+  { k: 'twinkle', icon: '⭐', title: '반짝반짝' },
+  { k: 'chase', icon: '💫', title: '번갈아' },
+];
+const STRAND_OPTS: Opt<1 | 2 | 3>[] = [
+  { k: 1, icon: '─', title: '1줄' },
+  { k: 2, icon: '═', title: '2줄' },
+  { k: 3, icon: '☰', title: '3줄' },
+];
+export function LightsDock() {
+  const v = useLightsSetting();
+  const set = (p: Partial<LightsCfg>) => writeLights({ ...v, ...p });
+  const [open, setOpen] = useState(false); // 휴대폰: 🎄 를 눌러서 열고 닫기
+  return (
+    <div className={`lights-dock ${open ? 'open' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="ld-toggle" title="꼬마전구 설정" onClick={() => setOpen((o) => !o)}>
+        🎄
+      </button>
+      <div className="ld-body">
+        <button type="button" className={`ld-switch ${v.on ? 'on' : ''}`} role="switch" aria-checked={v.on} title={v.on ? '꼬마전구 끄기' : '꼬마전구 켜기'} onClick={() => set({ on: !v.on })}>
+          <span className="ld-switch-knob">💡</span>
+        </button>
+        <SlideSeg opts={PAL_OPTS} value={v.palette} onPick={(palette) => set({ palette })} disabled={!v.on} />
+        <SlideSeg opts={BLINK_OPTS} value={v.blink} onPick={(blink) => set({ blink })} disabled={!v.on} />
+        <SlideSeg opts={STRAND_OPTS} value={v.strands} onPick={(strands) => set({ strands })} disabled={!v.on} />
+      </div>
     </div>
   );
 }
