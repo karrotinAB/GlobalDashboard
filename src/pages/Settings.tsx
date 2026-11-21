@@ -17,6 +17,7 @@ import AccessAdmin from '../components/AccessAdmin';
 import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
 import { Modal } from '../components/ui';
+import { useFullName } from '../lib/fullName';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
@@ -61,6 +62,7 @@ const TIMEZONES = [
 export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' }) {
   const { data, mode, save, saveMany, remove } = useStore();
   const access = useAccess();
+  const myFullName = useFullName(access.email ?? ''); // 팀장님 · 이사님 인사용 (성까지)
   const { members, companies, isMine, hasMirror } = useLookups();
   const accounts = useAccounts(access.canManage);
   // 팀장님·이사님 업체 관리: 검색 + 내 업체 → 1조 → 2조 → 3조 순
@@ -136,11 +138,28 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
         // 접속한 사람 이름: 내 담당자 카드(조·무역사무) → 계정 이름 → 이메일 앞
         const mine = [...members, ...data.tradeMembers].find((m) => !!access.email && m.email?.toLowerCase() === access.email);
         const name = mine?.name ?? access.accountName ?? (access.email ? access.email.split('@')[0] : '');
-        return name ? <p className="settings-hello">안녕하세요 <b>{name}</b>님 👋</p> : null;
+        if (!name) return null;
+        // 조원(PM): '2조 가영님' · 무역사무: '무역사무 ○○님' · 팀장님 · 이사님: '이락연 팀장님' (성까지 붙은 이름)
+        const role = access.realRole ?? access.role;
+        const who =
+          role === 'lead' || role === 'director' ? (
+            <>
+              <b>{myFullName || name}</b> {role === 'lead' ? '팀장님' : '이사님'}
+            </>
+          ) : role === 'trade' ? (
+            <>
+              무역사무 <b>{name}</b>님
+            </>
+          ) : (
+            <>
+              {/^\d+$/.test(String(access.team ?? '')) ? `${access.team}조 ` : ''}
+              <b>{name}</b>님
+            </>
+          );
+        return <p className="settings-hello">안녕하세요 {who} 👋</p>;
       })()}
       <div className="page-head">
         <h1>설정</h1>
-        {access.role !== 'trade' && <span className="tag gray">{access.viewLabel}</span>}
         {access.realRole === 'admin' && (
           <button
             className={`view-as ${access.role === 'admin' ? '' : 'on'}`}
