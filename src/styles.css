@@ -8681,3 +8681,37 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .claim-table tr.add-row.editing td.k-add-go { flex-direction: row; align-items: center; gap: 6px; }
   .claim-table tr.add-row.editing td.k-more { flex-direction: row; justify-content: flex-end; align-items: center; }
 }
+/* 휴대폰: 무역사무 요청 창 — 옆으로 넘치던 것 없이 한 창 안에 (필수 칸 2칸씩 · 작업유형은 한 줄 · 선택 칸도 2칸씩, 주문일자 · 주문 연결은 한 줄씩) */
+@media (max-width: 600px) {
+  .modal.wide:has(.rq-head-fields) { width: auto; max-width: calc(100vw - 20px); overflow-x: hidden; }
+  .modal-head:has(.rq-head-fields) h2, .modal-head:has(.rq-head-fields) h3 { min-width: 0; }
+  .modal-head-extra { margin: 10px 0 0 !important; width: 100%; }
+  .rq-head-fields, .rq-head-fields:has(.rq-long) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; width: 100%; }
+  .rq-head-fields .rq-f.wide { grid-column: 1 / -1; }
+  .rq-head-fields .rq-long { grid-column: 1 / -1; justify-self: start; }
+  .rq-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  .rq-form .rq-title-f { grid-column: 1 / -1; }
+  .rq-optional { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rq-optional .rq-f:has(.rq-date-range), .rq-optional .rq-order-f { grid-column: 1 / -1; }
+  .rq-date-range > :not(.muted) { flex: 1; min-width: 0; }
+  .rq-date-range .cell-input { width: 100%; }
+  .rq-order-f .rq-order-btn { width: 100%; text-align: center; padding: 8px 10px; }
+  .rq-f input, .rq-f select, .rq-f textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+}
+@media (max-width: 600px) {
+  .modal:has(.rq-head-fields) .modal-head { padding-bottom: 6px; }
+  .rq-form { gap: 8px 10px; }
+  .rq-form textarea { min-height: 56px; height: 56px; }
+  .rq-files { padding: 6px 8px !important; gap: 6px !important; flex-direction: row !important; flex-wrap: wrap; align-items: center; }
+  .rq-files > .muted.small { display: none; } /* 끌어다 놓기 안내는 휴대폰에선 뺌 */
+  .rq-add-file { min-height: 0 !important; height: 36px !important; width: auto !important; padding: 0 12px !important; }
+  .rq-optional { gap: 6px 10px; padding: 12px 10px 8px; }
+  .rq-optional > label.rq-f:last-child { order: 1; } /* 처리자를 매장번호 옆으로 */
+  .rq-optional .rq-f:has(.rq-date-range) { order: 2; }
+  .rq-optional .rq-order-f { order: 3; }
+  .rq-actions { margin-top: 10px; }
+}
+@media (max-width: 600px) {
+  .modal:has(.rq-head-fields) .modal-head { margin-bottom: 4px !important; padding-bottom: 0 !important; }
+  .modal:has(.rq-head-fields) .rq-head-fields { gap: 8px 10px; }
+}
