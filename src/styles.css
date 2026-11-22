@@ -8610,3 +8610,14 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .wx-now-hours { display: flex; gap: 6px; overflow-x: auto; }
 .wx-now-hours > div { flex: 0 0 auto; min-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; border-radius: 10px; background: rgba(120, 90, 80, .06); font-size: 12px; }
 .wx-now-hours > div.wet { background: rgba(77, 171, 247, .14); }
+/* 주문 관리 (휴대폰): 비고 칸이 0 으로 줄어들던 것 → 넓이 고정 · 두 줄까지 */
+@media (max-width: 600px) {
+  .order-table th.c-onote, .order-table td.c-onote { width: 148px !important; min-width: 148px !important; max-width: 148px; }
+  .order-table td.c-onote .cell-view { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+}
+/* 주문 관리 (휴대폰): 맨 끝 ⋯ 칸이 190px 라서 끝까지 밀면 비고가 주문명 밑으로 숨던 것 → ⋯ 만 있으면 좁게, 완료건이 있으면 완료 · 출고일을 위아래로 */
+@media (max-width: 600px) {
+  .order-table th.c-more, .order-table td.c-more { width: 44px !important; }
+  .order-table.has-done th.c-more, .order-table.has-done td.c-more { width: 96px !important; }
+  .order-table td.c-more .status-cell { flex-wrap: wrap; gap: 2px 4px; }
+}

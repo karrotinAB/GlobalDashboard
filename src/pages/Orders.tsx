@@ -386,7 +386,7 @@ export default function Orders() {
         </div>
       ) : (
       <div className="table-scroll">
-        <table className="order-table">
+        <table className={`order-table ${rows.some((o) => isOrderDone(o)) ? 'has-done' : ''}`}>
           <thead>
             <tr>
               <th className="c-gutter">

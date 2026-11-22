@@ -4,7 +4,8 @@ import { isPersonal } from '../lib/team';
 import { useMirrorClaims } from '../lib/teamClaims';
 import { setReportCheck, useReports, useSpaceCheckRole } from '../lib/reports';
 import { usePeople } from '../components/AddressBook';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useIsMobile } from '../lib/useMobile';
 import { useLookups, useStore } from '../data/store';
 import { addDays, today, uid, weekLabel, weekStart } from '../lib/date';
 import { dueState, summarize, tasksForWeek, type MemberSummary } from '../lib/tasks';
@@ -280,11 +281,29 @@ export default function Todos() {
   const totalRows = groups.reduce((a, g) => a + g.rows.length, 0);
   const [renderCap, setRenderCap] = useState(40);
   useEffect(() => setRenderCap(40), [groupBy, monday]);
+  // 휴대폰: 업체 칸을 화면 가까이 왔을 때만 그림 (한꺼번에 수천 줄을 그리느라 멈추던 것) — 한 번 그린 칸은 그대로 둠
+  const mobile = useIsMobile();
+  const [seen, setSeen] = useState<Set<string>>(() => new Set());
+  useEffect(() => setSeen(new Set()), [groupBy, monday]);
+  const ioRef = useRef<IntersectionObserver | null>(null);
+  const watch = useCallback((el: HTMLElement | null) => {
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    if (!ioRef.current)
+      ioRef.current = new IntersectionObserver(
+        (es) => {
+          const keys = es.filter((e) => e.isIntersecting).map((e) => (e.target as HTMLElement).dataset.gkey!);
+          if (keys.length) setSeen((s0) => (keys.every((k) => s0.has(k)) ? s0 : new Set([...s0, ...keys])));
+        },
+        { rootMargin: '900px 0px' },
+      );
+    ioRef.current.observe(el);
+  }, []);
+  useEffect(() => () => ioRef.current?.disconnect(), []);
   useEffect(() => {
-    if (renderCap >= totalRows) return;
+    if (mobile || renderCap >= totalRows) return;
     const id = window.setTimeout(() => setRenderCap((c) => c + 120), 30);
     return () => window.clearTimeout(id);
-  }, [renderCap, totalRows]);
+  }, [renderCap, totalRows, mobile]);
 
   const toggleDone = (t: Task) => {
     if (readOnly) return;
@@ -415,9 +434,11 @@ export default function Todos() {
       <div className="groups">
         {(() => {
           // 휴대폰에서 한꺼번에 다 그리면 화면이 멈춰서: 처음엔 위쪽 몇십 줄, 나머지는 조금씩 이어 그림
-          let budget = renderCap;
-          return groups.map((g0) => {
-          const g = { ...g0, rows: g0.rows.slice(0, Math.max(0, budget)) };
+          let budget = mobile ? Infinity : renderCap;
+          return groups.map((g0, gi) => {
+          // 휴대폰: 위 2칸은 바로, 나머지는 화면 가까이 오면 (그 전엔 같은 높이의 빈 자리)
+          const later = mobile && gi > 1 && !seen.has(g0.key) && g0.rows.length > 0;
+          const g = { ...g0, rows: later ? [] : g0.rows.slice(0, Math.max(0, budget)) };
           budget -= g.rows.length;
           const showCompany = groupBy !== 'company';
           const colSpan = showCompany ? 8 : 7;
@@ -428,6 +449,8 @@ export default function Todos() {
           return (
             <section
               key={g.key}
+              ref={later ? watch : undefined}
+              data-gkey={g.key}
               className={`group ${dragId === cid && movable ? 'dragging' : ''} ${overId === cid && dragId && dragId !== cid ? 'drop-target' : ''}`}
               onDragOver={(e) => {
                 if (taskMovable && taskDragRef.current) {
@@ -548,6 +571,9 @@ export default function Todos() {
                   </span>
                 )}
               </header>
+              {later ? (
+                <div className="group-later" style={{ height: 34 + g0.rows.length * 46 }} />
+              ) : (
               <table className="task-table">
                 {g.rows.length > 0 && (
                   <thead>
@@ -731,6 +757,7 @@ export default function Todos() {
                   )}
                 </tbody>
               </table>
+              )}
             </section>
           );
           });
