@@ -8659,3 +8659,25 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .m-add { display: flex; gap: 6px; align-items: center; }
   .m-add .cell-input { flex: 1; min-width: 0; }
 }
+/* 주문 관리 (휴대폰 목록): 묶음 이름 시작을 아래 합계 금액과 맞춤 (옆으로 밀던 표의 sticky 위치 · 색 점은 이름 뒤로) */
+@media (max-width: 600px) {
+  .order-table.m-list tr.bundle-head .bundle-title.m-bundle-title { position: static; left: auto; width: auto; }
+  .order-table.m-list .m-bundle-title .bundle-color { order: 2; }
+  .order-table.m-list .m-bundle-title .bundle-name-block { order: 1; min-width: 0; }
+}
+/* 휴대폰 클레임: '+ 클레임 추가' 입력은 여백 있는 카드로 (이름표 위에 · 2칸씩) */
+@media (max-width: 600px) {
+  .claim-table tr.add-row.editing {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 10px;
+    margin: 10px 8px 12px; padding: 14px 14px 10px; border: 1px solid var(--line); border-radius: 16px; background: #fffaf7;
+  }
+  .claim-table tr.add-row.editing td { display: flex !important; flex-direction: column; gap: 4px; padding: 0 !important; min-width: 0; text-align: left; }
+  .claim-table tr.add-row.editing td[data-add]::before { content: attr(data-add); font-size: 11.5px; color: var(--mut); font-weight: 600; }
+  .claim-table tr.add-row.editing td.k-title { grid-column: 1 / -1; order: -1; }
+  .claim-table tr.add-row.editing td.k-add-pack, .claim-table tr.add-row.editing td.k-add-claim { grid-column: span 1; }
+  .claim-table tr.add-row.editing td.k-add-pack { justify-content: flex-start; }
+  .claim-table tr.add-row.editing .cell-input, .claim-table tr.add-row.editing .pick-source { width: 100%; min-height: 40px; border-radius: 10px; padding: 0 12px; }
+  .claim-table tr.add-row.editing .cell-input.amt { text-align: right; }
+  .claim-table tr.add-row.editing td.k-add-go { flex-direction: row; align-items: center; gap: 6px; }
+  .claim-table tr.add-row.editing td.k-more { flex-direction: row; justify-content: flex-end; align-items: center; }
+}

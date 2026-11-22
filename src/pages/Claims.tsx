@@ -500,10 +500,10 @@ function AddClaimRow({ sources, curOptions, defaultCur, onAdd }: { sources: Sour
 
   return (
     <tr className="add-row editing">
-      <td className="k-date">
+      <td className="k-date" data-add="출고날짜">
         <DateInput value={shipDate} onChange={setShipDate} placeholder="출고날짜" />
       </td>
-      <td className="k-title">
+      <td className="k-title" data-add="묶음 · 주문">
         <button className="pick-source" onClick={() => setPicking(true)} autoFocus>
           {src ? (
             <>
@@ -524,7 +524,7 @@ function AddClaimRow({ sources, curOptions, defaultCur, onAdd }: { sources: Sour
           />
         )}
       </td>
-      <td className="k-cur">
+      <td className="k-cur" data-add="통화">
         <select className="cell-input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
           {curOptions.map((x) => (
             <option key={x} value={x}>
@@ -533,8 +533,8 @@ function AddClaimRow({ sources, curOptions, defaultCur, onAdd }: { sources: Sour
           ))}
         </select>
       </td>
-      <td className="k-amt muted small">{src ? (currency === 'KRW' ? fmtMoney('KRW', src.krw || undefined) : currency === defaultCur ? fmtMoney(currency, src.fx || undefined) : '환율로 바꿔요') || '금액 없음' : '자동'}</td>
-      <td className="k-amt">
+      <td className="k-amt k-add-pack muted small" data-add="패킹금액">{src ? (currency === 'KRW' ? fmtMoney('KRW', src.krw || undefined) : currency === defaultCur ? fmtMoney(currency, src.fx || undefined) : '환율로 바꿔요') || '금액 없음' : '자동'}</td>
+      <td className="k-amt k-add-claim" data-add="클레임 금액">
         <input
           className="cell-input amt"
           placeholder="클레임 금액"
@@ -543,7 +543,7 @@ function AddClaimRow({ sources, curOptions, defaultCur, onAdd }: { sources: Sour
           onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && submit()}
         />
       </td>
-      <td colSpan={5} className="muted small">
+      <td colSpan={5} className="muted small k-add-go">
         Enter 또는 <button className="link small" onClick={submit}>추가</button>
       </td>
       <td className="k-more">
