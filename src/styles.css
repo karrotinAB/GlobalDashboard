@@ -8621,3 +8621,41 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .order-table.has-done th.c-more, .order-table.has-done td.c-more { width: 96px !important; }
   .order-table td.c-more .status-cell { flex-wrap: wrap; gap: 2px 4px; }
 }
+
+/* ---------- 주문 관리 (휴대폰): 목록 → 누르면 아래로 상세 ---------- */
+@media (max-width: 600px) {
+  .order-table.m-list { min-width: 0 !important; width: 100%; table-layout: fixed; }
+  .order-table.m-list .c-gutter { width: 40px !important; }
+  .order-table.m-list .c-name { width: auto !important; position: static; box-shadow: none; }
+  .order-table.m-list .m-sum-h, .order-table.m-list .m-sum { width: 112px; text-align: right; }
+  .order-table.m-list tr.m-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .order-table.m-list tr.m-row > td { padding-top: 10px; padding-bottom: 10px; vertical-align: middle; }
+  .order-table.m-list tr.m-row.m-open > td { background: #fbf1ec; }
+  .m-name { display: flex; align-items: center; gap: 5px; min-width: 0; font-weight: 600; }
+  .m-name-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-note-dot { flex: none; font-size: 11px; }
+  .m-note-line { font-size: 11.5px; color: var(--red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+  .m-sum { position: relative; padding-right: 22px !important; }
+  .m-steps { display: inline-flex; gap: 3px; justify-content: flex-end; }
+  .m-steps i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #c9b3ad; background: transparent; }
+  .m-steps i.on { background: var(--primary); border-color: var(--primary); }
+  .m-steps .tag { font-size: 10.5px; padding: 1px 7px; }
+  .m-amt { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-2); margin-top: 3px; white-space: nowrap; }
+  .m-chev { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); color: var(--mut); font-size: 11px; }
+  .order-table.m-list tr.m-detail > td { background: #fbf1ec; padding: 4px 10px 12px 6px; }
+  .m-det { display: flex; flex-direction: column; gap: 10px; }
+  .m-det-steps { display: flex; flex-wrap: wrap; gap: 5px; }
+  .m-step { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 12.5px; }
+  .m-step.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .m-step input { width: 14px; height: 14px; margin: 0; accent-color: #fff; }
+  .m-det-grid { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 2px 8px; margin: 0; align-items: center; }
+  .m-det-grid dt { font-size: 12px; color: var(--mut); }
+  .m-det-grid dd { margin: 0; min-height: 30px; display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13.5px; }
+  .m-det-grid dd > * { min-width: 0; flex: 1; }
+  .m-det-grid dd.m-note-cell .cell-view { color: var(--red); font-weight: 500; white-space: pre-wrap; }
+  .m-det-foot { display: flex; justify-content: space-between; align-items: center; }
+  .m-bundle-title { padding-left: 0 !important; }
+  .m-bundle-amt { display: flex; gap: 12px; font-size: 12px; font-weight: 700; color: #fff; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .m-add { display: flex; gap: 6px; align-items: center; }
+  .m-add .cell-input { flex: 1; min-width: 0; }
+}

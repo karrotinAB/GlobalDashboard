@@ -65,6 +65,7 @@ export function AddOrderRow({
   defaultCompanyId,
   stepCount,
   onAdd,
+  compact,
 }: {
   colSpan: number;
   companies: Company[];
@@ -72,6 +73,7 @@ export function AddOrderRow({
   defaultCompanyId: string | null;
   stepCount: number;
   onAdd: (o: Order) => void;
+  compact?: boolean; // 휴대폰: 주문명만 쓰고 추가 (나머지는 주문을 눌러 펼쳐서)
 }) {
   const blank = (): Draft => ({ name: '', companyId: defaultCompanyId, orderDate: today() });
   const [open, setOpen] = useState(false);
@@ -132,6 +134,22 @@ export function AddOrderRow({
     <input className="cell-input" placeholder={ph} value={d[k] ?? ''} onChange={(e) => set(k, e.target.value)} onKeyDown={keys} />
   );
 
+  if (compact)
+    return (
+      <tr className="add-row editing">
+        <td colSpan={colSpan}>
+          <div className="m-add">
+            <input ref={nameRef} className="cell-input" autoFocus placeholder="주문명 입력 후 Enter" value={d.name} onChange={(e) => set('name', e.target.value)} onKeyDown={keys} />
+            <button className="primary small" onClick={submit} disabled={!d.name.trim()}>
+              추가
+            </button>
+            <button className="small" onClick={() => setOpen(false)}>
+              닫기
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
   return (
     <tr className="add-row editing">
       <td className="c-gutter" />

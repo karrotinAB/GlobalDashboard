@@ -1,5 +1,6 @@
 import { useOrderUsd } from '../lib/sales';
 import { rectOf } from '../lib/zoom';
+import { useIsMobile } from '../lib/useMobile';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
@@ -252,7 +253,10 @@ export default function Orders() {
   const toggle = (o: Order, key: OrderStepKey) => save('orders', { ...o, [key]: !o[key] });
 
   const sheet = companyById.get(companyFilter); // 지금 보고 있는 업체 시트 (없으면 전체)
-  const colSpan = sheet ? 15 : 16;
+  // 휴대폰: 표 대신 목록 (주문명 · 진행 점 · 금액) → 누르면 아래로 상세가 펼쳐짐
+  const mobile = useIsMobile();
+  const [openOid, setOpenOid] = useState<string | null>(null);
+  const colSpan = mobile ? 3 : sheet ? 15 : 16;
   // 첫 화면: 업체를 고르기 전에는 '업체를 골라주세요'만
   const landing = !sheet && !searching && !missingStep;
   const sum = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
@@ -386,8 +390,23 @@ export default function Orders() {
         </div>
       ) : (
       <div className="table-scroll">
-        <table className={`order-table ${rows.some((o) => isOrderDone(o)) ? 'has-done' : ''}`}>
+        <table className={`order-table ${rows.some((o) => isOrderDone(o)) ? 'has-done' : ''} ${mobile ? 'm-list' : ''}`}>
           <thead>
+            {mobile ? (
+              <tr>
+                <th className="c-gutter">
+                  <input
+                    type="checkbox"
+                    className="sel-all"
+                    title="보이는 주문 전부 선택 (일괄 완료·묶기)"
+                    checked={flat.length > 0 && flat.every((o) => selected.has(o.id))}
+                    onChange={(e) => (e.target.checked ? selectAllVisible() : setSelected(new Set()))}
+                  />
+                </th>
+                <th className="c-name">주문</th>
+                <th className="m-sum-h">진행 · 금액</th>
+              </tr>
+            ) : (
             <tr>
               <th className="c-gutter">
                 <input
@@ -414,6 +433,7 @@ export default function Orders() {
               <th className="c-onote">비고</th>
               <th className="c-more" />
             </tr>
+            )}
           </thead>
           {/* 묶음마다 tbody 하나 → 묶음에 마우스를 올리면 '풀기'가 보임 */}
           {units.map((u, i) => (
@@ -452,6 +472,7 @@ export default function Orders() {
                 lockCompany={!!sheet}
                 defaultCompanyId={sheet?.id ?? companies[0]?.id ?? null}
                 stepCount={MID_STEPS.length}
+                compact={mobile}
                 onAdd={(o) => save('orders', { ...o, sort: Date.now() })}
               />
             )}
@@ -513,6 +534,21 @@ export default function Orders() {
                 풀기
               </button>
             </td>
+            {mobile ? (
+              <td colSpan={2}>
+                <div className="bundle-title m-bundle-title">
+                  <BundleColor color={u.bundle.color} onPick={(c) => recolorBundle(u.bundle!, c)} />
+                  <div className={`bundle-name-block ${u.bundle.name ? '' : 'unnamed'}`}>
+                    <EditableText value={u.bundle.name ?? ''} oneLine placeholder="묶음 이름 쓰기 ✎" onSave={(v) => renameBundle(u.bundle!, v)} />
+                  </div>
+                </div>
+                <div className="m-bundle-amt">
+                  {hasAmt(u.orders, 'amountKRW') && <span>{fmtKRW(sum(u.orders, 'amountKRW'))}</span>}
+                  {hasAmt(u.orders, 'amountForeign') && <span>{fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}</span>}
+                </div>
+              </td>
+            ) : (
+            <>
             <td colSpan={colSpan - 5}>
               <div className="bundle-title">
                 <span
@@ -543,6 +579,8 @@ export default function Orders() {
               {hasAmt(u.orders, 'amountForeign') && fxc.orig(u.orders[0], 1) && <small className="fx-orig">{fxc.orig(u.orders[0], sum(u.orders, 'amountForeign'))}</small>}
             </td>
             <td colSpan={2} />
+            </>
+            )}
           </tr>
         )}
         {u.orders.map((o, i) => (
@@ -552,7 +590,144 @@ export default function Orders() {
     );
   }
 
+  /** 휴대폰 한 줄: 주문명 · 진행 점 5개 · 금액 → 누르면 아래로 상세 (모든 칸 고치기) */
+  function renderMobileRow(o: Order, bundle: OrderBundle | undefined, last: boolean) {
+    const done = isOrderDone(o);
+    const open = openOid === o.id;
+    const sel = selected.has(o.id);
+    const patch = (p: Partial<Order>) => save('orders', { ...o, ...p });
+    const txt = (k: 'storeCode' | 'packing' | 'shipFrom' | 'note', ph: string, expand = false) => (
+      <EditableText value={o[k] ?? ''} oneLine={!expand} expand={expand} placeholder={ph} onSave={(v) => patch({ [k]: v || undefined })} />
+    );
+    const nDone = MID_STEPS.filter((s) => o[s.key]).length;
+    const usd = fxc.usd(o, o.amountForeign);
+    const outD = (() => {
+      const d = (o.outRows ?? []).map((x) => x.date ?? '').concat(o.outDate ?? '').filter(Boolean).sort().pop();
+      return done && d ? d.replace(/[^\d]/g, '').replace(/^(\d{4})(\d{2})(\d{2}).*/, '$1-$2-$3') : '';
+    })();
+    const bc = bundle ? ({ '--bc': bundle.color } as CSSProperties) : undefined;
+    return (
+      <>
+        <tr data-oid={o.id} className={`m-row ${done ? 'is-done' : ''} ${sel ? 'is-selected' : ''} ${bundle ? 'in-bundle' : ''} ${open ? 'm-open' : ''}`} style={bc} onClick={() => setOpenOid(open ? null : o.id)}>
+          <td className="c-gutter" onClick={(e) => e.stopPropagation()}>
+            {bundle && <span className={`bundle-bar ${last && !open ? 'bottom' : ''}`} />}
+            <input type="checkbox" className="sel" checked={sel} onChange={() => toggleSel(o.id)} title="선택 (묶기)" />
+          </td>
+          <td className="c-name">
+            <div className="m-name">
+              {o.autoImported && o.name === '새 주문' && <span className="auto-tag">NEW</span>}
+              <span className="m-name-t">{o.name}</span>
+            </div>
+            {o.note && <div className="m-note-line">{o.note}</div>}
+          </td>
+          <td className="m-sum">
+            <div className="m-steps" title={`${nDone}/${MID_STEPS.length} 단계`}>
+              {done ? (
+                <span className="tag green">완료{outD ? ` ${outD.slice(5).replace('-', '/')}` : ''}</span>
+              ) : (
+                MID_STEPS.map((s) => <i key={s.key} className={o[s.key] ? 'on' : ''} />)
+              )}
+            </div>
+            <div className="m-amt">{usd !== undefined ? fmtFX(usd) : o.amountKRW !== undefined ? fmtKRW(o.amountKRW) : ''}</div>
+            <span className="m-chev">{open ? '▴' : '▾'}</span>
+          </td>
+        </tr>
+        {open && (
+          <tr className={`m-detail ${bundle ? 'in-bundle' : ''}`} style={bc}>
+            <td className="c-gutter">{bundle && <span className={`bundle-bar ${last ? 'bottom' : ''}`} />}</td>
+            <td colSpan={2}>
+              <div className="m-det">
+                <div className="m-det-steps">
+                  {MID_STEPS.map((s, i) => (
+                    <label key={s.key} className={`m-step ${o[s.key] ? 'on' : ''}`}>
+                      <input type="checkbox" checked={o[s.key]} onChange={() => toggle(o, s.key)} />
+                      <span>
+                        {i + 1}. {s.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <dl className="m-det-grid">
+                  <dt>주문명</dt>
+                  <dd>
+                    <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+                  </dd>
+                  {!sheet && (
+                    <>
+                      <dt>업체</dt>
+                      <dd>
+                        <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
+                      </dd>
+                    </>
+                  )}
+                  <dt>매장코드</dt>
+                  <dd>{txt('storeCode', '매장코드')}</dd>
+                  <dt>주문일자</dt>
+                  <dd>
+                    <DateCell value={o.orderDate} onSave={(v) => patch({ orderDate: v })} />
+                  </dd>
+                  <dt>패킹 완료일</dt>
+                  <dd>{txt('packing', '패킹')}</dd>
+                  <dt>출고 장소</dt>
+                  <dd>{txt('shipFrom', '출고 장소')}</dd>
+                  <dt>원화 금액</dt>
+                  <dd className="m-amt-cell">
+                    {o.amountSource?.startsWith('api') && <ApiTag o={o} onInspect={canInspect ? () => setInspecting(o) : undefined} />}
+                    <AmountCell value={o.amountKRW} kind="krw" onSave={(v) => patch({ amountKRW: v, amountSource: v === undefined && o.amountForeign === undefined ? undefined : 'manual' })} />
+                  </dd>
+                  <dt>외화 금액</dt>
+                  <dd className="m-amt-cell">
+                    <AmountCell
+                      value={o.amountForeign}
+                      kind="fx"
+                      ph={fxc.curOf(o) !== 'USD' ? fxc.curOf(o) : undefined}
+                      display={
+                        fxc.curOf(o) !== 'USD'
+                          ? (v) => (
+                              <>
+                                {fmtFX(fxc.usd(o, v))}
+                                <small className="fx-orig">{fxc.orig(o, v)}</small>
+                              </>
+                            )
+                          : undefined
+                      }
+                      onSave={(v) => patch({ amountForeign: v, amountSource: v === undefined && o.amountKRW === undefined ? undefined : 'manual' })}
+                    />
+                  </dd>
+                  <dt>비고</dt>
+                  <dd className="m-note-cell">{txt('note', '비고', true)}</dd>
+                  {outD && (
+                    <>
+                      <dt>ERP 출고일</dt>
+                      <dd>{outD}</dd>
+                    </>
+                  )}
+                </dl>
+                <div className="m-det-foot">
+                  <MoreMenu
+                    title="완료 처리 · 삭제"
+                    items={[
+                      o.closed
+                        ? { label: '↩ 수동 완료 취소', onClick: () => patch({ closed: false }) }
+                        : { label: '✓ 수동 완료 처리 (출고 없이 끝난 건)', onClick: () => patch({ closed: true }) },
+                      ...(canInspect ? [{ label: '🔍 ERP 내역 보기', onClick: () => setInspecting(o) }] : []),
+                      { label: '🗑 삭제', danger: true, onClick: () => confirm(`"${o.name}" 주문을 삭제할까요?`) && remove('orders', o.id) },
+                    ]}
+                  />
+                  <button className="link small" onClick={() => setOpenOid(null)}>
+                    접기 ▴
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+        )}
+      </>
+    );
+  }
+
   function renderRow(o: Order, bundle: OrderBundle | undefined, last: boolean) {
+    if (mobile) return renderMobileRow(o, bundle, last);
     const done = isOrderDone(o);
     const patch = (p: Partial<Order>) => save('orders', { ...o, ...p });
     const txt = (k: 'storeCode' | 'packing' | 'shipFrom' | 'note', ph: string) => (
