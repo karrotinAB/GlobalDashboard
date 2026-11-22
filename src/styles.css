@@ -8724,7 +8724,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .rq-table .c-d { width: 64px; font-size: 11px; white-space: nowrap; letter-spacing: -0.3px; padding-left: 3px !important; padding-right: 3px !important; }
   .rq-table .c-d .cell-view { white-space: nowrap; }
   .rq-table th { white-space: normal; font-size: 10.5px; padding: 6px 4px; }
-  .rq-table td.c-title .rq-title { font-size: 13px; white-space: normal; text-align: left; }
+  .rq-table td.c-title .rq-title { font-size: 12px; white-space: normal; text-align: left; }
   .rq-table td.c-tog { width: 30px; padding: 0 4px !important; text-align: center; }
   .rq-table th.c-tog { width: 30px; }
   .rq-m-tog { border: 0; background: none; color: var(--mut); font-size: 13px; padding: 6px 4px; }
