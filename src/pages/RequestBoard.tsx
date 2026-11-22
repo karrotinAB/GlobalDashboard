@@ -1,6 +1,7 @@
 // 무역사무 요청 목록
 //  side='team'  : 2조 '무역사무요청' 탭 — 새 요청, 무역사무 담당자별 남은 업무, 기본은 내 요청만
 //  side='trade' : 무역사무 '업무' 탭 — 들어온 요청 처리 (상태·작업유형·요청자·처리 예상일·처리자 바로 수정)
+import { useIsMobile } from '../lib/useMobile';
 import PeoplePicker, { type PersonOpt } from '../components/PeoplePicker';
 import { usePeople } from '../components/AddressBook';
 import { assigneesOf, peopleOptions } from '../lib/trade';
@@ -28,6 +29,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
   const { remove } = useStore();
   const todayIso = today();
   const [tab, setTab] = useState<Tab>('open');
+  const mobileM = useIsMobile();
   const [assignee, setAssignee] = useState<string | undefined>(() => readParam('who')); // 처리자 (무역사무). '-' = 미정
   const [requester, setRequester] = useState<string | undefined>(() =>
     side === 'team' && !readParam('who') ? (me && team.some((m) => m.id === me.id) ? me.id : undefined) : undefined,
@@ -373,8 +375,9 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                     <th>업무 내용</th>
                     <th className="c-wt">작업유형</th>
                     <th className="c-who">요청자</th>
-                    <th className="c-d">의뢰일</th>
+                    <th className="c-d c-req">의뢰일</th>
                     <th className="c-who">처리자</th>
+                    {mobileM && <th className="c-tog" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -403,9 +406,10 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
                     <th>업무 내용</th>
                     <th className="c-wt">작업유형</th>
                     <th className="c-who">요청자</th>
-                    <th className="c-d">의뢰일</th>
+                    <th className="c-d c-req">의뢰일</th>
                     <th className="c-who">처리자</th>
-                    {tab === 'done' && <th className="c-d">완료일</th>}
+                    {tab === 'done' && <th className="c-d c-done">완료일</th>}
+                    {mobileM && <th className="c-tog" />}
                   </tr>
                 </thead>
             <tbody>
@@ -475,13 +479,14 @@ function Row({
   onPatch: (p: Partial<TradeRequest>) => void;
 }) {
   const edit = side === 'trade';
+  const mobile = useIsMobile();
+  const [mOpen, setMOpen] = useState(false);
   const overdue = isOpen(r) && r.dueDate && r.dueDate < todayIso;
   const requester = team.find((m) => m.id === r.requesterId);
   const subs = r.longTerm ? r.subtasks ?? [] : [];
-  return (
+  // 칸 내용 (컴퓨터: 표 칸 · 휴대폰: ▾ 를 누르면 아래로 펼친 곳에)
+  const stCell = (
     <>
-    <tr className={`rq-row ${r.status === 'cancelled' ? 'is-cancelled' : ''} ${r.priority === '초긴급' && isOpen(r) ? 'is-hot' : ''} ${doneToday ? 'is-done-today' : ''} ${subs.length ? 'has-subs' : ''}`}>
-      <td className="c-st">
         {edit && r.status !== 'cancelled' ? (
           <select className={`cell-select rs-${r.status}`} value={r.status} onChange={(e) => onPatch({ status: e.target.value as RequestStatus })}>
             {(['requested', 'progress', 'done'] as const).map((s) => (
@@ -506,37 +511,19 @@ function Row({
         ) : (
           r.tag && <span className={`rq-tag tg-${r.tag}`}>{tradeTagLabel(r.tag)}</span>
         )}
-      </td>
-      <td className="c-pr">
-        <PriorityTag p={r.priority} />
-      </td>
-      <td className={`c-d ${overdue ? 'overdue' : r.dueDate === todayIso && isOpen(r) ? 'due-today' : ''}`}>{dot(r.dueDate) || '-'}</td>
-      <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
-      <td className="c-title">
-        <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
-          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
-          {!r.longTerm && (side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
-          {r.longTerm && (
-            <span className="rq-long-line">
-              {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
-              <span className="rq-long-bar" title="장기 업무 진행률">
-                <span style={{ width: `${Math.min(100, r.progress ?? 0)}%` }} />
-              </span>
-              <b className="rq-long-pct">{r.progress ?? 0}%</b>
-            </span>
-          )}
-          {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
-          {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
-        </button>
-      </td>
-      <td className="c-wt">
+    </>
+  );
+  const wtCell = (
+    <>
         {edit ? (
           <WorkTypePicker compact value={r.workType} onChange={(v) => onPatch({ workType: v })} allLabel="(없음)" placeholder="-" />
         ) : (
           <span className="small">{r.workType ?? '-'}</span>
         )}
-      </td>
-      <td className="c-who">
+    </>
+  );
+  const whoCell = (
+    <>
         {edit ? (
           <select
             className="cell-select"
@@ -560,9 +547,10 @@ function Row({
             {requester?.name ?? r.requesterName ?? r.requesterEmail?.split('@')[0] ?? '무역사무'}
           </span>
         )}
-      </td>
-      <td className="c-d">{dot(r.requestedAt)}</td>
-      <td className="c-who c-people">
+    </>
+  );
+  const pplCell = (
+    <>
         <PeoplePicker
           value={assigneesOf(r, trade)}
           people={people}
@@ -573,9 +561,71 @@ function Row({
             onPatch({ assignees: v, assigneeId: first?.id });
           }}
         />
+    </>
+  );
+  return (
+    <>
+    <tr className={`rq-row ${r.status === 'cancelled' ? 'is-cancelled' : ''} ${r.priority === '초긴급' && isOpen(r) ? 'is-hot' : ''} ${doneToday ? 'is-done-today' : ''} ${subs.length ? 'has-subs' : ''} ${mOpen ? 'm-open' : ''}`}>
+      <td className="c-st">{!mobile && stCell}</td>
+      <td className="c-pr">
+        <PriorityTag p={r.priority} />
       </td>
-      {done && <td className="c-d">{dot(r.doneAt)}</td>}
+      <td className={`c-d ${overdue ? 'overdue' : r.dueDate === todayIso && isOpen(r) ? 'due-today' : ''}`}>{dot(r.dueDate) || '-'}</td>
+      <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
+      <td className="c-title">
+        <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
+          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
+          {!r.longTerm && (side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
+          {r.longTerm && (
+            <span className="rq-long-line">
+              {(side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
+              <span className="rq-long-bar" title="장기 업무 진행률">
+                <span style={{ width: `${Math.min(100, r.progress ?? 0)}%` }} />
+              </span>
+              <b className="rq-long-pct">{r.progress ?? 0}%</b>
+            </span>
+          )}
+          {(r.files ?? []).length > 0 && <span className="rq-clip">📎{r.files!.length}</span>}
+          {r.storeCode && <span className="rq-store">{r.storeCode}</span>}
+        </button>
+      </td>
+      <td className="c-wt">{!mobile && wtCell}</td>
+      <td className="c-who">{!mobile && whoCell}</td>
+      <td className="c-d c-req">{dot(r.requestedAt)}</td>
+      <td className="c-who c-people">{!mobile && pplCell}</td>
+      {done && <td className="c-d c-done">{dot(r.doneAt)}</td>}
+      {mobile && (
+        <td className="c-tog">
+          <button className="rq-m-tog" onClick={() => setMOpen((v) => !v)} aria-label="자세히">
+            {mOpen ? '▴' : '▾'}
+          </button>
+        </td>
+      )}
     </tr>
+    {mobile && mOpen && (
+      <tr className="rq-m-detail">
+        <td colSpan={5}>{/* 휴대폰에서 보이는 칸: 우선순위 · 마감일 · 처리 예상일 · 업무 내용 · ▾ */}
+          <dl className="rq-m-grid">
+            <dt>상태</dt>
+            <dd className="rq-m-st">{stCell}</dd>
+            <dt>작업유형</dt>
+            <dd>{wtCell}</dd>
+            <dt>요청자</dt>
+            <dd>{whoCell}</dd>
+            <dt>의뢰일</dt>
+            <dd>{dot(r.requestedAt) || '-'}</dd>
+            <dt>처리자</dt>
+            <dd>{pplCell}</dd>
+            {done && (
+              <>
+                <dt>완료일</dt>
+                <dd>{dot(r.doneAt) || '-'}</dd>
+              </>
+            )}
+          </dl>
+        </td>
+      </tr>
+    )}
     {/* 장기 업무의 세부 업무: 업무 아래로 └ 줄마다 완료 체크 (진행률 막대와는 따로) */}
     {subs.map((x, i) => (
       <tr key={x.id} className={`rq-sub-row ${x.done ? 'done' : ''} ${i === subs.length - 1 ? 'last' : ''}`}>

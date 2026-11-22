@@ -8715,3 +8715,24 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .modal:has(.rq-head-fields) .modal-head { margin-bottom: 4px !important; padding-bottom: 0 !important; }
   .modal:has(.rq-head-fields) .rq-head-fields { gap: 8px 10px; }
 }
+/* 휴대폰 무역사무 업무: 우선순위 · 마감일 · 처리 예상일 · 업무 내용만, ▾ 를 누르면 나머지가 아래로 */
+@media (max-width: 600px) {
+  .rq-table { min-width: 0 !important; table-layout: fixed; width: 100%; }
+  .rq-table .c-st, .rq-table .c-wt, .rq-table .c-who, .rq-table .c-req, .rq-table .c-done { display: none; }
+  .rq-table .c-pr { width: 58px; padding-left: 8px !important; padding-right: 2px !important; }
+  .rq-table .c-pr .prio { font-size: 10px; padding: 2px 5px; white-space: normal; display: inline-block; line-height: 1.25; text-align: center; }
+  .rq-table .c-d { width: 64px; font-size: 11px; white-space: nowrap; letter-spacing: -0.3px; padding-left: 3px !important; padding-right: 3px !important; }
+  .rq-table .c-d .cell-view { white-space: nowrap; }
+  .rq-table th { white-space: normal; font-size: 10.5px; padding: 6px 4px; }
+  .rq-table td.c-title .rq-title { font-size: 13px; white-space: normal; text-align: left; }
+  .rq-table td.c-tog { width: 30px; padding: 0 4px !important; text-align: center; }
+  .rq-table th.c-tog { width: 30px; }
+  .rq-m-tog { border: 0; background: none; color: var(--mut); font-size: 13px; padding: 6px 4px; }
+  .rq-table tr.m-open td { background: #fbf6f4; border-bottom-color: transparent; }
+  .rq-table tr.rq-m-detail td { background: #fbf6f4; padding: 2px 12px 10px !important; }
+  .rq-m-grid { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 6px 10px; margin: 0; align-items: center; font-size: 13px; }
+  .rq-m-grid dt { font-size: 11.5px; color: var(--mut); }
+  .rq-m-grid dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .rq-m-grid dd select, .rq-m-grid dd .wt-input { max-width: 100%; }
+  .rq-table tr.rq-group td { padding-left: 10px !important; }
+}
