@@ -6,6 +6,24 @@ import { usePeople } from './AddressBook';
 import { printSheet } from '../pages/Petty';
 import { today, uid } from '../lib/date';
 
+/** 근무일자 여러 날: 이어진 날은 '2026.11.23 ~ 2026.11.24' · 떨어진 날은 쉼표로 (날짜 순) */
+function dateRanges(list: (string | undefined)[]): string {
+  const ds = [...new Set(list.filter((x): x is string => !!x))].sort();
+  const dot = (iso: string) => iso.replace(/-/g, '.');
+  const next = (iso: string) => {
+    const t = new Date(`${iso}T00:00:00`);
+    t.setDate(t.getDate() + 1);
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  };
+  const out: string[] = [];
+  for (let i = 0; i < ds.length; ) {
+    let j = i;
+    while (j + 1 < ds.length && ds[j + 1] === next(ds[j])) j++;
+    out.push(j > i ? `${dot(ds[i])} ~ ${dot(ds[j])}` : dot(ds[i]));
+    i = j + 1;
+  }
+  return out.join(', ');
+}
 const ymd = (iso?: string) => (iso ? { y: iso.slice(0, 4), m: String(Number(iso.slice(5, 7))), d: String(Number(iso.slice(8, 10))) } : { y: '', m: '', d: '' });
 
 export default function LeaveForm({ email }: { email: string }) {
@@ -69,7 +87,6 @@ export default function LeaveForm({ email }: { email: string }) {
   const w = ymd(d.workDate);
   const days = leaveDays(d);
   const multi = days.length > 1;
-  const dotD = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '    .  .  ');
   const md = (iso?: string) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : '');
   const sameTimes = days.every((x) => x.start === days[0].start && x.end === days[0].end);
   // 날 i 고치기 (0 = 첫날 칸)
@@ -220,7 +237,7 @@ export default function LeaveForm({ email }: { email: string }) {
                       </button>
                     </span>,
                     multi ? (
-                      <>{days.map((x) => dotD(x.date)).join(',  ')}</>
+                      <>{dateRanges(days.map((x) => x.date))}</>
                     ) : (
                       <>
                         {w.y || '20  '} 년 {w.m || '  '} 월 {w.d || '  '} 일
@@ -245,7 +262,6 @@ export default function LeaveForm({ email }: { email: string }) {
                     !multi || sameTimes ? (
                       <>
                         {d.start || '  :  '} ~ {d.end || '  :  '}
-                        {multi && ` (${days.length}일)`}
                       </>
                     ) : (
                       <span className="lv-print-lines">
