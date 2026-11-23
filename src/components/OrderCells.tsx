@@ -183,6 +183,7 @@ export function AddOrderRow({
       <td className="c-amt">
         <input className="cell-input amt" placeholder="$ 외화" value={d.fx ?? ''} onChange={(e) => set('fx', e.target.value)} onKeyDown={keys} />
       </td>
+      <td className="c-shipd" />
       <td>{text('note', '비고')}</td>
       <td className="c-more">
         <button className="icon-btn" title="닫기 (Esc)" onClick={() => setOpen(false)}>

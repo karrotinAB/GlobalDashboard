@@ -8865,3 +8865,15 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .ab-zoom button:hover:not(:disabled) { background: #f4e9e6; }
 .ab-zoom button:disabled { opacity: .35; cursor: default; }
 .ab-zoom .ab-zoom-pct { font-size: 12.5px; font-weight: 700; min-width: 46px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+/* 주문 관리: 출고일 칸 (묶음은 머리줄에서) */
+.order-table .c-shipd { width: 104px; }
+.order-table:not(.m-list) { min-width: 1444px; }
+.order-table tr.bundle-head td.bundle-ship { color: #fff; }
+.order-table tr.bundle-head td.bundle-ship .cell-view { color: #fff; font-weight: 700; }
+.order-table tr.bundle-head td.bundle-ship .cell-view.placeholder, .order-table tr.bundle-head td.bundle-ship .muted { color: rgba(255, 255, 255, .7); }
+/* 주문 관리: 출고일 칸 (묶음은 머리줄에서) */
+.order-table .c-shipd { width: 104px; }
+.order-table:not(.m-list) { min-width: 1444px; }
+.order-table tr.bundle-head td.bundle-ship { color: #fff; }
+.order-table tr.bundle-head td.bundle-ship .cell-view { color: #fff; font-weight: 700; }
+.order-table tr.bundle-head td.bundle-ship .cell-view.placeholder, .order-table tr.bundle-head td.bundle-ship .muted { color: rgba(255, 255, 255, .7); }

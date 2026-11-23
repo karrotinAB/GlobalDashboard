@@ -74,6 +74,23 @@ export default function Orders() {
     if (o.name === '새 주문' && o.expNo) return `ERP ${o.expNo}`;
     return o.name;
   };
+  // GSK: 진행중 주문 중 자동 이름인 것은 지점 약자를 이름으로 저장 (완료된 것 · 직접 바꾼 이름은 그대로) — 한 번씩만
+  const gskDone = useRef(new Set<string>());
+  useEffect(() => {
+    if (!gskIds.size) return;
+    const fix = data.orders.filter((o) => gskIds.has(o.companyId ?? '') && !isOrderDone(o) && isAutoName(o) && !gskDone.current.has(o.id) && shownName(o) !== o.name && !/^(ERP|새 주문)/.test(shownName(o)));
+    if (!fix.length) return;
+    fix.forEach((o) => gskDone.current.add(o.id));
+    void saveMany(
+      'orders',
+      fix.map((o) => {
+        const name = shownName(o);
+        const fresh = isFreshAuto(o);
+        return { ...o, name, ...(fresh ? { autoName: name } : {}) };
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.orders, gskIds, gskBranches]);
   /** 아직 아무도 이름을 안 바꾼 자동 등록 주문 → NEW */
   const isFreshAuto = (o: Order) => !!o.autoImported && (o.name === '새 주문' || (!!o.autoName && o.name === o.autoName));
   // 외화 금액 보이기: 보통은 USD 크게 + 원래 통화 작게 · 엔화(JPY)가 주요 통화인 업체는 엔화 크게 + USD 연하게
@@ -234,6 +251,9 @@ export default function Orders() {
     saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: { ...b, name: name || undefined } })));
   const recolorBundle = (b: OrderBundle, color: string) =>
     saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: { ...b, color } })));
+  // 묶음 출고일: 묶음 안 주문 모두에 같이 저장 (묶음 정보는 주문마다 들어 있음)
+  const setBundleShip = (b: OrderBundle, shipDate?: string) =>
+    saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: { ...b, ...o.bundle!, shipDate: shipDate || undefined } })));
   const dissolve = (b: OrderBundle) => saveMany('orders', data.orders.filter((o) => o.bundle?.id === b.id).map((o) => ({ ...o, bundle: undefined })));
 
   // 끌어서 위치 바꾸기: 놓은 자리의 묶음에 같이 들어감 (묶음 아닌 줄에 놓으면 묶음에서 빠짐)
@@ -288,7 +308,7 @@ export default function Orders() {
   // 휴대폰: 표 대신 목록 (주문명 · 진행 점 · 금액) → 누르면 아래로 상세가 펼쳐짐
   const mobile = useIsMobile();
   const [openOid, setOpenOid] = useState<string | null>(null);
-  const colSpan = mobile ? 3 : sheet ? 15 : 16;
+  const colSpan = mobile ? 3 : sheet ? 16 : 17;
   // 첫 화면: 업체를 고르기 전에는 '업체를 골라주세요'만
   const landing = !sheet && !searching && !missingStep;
   const sum = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.reduce((a, o) => a + (o[k] ?? 0), 0);
@@ -462,6 +482,7 @@ export default function Orders() {
               <th className="c-from">출고 장소</th>
               <th className="c-amt c-krw">원화 금액</th>
               <th className="c-amt">외화 금액</th>
+              <th className="c-shipd">출고일</th>
               <th className="c-onote">비고</th>
               <th className="c-more" />
             </tr>
@@ -581,7 +602,7 @@ export default function Orders() {
               </td>
             ) : (
             <>
-            <td colSpan={colSpan - 5}>
+            <td colSpan={colSpan - 6}>
               <div className="bundle-title">
                 <span
                   className="row-handle bundle-handle"
@@ -619,6 +640,9 @@ export default function Orders() {
                     {fxc.orig(u.orders[0], 1) && <small className="fx-orig">{fxc.orig(u.orders[0], sum(u.orders, 'amountForeign'))}</small>}
                   </>
                 ))}
+            </td>
+            <td className="c-shipd bundle-ship" title="묶음 출고일">
+              <DateCell value={u.bundle.shipDate} onSave={(v) => setBundleShip(u.bundle!, v)} />
             </td>
             <td colSpan={2} />
             </>
@@ -733,6 +757,15 @@ export default function Orders() {
                   </dd>
                   <dt>비고</dt>
                   <dd className="m-note-cell">{txt('note', '비고', true)}</dd>
+                  <dt>출고일</dt>
+                  <dd>
+                    {bundle ? (
+                      <DateCell value={bundle.shipDate} onSave={(v) => setBundleShip(bundle, v)} />
+                    ) : (
+                      <DateCell value={o.shipDate} onSave={(v) => patch({ shipDate: v || undefined })} />
+                    )}
+                    {bundle && <span className="muted small">묶음</span>}
+                  </dd>
                   {outD && (
                     <>
                       <dt>ERP 출고일</dt>
@@ -859,6 +892,14 @@ export default function Orders() {
             }
             onSave={(v) => patch({ amountForeign: v, amountSource: v === undefined && o.amountKRW === undefined ? undefined : 'manual' })}
           />
+        </td>
+        {/* 출고일: 묶음이면 묶음 머리줄에서 (여기는 흐리게 보기만), 아니면 이 주문 */}
+        <td className="c-shipd">
+          {bundle ? (
+            bundle.shipDate ? <span className="muted small" title="묶음 출고일 (묶음 머리줄에서 바꿔요)">{bundle.shipDate.replace(/-/g, '.')}</span> : null
+          ) : (
+            <DateCell value={o.shipDate} onSave={(v) => patch({ shipDate: v || undefined })} />
+          )}
         </td>
         <td className="c-onote">
           <EditableText value={o.note ?? ''} oneLine expand placeholder="비고" onSave={(v) => patch({ note: v || undefined })} />
