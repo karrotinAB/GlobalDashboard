@@ -2996,6 +2996,10 @@ tr.bundle-head td.bundle-amt {
 .table-scroll.is-wide:has(.order-table) {
   overflow-x: auto;
 }
+/* 가로 스크롤일 땐 표 상자가 머리줄 기준이 됨 → 페이지 기준 고정 높이를 빼야 머리줄이 제자리 (위에 따라붙지는 않음) */
+.table-scroll.is-wide .order-table thead th {
+  top: 0;
+}
 
 /* 이 카드가 나예요 */
 .claim-btn {
@@ -8945,3 +8949,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .col-resize { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 3; touch-action: none; }
 .col-resize::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 5px; width: 2px; border-radius: 2px; background: #d8c2bd; opacity: .5; transition: opacity .15s, background .15s; }
 .col-resize:hover::after { opacity: 1; background: var(--primary); }
+
+/* 무역사무 요청: 주문 더 연결 */
+.rq-order-f { flex-wrap: wrap; }
+.rq-order-add { color: #c0392b !important; font-size: 12px; font-weight: 600; padding: 2px 0; align-self: flex-start; }
+.rq-order-add:hover { text-decoration: underline; }

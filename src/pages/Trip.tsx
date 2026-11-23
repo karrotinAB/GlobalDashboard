@@ -264,6 +264,14 @@ function NewTrip({ email, trips, onMade, onCancel }: { email: string; trips: Tri
           </datalist>
         </label>
         <label>
+          <span>출장 기간</span>
+          <span className="trip-dates">
+            <input type="date" value={from} onChange={(e) => (setFrom(e.target.value), e.target.value > to && setTo(e.target.value))} />
+            ~
+            <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+          </span>
+        </label>
+        <label>
           <span>덧붙임 (안 써도 돼요)</span>
           <input
             placeholder="예: 두번째"
@@ -277,14 +285,6 @@ function NewTrip({ email, trips, onMade, onCancel }: { email: string; trips: Tri
         <label className="trip-note-in">
           <span>비고</span>
           <input placeholder="예: 엔화" value={memo} onChange={(e) => setMemo(e.target.value)} />
-        </label>
-        <label>
-          <span>출장 기간</span>
-          <span className="trip-dates">
-            <input type="date" value={from} onChange={(e) => (setFrom(e.target.value), e.target.value > to && setTo(e.target.value))} />
-            ~
-            <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
-          </span>
         </label>
       </div>
       {sameMonth > 0 && (

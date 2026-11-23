@@ -261,6 +261,7 @@ export interface TradeRequest {
   orderDate?: string; // YYYY-MM-DD
   orderDateTo?: string; // 주문일자를 기간으로 쓸 때 끝 날짜
   orderLink?: OrderLink; // 연결한 주문 (요청한 조의 주문 관리) — 무역사무도 볼 수 있음
+  moreLinks?: OrderLink[]; // 더 연결한 주문 (묶음이 아닌 여러 주문 · 여러 매장) — '+ 주문 추가하기'
   longTerm?: boolean; // 장기 업무: 세부 업무 + 진행률 (100% 면 완료)
   subtasks?: { id: string; title: string; done: boolean }[];
   progress?: number; // 0~100 (사람이 직접)

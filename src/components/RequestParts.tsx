@@ -189,7 +189,7 @@ export function FileBox({ reqId, files, onChange, uploader }: { reqId: string; f
   );
 }
 
-type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderDateTo' | 'orderLink' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
+type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderDateTo' | 'orderLink' | 'moreLinks' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
 
 export const SAME_DAY_MSG = '당일 업무는 팀장님께 확인 받은 후 의뢰 가능합니다.\n팀장님 및 무역사무팀원에게 확인 부탁드립니다.';
 /** 무역사무 요청 페이지·요청 창 위 고정 안내 */
@@ -263,7 +263,7 @@ function Fields({
   showMissing?: boolean;
 }) {
   const reqRequester = side === 'team'; // 무역사무가 넣는 자체 업무는 요청자 없어도 됨
-  const [linking, setLinking] = useState(false);
+  const [linking, setLinking] = useState<false | 'main' | 'add'>(false);
   return (
     <div className="rq-form">
       <label className={`rq-f req rq-title-f ${showMissing && !d.title.trim() ? 'missing' : ''}`}>
@@ -311,16 +311,29 @@ function Fields({
             {d.orderLink ? (
               <span className="rq-order-chip">
                 📦 {d.orderLink.label}
-                <button type="button" className="link" onClick={() => setLinking(true)}>
+                <button type="button" className="link" onClick={() => setLinking('main')}>
                   바꾸기
                 </button>
-                <button type="button" className="link" onClick={() => set({ orderLink: undefined })}>
+                <button type="button" className="link" onClick={() => set({ orderLink: d.moreLinks?.[0], moreLinks: d.moreLinks?.slice(1).length ? d.moreLinks.slice(1) : undefined })}>
                   끊기
                 </button>
               </span>
             ) : (
-              <button type="button" className="rq-order-btn" onClick={() => setLinking(true)}>
+              <button type="button" className="rq-order-btn" onClick={() => setLinking('main')}>
                 📦 주문 연결하기
+              </button>
+            )}
+            {(d.moreLinks ?? []).map((l, i) => (
+              <span key={i} className="rq-order-chip">
+                📦 {l.label}
+                <button type="button" className="link" onClick={() => set({ moreLinks: d.moreLinks!.filter((_, j) => j !== i).length ? d.moreLinks!.filter((_, j) => j !== i) : undefined })}>
+                  끊기
+                </button>
+              </span>
+            ))}
+            {d.orderLink && (
+              <button type="button" className="link rq-order-add" onClick={() => setLinking('add')}>
+                + 주문 추가하기
               </button>
             )}
           </div>
@@ -340,9 +353,14 @@ function Fields({
       {linking && (
         <RequestOrderLinker
           title={d.title || '이 요청'}
-          current={d.orderLink}
+          current={linking === 'main' ? d.orderLink : undefined}
           side={side}
           onPick={(link, first, range) => {
+            if (linking === 'add') {
+              set(addLinkPatch(d, link, first, range));
+              setLinking(false);
+              return;
+            }
             set({
               orderLink: link,
               // 비어 있으면 주문의 매장번호로 채움 · 주문일자: 묶음이면 묶음 안 가장 빠른 날 ~ 가장 늦은 날, 아니면 (비어 있을 때) 그 주문 날짜
@@ -356,6 +374,22 @@ function Fields({
       )}
     </div>
   );
+}
+
+/** 연결한 주문 전부 (처음 연결 + 더 연결) */
+export const linksOf = (r: { orderLink?: OrderLink; moreLinks?: OrderLink[] }): OrderLink[] => [r.orderLink, ...(r.moreLinks ?? [])].filter((x): x is OrderLink => !!x);
+const sameLink = (a: OrderLink, b: OrderLink) => a.team === b.team && (a.bundleId ? a.bundleId === b.bundleId : !b.bundleId && a.orderId === b.orderId);
+/** 주문을 더 연결: 같은 주문이면 안 넣음 · 매장번호는 다른 매장이면 뒤에 붙임 · 주문일자는 연결한 주문들을 다 덮는 기간으로 */
+function addLinkPatch(r: { orderLink?: OrderLink; moreLinks?: OrderLink[]; storeCode?: string; orderDate?: string; orderDateTo?: string }, link: OrderLink, first?: Order, range?: { from?: string; to?: string }) {
+  if (linksOf(r).some((x) => sameLink(x, link))) return {};
+  const codes = (r.storeCode ?? '').split(/[,\s]+/).filter(Boolean);
+  if (first?.storeCode && !codes.includes(first.storeCode)) codes.push(first.storeCode);
+  const dates = [r.orderDate, r.orderDateTo, range?.from, range?.to, range ? undefined : first?.orderDate].filter((x): x is string => !!x).sort();
+  return {
+    ...(r.orderLink ? { moreLinks: [...(r.moreLinks ?? []), link] } : { orderLink: link }),
+    storeCode: codes.join(', ') || undefined,
+    ...(dates.length ? { orderDate: dates[0], orderDateTo: dates[dates.length - 1] !== dates[0] ? dates[dates.length - 1] : undefined } : {}),
+  };
 }
 
 /** 요청에 연결된 주문 (요청한 조의 주문 관리에서 실시간) — 무역사무도 봄 */
@@ -551,7 +585,7 @@ export function RequestDetail({
   const author = (r.createdByEmail || r.requesterEmail || '').toLowerCase();
   const canEditDue = access.role === 'admin' || (!!access.email && !!author && author === access.email) || (!author && access.role !== 'trade');
   const [zoom, setZoom] = useState<RequestFile | null>(null); // 사진 크게 보기
-  const [linkingOrder, setLinkingOrder] = useState(false);
+  const [linkingOrder, setLinkingOrder] = useState<false | 'main' | 'add'>(false);
   const [d, setD] = useState<Draft>(r);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const requester = team.find((m) => m.id === r.requesterId);
@@ -559,7 +593,7 @@ export function RequestDetail({
   const saveEdit = () => {
     if (!d.title.trim()) return;
     const patch: Partial<TradeRequest> = {};
-    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderDateTo', 'orderLink', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
+    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderDateTo', 'orderLink', 'moreLinks', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
       const v = typeof d[k] === 'string' ? (d[k] as string).trim() || undefined : d[k];
       if (JSON.stringify(v) !== JSON.stringify(r[k])) (patch as Record<string, unknown>)[k] = v;
     }
@@ -642,14 +676,22 @@ export function RequestDetail({
               ))}
             </div>
           )}
-          {r.orderLink && <LinkedOrders link={r.orderLink} side={side} />}
+          {linksOf(r).map((l, i) => (
+            <LinkedOrders key={`${l.team}-${l.bundleId ?? l.orderId}-${i}`} link={l} side={side} />
+          ))}
           {linkingOrder && (
             <RequestOrderLinker
               title={r.title}
-              current={r.orderLink}
+              current={linkingOrder === 'main' ? r.orderLink : undefined}
               side={side}
               defaultTeam={r.team}
               onPick={(link, first, range) => {
+                if (linkingOrder === 'add') {
+                  const p = addLinkPatch(r, link, first, range);
+                  if (Object.keys(p).length) onSave(p);
+                  setLinkingOrder(false);
+                  return;
+                }
                 onSave({ orderLink: link, storeCode: r.storeCode || first?.storeCode, ...(range ? { orderDate: range.from, orderDateTo: range.to } : { orderDate: r.orderDate || first?.orderDate }) });
                 setLinkingOrder(false);
               }}
@@ -713,12 +755,19 @@ export function RequestDetail({
           <div className="rq-actions left">
             {canEditContent && r.status !== 'cancelled' && <button onClick={() => setEditing(true)}>✎ 수정</button>}
             {side === 'trade' && r.status !== 'cancelled' && (
-              <button className="rq-link-btn" onClick={() => setLinkingOrder(true)}>
+              <button className="rq-link-btn" onClick={() => setLinkingOrder('main')}>
                 📦 {r.orderLink ? '주문 바꾸기' : '주문 연결'}
               </button>
             )}
             {side === 'trade' && r.orderLink && r.status !== 'cancelled' && (
-              <button onClick={() => confirm('주문 연결을 끊을까요?') && onSave({ orderLink: undefined })}>주문 연결 끊기</button>
+              <button className="rq-link-btn" onClick={() => setLinkingOrder('add')}>
+                ＋ 주문 추가
+              </button>
+            )}
+            {side === 'trade' && r.orderLink && r.status !== 'cancelled' && (
+              <button onClick={() => confirm(r.moreLinks?.length ? '연결한 주문을 모두 끊을까요?' : '주문 연결을 끊을까요?') && onSave({ orderLink: undefined, moreLinks: undefined })}>
+                주문 연결 끊기
+              </button>
             )}
             {side === 'trade' && r.status !== 'cancelled' && (
               <button

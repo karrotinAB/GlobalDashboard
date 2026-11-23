@@ -145,7 +145,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         완료일: r.doneAt ?? '',
         매장번호: r.storeCode ?? '',
         주문일자: r.orderDate ? `${r.orderDate}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${r.orderDateTo}` : ''}` : '',
-        '연결 주문': r.orderLink?.label ?? '',
+        '연결 주문': [r.orderLink, ...(r.moreLinks ?? [])].filter(Boolean).map((l) => l!.label).join(' / '),
         진행률: r.longTerm ? `${r.progress ?? 0}%` : '',
       })),
     );
@@ -578,7 +578,7 @@ function Row({
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
           {isNewReq(r, todayIso) && <span className="rq-new-tag">NEW</span>}
-          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
+          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${[r.orderLink, ...(r.moreLinks ?? [])].map((l) => l.label).join(' / ')}`}> 📦{r.moreLinks?.length ? <small>{r.moreLinks.length + 1}</small> : null}</span>}
           {!r.longTerm && (side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
           {r.longTerm && (
             <span className="rq-long-line">
