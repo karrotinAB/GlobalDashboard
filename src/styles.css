@@ -8811,8 +8811,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .zs-slide .zw-now .zw-temp { font-size: 36px; line-height: 1; }
 .zs-slide .zw-now .zw-word { font-size: 16px; font-weight: 600; color: var(--ink); }
 .zs-slide .zw-now .zw-word small { font-weight: 400; }
-.zs-slide .zw-hours { gap: 6px; }
-.zs-slide .zw-hours > div { max-width: none; gap: 0; padding: 2px 2px 3px; font-size: 10.5px; line-height: 1.25; border-radius: 10px; }
+.zs-slide .zw-hours { gap: 6px; position: relative; }
+.zs-slide .zw-hours > div { flex: 0 0 64px; max-width: 64px; gap: 0; padding: 2px 2px 3px; font-size: 10.5px; line-height: 1.25; border-radius: 10px; }
 .zs-slide .zw-hours b { font-size: 13px; line-height: 1.15; }
 .zs-slide .zw-mm { font-size: 9px; line-height: 1.1; }
 .zw-src { font-weight: 500; letter-spacing: 0; text-transform: none; opacity: .8; }
@@ -8825,3 +8825,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .zs-slide .zw-hours b { font-size: 11px; }
   .zs-slide .zw-mm { font-size: 7.5px; }
 }
+/* 기준 시각: 시간 칸 줄의 오른쪽 아래 */
+.zw-src2 { position: absolute; right: 0; bottom: 0; white-space: nowrap; }
+@media (max-width: 600px) { .zs-slide .zw-hours > div { flex: 1 1 0; max-width: none; } .zw-src2 { display: none; } }

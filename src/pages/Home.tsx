@@ -599,9 +599,7 @@ function TodayWeather() {
   const hours = (w?.hours ?? []).slice(0, 6);
   return (
     <>
-      <span className="zone-tag">
-        TODAY'S WEATHER{w?.at && <span className="zw-src"> · 반포대로 {new Date(w.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} 기준</span>}
-      </span>
+      <span className="zone-tag">TODAY'S WEATHER</span>
       {w === undefined ? (
         <p className="muted small zs-empty">날씨 불러오는 중…</p>
       ) : !w || !fresh ? (
@@ -618,6 +616,7 @@ function TodayWeather() {
           </div>
           {hours.length > 0 && (
             <div className="zw-hours">
+              {w.at && <span className="zw-src2 muted small">반포대로 · {new Date(w.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} 기준</span>}
               {hours.map((x) => (
                 <div key={x.at} className={x.kind ? 'wet' : ''} title={x.rn && !/없음/.test(x.rn) ? x.rn : undefined}>
                   <span>{Number(x.at.slice(11, 13))}시</span>
