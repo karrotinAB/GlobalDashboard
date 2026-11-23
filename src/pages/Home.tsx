@@ -11,7 +11,7 @@ import { COUNTRY_OPTIONS, countryCode, useWorldHolidays } from '../lib/worldHoli
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf, adjustLeave } from '../lib/mem';
 import { isPersonal, TEAMS } from '../lib/team';
-import DeptRoster from '../components/DeptRoster';
+import DeptRoster, { DeptToday, DeptToggle, useDeptView, type DeptSide } from '../components/DeptRoster';
 import { useIsMobile } from '../lib/useMobile';
 import { isOrderDone, type Attendance, type ClockPick, type Member } from '../types';
 import { CHARACTERS, characterSrc, Modal, Ring, charOf } from '../components/ui';
@@ -157,6 +157,7 @@ function greeting(h: number, m: number) {
 export default function Home(_props: { go: (page: string) => void }) {
   const { data, save } = useStore();
   const access = useAccess();
+  const [deptOn, flipDept] = useDeptView(); // 우리 팀 오늘 ↔ 우리 부서 오늘
   const { members, companies } = useLookups();
   const now = useNow();
   const todayIso = today();
@@ -215,9 +216,13 @@ export default function Home(_props: { go: (page: string) => void }) {
       {/* 우리 팀 오늘 */}
       <section className="section">
         <div className="section-head">
-          <h2>👋 {isPersonal(access.viewTeam) ? '오늘의 나' : '우리 팀 오늘'}</h2>
-          <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>
+          <h2>👋 {deptOn ? '우리 부서 오늘' : isPersonal(access.viewTeam) ? '오늘의 나' : '우리 팀 오늘'}</h2>
+          {!deptOn && <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>}
+          <DeptToggle on={deptOn} onFlip={flipDept} />
         </div>
+        {deptOn ? (
+          <DeptToday side={(isPersonal(access.viewTeam) ? 'leader' : access.viewTeam) as DeptSide} todayIso={todayIso} nowMin={seoul.h * 60 + seoul.mi} myEmail={access.email} />
+        ) : (
         <div className={`team ${isPersonal(access.viewTeam) ? 'team-leader' : ''}`}>
           {summary.map((s) => (
             <TeamCard
@@ -245,6 +250,7 @@ export default function Home(_props: { go: (page: string) => void }) {
           {/* 팀장님·이사님: 오른쪽 절반에 부서원 출퇴근 (조·무역사무 골라 보기) */}
           {isPersonal(access.viewTeam) && <DeptRoster todayIso={todayIso} nowMin={seoul.h * 60 + seoul.mi} />}
         </div>
+        )}
       </section>
 
 

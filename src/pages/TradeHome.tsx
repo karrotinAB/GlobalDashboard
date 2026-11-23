@@ -1,5 +1,6 @@
 // 무역사무 홈: 제목·오늘·이번주 + 우리 팀 카드 + 구분별 업무
 import { useSpaceData, useStore } from '../data/store';
+import { DeptToday, DeptToggle, useDeptView } from '../components/DeptRoster';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { CharacterPicker, clockDefaultsOf, Hero, LeaveBand, WorldClocks } from './Home';
 import { characterSrc, Modal, Ring } from '../components/ui';
@@ -15,6 +16,7 @@ const dot = (iso?: string) => (iso ? iso.slice(5).replace('-', '.') : '');
 
 export default function TradeHome() {
   const { data, save, access, team, trade, update } = useTrade();
+  const [deptOn, flipDept] = useDeptView(); // 우리 팀 오늘 ↔ 우리 부서 오늘
   const { remove } = useStore();
   const todayIso = today();
   const [picking, setPicking] = useState<Member | null>(null);
@@ -54,9 +56,13 @@ export default function TradeHome() {
 
       <section className="section">
         <div className="section-head">
-          <h2>👋 우리 팀 오늘</h2>
-          <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>
+          <h2>👋 {deptOn ? '우리 부서 오늘' : '우리 팀 오늘'}</h2>
+          {!deptOn && <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>}
+          <DeptToggle on={deptOn} onFlip={flipDept} />
         </div>
+        {deptOn ? (
+          <DeptToday side="trade" todayIso={todayIso} nowMin={nowMin} myEmail={access.email} />
+        ) : (
         <div className="team">
           {load.rows.map((w) => {
             const m = w.member!;
@@ -81,6 +87,7 @@ export default function TradeHome() {
           })}
           {trade.length === 0 && <p className="muted small">아직 무역사무 담당자가 없어요. 관리자가 설정 → 무역사무 담당자에서 추가해요.</p>}
         </div>
+        )}
       </section>
 
       {/* 세계 시간: 출근 상태(우리 팀 오늘) 밑에 */}
