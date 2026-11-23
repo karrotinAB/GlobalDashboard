@@ -80,7 +80,7 @@ const cleanUrl = (u: string) => {
   return /^https?:\/\//i.test(v) ? v : '';
 };
 
-export default function SharedLogins({ q, copy, copied, addSignal = 0 }: { q: string; copy: (t: string) => void; copied: string; addSignal?: number }) {
+export default function SharedLogins({ q, copy, copied, addSignal = 0, zoom = 1 }: { q: string; copy: (t: string) => void; copied: string; addSignal?: number; zoom?: number }) {
   const { list, error } = useSharedLogins();
   const { email, accountName } = useAccess();
   const [show, setShow] = useState<Set<string>>(new Set()); // PW 보이는 줄
@@ -206,7 +206,7 @@ export default function SharedLogins({ q, copy, copied, addSignal = 0 }: { q: st
         <p className="muted small">불러오는 중…</p>
       ) : (
         <div className="ab-wrap">
-          <table className="ab-table sl-table">
+          <table className="ab-table sl-table" style={zoom !== 1 ? { zoom } : undefined}>
             <thead>
               <tr>
                 <th className="ab-g">용도</th>

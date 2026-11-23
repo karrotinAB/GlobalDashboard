@@ -8859,3 +8859,9 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .ab-tabrow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .ab-tabrow .ab-tabs { margin-bottom: 0; }
 .ab-add { margin-left: auto; padding: 9px 18px; font-size: 14.5px; font-weight: 700; border-radius: 12px; }
+/* 주소록 · ID/PW: 표 크기 − 100% + */
+.ab-zoom { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; background: #fff; overflow: hidden; flex: none; }
+.ab-zoom button { border: 0; background: none; padding: 5px 10px; font: inherit; font-size: 14px; color: var(--ink-2); cursor: pointer; line-height: 1; }
+.ab-zoom button:hover:not(:disabled) { background: #f4e9e6; }
+.ab-zoom button:disabled { opacity: .35; cursor: default; }
+.ab-zoom .ab-zoom-pct { font-size: 12.5px; font-weight: 700; min-width: 46px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }

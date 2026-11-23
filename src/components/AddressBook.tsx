@@ -79,6 +79,24 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
   const { roles, contacts, error } = usePeople();
   const [q, setQ] = useState('');
   const [addSignal, setAddSignal] = useState(0); // ID/PW: 위쪽 '＋ 계정 추가'
+  // 표 크기 (사람마다 이 브라우저에 기억): 60% ~ 130%
+  const [zoom, setZoomRaw] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem('gd:abZoom'));
+      return v >= 0.6 && v <= 1.3 ? v : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const setZoom = (z: number) => {
+    const v = Math.round(Math.min(1.3, Math.max(0.6, z)) * 10) / 10;
+    setZoomRaw(v);
+    try {
+      localStorage.setItem('gd:abZoom', String(v));
+    } catch {
+      /* 무시 */
+    }
+  };
   // 탭: 주소록 · ID/PW (같이 쓰는 계정)
   const [tab, setTab] = useState<'people' | 'logins'>(() => {
     try {
@@ -178,10 +196,21 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="ab-top">
         <input className="search ab-search" autoFocus placeholder={tab === 'people' ? '🔍 이름 · 이메일 · 번호' : '🔍 용도 · ID · 비고'} value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="ab-zoom" title="표 크기 (이 브라우저에 기억)">
+          <button type="button" onClick={() => setZoom(zoom - 0.1)} disabled={zoom <= 0.6} aria-label="작게">
+            −
+          </button>
+          <button type="button" className="ab-zoom-pct" onClick={() => setZoom(1)} title="100% 로">
+            {Math.round(zoom * 100)}%
+          </button>
+          <button type="button" onClick={() => setZoom(zoom + 0.1)} disabled={zoom >= 1.3} aria-label="크게">
+            +
+          </button>
+        </span>
         <span className="muted small">{tab === 'people' ? '이메일·번호 칸을 누르면 복사돼요' : 'ID 칸을 누르면 복사돼요 · PW 는 👁 로 보이게 한 뒤 눌러서 복사 · 용도를 누르면 로그인 페이지로 · 로그인이 안 되면 ⋯ 에서 알려 주세요 · 누구나 넣고 고칠 수 있어요'}</span>
       </div>
       {tab === 'logins' ? (
-        <SharedLogins q={q} copy={(t) => void copy(t)} copied={copied} addSignal={addSignal} />
+        <SharedLogins q={q} copy={(t) => void copy(t)} copied={copied} addSignal={addSignal} zoom={zoom} />
       ) : (
       <>
       {DATA_MODE === 'local' && <p className="muted small">로컬 모드에서는 주소록이 없어요.</p>}
@@ -189,7 +218,7 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
       {error && <p className="warn small">주소록을 못 불러왔어요 — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)</p>}
       {groups.length > 0 && (
         <div className="ab-wrap">
-          <table className="ab-table">
+          <table className="ab-table" style={zoom !== 1 ? { zoom } : undefined}>
             <thead>
               <tr>
                 <th className="ab-g">구분</th>
