@@ -9022,3 +9022,24 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 
 /* 화면에 맞게 줄인 A4 (lib/a4fit) 는 프린트할 땐 원래 크기 */
 #pc-print-root .ps-page { zoom: 1 !important; }
+/* 무역사무 요청 (휴대폰): 업무 내용이 한 글자씩 세로로 떨어지던 것
+   → 한 줄 위: 우선순위 · 마감 · 예상 · ▾ / 그 아래 줄 전체: 업무 내용 */
+@media (max-width: 600px) {
+  .rq-table thead { display: none; }
+  .rq-table, .rq-table > tbody { display: block; width: 100%; }
+  .rq-table tr:not(.rq-row) { display: block; }
+  .rq-table tr:not(.rq-row) > td { display: block; width: auto; }
+  .rq-table tr.rq-row { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) 30px; align-items: center; column-gap: 6px; row-gap: 4px; padding: 8px 4px 9px 6px; border-bottom: 1px solid var(--line-2); }
+  .rq-table tr.rq-row > td { border: 0 !important; padding: 0 !important; width: auto !important; background: transparent; }
+  .rq-table tr.rq-row > td:empty, .rq-table tr.rq-row > td.c-st, .rq-table tr.rq-row > td.c-wt, .rq-table tr.rq-row > td.c-who, .rq-table tr.rq-row > td.c-req, .rq-table tr.rq-row > td.c-done { display: none; }
+  .rq-table tr.rq-row > td.c-d:nth-child(3)::before { content: '마감 '; color: var(--mut); font-size: 10px; font-weight: 400; }
+  .rq-table tr.rq-row > td.c-d:nth-child(4)::before { content: '예상 '; color: var(--mut); font-size: 10px; font-weight: 400; }
+  .rq-table tr.rq-row > td.c-d .cell-view { display: inline; }
+  .rq-table tr.rq-row > td.c-tog { grid-column: 4; grid-row: 1; }
+  .rq-table tr.rq-row > td.c-title { grid-column: 1 / -1; grid-row: 2; }
+  .rq-table td.c-title .rq-title { display: block; font-size: 13px; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45; }
+  .rq-table td.c-title .rq-title > * { display: inline-block; vertical-align: middle; margin: 1px 4px 1px 0; max-width: 100%; }
+  .rq-table td.c-title .rq-title > .rq-long-line { display: flex; }
+  .rq-table td.c-title .rq-store { white-space: normal; }
+  .rq-table tr.rq-row.m-open { background: #fbf6f4; border-bottom-color: transparent; }
+}
