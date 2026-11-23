@@ -7557,6 +7557,12 @@ td.c-people { min-width: 120px; }
   .rp-th-short { display: inline; }
   .rp-table .rp-team, .rp-table .rp-who, .rp-table .rp-date { display: none; }
   .rp-title-team { display: inline-block; margin-right: 6px; vertical-align: middle; }
+  /* 제목이 조 표시 밑으로 떨어지지 않게: 한 줄로 이어서 (길면 그 옆에서 줄바꿈) */
+  .rp-title-btn { display: block; line-height: 1.45; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; min-width: 0; }
+  .rp-title-btn > * { vertical-align: middle; }
+  .rp-title-btn .rp-caret { display: inline-block; width: 14px; }
+  .rp-title-btn .rp-n, .rp-title-btn .rp-new, .rp-title-btn .rp-done-tag { margin-left: 4px; }
+  .rp-title-btn .rp-done-tag, .rp-title-btn .rp-new { display: inline-block; margin-top: 2px; }
   .rp-table th.rp-chk, .rp-table td.rp-chk { width: 46px; min-width: 46px; padding-left: 2px; padding-right: 2px; text-align: center; }
   .rp-table td.rp-chk > *:not(.rp-chk-mobile):not(.rp-chk-none) { display: none !important; }
   .rp-chk-mobile { display: inline-block; width: 20px; height: 20px; margin: 0; }
@@ -8994,4 +9000,15 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .dept-today .mini-body .mini-main { min-width: 0; }
   .dept-today .mini-body .mini-main b { font-size: 13px; }
   .dept-today .mini-body .mini-main { font-size: 10.5px; line-height: 1.35; }
+}
+
+/* 보고방: 확인한 칸은 되돌릴 수 없음 (색은 그대로) */
+.rp-chk.on input[type="checkbox"]:not(:disabled) { cursor: default; }
+/* 대체휴가 신청서 (휴대폰): A4 가 페이지를 옆으로 밀지 않게 → 신청서만 옆으로 밀어서 보기 */
+@media (max-width: 900px) {
+  .lv-wrap { grid-template-columns: minmax(0, 1fr); }
+  .lv-side, .lv-main { min-width: 0; }
+  .lv-main { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lv-main .pc-print-bar { flex-wrap: wrap; position: sticky; left: 0; }
+  .lv-main .ps-page { margin-left: 0; }
 }

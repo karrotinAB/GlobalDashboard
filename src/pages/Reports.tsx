@@ -85,9 +85,10 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
   });
   const canWrite = !leaderView && (space === 'trade' ? access.role === 'trade' || access.role === 'admin' || access.role === null : access.role !== 'trade');
   const toggleCheck = (r: Report, k: CheckRole) => {
+ // 한 번 확인한 건 되돌릴 수 없음
+    if (r.checks?.[k]) return;
     const checks = { ...(r.checks ?? {}) };
-    if (checks[k]) delete checks[k];
-    else checks[k] = { by: myName, email: access.email || undefined, at: new Date().toISOString() };
+    checks[k] = { by: myName, email: access.email || undefined, at: new Date().toISOString() };
     void saveReport({ ...r, checks });
   };
 
@@ -232,7 +233,7 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                             {/* 확인한 사람 이름만 (누르면 날짜·시간) */}
                             {mine ? (
                               <span className="rp-chk-label">
-                                <input type="checkbox" checked={!!c} onChange={() => toggleCheck(r, k)} title={`${CHECK_LABEL[k]} 확인 (누르면 바뀜)`} />
+                                <input type="checkbox" checked={!!c} onChange={() => toggleCheck(r, k)} title={c ? '확인했어요 (되돌릴 수 없어요)' : `${CHECK_LABEL[k]} 확인`} />
                                 {c ? <CheckName name={shortName(nameOf(c.email, c.by))} at={when(c.at)} color={colorOf(c.email)} /> : <span className="muted">확인</span>}
                               </span>
                             ) : c ? (
