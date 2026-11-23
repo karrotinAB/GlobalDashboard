@@ -282,7 +282,9 @@ service cloud.firestore {
             // 조원: 홈 '업체별 판매·수출' 에서 다른 조 업체·주문 보기 (읽기만)
             || (isTeam() && baseOf(col) in ['orders', 'companies'] && teamTag(col).matches('t[0-9]+'))
             // 조원: 홈 '우리 부서 오늘' 에서 다른 조 담당자 카드 (이름 · 캐릭터 · 근태 이름) 보기 (읽기만)
-            || (isTeam() && baseOf(col) == 'members' && teamTag(col).matches('t[0-9]+')));
+            || (isTeam() && baseOf(col) == 'members' && teamTag(col).matches('t[0-9]+'))
+            // 모두: 홈 '우리 부서 오늘' 에서 이사님 · 팀장님 개인 대시보드의 내 카드 (캐릭터 · 이름) 보기 (읽기만)
+            || (isAny() && baseOf(col) == 'members' && teamTag(col).matches('p[a-z0-9]+')));
 
       // 공용 설정(홈 화면 구성 등)은 관리자만 (개인 대시보드는 그 주인도)
       allow write: if teamCol(col) && baseOf(col) == 'config' && ownsSpace(col);

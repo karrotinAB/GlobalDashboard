@@ -173,7 +173,7 @@ export function DeptToday({ side, todayIso, nowMin, myEmail }: { side: DeptSide;
     .sort((a, b) => (a.role === b.role ? 0 : a.role === 'director' ? -1 : 1))
     .map((r) => {
       const full = contacts[r.email]?.name || r.name || r.email.split('@')[0];
-      return { m: { id: r.email, name: full, color: '#b38a7d', order: 0, email: r.email } as Member, label: r.role === 'director' ? '이사님' : '팀장님' };
+      return { m: { id: r.email, name: full, color: '#b38a7d', order: 0, email: r.email } as Member, label: r.role === 'director' ? '이사님' : '팀장님', space: r.space };
     });
   const groups: { key: string; label: string; people: Member[] }[] = [
     ...(side === 'leader' ? [] : [{ key: 'leader', label: '이사님 · 팀장님', people: leaders.map((x) => x.m) }]),
@@ -188,9 +188,13 @@ export function DeptToday({ side, todayIso, nowMin, myEmail }: { side: DeptSide;
       {/* 조 구분 없이 한 판에 쭉 (이사님 · 팀장님 → 1조 → 2조 → 3조 → 무역사무 순서) */}
       <div className="roster-grid dept-grid">
         {groups.flatMap((g) =>
-          g.people.map((m) => (
-            <MiniCard key={m.id} m={{ ...m, name: g.key === 'leader' ? `${short(m.name)} ${leaders.find((x) => x.m.id === m.id)?.label ?? ''}` : m.name }} r={attOf(m, todayIso, data.memAttendance, altNames(m.email))} nowMin={nowMin} />
-          )),
+          g.people.map((m) => {
+            if (g.key === 'leader') {
+              const L = leaders.find((x) => x.m.id === m.id);
+              return <LeaderMini key={m.id} m={m} label={L?.label ?? ''} space={L?.space} todayIso={todayIso} nowMin={nowMin} alt={altNames(m.email)} />;
+            }
+            return <MiniCard key={m.id} m={m} r={attOf(m, todayIso, data.memAttendance, altNames(m.email))} nowMin={nowMin} />;
+          }),
         )}
       </div>
       {loading && <p className="muted small">불러오는 중…</p>}
@@ -225,4 +229,13 @@ export function DeptToggle({ on, onFlip }: { on: boolean; onFlip: () => void }) 
       {on ? '‹ 우리 팀 오늘' : '우리 부서 오늘 ›'}
     </button>
   );
+}
+
+/** 이사님 · 팀장님 카드: 그분 개인 대시보드의 '오늘의 나' 카드에서 캐릭터 · 색 · mem 이름을 가져옴 */
+function LeaderMini({ m, label, space, todayIso, nowMin, alt }: { m: Member; label: string; space?: string; todayIso: string; nowMin: number; alt: string[] }) {
+  const { data } = useStore();
+  const sp = useSpaceData(space ?? '', space ? ['members'] : []);
+  const mine = ((sp.data.members as Member[]) ?? []).find((x) => (x.email ?? '').toLowerCase() === (m.email ?? '').toLowerCase()) ?? ((sp.data.members as Member[]) ?? [])[0];
+  const card: Member = mine ? { ...m, character: mine.character, color: mine.color || m.color, memName: mine.memName || mine.name, id: mine.id } : m;
+  return <MiniCard m={{ ...card, name: `${short(m.name)} ${label}` }} r={attOf(card, todayIso, data.memAttendance, [...alt, m.name])} nowMin={nowMin} />;
 }
