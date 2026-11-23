@@ -204,7 +204,7 @@ export default function LeaveForm({ email }: { email: string }) {
               <tr>
                 <th>근무사유</th>
                 <td colSpan={3} className="lv-reason">
-                  {both(<textarea rows={2} value={d.reason ?? ''} onChange={(x) => set({ reason: x.target.value })} />, <span className="ps-text">{d.reason}</span>)}
+                  {both(<textarea rows={Math.max(2, (d.reason ?? '').split('\n').length)} value={d.reason ?? ''} onChange={(x) => set({ reason: x.target.value })} />, <span className="ps-text">{d.reason}</span>)}
                 </td>
               </tr>
             </tbody>
