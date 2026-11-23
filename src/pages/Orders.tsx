@@ -60,27 +60,27 @@ export default function Orders() {
   const fxc = useOrderUsd(companies, data.orders);
   // 주문 이름 보이기
   //   · 자동 등록된 '새 주문' 은 주문번호로 (ERP 번호)
-  //   · GSK (1조): 자동 이름(ERP/EXP 번호 · 새 주문)은 그 매장코드의 지점 약자로 (GRN · AMD …) — 직접 바꾼 이름은 그대로
-  const gskIds = useMemo(() => new Set(companies.filter((c) => /gsk/i.test(c.name)).map((c) => c.id)), [companies]);
-  const gskCodes = useMemo(() => companies.filter((c) => gskIds.has(c.id)).flatMap((c) => c.storeCodes ?? []), [companies, gskIds]);
-  const gskBranches = useStoreBranches(gskCodes);
+  //   · 업체 설정 '주문 이름을 매장 약자로' 를 켠 업체: 자동 이름(ERP/EXP 번호 · 새 주문)은 그 매장코드의 지점 약자로 — 직접 바꾼 이름은 그대로
+  const byStoreIds = useMemo(() => new Set(companies.filter((c) => c.orderNameByStore).map((c) => c.id)), [companies]);
+  const byStoreCodes = useMemo(() => companies.filter((c) => byStoreIds.has(c.id)).flatMap((c) => c.storeCodes ?? []), [companies, byStoreIds]);
+  const byStoreBranches = useStoreBranches(byStoreCodes);
   const isAutoName = (o: Order) => o.name === '새 주문' || /^(ERP|EXP)\s*\d+$/i.test(o.name.trim());
   const shownName = (o: Order) => {
-    if (gskIds.has(o.companyId ?? '') && isAutoName(o) && o.storeCode) {
+    if (byStoreIds.has(o.companyId ?? '') && isAutoName(o) && o.storeCode) {
       const co = companies.find((c) => c.id === o.companyId);
-      const abbr = co?.storeAbbr?.[o.storeCode] || gskBranches[o.storeCode];
+      const abbr = co?.storeAbbr?.[o.storeCode] || byStoreBranches[o.storeCode];
       if (abbr) return abbr;
     }
     if (o.name === '새 주문' && o.expNo) return `ERP ${o.expNo}`;
     return o.name;
   };
-  // GSK: 진행중 주문 중 자동 이름인 것은 지점 약자를 이름으로 저장 (완료된 것 · 직접 바꾼 이름은 그대로) — 한 번씩만
-  const gskDone = useRef(new Set<string>());
+  // 매장 약자 이름 업체: 진행중 주문 중 자동 이름인 것은 지점 약자를 이름으로 저장 (완료된 것 · 직접 바꾼 이름은 그대로) — 한 번씩만
+  const byStoreDone = useRef(new Set<string>());
   useEffect(() => {
-    if (!gskIds.size) return;
-    const fix = data.orders.filter((o) => gskIds.has(o.companyId ?? '') && !isOrderDone(o) && isAutoName(o) && !gskDone.current.has(o.id) && shownName(o) !== o.name && !/^(ERP|새 주문)/.test(shownName(o)));
+    if (!byStoreIds.size) return;
+    const fix = data.orders.filter((o) => byStoreIds.has(o.companyId ?? '') && !isOrderDone(o) && isAutoName(o) && !byStoreDone.current.has(o.id) && shownName(o) !== o.name && !/^(ERP|새 주문)/.test(shownName(o)));
     if (!fix.length) return;
-    fix.forEach((o) => gskDone.current.add(o.id));
+    fix.forEach((o) => byStoreDone.current.add(o.id));
     void saveMany(
       'orders',
       fix.map((o) => {
@@ -90,7 +90,7 @@ export default function Orders() {
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.orders, gskIds, gskBranches]);
+  }, [data.orders, byStoreIds, byStoreBranches]);
   /** 아직 아무도 이름을 안 바꾼 자동 등록 주문 → NEW */
   const isFreshAuto = (o: Order) => !!o.autoImported && (o.name === '새 주문' || (!!o.autoName && o.name === o.autoName));
   // 외화 금액 보이기: 보통은 USD 크게 + 원래 통화 작게 · 엔화(JPY)가 주요 통화인 업체는 엔화 크게 + USD 연하게
