@@ -9,7 +9,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest, TRADE_TAGS, tradeTagLabel, type TradeTag } from '../types';
 import { requesterPatch, useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel, teamTagClass } from '../lib/trade';
 import { useStore } from '../data/store';
-import { NewRequest, PriorityTag, SameDayNotice, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
+import { isNewReq, NewRequest, PriorityTag, SameDayNotice, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
 import { today } from '../lib/date';
 
@@ -51,6 +51,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
     [team, roles, access.viewTeam],
   );
   const assigneeMatch = (r: TradeRequest, id: string) => {
+    if (id === 'new') return isNewReq(r, todayIso); // 처리자 미정 카드의 NEW
     const list = assigneesOf(r, trade);
     if (id === '-') return list.length === 0;
     const m = trade.find((x) => x.id === id);
@@ -302,7 +303,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
 
       {isTeamSide && assignee && (
         <p className="small rq-filter-note">
-          <b>{assignee === '-' ? '처리자 미정' : trade.find((m) => m.id === assignee)?.name}</b>의 업무를 보고 있어요 <span className="muted">(마감일 빠른 순)</span>{' '}
+          <b>{assignee === 'new' ? 'NEW 요청' : assignee === '-' ? '처리자 미정' : trade.find((m) => m.id === assignee)?.name}</b>{assignee === 'new' ? '만' : '의 업무를'} 보고 있어요 <span className="muted">(마감일 빠른 순)</span>{' '}
           <button className="link" onClick={() => setAssignee(undefined)}>
             × 풀기
           </button>
@@ -576,6 +577,7 @@ function Row({
       <td className="c-d">{edit ? <DateCell value={r.eta} onSave={(v) => onPatch({ eta: v })} /> : dot(r.eta) || '-'}</td>
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
+          {isNewReq(r, todayIso) && <span className="rq-new-tag">NEW</span>}
           {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${r.orderLink.label}`}> 📦</span>}
           {!r.longTerm && (side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
           {r.longTerm && (

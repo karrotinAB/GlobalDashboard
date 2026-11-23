@@ -917,7 +917,17 @@ export function TradeSummaryCards({
         {/* NEW: 이름 아래 (다른 카드의 표시 줄 자리) */}
         {fresh.count > 0 && (
           <div className="un-new-row">
-            <span className="un-new">
+            {/* NEW 를 누르면 NEW 요청만 */}
+            <span
+              role="button"
+              tabIndex={0}
+              className={`un-new ${selected === 'new' ? 'on' : ''}`}
+              title="NEW 요청만 보기"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect('new');
+              }}
+            >
               NEW <b>{fresh.count}</b>
             </span>
           </div>
@@ -1090,8 +1100,10 @@ const nextWorkday = (iso: string) => {
 };
 /** NEW 가 보이는 마지막 날: 들어온 날 (주말·공휴일이면 다음 영업일) 의 다음 영업일 */
 const newUntil = (created: string) => nextWorkday(isWorkday(created) ? created : nextWorkday(created));
+/** NEW 인 요청: 진행중 · 처리자가 아직 없음 · 들어온 날과 그 다음 영업일까지 */
+export const isNewReq = (r: TradeRequest, t = today()) => isOpen(r) && !r.assigneeId && !(r.assignees ?? []).length && !!r.createdAt && t <= newUntil(toISO(new Date(r.createdAt)));
 function useNewUnassigned(requests: TradeRequest[]) {
   const t = today();
-  const fresh = requests.filter((r) => isOpen(r) && !r.assigneeId && r.createdAt && t <= newUntil(toISO(new Date(r.createdAt))));
+  const fresh = requests.filter((r) => isNewReq(r, t));
   return { count: fresh.length };
 }

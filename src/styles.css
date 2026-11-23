@@ -8837,3 +8837,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .zs-slide .zw-hours > div { justify-content: center; gap: 1px; font-size: 11px; }
   .zs-slide .zw-hours b { font-size: 15px; }
 }
+.rq-new-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 999px; background: #e03131; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .04em; line-height: 17px; vertical-align: 1px; }
+.un-new[role="button"] { cursor: pointer; }
+.un-new.on { background: #e03131; color: #fff; }
+.un-new.on b { background: #fff; color: #e03131; }
