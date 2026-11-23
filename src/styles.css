@@ -8123,6 +8123,8 @@ span.rp-ack { cursor: default; }
 .trip-row:hover { background: #fbf6f4; border-color: #e3cfca; }
 .trip-row b { font-size: 15px; }
 .trip-row-purpose { color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.trip-cur-pick { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--mut); padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px dashed var(--line-2); }
+.trip-cur-pick select { height: auto; min-height: 32px; padding: 4px 28px 4px 10px; font-size: 13px; line-height: 1.4; }
 .trip-row-wrap { display: flex; align-items: center; gap: 6px; }
 .trip-row-wrap .trip-row { flex: 1; min-width: 0; }
 .trip-row-pen { flex: none; opacity: 0.45; }

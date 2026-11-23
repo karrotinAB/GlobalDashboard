@@ -27,6 +27,18 @@ import {
   type TripRow,
 } from '../lib/trip';
 
+/** 내역 한 줄을 고른 통화로: 그 통화로 적은 건 원래 금액 · 아니면 원화를 그날 환율로 나눔 (환율 없으면 undefined) */
+const curAmt = (e: PettyEntry, cur: string, fx: ReturnType<typeof useFxRates>): number | undefined => {
+  if (cur === 'KRW') return e.amount ?? 0;
+  if (e.cur === cur && e.curAmount !== undefined) return e.curAmount;
+  if (e.amount === undefined) return undefined;
+  const r = rateOn(fx, cur, e.date);
+  return r ? Math.round((e.amount / r.rate) * 100) / 100 : undefined;
+};
+/** 고른 통화로 금액 글자: ₩47,114 · ¥5,230 · $312.40 */
+const fmtCur = (n: number, cur: string) =>
+  cur === 'KRW' ? won(n) || '₩0' : `${(CUR_SIGN[cur] ?? cur + ' ').trim()}${n.toLocaleString('ko-KR', { maximumFractionDigits: cur === 'JPY' ? 0 : 2 })}`;
+
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 const monthsBetween = (a: string, b: string) => {
   const out: string[] = [];
@@ -354,8 +366,14 @@ function TripRecord({
   const acc = usePettyAccount(email);
   const expenses = rows.filter((e) => e.kind === 'expense');
   const transports = rows.filter((e) => e.kind === 'transport');
-  const sum = (l: PettyEntry[]) => l.reduce((a, e) => a + (e.amount ?? 0), 0);
+  // 보는 통화 (프린트 금액 통화와 같은 설정 · 신청서마다 기억)
+  const cur = trip.printCur || 'KRW';
+  const curList = [...new Set(['KRW', ...cfg.currencies])];
+  const noRate = cur !== 'KRW' && rows.some((e) => curAmt(e, cur, fx) === undefined);
+  const sum = (l: PettyEntry[]) => l.reduce((a, e) => a + (curAmt(e, cur, fx) ?? 0), 0);
   const total = sum(rows);
+  const krwTotal = rows.reduce((a, e) => a + (e.amount ?? 0), 0);
+  const show = (n: number) => fmtCur(n, cur);
   const defDate = today() >= trip.from && today() <= trip.to ? today() : trip.from;
   return (
     <div className="pc-record">
@@ -363,7 +381,7 @@ function TripRecord({
         <section className="card pc-section">
           <div className="pc-sec-head">
             <h2>출장비 내역</h2>
-            <span className="muted small">합계 {won(sum(expenses)) || '₩0'}</span>
+            <span className="muted small">합계 {show(sum(expenses))}</span>
           </div>
           <EntryTable kind="expense" rows={expenses} purposes={cfg.categories} purposeLabel="항목" />
           <AddEntry kind="expense" email={email} name={name} purposes={cfg.categories} defDate={defDate} curs={cfg.currencies} fx={fx} />
@@ -371,7 +389,7 @@ function TripRecord({
         <section className="card pc-section">
           <div className="pc-sec-head">
             <h2>교통비</h2>
-            <span className="muted small">합계 {won(sum(transports)) || '₩0'}</span>
+            <span className="muted small">합계 {show(sum(transports))}</span>
           </div>
           <EntryTable kind="transport" rows={transports} purposes={cfg.categories} />
           <AddEntry kind="transport" email={email} name={name} purposes={cfg.categories} defDate={defDate} curs={cfg.currencies} fx={fx} />
@@ -386,20 +404,37 @@ function TripRecord({
           <span className="muted small">계좌는 전도금 페이지에 저장한 걸 불러와요 (고치는 건 전도금에서)</span>
         </div>
         <div className="pc-sums">
+          <label className="trip-cur-pick">
+            <span>금액 통화</span>
+            <select value={cur} onChange={(e) => void saveTrip({ ...trip, printCur: e.target.value === 'KRW' ? undefined : e.target.value })}>
+              {curList.map((c) => (
+                <option key={c} value={c}>
+                  {c === 'KRW' ? '₩ 원화 (원칙)' : `${(CUR_SIGN[c] ?? '').trim()} ${c}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          {noRate && <span className="warn small">환율이 아직 없는 날이 있어요 (그 내역은 빠져 있어요)</span>}
           <div>
             <span>출장비 내역</span>
-            <b>{won(sum(expenses)) || '₩0'}</b>
+            <b>{show(sum(expenses))}</b>
           </div>
           <div>
             <span>교통비 내역</span>
-            <b>{won(sum(transports)) || '₩0'}</b>
+            <b>{show(sum(transports))}</b>
           </div>
           <div className="pc-sum-total">
             <span>총 금액</span>
-            <b>{won(total) || '₩0'}</b>
+            <b>{show(total)}</b>
           </div>
           <div className="trip-korean">
-            {won(total) || '₩0'} = {wonKorean(total)}
+            {cur === 'KRW' ? (
+              <>
+                {won(total) || '₩0'} = {wonKorean(total)}
+              </>
+            ) : (
+              <>원화로는 {won(krwTotal) || '₩0'} · 프린트 금액도 이 통화로 나가요</>
+            )}
           </div>
         </div>
       </section>
@@ -414,13 +449,7 @@ function TripPrint({ trip, rows, cats, fx, curs }: { trip: TripDoc; rows: PettyE
   const cur = trip.printCur || 'KRW';
   const curList = [...new Set(['KRW', ...curs])];
   /** 내역 한 줄을 고른 통화로: 그 통화로 적은 건 원래 금액 · 아니면 원화를 그날 환율로 나눔 */
-  const amt = (e: PettyEntry): number | undefined => {
-    if (cur === 'KRW') return e.amount ?? 0;
-    if (e.cur === cur && e.curAmount !== undefined) return e.curAmount;
-    if (e.amount === undefined) return undefined;
-    const r = rateOn(fx, cur, e.date);
-    return r ? Math.round((e.amount / r.rate) * 100) / 100 : undefined;
-  };
+  const amt = (e: PettyEntry) => curAmt(e, cur, fx);
   const noRate = rows.some((e) => amt(e) === undefined);
   const fmtN = (n: number) => n.toLocaleString('ko-KR', { maximumFractionDigits: cur === 'KRW' || cur === 'JPY' ? 0 : 2 });
   const sign = cur === 'KRW' ? '' : (CUR_SIGN[cur] ?? cur).trim();
