@@ -80,7 +80,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return sortRequests(
+    const list = sortRequests(
       all.filter((r) => {
         if (tab === 'open' ? !isOpen(r) : isOpen(r)) return false;
         if (tab === 'done') {
@@ -97,6 +97,8 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         return true;
       }),
     );
+    // 무역사무 담당자 한 명을 골라 보고 있으면: 마감일 빠른 순 (마감일 없는 건 맨 뒤 · 같은 날은 원래 순서)
+    return assignee ? [...list].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999')) : list;
   }, [all, tab, year, month, assignee, requester, workType, status, tagF, query]);
 
   const openCount = (f: (r: TradeRequest) => boolean) => all.filter((r) => isOpen(r) && f(r)).length;
@@ -300,7 +302,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
 
       {isTeamSide && assignee && (
         <p className="small rq-filter-note">
-          <b>{assignee === '-' ? '처리자 미정' : trade.find((m) => m.id === assignee)?.name}</b>의 업무를 보고 있어요{' '}
+          <b>{assignee === '-' ? '처리자 미정' : trade.find((m) => m.id === assignee)?.name}</b>의 업무를 보고 있어요 <span className="muted">(마감일 빠른 순)</span>{' '}
           <button className="link" onClick={() => setAssignee(undefined)}>
             × 풀기
           </button>
