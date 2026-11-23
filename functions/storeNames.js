@@ -8,11 +8,12 @@ const URL = 'https://ex.artbox.kr/api/getpartnerinfo.asp';
 const MAX = 25;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sleep } = {}) {
+// force: 이미 적어 둔 매장도 (이름이 빈 것 포함) 다시 물음 · 결과마다 응답 앞부분을 같이 돌려줌 (관리자 확인용)
+export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sleep, force = false } = {}) {
   const ids = [...new Set((ids0 ?? []).map((x) => String(x ?? '').trim()).filter((x) => /^[0-9A-Za-z-]{3,20}$/.test(x)))];
   const todo = [];
-  for (const id of ids) if (!(await db.doc(`storeNames/${id}`).get()).exists) todo.push(id);
-  if (!todo.length) return { asked: 0, found: 0, left: 0 };
+  for (const id of ids) if (force || !(await db.doc(`storeNames/${id}`).get()).exists) todo.push(id);
+  if (!todo.length) return { asked: 0, found: 0, left: 0, results: [] };
   const sec = (await db.doc('secrets/sku').get()).data() ?? {};
   const cfg = await exCfg(db, sec);
   const url = String(sec.partnerUrl ?? URL).trim() || URL;
@@ -20,12 +21,14 @@ export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sle
   let found = 0;
   let asked = 0;
   let stopped = '';
+  const results = [];
   for (const id of todo.slice(0, MAX)) {
     let body;
     try {
       body = await call(url, cfg, { STORE_ID: id }, fetchImpl, wait, last);
     } catch (e) {
       stopped = e instanceof RateLimited ? e.message : `오류: ${e.message}`;
+      results.push({ id, name: '', error: stopped });
       break;
     }
     asked++;
@@ -36,6 +39,7 @@ export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sle
     // 못 찾아도 적어 둠 (빈 이름) → 다시 안 물음
     await db.doc(`storeNames/${id}`).set({ name, at: new Date().toISOString() });
     if (name) found++;
+    results.push({ id, name, raw: JSON.stringify(body).slice(0, 300) });
   }
-  return { asked, found, left: todo.length - asked, stopped };
+  return { asked, found, left: todo.length - asked, stopped, results };
 }

@@ -749,6 +749,7 @@ import { loadMissing, recheckMissing } from './skuMissing.js';
 const dashRole = async (req) => {
   const role = await roleOf(req);
   if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
+  return role;
 };
 export const skuMissingLoad = onCall({ ...skuOpts }, async (req) => {
   await dashRole(req);
@@ -771,9 +772,11 @@ export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '*/30 0-7 * 
 // 주문 이름을 매장명으로: 매장코드 → STORE_NAME (한 번 찾은 매장은 다시 안 물음)
 import { lookupStoreNames } from './storeNames.js';
 export const storeNamesLookup = onCall({ region: REGION, timeoutSeconds: 120 }, async (req) => {
-  await dashRole(req);
+  const role = await dashRole(req);
   try {
-    return await lookupStoreNames(db, Array.isArray(req.data?.ids) ? req.data.ids.slice(0, 200) : []);
+    const force = !!req.data?.force && role === 'admin';
+    const out = await lookupStoreNames(db, Array.isArray(req.data?.ids) ? req.data.ids.slice(0, force ? 25 : 200) : [], { force });
+    return force ? out : { ...out, results: undefined };
   } catch (e) {
     throw new HttpsError('failed-precondition', e.message);
   }

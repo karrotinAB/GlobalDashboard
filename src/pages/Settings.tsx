@@ -19,6 +19,7 @@ import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
 import { Modal } from '../components/ui';
 import { useFullName } from '../lib/fullName';
+import { useStoreNames } from '../lib/storeNames';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { seedData } from '../data/seed';
 import { COLLECTIONS } from '../data/backend';
@@ -1428,9 +1429,52 @@ function PushSection({ email }: { email: string }) {
   );
 }
 
+/** 매장명으로 바꾸는 업체: 주문들의 매장코드마다 찾은 매장명 · 🔎 다시 찾기 (못 찾은 것도 다시 · 응답 앞부분 보기) */
+function StoreNameCheck({ ids }: { ids: string[] }) {
+  const names = useStoreNames(ids, true);
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ lines: string[]; ok: boolean } | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setRes(null);
+    try {
+      const r = (await httpsCallable(functions, 'storeNamesLookup')({ ids: ids.slice(0, 25), force: true })).data as { results?: { id: string; name: string; raw?: string; error?: string }[]; stopped?: string };
+      if (!r.results) setRes({ ok: false, lines: ['⚠ 서버 함수가 예전 버전이에요 — deploy.bat 으로 다시 올려 주세요'] });
+      else setRes({ ok: r.results.every((x) => x.name), lines: r.results.map((x) => (x.name ? `${x.id} → ${x.name}` : `${x.id} → 못 찾음 ${x.error ?? ''} ${x.raw ? `· 응답: ${x.raw}` : ''}`)) });
+    } catch (e) {
+      setRes({ ok: false, lines: [`실패: ${(e as Error).message}`] });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="small" style={{ marginTop: 6 }}>
+      {ids.length === 0 ? (
+        <span className="muted">매장코드가 적힌 주문이 없어요</span>
+      ) : (
+        <span className="muted">
+          {ids.map((id) => `${id} ${names[id] ? `→ ${names[id]}` : '→ (아직 없음)'}`).join(' · ')}
+        </span>
+      )}{' '}
+      {ids.length > 0 && (
+        <button className="link small" disabled={busy} onClick={() => void run()}>
+          {busy ? '찾는 중…' : '🔎 다시 찾기'}
+        </button>
+      )}
+      {res && (
+        <div className={res.ok ? '' : 'danger-text'} style={{ marginTop: 4, wordBreak: 'break-all' }}>
+          {res.lines.map((l, i) => (
+            <div key={i}>{l}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 관리자 설정 › 🏷 주문 이름 자동으로: 업체마다 자동 등록 주문 이름을 그대로 / 매장 약자 / 매장명 (지금 보고 있는 조의 업체) */
 function OrderNameAdmin() {
-  const { save } = useStore();
+  const { save, data } = useStore();
   const { companies } = useLookups();
   const access = useAccess();
   const list = companies.filter((c) => (c.storeCodes ?? []).length > 0);
@@ -1460,6 +1504,7 @@ function OrderNameAdmin() {
                     <option value="abbr">매장 약자 (예: 3글자)</option>
                     <option value="storeName">매장명 (STORE_NAME)</option>
                   </select>
+                  {modeOf(c) === 'storeName' && <StoreNameCheck ids={[...new Set(data.orders.filter((o) => o.companyId === c.id && o.storeCode).map((o) => o.storeCode!.trim()))]} />}
                 </td>
               </tr>
             ))}
