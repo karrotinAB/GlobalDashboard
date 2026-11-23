@@ -110,6 +110,8 @@ export default function Orders() {
   const [tab, setTab] = useState<Tab>('open');
   // ERP 내역 보기: 모두 (저장된 값 — API 안 부름) · 'ERP 에서 다시 조회'는 관리자만 (API 2~3번)
   const canQuery = DATA_MODE === 'firestore' && useAccess().role === 'admin';
+  // 1조: 매장코드를 주문 이름 바로 옆에 (다른 조는 그대로)
+  const codeFirst = useAccess().viewTeam === '1';
   const canInspect = DATA_MODE === 'firestore';
   const [inspecting, setInspecting] = useState<Order | null>(null);
   // 업체 = 시트: 고른 업체를 이 브라우저에 기억해서 다음에 열어도 그 시트로
@@ -470,13 +472,14 @@ export default function Orders() {
                 />
               </th>
               <th className="c-name">주문</th>
+              {codeFirst && <th className="c-code">매장코드</th>}
               {!sheet && <th className="c-co">업체</th>}
               {MID_STEPS.map((s) => (
                 <th key={s.key} className="c-step">
                   {s.label}
                 </th>
               ))}
-              <th className="c-code">매장코드</th>
+              {!codeFirst && <th className="c-code">매장코드</th>}
               <th className="c-date">주문일자</th>
               <th className="c-pack">패킹 완료일</th>
               <th className="c-from">출고 장소</th>
@@ -526,6 +529,7 @@ export default function Orders() {
                 defaultCompanyId={sheet?.id ?? companies[0]?.id ?? null}
                 stepCount={MID_STEPS.length}
                 compact={mobile}
+                codeFirst={codeFirst}
                 onAdd={(o) => save('orders', { ...o, sort: Date.now() })}
               />
             )}
@@ -858,13 +862,14 @@ export default function Orders() {
             <EditableText value={shownName(o)} oneLine expand onSave={(v) => v && v !== shownName(o) && patch({ name: v })} />
           </div>
         </td>
+        {codeFirst && <td className="c-code">{txt('storeCode', '매장코드')}</td>}
         {!sheet && (
           <td className="c-co">
             <CompanyCell company={companyById.get(o.companyId ?? '')} companies={companies} onSave={(id) => patch({ companyId: id })} />
           </td>
         )}
         {MID_STEPS.map((s) => step(s.key, s.label))}
-        <td className="c-code">{txt('storeCode', '매장코드')}</td>
+        {!codeFirst && <td className="c-code">{txt('storeCode', '매장코드')}</td>}
         <td className="c-date">
           <DateCell value={o.orderDate} onSave={(v) => patch({ orderDate: v })} />
         </td>

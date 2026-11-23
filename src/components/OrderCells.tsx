@@ -66,6 +66,7 @@ export function AddOrderRow({
   stepCount,
   onAdd,
   compact,
+  codeFirst,
 }: {
   colSpan: number;
   companies: Company[];
@@ -74,6 +75,7 @@ export function AddOrderRow({
   stepCount: number;
   onAdd: (o: Order) => void;
   compact?: boolean; // 휴대폰: 주문명만 쓰고 추가 (나머지는 주문을 눌러 펼쳐서)
+  codeFirst?: boolean; // 매장코드 칸을 주문명 바로 옆에 (1조)
 }) {
   const blank = (): Draft => ({ name: '', companyId: defaultCompanyId, orderDate: today() });
   const [open, setOpen] = useState(false);
@@ -156,6 +158,7 @@ export function AddOrderRow({
       <td className="c-name">
         <input ref={nameRef} className="cell-input" autoFocus placeholder="주문명 입력 후 Enter" value={d.name} onChange={(e) => set('name', e.target.value)} onKeyDown={keys} />
       </td>
+      {codeFirst && <td>{text('storeCode', '매장코드')}</td>}
       {!lockCompany && (
         <td>
           <select className="cell-input" value={d.companyId ?? ''} onChange={(e) => set('companyId', e.target.value || null)}>
@@ -171,7 +174,7 @@ export function AddOrderRow({
       <td colSpan={stepCount} className="muted small add-hint">
         단계 체크는 추가한 뒤에
       </td>
-      <td>{text('storeCode', '매장코드')}</td>
+      {!codeFirst && <td>{text('storeCode', '매장코드')}</td>}
       <td>
         <DateInput value={d.orderDate} onChange={(v) => set('orderDate', v)} />
       </td>
