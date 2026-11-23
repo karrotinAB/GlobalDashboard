@@ -1,5 +1,5 @@
 import { SALES_CURRENCIES } from '../lib/sales';
-import { disablePush, enablePush, usePushState } from '../lib/push';
+import { disablePush, enablePush, sendTestPush, usePushState } from '../lib/push';
 import { setBubblePreview, setWishOn, useBubblePreview, useWishOn } from '../lib/bdayMsgs';
 import { openWishPreview } from '../components/BirthdayWish';
 import { useFxSetting, writeFx, type FxLevel, type FxMode } from '../components/WeatherFx';
@@ -1392,6 +1392,24 @@ function PushSection({ email }: { email: string }) {
         {st === 'on' ? (
           <>
             <span className="tag green">켜짐 · 이 기기</span>
+            <button
+              disabled={busy}
+              title="내가 알림을 켠 모든 기기로 테스트 알림을 하나 보내요"
+              onClick={async () => {
+                setBusy(true);
+                setMsg('');
+                try {
+                  const n = await sendTestPush();
+                  setMsg(n ? `테스트 알림을 보냈어요 (${n}대) — 몇 초 안에 안 뜨면 브라우저 · 윈도우 알림 설정을 확인해 주세요` : '보낼 기기를 못 찾았어요 — 끄고 다시 켜 보세요');
+                } catch (e) {
+                  setMsg(`못 보냈어요: ${(e as Error).message} (서버 함수를 올렸는지 확인 — deploy.bat)`);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              🔔 테스트 알림 보내기
+            </button>
             <button disabled={busy} onClick={() => void run(false)}>
               끄기
             </button>

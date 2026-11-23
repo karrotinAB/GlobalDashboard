@@ -4,7 +4,8 @@
 import { useEffect, useState } from 'react';
 import { deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { app, db } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { app, db, functions } from '../firebase';
 
 /** Firebase 콘솔 › 프로젝트 설정 › 클라우드 메시징 › 웹 푸시 인증서의 '키 쌍' (공개 키 · 사이트에 넣어도 되는 값) */
 export const VAPID_KEY = 'BJs4CE9IhFNoKAbf-TzcPHzL-cnm9kcbRbCKgTmMhZr3P-1s4UfYqnxE1A2brAZxhUSvdXi9yuCB6hG4Ior9dhw';
@@ -48,4 +49,10 @@ export async function disablePush() {
   if (token) await deleteDoc(doc(db, 'pushTokens', token)).catch(() => {});
   await deleteToken(getMessaging(app)).catch(() => {});
   localStorage.removeItem(LS);
+}
+
+/** 🔔 테스트 알림 (내가 알림을 켠 모든 기기로) — 보낸 기기 수 */
+export async function sendTestPush(): Promise<number> {
+  const r = await httpsCallable(functions, 'pushTest')({});
+  return (r.data as { sent?: number }).sent ?? 0;
 }

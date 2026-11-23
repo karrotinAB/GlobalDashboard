@@ -852,6 +852,19 @@ export const pushPettyReminder = onSchedule({ schedule: '0 10 * * *', region: RE
 });
 // 무역사무: 새 업무 요청 → 무역사무 사람들 (1·2·3조 요청 컬렉션 · 2조 = requests)
 import { onRequestCreated } from './push.js';
+import { sendPush } from './push.js';
+// 🔔 테스트 알림: 누른 사람이 알림을 켠 모든 기기로 하나 보냄
+export const pushTest = onCall({ region: REGION }, async (req) => {
+  const role = await roleOf(req);
+  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
+  const email = req.auth.token.email.toLowerCase();
+  const now = new Date(Date.now() + 9 * 3600000).toISOString().slice(11, 16);
+  try {
+    return await sendPush(db, [email], { title: '🔔 테스트 알림', body: `알림이 잘 와요! (${now}) — 누르면 설정이 열려요`, link: './#/settings', tag: `test-${Date.now()}` });
+  } catch (e) {
+    throw new HttpsError('failed-precondition', e.message);
+  }
+});
 const reqTrigger = (col, team) =>
   onDocumentCreated({ document: `${col}/{id}`, region: REGION }, async (e) => {
     const r = e.data?.data();
