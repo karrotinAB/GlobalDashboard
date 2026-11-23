@@ -793,7 +793,7 @@ export const lookupSku = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req)
 // ---------- 날씨 (기상청 초단기예보): 매일 6시~21시 매시 50분 → weatherNow/main ----------
 //   키: secrets/weather 문서 apiKey (공공데이터포털) · 홈 인사말 옆에 '곧 비가 와요'
 import { syncWeather } from './weather.js';
-export const syncWeatherHourly = onSchedule({ region: REGION, schedule: '50 6-21 * * *', timeZone: 'Asia/Seoul' }, async () => {
+export const syncWeatherHourly = onSchedule({ region: REGION, schedule: '50 * * * *', timeZone: 'Asia/Seoul' }, async () => {
   const r = await syncWeather(db).catch((e) => ({ error: e.message }));
   if (r.error) logger.warn('weather', r.error);
 });

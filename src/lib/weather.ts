@@ -11,7 +11,7 @@ export interface Weather {
   sky?: number; // 1 맑음 · 3 구름많음 · 4 흐림
   now?: WxKind; // 지금 내리는 것
   rain?: { at: string; kind: Exclude<WxKind, null> } | null; // 6시간 안에 처음 내리는 때
-  hours?: { at: string; kind: WxKind; rn?: string; temp?: number }[]; // 시간별 (rn: 1시간 강수량 '강수없음' · '1mm 미만' · '2.0mm' · '30.0~50.0mm' …)
+  hours?: { at: string; kind: WxKind; rn?: string; temp?: number; sky?: number }[]; // 시간별 (rn: 1시간 강수량 '강수없음' · '1mm 미만' · '2.0mm' · '30.0~50.0mm' …)
   at?: string;
 }
 

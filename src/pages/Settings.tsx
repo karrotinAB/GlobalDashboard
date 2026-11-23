@@ -1174,7 +1174,7 @@ function WorkTypesSection() {
 }
 
 /** 헤더 날씨 효과 (실험 · 관리자만): 이 브라우저에서만 켜져요. 실제 날씨와는 아직 연결 안 함 */
-/** 지금 받아 둔 기상청 날씨 (서초구 반포대로 · 매시 50분, 아침 6시 ~ 밤 9시) + 그래서 헤더에 뜨는 효과 */
+/** 지금 받아 둔 기상청 날씨 (서초구 반포대로 · 매시 50분) + 그래서 헤더에 뜨는 효과 */
 function WeatherNowBox() {
   const w = useWeatherRaw();
   const [busy, setBusy] = useState(false);
@@ -1202,7 +1202,7 @@ function WeatherNowBox() {
     <div className="wx-now">
       <div className="wx-now-head">
         <b>📡 지금 받아 둔 날씨</b>
-        <span className="muted small">기상청 초단기예보 · 서초구 반포대로 · 아침 6시 ~ 밤 9시 매시 50분에 받아요</span>
+        <span className="muted small">기상청 초단기예보 · 서초구 반포대로 · 매시 50분에 받아요 (하루 종일)</span>
         <button className="small" disabled={busy} onClick={() => void refresh()}>
           {busy ? '받는 중…' : '↻ 지금 다시 받기'}
         </button>
@@ -1232,7 +1232,7 @@ function WeatherNowBox() {
                 <div key={x.at} className={x.kind ? 'wet' : ''}>
                   <span className="muted">{hm(x.at)}</span>
                   <b>{typeof x.temp === 'number' ? `${x.temp}°` : ''}</b>
-                  <span>{x.kind ? KIND[x.kind] : '–'}</span>
+                  <span>{x.kind ? KIND[x.kind] : SKY[x.sky ?? 0] ?? '–'}</span>
                   {x.rn && !/없음/.test(x.rn) && <span className="muted">{x.rn}</span>}
                 </div>
               ))}
