@@ -8784,3 +8784,21 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .dept-label { font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .dept-today .roster-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .dept-today .dept-grid { width: 100%; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+/* 홈 슬라이드 › 오늘의 날씨 */
+.zw-now { display: flex; align-items: baseline; gap: 10px; }
+.zw-icon { font-size: 26px; align-self: center; }
+.zw-temp { font-family: var(--serif); font-size: 34px; font-weight: 700; line-height: 1; }
+.zw-word { font-size: 14px; color: var(--ink-2); }
+.zw-word small { color: var(--mut); }
+.zw-hours { display: flex; gap: 6px; overflow: hidden; }
+.zw-hours > div { flex: 1 1 0; min-width: 0; max-width: 64px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; border-radius: 10px; background: rgba(120, 90, 80, .06); font-size: 11.5px; color: var(--ink-2); }
+.zw-hours > div.wet { background: rgba(77, 171, 247, .14); }
+.zw-hours b { font-size: 14px; font-weight: 400; line-height: 1.2; }
+@media (max-width: 600px) {
+  .zw-temp { font-size: 22px; }
+  .zw-icon { font-size: 18px; }
+  .zw-word { font-size: 11.5px; }
+  .zw-hours { gap: 3px; }
+  .zw-hours > div { font-size: 9.5px; padding: 2px 1px; }
+  .zw-hours b { font-size: 11px; }
+}

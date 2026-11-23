@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTodayEvents } from '../lib/calToday';
 import { birthdayGreeting, birthdaysOn, useBirthdays } from '../lib/birthdays';
-import { useWeather, weatherGreeting } from '../lib/weather';
+import { isFresh, useWeather, useWeatherRaw, weatherGreeting } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
 import SalesPanel from '../components/SalesPanel';
 import { addDays, fromISO, shortDate, today, weekStart } from '../lib/date';
@@ -494,7 +494,7 @@ function LeaveBand({ r, nowMin }: { r: Attendance; nowMin: number }) {
 /** THIS WEEK ↔ TODAY'S SCHEDULE: 30초마다 왼쪽으로 넘어감 · 마우스를 올리면 ‹ › · 멈추기 (멈춤은 이 브라우저에 기억) */
 const SLIDE_MS = 30000;
 function WeekSlider({ week }: { week: ReactNode }) {
-  const slides = [week, <TodaySchedule key="sch" />];
+  const slides = [week, <TodaySchedule key="sch" />, <TodayWeather key="wx" />];
   const n = slides.length;
   // 맨 끝에 첫 장을 한 번 더 붙여서 늘 왼쪽으로 넘어가게 (끝 → 처음도 왼쪽)
   const [i, setI] = useState(0);
@@ -589,6 +589,49 @@ function WeekSlider({ week }: { week: ReactNode }) {
 }
 
 /** 오늘 일정 (부서 구글 캘린더) */
+/** 오늘의 날씨 (기상청 초단기예보 · 서초구 반포대로) — 지금 + 앞으로 몇 시간 */
+function TodayWeather() {
+  const w = useWeatherRaw();
+  const SKY: Record<number, [string, string]> = { 1: ['☀️', '맑음'], 3: ['⛅', '구름 많음'], 4: ['☁️', '흐림'] };
+  const KIND: Record<string, [string, string]> = { rain: ['☔', '비'], sleet: ['🌨️', '비 · 눈'], snow: ['❄️', '눈'] };
+  const fresh = isFresh(w);
+  const now = w?.now ? KIND[w.now] : SKY[w?.sky ?? 0];
+  const hours = (w?.hours ?? []).slice(0, 6);
+  return (
+    <>
+      <span className="zone-tag">TODAY'S WEATHER</span>
+      {w === undefined ? (
+        <p className="muted small zs-empty">날씨 불러오는 중…</p>
+      ) : !w || !fresh ? (
+        <p className="muted zs-empty">지금 받아 둔 날씨가 없어요 (아침 6시 ~ 밤 9시에 받아요) 🌙</p>
+      ) : (
+        <>
+          <div className="zw-now">
+            <span className="zw-icon">{now?.[0] ?? '🌡️'}</span>
+            <span className="zw-temp">{typeof w.temp === 'number' ? `${w.temp}°` : '–'}</span>
+            <span className="zw-word">
+              {w.now ? `${now?.[1]} 오는 중` : now?.[1] ?? ''}
+              {w.now && w.hours?.[0]?.rn && !/없음/.test(w.hours[0].rn) && <small> · 1시간 {w.hours[0].rn}</small>}
+            </span>
+          </div>
+          {hours.length > 0 && (
+            <div className="zw-hours">
+              {hours.map((x) => (
+                <div key={x.at} className={x.kind ? 'wet' : ''} title={x.rn && !/없음/.test(x.rn) ? x.rn : undefined}>
+                  <span>{Number(x.at.slice(11, 13))}시</span>
+                  <b>{x.kind ? KIND[x.kind]?.[0] : '·'}</b>
+                  <span>{typeof x.temp === 'number' ? `${x.temp}°` : ''}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <span className="zs-more muted small">반포대로{w?.at ? ` · ${new Date(w.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} 기준` : ''}</span>
+    </>
+  );
+}
+
 function TodaySchedule() {
   const day = today();
   const { list, error } = useTodayEvents(day);
