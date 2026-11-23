@@ -78,6 +78,7 @@ export default function AddressBook({ className, label = '📇 주소록' }: { c
 function AddressBookModal({ onClose }: { onClose: () => void }) {
   const { roles, contacts, error } = usePeople();
   const [q, setQ] = useState('');
+  const [addSignal, setAddSignal] = useState(0); // ID/PW: 위쪽 '＋ 계정 추가'
   // 탭: 주소록 · ID/PW (같이 쓰는 계정)
   const [tab, setTab] = useState<'people' | 'logins'>(() => {
     try {
@@ -155,7 +156,18 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
     );
   const groups = GROUPS.map((g) => ({ g, list: people.filter((p) => g.match(p) && hit(p)).sort((a, b) => a.name.localeCompare(b.name, 'ko')) })).filter((x) => x.list.length);
   return (
-    <Modal title={tab === 'people' ? '📇 주소록' : '🔑 같이 쓰는 계정'} onClose={onClose} wide>
+    <Modal
+      title={tab === 'people' ? '📇 주소록' : '🔑 같이 쓰는 계정'}
+      onClose={onClose}
+      wide
+      headExtra={
+        tab === 'logins' ? (
+          <button className="primary small" onClick={() => setAddSignal((n) => n + 1)}>
+            ＋ 계정 추가
+          </button>
+        ) : undefined
+      }
+    >
       <div className="seg ab-tabs">
         <button className={tab === 'people' ? 'on' : ''} onClick={() => pickTab('people')}>
           📇 주소록
@@ -169,7 +181,7 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
         <span className="muted small">{tab === 'people' ? '이메일·번호 칸을 누르면 복사돼요' : 'ID 칸을 누르면 복사돼요 · PW 는 👁 로 보이게 한 뒤 눌러서 복사 · 용도를 누르면 로그인 페이지로 · 로그인이 안 되면 ⋯ 에서 알려 주세요 · 누구나 넣고 고칠 수 있어요'}</span>
       </div>
       {tab === 'logins' ? (
-        <SharedLogins q={q} copy={(t) => void copy(t)} copied={copied} />
+        <SharedLogins q={q} copy={(t) => void copy(t)} copied={copied} addSignal={addSignal} />
       ) : (
       <>
       {DATA_MODE === 'local' && <p className="muted small">로컬 모드에서는 주소록이 없어요.</p>}

@@ -80,7 +80,7 @@ const cleanUrl = (u: string) => {
   return /^https?:\/\//i.test(v) ? v : '';
 };
 
-export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t: string) => void; copied: string }) {
+export default function SharedLogins({ q, copy, copied, addSignal = 0 }: { q: string; copy: (t: string) => void; copied: string; addSignal?: number }) {
   const { list, error } = useSharedLogins();
   const { email, accountName } = useAccess();
   const [show, setShow] = useState<Set<string>>(new Set()); // PW 보이는 줄
@@ -102,6 +102,11 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
     // 같은 용도에 이미 링크가 있으면 새 줄에도 미리 채움
     setD(x ? { use: x.use, url: x.url ?? (list ?? []).find((y) => y.use === x.use && y.url)?.url ?? '', login: x.login, pw: x.pw, note: x.note ?? '' } : blank);
   };
+  // 창 위쪽 '＋ 계정 추가' 를 누르면 표 맨 위에 새 줄
+  useEffect(() => {
+    if (addSignal) start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addSignal]);
   const ok = d.use.trim() && (d.login.trim() || d.pw.trim());
   const submit = async () => {
     if (!ok) return;
@@ -212,6 +217,7 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
               </tr>
             </thead>
             <tbody>
+              {editing === 'new' && form}
               {groups.flatMap(([use, rows]) => {
                 // 이 용도 안에서 고치는 줄이 있으면 묶지 않고 줄마다 용도 (칸이 안 어긋나게)
                 const grouped = !rows.some((x) => x.id === editing);
@@ -274,18 +280,7 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
               {!groups.length && editing !== 'new' && (
                 <tr>
                   <td colSpan={5} className="muted small">
-                    {(list ?? []).length ? '맞는 계정이 없어요.' : '아직 등록된 계정이 없어요. 아래 ＋ 계정 추가로 넣어 주세요.'}
-                  </td>
-                </tr>
-              )}
-              {editing === 'new' ? (
-                form
-              ) : (
-                <tr>
-                  <td colSpan={5} className="sl-add">
-                    <button className="link" onClick={() => start()}>
-                      ＋ 계정 추가
-                    </button>
+                    {(list ?? []).length ? '맞는 계정이 없어요.' : '아직 등록된 계정이 없어요. 위 ＋ 계정 추가로 넣어 주세요.'}
                   </td>
                 </tr>
               )}
