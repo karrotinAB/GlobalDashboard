@@ -768,6 +768,16 @@ export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '*/30 0-7 * 
   await db.doc('skuMissing/_meta').set({ nightAt: new Date().toISOString(), nightError: r.error ?? '' }, { merge: true });
   logger.info('sku missing nightly', r);
 });
+// 주문 이름을 매장명으로: 매장코드 → STORE_NAME (한 번 찾은 매장은 다시 안 물음)
+import { lookupStoreNames } from './storeNames.js';
+export const storeNamesLookup = onCall({ region: REGION, timeoutSeconds: 120 }, async (req) => {
+  await dashRole(req);
+  try {
+    return await lookupStoreNames(db, Array.isArray(req.data?.ids) ? req.data.ids.slice(0, 200) : []);
+  } catch (e) {
+    throw new HttpsError('failed-precondition', e.message);
+  }
+});
 export const skuMissingRecheck = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
   await dashRole(req);
   const codes = Array.isArray(req.data?.codes) ? req.data.codes.slice(0, 2000) : [];

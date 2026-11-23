@@ -636,7 +636,6 @@ function CompanySalesSettings({ c, onSave, onClose }: { c: Company; onSave: (c: 
   const [royalty, setRoyalty] = useState(!!c.royalty);
   const [from, setFrom] = useState(c.royaltyFrom ?? '');
   const [cur, setCur] = useState(c.salesCurrency ?? '');
-  const [byStore, setByStore] = useState(!!c.orderNameByStore);
   const guess = guessCurrency(c.country);
   return (
     <Modal title={`${c.name} 설정`} onClose={onClose}>
@@ -669,13 +668,6 @@ function CompanySalesSettings({ c, onSave, onClose }: { c: Company; onSave: (c: 
             <span className="muted small">{from ? `${from.replace('-', '.')} 판매분부터 계산` : '비우면 처음부터'}</span>
           </label>
         )}
-        <label className="co-set-row">
-          <input type="checkbox" checked={byStore} onChange={(e) => setByStore(e.target.checked)} />
-          <span>
-            <b>주문 이름을 매장 약자로</b>
-            <span className="muted small"> — 주문 관리에서 자동 등록된 주문(ERP 번호 · 새 주문) 이름을 그 매장코드의 지점 약자로 바꿔요 (진행중 주문 · 직접 바꾼 이름은 그대로)</span>
-          </span>
-        </label>
         {(salesOn || royalty) && (
           <label className="co-set-row sub">
             <span>판매 통화</span>
@@ -696,7 +688,7 @@ function CompanySalesSettings({ c, onSave, onClose }: { c: Company; onSave: (c: 
         <button
           className="primary"
           onClick={() => {
-            onSave({ ...c, salesOn: salesOn || undefined, royalty: royalty || undefined, royaltyFrom: royalty && from ? from : undefined, salesCurrency: cur || undefined, orderNameByStore: byStore || undefined });
+            onSave({ ...c, salesOn: salesOn || undefined, royalty: royalty || undefined, royaltyFrom: royalty && from ? from : undefined, salesCurrency: cur || undefined });
             onClose();
           }}
         >

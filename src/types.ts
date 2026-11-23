@@ -27,7 +27,8 @@ export interface Company {
   royalty?: boolean;
   royaltyFrom?: string; // 로열티 받기 시작한 달 YYYY-MM (그 전 달은 로열티 0) // 로열티 매장: 월 판매 합계의 5% 를 받음 (수출매출 ③)
   salesOn?: boolean; // 판매 데이터 수집 중 (설정 > 매장 설정에서 켬) — 켠 업체만 수집·홈에 보임
-  orderNameByStore?: boolean; // 주문 관리: 자동 이름(ERP 번호 · 새 주문) 대신 매장코드의 지점 약자를 주문 이름으로
+  orderNameByStore?: boolean; // (예전) = orderNameMode 'abbr'
+  orderNameMode?: 'abbr' | 'storeName'; // 주문 관리: 자동 이름(ERP 번호 · 새 주문) 대신 매장 약자 / 매장명(회사 API STORE_NAME) — 관리자 설정
   storeAbbr?: Record<string, string>; // 지점(STORE_ID)별 판매 API 약자 (자동으로 불러온 이름이 약자가 아닐 때 직접)
   storeAreas?: Record<string, number>; // 지점(STORE_ID)별 평수 — 판매 데이터의 평당 금액용 (설정에서 입력)
   team?: string; // 팀장님·이사님 화면에서 조 업체를 같이 보여줄 때 붙는 조 (저장 안 함)

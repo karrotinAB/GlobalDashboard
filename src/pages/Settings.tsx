@@ -353,6 +353,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       )}
 
       {showAdm && access.role === 'admin' && <AccessAdmin />}
+      {showAdm && access.role === 'admin' && <OrderNameAdmin />}
       {showAdm && access.canManage && <HolidayAdmin />}
       {showAdm && access.role === 'admin' && <MemAutoSection />}
       {showAdm && access.role === 'admin' && <SalesApiAdmin />}
@@ -1423,6 +1424,48 @@ function PushSection({ email }: { email: string }) {
       </div>
       {why && <p className="muted small" style={{ marginBottom: 0 }}>{why}</p>}
       {msg && <p className="small" style={{ marginBottom: 0 }}>{msg}</p>}
+    </section>
+  );
+}
+
+/** 관리자 설정 › 🏷 주문 이름 자동으로: 업체마다 자동 등록 주문 이름을 그대로 / 매장 약자 / 매장명 (지금 보고 있는 조의 업체) */
+function OrderNameAdmin() {
+  const { save } = useStore();
+  const { companies } = useLookups();
+  const access = useAccess();
+  const list = companies.filter((c) => (c.storeCodes ?? []).length > 0);
+  const modeOf = (c: Company) => c.orderNameMode ?? (c.orderNameByStore ? 'abbr' : '');
+  return (
+    <section className="card">
+      <h2>🏷 주문 이름 자동으로</h2>
+      <p className="muted small">
+        ERP 에서 자동 등록된 주문(ERP 번호 · 새 주문)의 이름을 업체마다 바꿔요. <b>매장 약자</b>는 매장 설정의 약자(없으면 판매 데이터 지점 이름), <b>매장명</b>은 회사 API 의 매장 이름(STORE_NAME)이에요. 진행중 주문만 · 사람이 직접 바꾼 이름은 그대로예요. 지금 보고 있는 {access.viewLabel} 업체예요.
+      </p>
+      {list.length === 0 ? (
+        <p className="muted small">매장코드가 있는 업체가 없어요.</p>
+      ) : (
+        <table className="mini-table on-table">
+          <tbody>
+            {list.map((c) => (
+              <tr key={c.id}>
+                <td>
+                  <b>{c.name}</b> <span className="muted small">매장코드 {(c.storeCodes ?? []).join(', ')}</span>
+                </td>
+                <td>
+                  <select
+                    value={modeOf(c)}
+                    onChange={(e) => save('companies', { ...c, orderNameMode: (e.target.value || undefined) as Company['orderNameMode'], orderNameByStore: undefined })}
+                  >
+                    <option value="">그대로 (ERP 번호)</option>
+                    <option value="abbr">매장 약자 (예: 3글자)</option>
+                    <option value="storeName">매장명 (STORE_NAME)</option>
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

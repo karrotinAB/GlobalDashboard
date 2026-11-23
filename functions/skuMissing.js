@@ -15,14 +15,14 @@ const GAP = 2100; // 1분 30번 아래로
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const META = 'skuMissing/_meta';
 /** 키: secrets/sku 의 exKey · exHeader (새 API 키가 다르면) → 없으면 기존 apiKey · header */
-async function exCfg(db, sec) {
+export async function exCfg(db, sec) {
   if (sec.exKey) return { key: String(sec.exKey).trim(), header: String(sec.exHeader ?? sec.header ?? 'X-API-Key').trim() || 'X-API-Key' };
   const c = await skuCfg(db);
   return { ...c, header: String(sec.exHeader ?? c.header).trim() || c.header };
 }
 
 /** 응답에서 제품 목록 */
-function listOf(body) {
+export function listOf(body) {
   if (Array.isArray(body)) return body;
   if (!body || typeof body !== 'object') return [];
   for (const v of Object.values(body)) if (Array.isArray(v)) return v;
@@ -35,7 +35,7 @@ function listOf(body) {
   return Object.keys(body).some((k) => /sku/i.test(k)) ? [body] : [];
 }
 /** 안쪽까지 펼친 칸 이름 (밑줄 · 점 빼고 소문자) → 값. 글자로 된 JSON 도 풀어서 */
-function flat(obj, pre = '', out = {}, depth = 0) {
+export function flat(obj, pre = '', out = {}, depth = 0) {
   for (const [k, v0] of Object.entries(obj ?? {})) {
     let v = v0;
     if (typeof v === 'string' && /^\s*[{[]/.test(v)) {
@@ -76,7 +76,7 @@ export const isMissing = (r) => !r.lrg || !r.midd || !r.eng;
 /** 등록일 비교용 (2026-11-20 · 20261120 · 2026-11-20 13:01:02 → 20261120130102) */
 const regKey = (s) => str(s).replace(/[^\d]/g, '').padEnd(14, '0').slice(0, 14);
 
-async function call(url, cfg, params, fetchImpl, wait, last) {
+export async function call(url, cfg, params, fetchImpl, wait, last) {
   const u = new URL(url);
   for (const [k, v] of Object.entries(params)) u.searchParams.set(k, String(v));
   const backoff = [5000, 15000, 30000, 60000];

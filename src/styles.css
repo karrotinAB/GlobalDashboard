@@ -8927,3 +8927,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 #pc-print-root .lv-print { display: inline; }
 @media (max-width: 900px) { .lv-wrap { grid-template-columns: 1fr; } }
 .lv-times input[type="time"] { width: 108px; }
+/* 주문 관리: 주문 이름 칸 폭 끌어서 바꾸기 */
+.col-resize { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 3; touch-action: none; }
+.col-resize::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 5px; width: 2px; border-radius: 2px; background: #d8c2bd; opacity: .5; transition: opacity .15s, background .15s; }
+.col-resize:hover::after { opacity: 1; background: var(--primary); }

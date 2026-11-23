@@ -169,6 +169,10 @@ service cloud.firestore {
       allow read: if isAny();
     }
     // 번역: 수출 분류 · 영문명이 빈 제품 목록 (서버 함수만 씀 · 모두가 같이 봄)
+    // 매장명 (서버 함수만 씀): 주문 이름을 매장명으로
+    match /storeNames/{id} {
+      allow read: if isAny();
+    }
     match /skuMissing/{id} {
       allow read: if isAny();
     }

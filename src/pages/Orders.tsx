@@ -1,4 +1,5 @@
 import { useOrderUsd, useStoreBranches } from '../lib/sales';
+import { useStoreNames } from '../lib/storeNames';
 import { rectOf } from '../lib/zoom';
 import { useIsMobile } from '../lib/useMobile';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -61,15 +62,21 @@ export default function Orders() {
   // 주문 이름 보이기
   //   · 자동 등록된 '새 주문' 은 주문번호로 (ERP 번호)
   //   · 업체 설정 '주문 이름을 매장 약자로' 를 켠 업체: 자동 이름(ERP/EXP 번호 · 새 주문)은 그 매장코드의 지점 약자로 — 직접 바꾼 이름은 그대로
-  const byStoreIds = useMemo(() => new Set(companies.filter((c) => c.orderNameByStore).map((c) => c.id)), [companies]);
-  const byStoreCodes = useMemo(() => companies.filter((c) => byStoreIds.has(c.id)).flatMap((c) => c.storeCodes ?? []), [companies, byStoreIds]);
+  // 업체마다: 'abbr' = 매장 약자 · 'storeName' = 매장명 (회사 API STORE_NAME) — 관리자 설정에서 고름
+  const modeOf = (c?: { orderNameMode?: 'abbr' | 'storeName'; orderNameByStore?: boolean }) => c?.orderNameMode ?? (c?.orderNameByStore ? 'abbr' : undefined);
+  const byStoreIds = useMemo(() => new Set(companies.filter((c) => modeOf(c)).map((c) => c.id)), [companies]);
+  const byStoreCodes = useMemo(() => companies.filter((c) => modeOf(c) === 'abbr').flatMap((c) => c.storeCodes ?? []), [companies]);
   const byStoreBranches = useStoreBranches(byStoreCodes);
+  const nameModeIds = useMemo(() => new Set(companies.filter((c) => modeOf(c) === 'storeName').map((c) => c.id)), [companies]);
+  const storeIdsForName = useMemo(() => data.orders.filter((o) => nameModeIds.has(o.companyId ?? '') && !isOrderDone(o) && o.storeCode).map((o) => o.storeCode!.trim()), [data.orders, nameModeIds]);
+  const storeNames = useStoreNames(storeIdsForName, nameModeIds.size > 0);
   const isAutoName = (o: Order) => o.name === '새 주문' || /^(ERP|EXP)\s*\d+$/i.test(o.name.trim());
   const shownName = (o: Order) => {
     if (byStoreIds.has(o.companyId ?? '') && isAutoName(o) && o.storeCode) {
       const co = companies.find((c) => c.id === o.companyId);
-      const abbr = co?.storeAbbr?.[o.storeCode] || byStoreBranches[o.storeCode];
-      if (abbr) return abbr;
+      const sc = o.storeCode.trim();
+      const v = modeOf(co) === 'storeName' ? storeNames[sc] : co?.storeAbbr?.[sc] || byStoreBranches[sc];
+      if (v) return v;
     }
     if (o.name === '새 주문' && o.expNo) return `ERP ${o.expNo}`;
     return o.name;
@@ -90,7 +97,7 @@ export default function Orders() {
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.orders, byStoreIds, byStoreBranches]);
+  }, [data.orders, byStoreIds, byStoreBranches, storeNames]);
   /** 아직 아무도 이름을 안 바꾼 자동 등록 주문 → NEW */
   const isFreshAuto = (o: Order) => !!o.autoImported && (o.name === '새 주문' || (!!o.autoName && o.name === o.autoName));
   // 외화 금액 보이기: 보통은 USD 크게 + 원래 통화 작게 · 엔화(JPY)가 주요 통화인 업체는 엔화 크게 + USD 연하게
@@ -110,6 +117,38 @@ export default function Orders() {
   const [tab, setTab] = useState<Tab>('open');
   // ERP 내역 보기: 모두 (저장된 값 — API 안 부름) · 'ERP 에서 다시 조회'는 관리자만 (API 2~3번)
   const canQuery = DATA_MODE === 'firestore' && useAccess().role === 'admin';
+  // 주문 이름 칸 폭: 머리줄 오른쪽 끝을 끌어서 (사람마다 이 브라우저에 기억 · 두 번 누르면 원래대로)
+  const [nameW, setNameW] = useState<number | null>(() => {
+    try {
+      const v = Number(localStorage.getItem('gd:orderNameW'));
+      return v >= 100 && v <= 600 ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const startResize = (ev: React.PointerEvent<HTMLSpanElement>) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const th = ev.currentTarget.parentElement as HTMLElement;
+    const x0 = ev.clientX;
+    const w0 = th.getBoundingClientRect().width;
+    let w = w0;
+    const move = (e: PointerEvent) => {
+      w = Math.round(Math.min(600, Math.max(100, w0 + e.clientX - x0)));
+      setNameW(w);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      try {
+        localStorage.setItem('gd:orderNameW', String(w));
+      } catch {
+        /* 무시 */
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   // 1조: 매장코드를 주문 이름 바로 옆에 (다른 조는 그대로)
   const codeFirst = useAccess().viewTeam === '1';
   const canInspect = DATA_MODE === 'firestore';
@@ -471,7 +510,22 @@ export default function Orders() {
                   onChange={(e) => (e.target.checked ? selectAllVisible() : setSelected(new Set()))}
                 />
               </th>
-              <th className="c-name">주문</th>
+              <th className="c-name c-name-rs" style={nameW ? { width: nameW } : undefined}>
+                주문
+                <span
+                  className="col-resize"
+                  title="끌어서 주문 이름 칸 넓히기 · 두 번 누르면 원래대로"
+                  onPointerDown={startResize}
+                  onDoubleClick={() => {
+                    setNameW(null);
+                    try {
+                      localStorage.removeItem('gd:orderNameW');
+                    } catch {
+                      /* 무시 */
+                    }
+                  }}
+                />
+              </th>
               {codeFirst && <th className="c-code">매장코드</th>}
               {!sheet && <th className="c-co">업체</th>}
               {MID_STEPS.map((s) => (
