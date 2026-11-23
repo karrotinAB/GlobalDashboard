@@ -8738,3 +8738,24 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 }
 .tr-type { background: #eef3ff; color: #3b5bb5; margin-left: 4px; }
 .tr-dict-add select { flex: none; }
+/* 주소록 › ID/PW */
+.ab-tabs { margin-bottom: 10px; }
+.ab-cell-in { position: relative; cursor: copy; padding: 2px 6px; border-radius: 6px; }
+.ab-cell-in:hover { background: #f4e9e6; }
+.ab-cell-in.done { background: #e9f5ec; }
+.sl-table td.sl-pw { white-space: nowrap; }
+.sl-eye { border: 0; background: none; padding: 0 2px; margin-left: 4px; font-size: 13px; cursor: pointer; opacity: .7; }
+.sl-eye:hover { opacity: 1; }
+.sl-table td.sl-note { white-space: normal; text-align: left; min-width: 120px; max-width: 240px; font-size: 13px; color: var(--ink-2); }
+.sl-table .sl-act { white-space: nowrap; width: 1%; }
+.sl-table .sl-act-h { width: 1%; }
+.sl-table tr.sl-form td { padding: 6px; }
+.sl-table tr.sl-form input { width: 100%; min-width: 80px; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13px; }
+.sl-table .sl-btns { display: inline-flex; gap: 4px; }
+.sl-table tr.sl-form .sl-act { padding: 6px 8px; }
+.sl-table td.sl-add { text-align: left; padding: 8px 14px; }
+.sl-table td.sl-broken { background: #fff4f2; }
+.sl-warn { display: flex; width: fit-content; align-items: center; gap: 4px; margin: 4px auto 0; padding: 2px 8px; border-radius: 999px; background: #fde2de; color: #b3261e; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.sl-warn small { font-weight: 500; color: #c0564d; font-size: 10.5px; }
+.sl-report { color: #c97a00; }
+.sl-resolve { font-size: 11.5px; padding: 2px 8px; margin-right: 2px; }

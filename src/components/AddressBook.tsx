@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { Modal } from './ui';
 import type { Role } from './AuthGate';
+import SharedLogins from './SharedLogins';
 
 /** 주소록에 쓰는 연락처 (관리자가 설정 > 대시보드 사용자에서 넣음): contacts/{이메일} */
 export interface Contact {
@@ -77,6 +78,22 @@ export default function AddressBook({ className, label = '📇 주소록' }: { c
 function AddressBookModal({ onClose }: { onClose: () => void }) {
   const { roles, contacts, error } = usePeople();
   const [q, setQ] = useState('');
+  // 탭: 주소록 · ID/PW (같이 쓰는 계정)
+  const [tab, setTab] = useState<'people' | 'logins'>(() => {
+    try {
+      return localStorage.getItem('gd:abTab') === 'logins' ? 'logins' : 'people';
+    } catch {
+      return 'people';
+    }
+  });
+  const pickTab = (t: 'people' | 'logins') => {
+    setTab(t);
+    try {
+      localStorage.setItem('gd:abTab', t);
+    } catch {
+      /* 무시 */
+    }
+  };
   const people = useMemo<Person[]>(
     () =>
       (roles ?? []).map((r) => ({
@@ -138,11 +155,23 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
     );
   const groups = GROUPS.map((g) => ({ g, list: people.filter((p) => g.match(p) && hit(p)).sort((a, b) => a.name.localeCompare(b.name, 'ko')) })).filter((x) => x.list.length);
   return (
-    <Modal title="📇 주소록" onClose={onClose} wide>
-      <div className="ab-top">
-        <input className="search ab-search" autoFocus placeholder="🔍 이름 · 이메일 · 번호" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span className="muted small">이메일·번호 칸을 누르면 복사돼요</span>
+    <Modal title={tab === 'people' ? '📇 주소록' : '🔑 같이 쓰는 계정'} onClose={onClose} wide>
+      <div className="seg ab-tabs">
+        <button className={tab === 'people' ? 'on' : ''} onClick={() => pickTab('people')}>
+          📇 주소록
+        </button>
+        <button className={tab === 'logins' ? 'on' : ''} onClick={() => pickTab('logins')}>
+          🔑 ID/PW
+        </button>
       </div>
+      <div className="ab-top">
+        <input className="search ab-search" autoFocus placeholder={tab === 'people' ? '🔍 이름 · 이메일 · 번호' : '🔍 용도 · ID · 비고'} value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="muted small">{tab === 'people' ? '이메일·번호 칸을 누르면 복사돼요' : 'ID · PW 칸을 누르면 복사돼요 · PW 는 👁 로 보기 · 로그인이 안 되면 ⚠ 를 눌러 알려 주세요 · 누구나 넣고 고칠 수 있어요'}</span>
+      </div>
+      {tab === 'logins' ? (
+        <SharedLogins q={q} copy={(t) => void copy(t)} copied={copied} />
+      ) : (
+      <>
       {DATA_MODE === 'local' && <p className="muted small">로컬 모드에서는 주소록이 없어요.</p>}
       {roles === null && <p className="muted small">불러오는 중…</p>}
       {error && <p className="warn small">주소록을 못 불러왔어요 — 서버 규칙을 새로 올렸는지 확인해 주세요 (deploy.bat)</p>}
@@ -179,6 +208,8 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
         </div>
       )}
       {roles !== null && !groups.length && DATA_MODE !== 'local' && <p className="muted small">맞는 사람이 없어요.</p>}
+      </>
+      )}
     </Modal>
   );
 }

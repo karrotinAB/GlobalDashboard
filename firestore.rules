@@ -72,6 +72,10 @@ service cloud.firestore {
     match /dict/{id} {
       allow read, write: if isAny();
     }
+    // 주소록 › ID/PW: 같이 쓰는 계정 (대시보드 사용자 누구나 보고 · 넣고 · 고침)
+    match /sharedLogins/{id} {
+      allow read, write: if isAny();
+    }
     // 번역: 수출 분류표 (transCfg/categories) · 고른 분류 기록 (추천에 씀)
     match /transCfg/{id} {
       allow read, write: if isAny();
