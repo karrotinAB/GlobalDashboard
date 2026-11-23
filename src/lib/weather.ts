@@ -41,7 +41,20 @@ export function useWeatherRaw(): Weather | null | undefined {
       // 로컬 테스트: 2시간 뒤 비
       const t = new Date(Date.now() + 2 * 3600000);
       const at = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}T${String(t.getHours()).padStart(2, '0')}:00`;
-      setW({ temp: 12, sky: 3, now: null, rain: { at, kind: 'rain' }, hours: [{ at, kind: 'rain', rn: '2.0mm' }], at: new Date().toISOString() });
+      // 앞으로 6시간 예시 (맑음 → 구름 → 비 → 흐림)
+      const hr = (i: number) => {
+        const d = new Date(Date.now() + i * 3600000);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:00`;
+      };
+      const hours = [
+        { at: hr(0), kind: null, sky: 1, temp: 12 },
+        { at: hr(1), kind: null, sky: 3, temp: 12 },
+        { at: hr(2), kind: 'rain' as const, sky: 4, temp: 11, rn: '1mm 미만' },
+        { at: hr(3), kind: 'rain' as const, sky: 4, temp: 11, rn: '2.0mm' },
+        { at: hr(4), kind: null, sky: 4, temp: 10 },
+        { at: hr(5), kind: null, sky: 3, temp: 10 },
+      ];
+      setW({ temp: 12, sky: 1, now: null, rain: { at, kind: 'rain' }, hours, at: new Date().toISOString() });
       return;
     }
     return onSnapshot(
