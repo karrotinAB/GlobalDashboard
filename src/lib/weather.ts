@@ -13,6 +13,8 @@ export interface Weather {
   rain?: { at: string; kind: Exclude<WxKind, null> } | null; // 6시간 안에 처음 내리는 때
   hours?: { at: string; kind: WxKind; rn?: string; temp?: number; sky?: number }[]; // 시간별 (rn: 1시간 강수량 '강수없음' · '1mm 미만' · '2.0mm' · '30.0~50.0mm' …)
   at?: string;
+  triedAt?: string; // 마지막으로 받으려고 한 때
+  error?: string; // 그때 못 받았으면 이유
 }
 
 /** 1시간 강수량 글자 → mm (강수없음 0 · '1mm 미만' 0.5 · 범위면 앞 숫자) */

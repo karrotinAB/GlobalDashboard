@@ -1200,7 +1200,7 @@ function WeatherNowBox() {
     <div className="wx-now">
       <div className="wx-now-head">
         <b>📡 지금 받아 둔 날씨</b>
-        <span className="muted small">기상청 초단기예보 · 서초구 반포대로 · 매시 50분에 받아요 (하루 종일)</span>
+        <span className="muted small">기상청 초단기예보 · 서초구 반포대로 · 매시 50분 (못 받으면 10분에 한 번 더 · 하루 종일)</span>
         <button className="small" disabled={busy} onClick={() => void refresh()}>
           {busy ? '받는 중…' : '↻ 지금 다시 받기'}
         </button>
@@ -1219,6 +1219,7 @@ function WeatherNowBox() {
             <span className="muted small">
               받은 때 {w.at ? new Date(w.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–'}
               {!fresh && ' · 3시간 넘게 지나서 지금은 안 써요'}
+              {w.error && w.triedAt && <span className="warn"> · {new Date(w.triedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}에 못 받음: {w.error}</span>}
             </span>
             <span className="wx-now-fx">
               → 헤더 효과: <b>{fx ? `${FXW[fx.mode]}${fx.mode === 'frost' ? '' : ` ${LV[fx.level]}`}` : '없음'}</b>

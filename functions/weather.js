@@ -23,7 +23,18 @@ export async function weatherCfg(db) {
 }
 
 export async function fetchWeather(cfg, { fetchImpl = fetch, now = new Date() } = {}) {
-  const b = baseOf(now);
+  // 최신 발표가 아직 안 나왔으면 (기상청이 몇 분 늦을 때) 한 시간 전 발표로
+  try {
+    return await fetchAt(cfg, baseOf(now), fetchImpl);
+  } catch (e) {
+    try {
+      return await fetchAt(cfg, baseOf(new Date(now.getTime() - 3600000)), fetchImpl);
+    } catch {
+      throw e;
+    }
+  }
+}
+async function fetchAt(cfg, b, fetchImpl) {
   // 인증키: 이미 % 로 바뀐 키(Encoding)면 그대로, 아니면(Decoding) 주소용으로 바꿔서
   const key = /%[0-9A-Fa-f]{2}/.test(cfg.key) ? cfg.key : encodeURIComponent(cfg.key);
   const url = `${URL_BASE}?serviceKey=${key}&pageNo=1&numOfRows=100&dataType=JSON&base_date=${b.date}&base_time=${b.time}&nx=${cfg.nx}&ny=${cfg.ny}`;
@@ -53,8 +64,16 @@ export async function fetchWeather(cfg, { fetchImpl = fetch, now = new Date() } 
 }
 
 export async function syncWeather(db, opts = {}) {
-  const cfg = await weatherCfg(db);
-  const w = await fetchWeather(cfg, opts);
-  await db.doc('weatherNow/main').set({ ...w, at: new Date().toISOString() });
-  return w;
+  const ref = db.doc('weatherNow/main');
+  const tried = new Date().toISOString();
+  try {
+    const cfg = await weatherCfg(db);
+    const w = await fetchWeather(cfg, opts);
+    await ref.set({ ...w, at: tried, triedAt: tried, error: '' });
+    return w;
+  } catch (e) {
+    // 못 받았어도 받아 둔 날씨는 그대로 두고, 언제 왜 못 받았는지만 적어 둠 (설정 › 헤더 설정에서 보임)
+    await ref.set({ triedAt: tried, error: String(e.message ?? e) }, { merge: true }).catch(() => {});
+    throw e;
+  }
 }
