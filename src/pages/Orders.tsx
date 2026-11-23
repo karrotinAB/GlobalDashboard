@@ -58,6 +58,20 @@ export default function Orders() {
   const { myCompanies: companies, companyById } = useLookups();
   // 수출 통화가 USD 가 아닌 업체: 외화는 USD 로 바꿔 보여주고 원래 외화는 아래 작게
   const fxc = useOrderUsd(companies, data.orders);
+  // 외화 금액 보이기: 보통은 USD 크게 + 원래 통화 작게 · 엔화(JPY)가 주요 통화인 업체는 엔화 크게 + USD 연하게
+  const yenFirst = (o: { companyId?: string | null }) => fxc.curOf(o) === 'JPY';
+  const fxShow = (o: Order, v: number) =>
+    yenFirst(o) ? (
+      <>
+        {fxc.orig(o, v)}
+        <small className="fx-orig">{fmtFX(fxc.usd(o, v))}</small>
+      </>
+    ) : (
+      <>
+        {fmtFX(fxc.usd(o, v))}
+        <small className="fx-orig">{fxc.orig(o, v)}</small>
+      </>
+    );
   const [tab, setTab] = useState<Tab>('open');
   // ERP 내역 보기: 모두 (저장된 값 — API 안 부름) · 'ERP 에서 다시 조회'는 관리자만 (API 2~3번)
   const canQuery = DATA_MODE === 'firestore' && useAccess().role === 'admin';
@@ -544,7 +558,7 @@ export default function Orders() {
                 </div>
                 <div className="m-bundle-amt">
                   {hasAmt(u.orders, 'amountKRW') && <span>{fmtKRW(sum(u.orders, 'amountKRW'))}</span>}
-                  {hasAmt(u.orders, 'amountForeign') && <span>{fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}</span>}
+                  {hasAmt(u.orders, 'amountForeign') && <span>{yenFirst(u.orders[0]) ? fxc.orig(u.orders[0], sum(u.orders, 'amountForeign')) : fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}</span>}
                 </div>
               </td>
             ) : (
@@ -575,8 +589,18 @@ export default function Orders() {
             {/* 묶음 합계는 원화/외화 금액 칸 바로 위에 */}
             <td className="c-amt bundle-amt">{hasAmt(u.orders, 'amountKRW') && fmtKRW(sum(u.orders, 'amountKRW'))}</td>
             <td className="c-amt bundle-amt">
-              {hasAmt(u.orders, 'amountForeign') && fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}
-              {hasAmt(u.orders, 'amountForeign') && fxc.orig(u.orders[0], 1) && <small className="fx-orig">{fxc.orig(u.orders[0], sum(u.orders, 'amountForeign'))}</small>}
+              {hasAmt(u.orders, 'amountForeign') &&
+                (yenFirst(u.orders[0]) ? (
+                  <>
+                    {fxc.orig(u.orders[0], sum(u.orders, 'amountForeign'))}
+                    <small className="fx-orig">{fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}</small>
+                  </>
+                ) : (
+                  <>
+                    {fmtFX(u.orders.reduce((a, o) => a + (fxc.usd(o, o.amountForeign) ?? 0), 0))}
+                    {fxc.orig(u.orders[0], 1) && <small className="fx-orig">{fxc.orig(u.orders[0], sum(u.orders, 'amountForeign'))}</small>}
+                  </>
+                ))}
             </td>
             <td colSpan={2} />
             </>
@@ -628,7 +652,7 @@ export default function Orders() {
                 MID_STEPS.map((s) => <i key={s.key} className={o[s.key] ? 'on' : ''} />)
               )}
             </div>
-            <div className="m-amt">{usd !== undefined ? fmtFX(usd) : o.amountKRW !== undefined ? fmtKRW(o.amountKRW) : ''}</div>
+            <div className="m-amt">{usd !== undefined ? (yenFirst(o) ? fxc.orig(o, o.amountForeign) : fmtFX(usd)) : o.amountKRW !== undefined ? fmtKRW(o.amountKRW) : ''}</div>
             <span className="m-chev">{open ? '▴' : '▾'}</span>
           </td>
         </tr>
@@ -683,12 +707,7 @@ export default function Orders() {
                       ph={fxc.curOf(o) !== 'USD' ? fxc.curOf(o) : undefined}
                       display={
                         fxc.curOf(o) !== 'USD'
-                          ? (v) => (
-                              <>
-                                {fmtFX(fxc.usd(o, v))}
-                                <small className="fx-orig">{fxc.orig(o, v)}</small>
-                              </>
-                            )
+                          ? (v) => fxShow(o, v)
                           : undefined
                       }
                       onSave={(v) => patch({ amountForeign: v, amountSource: v === undefined && o.amountKRW === undefined ? undefined : 'manual' })}
@@ -817,12 +836,7 @@ export default function Orders() {
             ph={fxc.curOf(o) !== 'USD' ? fxc.curOf(o) : undefined}
             display={
               fxc.curOf(o) !== 'USD'
-                ? (v) => (
-                    <>
-                      {fmtFX(fxc.usd(o, v))}
-                      <small className="fx-orig">{fxc.orig(o, v)}</small>
-                    </>
-                  )
+                ? (v) => fxShow(o, v)
                 : undefined
             }
             onSave={(v) => patch({ amountForeign: v, amountSource: v === undefined && o.amountKRW === undefined ? undefined : 'manual' })}
