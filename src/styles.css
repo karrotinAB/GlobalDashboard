@@ -8849,3 +8849,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .zs-slide .zw-hours > div { flex: 0 0 78px; max-width: 78px; border-radius: 12px; }
   .zs-slide .zw-hours { gap: 8px; }
 }
+/* 오늘의 날씨: 지금 날씨 줄과 시간 칸 사이 띄우기 (카드 높이는 그대로 — 시간 칸이 그만큼 줄어듦) */
+.zs-slide .zw-now { margin-bottom: 8px; }
+@media (max-width: 600px) { .zs-slide .zw-now { margin-bottom: 4px; } }
