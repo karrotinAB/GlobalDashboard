@@ -5,6 +5,7 @@ import { TEAMS, teamLabel } from '../lib/team';
 import { attendanceOf } from '../lib/mem';
 import { characterSrc, charOf } from './ui';
 import { usePeople } from './AddressBook';
+import { useProfiles, withProfile } from '../lib/profiles';
 import type { Attendance, Member } from '../types';
 
 const toMin = (hhmm: string) => {
@@ -111,7 +112,7 @@ function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number 
     tone = 'on';
   } else {
     big = r.status; // 근무전 · 연차 · 출장 …
-    side = r.period ?? '';
+    side = r.period ?? (r.status === '근무전' ? '아직 출근 전이에요' : '');
     tone = r.status === '근무전' ? 'none' : 'away';
   }
   const [t, p] = big.split(' ');
@@ -125,7 +126,8 @@ function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number 
             {p && <small>{p}</small>}
           </span>
         </div>
-        {side && <span className="mini-band-side">{side}</span>}
+        {/* 설명 줄이 없어도 자리는 둬서 옆 카드와 색 띠 높이가 같게 */}
+        <span className="mini-band-side">{side || '\u00a0'}</span>
       </div>
       <div className="mini-body">
         <img className="mini-char" src={characterSrc(charOf(m))} alt="" />
@@ -236,6 +238,8 @@ function LeaderMini({ m, label, space, todayIso, nowMin, alt }: { m: Member; lab
   const { data } = useStore();
   const sp = useSpaceData(space ?? '', space ? ['members'] : []);
   const mine = ((sp.data.members as Member[]) ?? []).find((x) => (x.email ?? '').toLowerCase() === (m.email ?? '').toLowerCase()) ?? ((sp.data.members as Member[]) ?? [])[0];
-  const card: Member = mine ? { ...m, character: mine.character, color: mine.color || m.color, memName: mine.memName || mine.name, id: mine.id } : m;
+  const { profiles } = useProfiles();
+  // 사람 정보(합친 것)가 있으면 그게 먼저 · 없으면 그분 개인 대시보드 카드
+  const card: Member = withProfile(mine ? { ...m, character: mine.character, color: mine.color || m.color, memName: mine.memName || mine.name, id: mine.id } : m, profiles);
   return <MiniCard m={{ ...card, name: `${short(m.name)} ${label}` }} r={attOf(card, todayIso, data.memAttendance, [...alt, m.name])} nowMin={nowMin} />;
 }

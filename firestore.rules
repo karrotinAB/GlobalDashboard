@@ -72,6 +72,15 @@ service cloud.firestore {
     match /dict/{id} {
       allow read, write: if isAny();
     }
+    // 사람 정보 (모든 대시보드 공용 카드): 모두 읽기 · 본인 또는 관리자만 고침 · 처음 만들기(합치기)는 관리자
+    match /profiles/{email} {
+      allow read: if isAny();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isAny() && email == myEmail());
+    }
+    match /profilesBackup/{id} {
+      allow read, write: if isAdmin();
+    }
     // 주소록 › ID/PW: 같이 쓰는 계정 (대시보드 사용자 누구나 보고 · 넣고 · 고침)
     match /sharedLogins/{id} {
       allow read, write: if isAny();

@@ -6,6 +6,8 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { useAccess } from '../components/AuthGate';
 import { seedData } from './seed';
 import { db } from '../firebase';
+import { saveProfileFrom, useProfiles, withProfile } from '../lib/profiles';
+import type { Member } from '../types';
 
 /** VITE_DATA_MODE=local 이면 브라우저에만 저장 (혼자 테스트용). 기본은 Firestore 팀 공유 */
 export const DATA_MODE: Backend['mode'] = import.meta.env.VITE_DATA_MODE === 'local' ? 'local' : 'firestore';
@@ -29,6 +31,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // 어느 조 데이터를 볼지 (무역사무는 요청·무역사무 담당자 + 모든 조 담당자 이름만)
   backend.configure({ team: role === 'trade' ? DEFAULT_TEAM : viewTeam, trade: role === 'trade' });
   const [data, setData] = useState<Collections>(emptyCollections);
+  const homeRef = useRef('');
+  homeRef.current = role === 'trade' ? 'trade' : viewTeam;
+  // 사람 정보 (이메일 같은 카드는 모든 대시보드에서 같은 이름 · 캐릭터 · 말풍선 · 시계 · mem 이름)
+  const { profiles } = useProfiles();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(0); // 저장 중에는 실시간 새로고침으로 덮어쓰지 않도록
@@ -81,6 +87,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ...prev, [col]: next };
       });
       run(() => backend.upsert(col, item));
+      // 담당자 카드: 사람 정보(모든 대시보드 공용)에도
+      if (col === 'members' || col === 'tradeMembers') void saveProfileFrom(item as Member, col === 'tradeMembers' ? 'trade' : homeRef.current);
     },
     [run],
   );
@@ -106,9 +114,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [run],
   );
 
+  const merged = useMemo<Collections>(
+    () => ({ ...data, members: data.members.map((m) => withProfile(m, profiles)), tradeMembers: data.tradeMembers.map((m) => withProfile(m, profiles)) }),
+    [data, profiles],
+  );
   const value = useMemo<StoreValue>(
-    () => ({ data, mode: backend.mode, loading, error, save, saveMany, remove, reload }),
-    [data, loading, error, save, saveMany, remove, reload],
+    () => ({ data: merged, mode: backend.mode, loading, error, save, saveMany, remove, reload }),
+    [merged, loading, error, save, saveMany, remove, reload],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -174,7 +186,9 @@ export function useSpaceData(team: string, cols: CollectionName[]) {
     return () => unsubs.forEach((u) => u());
   }, [team, sig]);
   const ready = (sig.split(',') as CollectionName[]).every((c) => data[c] !== undefined);
-  return { data, ready, error };
+  const { profiles } = useProfiles();
+  const merged = useMemo(() => (data.members ? { ...data, members: (data.members as Member[]).map((m) => withProfile(m, profiles)) } : data), [data, profiles]);
+  return { data: merged, ready, error };
 }
 
 /**

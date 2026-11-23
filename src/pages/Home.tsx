@@ -234,7 +234,9 @@ export default function Home(_props: { go: (page: string) => void }) {
               nowMin={seoul.h * 60 + seoul.mi}
               mine={access.role === null || (!!s.member.email && s.member.email.toLowerCase() === access.email)}
               canPickChar={access.canManage}
+              // 카드 연결은 관리자가 (설정 › 관리자 설정 › 사람 정보 합치기)
               canClaim={
+                false &&
                 !!access.email &&
                 !s.member.email &&
                 !members.some((x) => x.email?.toLowerCase() === access.email) &&

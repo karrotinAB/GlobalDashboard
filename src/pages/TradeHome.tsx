@@ -75,7 +75,7 @@ export default function TradeHome() {
                 nowMin={nowMin}
                 fallbackChar={tradeChar(m, trade)}
                 mine={mine(m)}
-                canClaim={!!access.email && !m.email && !iHaveCard}
+                canClaim={false /* 카드 연결은 관리자가 (사람 정보 합치기) */ && !!access.email && !m.email && !iHaveCard}
                 onClaim={() =>
                   confirm(`'${m.name}' 카드를 내 카드(${access.email})로 연결할까요?`) && save('tradeMembers', { ...m, email: access.email })
                 }
