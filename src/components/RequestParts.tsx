@@ -396,6 +396,11 @@ function Fields({
   );
 }
 
+/** 주문일자: 요청 칸 + 더 연결한 주문들 날짜를 다 모아 가장 빠른 날 ~ 가장 늦은 날 */
+export function orderSpan(r: { orderDate?: string; orderDateTo?: string; moreLinks?: OrderLink[] }): { from: string; to: string } | null {
+  const ds = [r.orderDate, r.orderDateTo, ...(r.moreLinks ?? []).flatMap((l) => [l.orderDate, l.orderDateTo])].filter((x): x is string => !!x).sort();
+  return ds.length ? { from: ds[0], to: ds[ds.length - 1] } : null;
+}
 /** 연결한 주문 전부 (처음 연결 + 더 연결) */
 export const linksOf = (r: { orderLink?: OrderLink; moreLinks?: OrderLink[] }): OrderLink[] => [r.orderLink, ...(r.moreLinks ?? [])].filter((x): x is OrderLink => !!x);
 const sameLink = (a: OrderLink, b: OrderLink) => a.team === b.team && (a.bundleId ? a.bundleId === b.bundleId : !b.bundleId && a.orderId === b.orderId);
@@ -480,6 +485,16 @@ function LinkedOrders({
   const bundle = list[0]?.bundle;
   const sumK = list.reduce((a, o) => a + (o.amountKRW ?? 0), 0);
   const doneN = list.filter((o) => isOrderDone(o)).length;
+  const foldBar = (isOpen: boolean) => (
+    <button className={`rq-bundle-fold ${isOpen ? 'open' : ''}`} onClick={() => setOpen(!isOpen)} style={{ '--c': bundle?.color ?? '#8c2f3c' } as CSSProperties}>
+      <span className="rq-bundle-dot" />
+      <b>{bundle?.name || '묶음 주문'}</b>
+      <span className="muted small">
+        주문 {list.length}개 · 완료 {doneN} · {won(sumK)}
+      </span>
+      <span className="rq-bundle-more">{isOpen ? '접기 ▴' : '주문 보기 ▾'}</span>
+    </button>
+  );
   return (
     <div className="rq-linked">
       <div className="rq-linked-head">
@@ -490,21 +505,12 @@ function LinkedOrders({
       ) : list.length === 0 ? (
         <p className="muted small">{space.error ? '주문을 볼 권한이 없어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat)' : '주문이 지워졌거나 묶음이 풀렸어요.'}</p>
       ) : !open ? (
-        <button className="rq-bundle-fold" onClick={() => setOpen(true)} style={{ '--c': bundle?.color ?? '#8c2f3c' } as CSSProperties}>
-          <span className="rq-bundle-dot" />
-          <b>{bundle?.name || '묶음 주문'}</b>
-          <span className="muted small">
-            주문 {list.length}개 · 완료 {doneN} · {won(sumK)}
-          </span>
-          <span className="rq-bundle-more">주문 보기 ▾</span>
-        </button>
+        foldBar(false)
       ) : (
-        <div className="sales-table-wrap">
-          {link.bundleId && !given && (
-            <button className="link small rq-bundle-close" onClick={() => setOpen(false)}>
-              ▴ 접기
-            </button>
-          )}
+        <>
+          {/* 묶음: 펼쳐도 위에 묶음 머리줄 (누르면 접힘) */}
+          {link.bundleId && !given && foldBar(true)}
+          <div className="sales-table-wrap">
           <table className="mini-table rq-linked-table">
             <thead>
               <tr>
@@ -550,7 +556,8 @@ function LinkedOrders({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -661,6 +668,15 @@ export function RequestDetail({
   const [zoom, setZoom] = useState<RequestFile | null>(null); // 사진 크게 보기
   const [linkingOrder, setLinkingOrder] = useState<false | 'main' | 'add'>(false);
   const [d, setD] = useState<Draft>(r);
+  // 주문 여러 개 연결: 연결한 주문들의 실제 주문일도 모아서 주문일자 기간으로 (예전에 날짜 없이 연결한 것까지)
+  const multiLinked = !!r.orderLink && !!r.moreLinks?.length;
+  const linkSpace = useSpaceData(r.orderLink?.team ?? '', multiLinked ? ['orders'] : []);
+  const linkedDates = multiLinked
+    ? ((linkSpace.data.orders as Order[] | undefined) ?? [])
+        .filter((o) => linksOf(r).some((l) => (l.bundleId ? o.bundle?.id === l.bundleId : o.id === l.orderId)))
+        .map((o) => o.orderDate)
+        .filter((x): x is string => !!x)
+    : [];
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const requester = team.find((m) => m.id === r.requesterId);
   const assignee = trade.find((m) => m.id === r.assigneeId);
@@ -778,7 +794,14 @@ export function RequestDetail({
             </div>
             <div>
               <dt>주문일자</dt>
-              <dd>{r.orderDate ? `${dot(r.orderDate)}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${dot(r.orderDateTo)}` : ''}` : '-'}</dd>
+              <dd>
+                {(() => {
+                  const g0 = orderSpan(r);
+                  const ds = [g0?.from, g0?.to, ...linkedDates].filter((x): x is string => !!x).sort();
+                  const g = ds.length ? { from: ds[0], to: ds[ds.length - 1] } : null;
+                  return g ? `${dot(g.from)}${g.to !== g.from ? ` ~ ${dot(g.to)}` : ''}` : '-';
+                })()}
+              </dd>
             </div>
             <div>
               <dt>마감일</dt>

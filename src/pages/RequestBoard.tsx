@@ -9,7 +9,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { REQUEST_STATUS, type Member, type RequestStatus, type TradeRequest, TRADE_TAGS, tradeTagLabel, type TradeTag } from '../types';
 import { requesterPatch, useTrade, isOpen, memberLabel, sortRequests, teamOfRequest, isSelfTask, requestSideLabel, teamTagClass } from '../lib/trade';
 import { useStore } from '../data/store';
-import { isNewReq, NewRequest, PriorityTag, SameDayNotice, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
+import { isNewReq, NewRequest, orderSpan, PriorityTag, SameDayNotice, RequestDetail, StatusTag, TradeSummaryCards, WorkTypePicker } from '../components/RequestParts';
 import { DateCell } from '../components/OrderCells';
 import { today } from '../lib/date';
 
@@ -144,7 +144,10 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         처리자: assigneesOf(r, trade).map((k) => people.find((p) => p.key === k)?.name ?? k.split('@')[0]).join(', '),
         완료일: r.doneAt ?? '',
         매장번호: [r.storeCode, ...(r.moreLinks ?? []).map((l) => l.storeCode)].filter(Boolean).join(', '),
-        주문일자: r.orderDate ? `${r.orderDate}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${r.orderDateTo}` : ''}` : '',
+        주문일자: (() => {
+          const g = orderSpan(r);
+          return g ? `${g.from}${g.to !== g.from ? ` ~ ${g.to}` : ''}` : '';
+        })(),
         '연결 주문': [r.orderLink, ...(r.moreLinks ?? [])].filter(Boolean).map((l) => l!.label).join(' / '),
         진행률: r.longTerm ? `${r.progress ?? 0}%` : '',
       })),

@@ -7102,6 +7102,7 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .rq-bundle-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; }
 .rq-bundle-more { margin-left: auto; color: #8c2f3c; font-size: 12.5px; font-weight: 600; }
 .rq-bundle-close { display: block; margin: 0 0 4px auto; }
+.rq-bundle-fold.open { margin-bottom: 6px; background: color-mix(in srgb, var(--c) 8%, #fff); }
 
 /* 사진 크게 보기: 확대하면 안에서 스크롤 */
 .img-zoom { padding: 12px 10px; cursor: default; }
