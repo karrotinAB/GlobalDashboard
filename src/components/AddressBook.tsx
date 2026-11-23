@@ -160,14 +160,8 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
       title={tab === 'people' ? '📇 주소록' : '🔑 같이 쓰는 계정'}
       onClose={onClose}
       wide
-      headExtra={
-        tab === 'logins' ? (
-          <button className="primary small" onClick={() => setAddSignal((n) => n + 1)}>
-            ＋ 계정 추가
-          </button>
-        ) : undefined
-      }
     >
+      <div className="ab-tabrow">
       <div className="seg ab-tabs">
         <button className={tab === 'people' ? 'on' : ''} onClick={() => pickTab('people')}>
           📇 주소록
@@ -175,6 +169,12 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
         <button className={tab === 'logins' ? 'on' : ''} onClick={() => pickTab('logins')}>
           🔑 ID/PW
         </button>
+      </div>
+      {tab === 'logins' && (
+        <button className="primary ab-add" onClick={() => setAddSignal((n) => n + 1)}>
+          ＋ 계정 추가
+        </button>
+      )}
       </div>
       <div className="ab-top">
         <input className="search ab-search" autoFocus placeholder={tab === 'people' ? '🔍 이름 · 이메일 · 번호' : '🔍 용도 · ID · 비고'} value={q} onChange={(e) => setQ(e.target.value)} />
