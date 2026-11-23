@@ -94,7 +94,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         if (workType && r.workType !== workType) return false;
         if (status && r.status !== status) return false;
         if (tagF && (tagF === '-' ? !!r.tag : r.tag !== tagF)) return false;
-        if (q && ![r.title, r.body, r.storeCode, r.workType].some((v) => v?.toLowerCase().includes(q))) return false;
+        if (q && ![r.title, r.body, r.storeCode, r.workType, ...(r.moreLinks ?? []).map((l) => l.storeCode)].some((v) => v?.toLowerCase().includes(q))) return false;
         return true;
       }),
     );
@@ -143,7 +143,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
         의뢰일: r.requestedAt,
         처리자: assigneesOf(r, trade).map((k) => people.find((p) => p.key === k)?.name ?? k.split('@')[0]).join(', '),
         완료일: r.doneAt ?? '',
-        매장번호: r.storeCode ?? '',
+        매장번호: [r.storeCode, ...(r.moreLinks ?? []).map((l) => l.storeCode)].filter(Boolean).join(', '),
         주문일자: r.orderDate ? `${r.orderDate}${r.orderDateTo && r.orderDateTo !== r.orderDate ? ` ~ ${r.orderDateTo}` : ''}` : '',
         '연결 주문': [r.orderLink, ...(r.moreLinks ?? [])].filter(Boolean).map((l) => l!.label).join(' / '),
         진행률: r.longTerm ? `${r.progress ?? 0}%` : '',

@@ -250,6 +250,10 @@ export interface OrderLink {
   orderId?: string;
   bundleId?: string;
   label: string; // '몽골 10월 주문' / '4번째 컨테이너 (주문 3개)'
+  // 더 연결한 주문(moreLinks)마다 따로 적는 매장번호 · 주문일자 (처음 연결한 주문은 요청의 매장번호 · 주문일자 칸)
+  storeCode?: string;
+  orderDate?: string;
+  orderDateTo?: string;
 }
 
 export interface TradeRequest {

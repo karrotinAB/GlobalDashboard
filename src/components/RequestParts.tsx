@@ -314,7 +314,7 @@ function Fields({
                 <button type="button" className="link" onClick={() => setLinking('main')}>
                   바꾸기
                 </button>
-                <button type="button" className="link" onClick={() => set({ orderLink: d.moreLinks?.[0], moreLinks: d.moreLinks?.slice(1).length ? d.moreLinks.slice(1) : undefined })}>
+                <button type="button" className="link" onClick={() => set(dropMainPatch(d))}>
                   끊기
                 </button>
               </span>
@@ -323,19 +323,39 @@ function Fields({
                 📦 주문 연결하기
               </button>
             )}
-            {(d.moreLinks ?? []).map((l, i) => (
-              <span key={i} className="rq-order-chip">
-                📦 {l.label}
-                <button type="button" className="link" onClick={() => set({ moreLinks: d.moreLinks!.filter((_, j) => j !== i).length ? d.moreLinks!.filter((_, j) => j !== i) : undefined })}>
-                  끊기
-                </button>
-              </span>
-            ))}
-            {d.orderLink && (
-              <button type="button" className="link rq-order-add" onClick={() => setLinking('add')}>
-                + 주문 추가하기
-              </button>
-            )}
+          </div>
+        )}
+        {/* 더 연결한 주문: 한 줄씩 (그 주문의 매장번호 · 주문일자 · 주문) */}
+        {(d.moreLinks ?? []).map((l, i) => {
+          const setL = (p: Partial<OrderLink>) => set({ moreLinks: d.moreLinks!.map((x, j) => (j === i ? { ...x, ...p } : x)) });
+          return (
+            <div key={i} className="rq-more-row">
+              <label className="rq-f">
+                <input value={l.storeCode ?? ''} placeholder="매장번호" onChange={(e) => setL({ storeCode: e.target.value || undefined })} />
+              </label>
+              <div className="rq-f">
+                <span className="rq-date-range">
+                  <DateInput value={l.orderDate} placeholder="예: 20261110" onChange={(v) => setL({ orderDate: v })} />
+                  <span className="muted">~</span>
+                  <DateInput value={l.orderDateTo} placeholder="(기간이면) 끝" onChange={(v) => setL({ orderDateTo: v })} />
+                </span>
+              </div>
+              <div className="rq-f rq-order-f">
+                <span className="rq-order-chip">
+                  📦 {l.label}
+                  <button type="button" className="link" onClick={() => set({ moreLinks: d.moreLinks!.filter((_, j) => j !== i).length ? d.moreLinks!.filter((_, j) => j !== i) : undefined })}>
+                    끊기
+                  </button>
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        {d.orderLink && (
+          <div className="rq-more-add">
+            <button type="button" className="link rq-order-add" onClick={() => setLinking('add')}>
+              + 주문 추가하기
+            </button>
           </div>
         )}
         <label className="rq-f">
@@ -379,17 +399,19 @@ function Fields({
 /** 연결한 주문 전부 (처음 연결 + 더 연결) */
 export const linksOf = (r: { orderLink?: OrderLink; moreLinks?: OrderLink[] }): OrderLink[] => [r.orderLink, ...(r.moreLinks ?? [])].filter((x): x is OrderLink => !!x);
 const sameLink = (a: OrderLink, b: OrderLink) => a.team === b.team && (a.bundleId ? a.bundleId === b.bundleId : !b.bundleId && a.orderId === b.orderId);
-/** 주문을 더 연결: 같은 주문이면 안 넣음 · 매장번호는 다른 매장이면 뒤에 붙임 · 주문일자는 연결한 주문들을 다 덮는 기간으로 */
+/** 주문을 더 연결: 같은 주문이면 안 넣음 · 그 주문의 매장번호 · 주문일자(묶음이면 기간)를 그 줄에 따로 */
 function addLinkPatch(r: { orderLink?: OrderLink; moreLinks?: OrderLink[]; storeCode?: string; orderDate?: string; orderDateTo?: string }, link: OrderLink, first?: Order, range?: { from?: string; to?: string }) {
   if (linksOf(r).some((x) => sameLink(x, link))) return {};
-  const codes = (r.storeCode ?? '').split(/[,\s]+/).filter(Boolean);
-  if (first?.storeCode && !codes.includes(first.storeCode)) codes.push(first.storeCode);
-  const dates = [r.orderDate, r.orderDateTo, range?.from, range?.to, range ? undefined : first?.orderDate].filter((x): x is string => !!x).sort();
-  return {
-    ...(r.orderLink ? { moreLinks: [...(r.moreLinks ?? []), link] } : { orderLink: link }),
-    storeCode: codes.join(', ') || undefined,
-    ...(dates.length ? { orderDate: dates[0], orderDateTo: dates[dates.length - 1] !== dates[0] ? dates[dates.length - 1] : undefined } : {}),
-  };
+  const fields = { storeCode: first?.storeCode, orderDate: range ? range.from : first?.orderDate, orderDateTo: range?.to };
+  if (!r.orderLink) return { orderLink: link, storeCode: r.storeCode || fields.storeCode, orderDate: fields.orderDate ?? r.orderDate, orderDateTo: fields.orderDateTo };
+  return { moreLinks: [...(r.moreLinks ?? []), JSON.parse(JSON.stringify({ ...link, ...fields })) as OrderLink] };
+}
+/** 처음 연결한 주문을 끊으면: 더 연결한 첫 주문이 그 자리로 (매장번호 · 주문일자도) */
+function dropMainPatch(r: { moreLinks?: OrderLink[] }) {
+  const [next, ...rest] = r.moreLinks ?? [];
+  if (!next) return { orderLink: undefined };
+  const { storeCode, orderDate, orderDateTo, ...link } = next;
+  return { orderLink: link, moreLinks: rest.length ? rest : undefined, storeCode, orderDate, orderDateTo };
 }
 
 /** 요청에 연결된 주문 (요청한 조의 주문 관리에서 실시간) — 무역사무도 봄 */
@@ -702,7 +724,7 @@ export function RequestDetail({
           <dl className="rq-info">
             <div>
               <dt>매장번호</dt>
-              <dd>{r.storeCode || '-'}</dd>
+              <dd>{[r.storeCode, ...(r.moreLinks ?? []).map((l) => l.storeCode)].filter(Boolean).join(', ') || '-'}</dd>
             </div>
             <div>
               <dt>주문일자</dt>

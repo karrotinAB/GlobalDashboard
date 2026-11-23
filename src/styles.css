@@ -8951,6 +8951,14 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .col-resize:hover::after { opacity: 1; background: var(--primary); }
 
 /* 무역사무 요청: 주문 더 연결 */
-.rq-order-f { flex-wrap: wrap; }
-.rq-order-add { color: #c0392b !important; font-size: 12px; font-weight: 600; padding: 2px 0; align-self: flex-start; }
+.rq-more-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px; align-items: center; order: 4; }
+.rq-more-row .rq-f > span:first-child { color: inherit; font-size: inherit; }
+.rq-more-add { grid-column: 1 / -1; display: flex; justify-content: flex-end; order: 5; margin-top: -4px; }
+.rq-order-add { color: #c0392b !important; font-size: 12px; font-weight: 600; padding: 2px 0; }
+.rq-optional > label.rq-f:last-child { order: 6; }
+@media (max-width: 900px) {
+  .rq-more-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-top: 8px; border-top: 1px dashed var(--line-2); }
+  .rq-more-row .rq-f:has(.rq-date-range), .rq-more-row .rq-order-f { grid-column: auto; }
+  .rq-more-row .rq-order-f { grid-column: 1 / -1; }
+}
 .rq-order-add:hover { text-decoration: underline; }
