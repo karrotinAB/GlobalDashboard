@@ -1,6 +1,6 @@
 // 출장신청서 › 🌴 대체휴가 신청서: 왼쪽 내 신청서 목록 · 오른쪽 A4 신청서 (칸에 바로 적고 저장 · 프린트)
 import { useEffect, useState } from 'react';
-import { deleteLeaveReq, hoursBetween, saveLeaveReq, useLeaveReqs, type LeaveReq } from '../lib/leaveReq';
+import { deleteLeaveReq, leaveDays, saveLeaveReq, totalHours, useLeaveReqs, type LeaveDay, type LeaveReq } from '../lib/leaveReq';
 import { useFullName } from '../lib/fullName';
 import { usePeople } from './AddressBook';
 import { printSheet } from '../pages/Petty';
@@ -43,7 +43,7 @@ export default function LeaveForm({ email }: { email: string }) {
     setD((x) => {
       const n = { ...x, ...p };
       // 근무시간을 바꾸면 인정시간 자동 (직접 고친 값이 없을 때 · 또는 예전 자동값일 때)
-      if (('start' in p || 'end' in p) && (!x.hours || x.hours === hoursBetween(x.start, x.end))) n.hours = hoursBetween(n.start, n.end);
+      if (('start' in p || 'end' in p || 'moreDays' in p) && (!x.hours || x.hours === totalHours(x))) n.hours = totalHours(n);
       return n;
     });
     setDirty(true);
@@ -67,6 +67,32 @@ export default function LeaveForm({ email }: { email: string }) {
     setMsg('');
   };
   const w = ymd(d.workDate);
+  const days = leaveDays(d);
+  const multi = days.length > 1;
+  const dotD = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '    .  .  ');
+  const md = (iso?: string) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : '');
+  const sameTimes = days.every((x) => x.start === days[0].start && x.end === days[0].end);
+  // 날 i 고치기 (0 = 첫날 칸)
+  const setDay = (i: number, p: LeaveDay) => {
+    if (i === 0) return set({ ...('date' in p ? { workDate: p.date } : {}), ...('start' in p ? { start: p.start } : {}), ...('end' in p ? { end: p.end } : {}) });
+    set({ moreDays: (d.moreDays ?? []).map((x, j) => (j === i - 1 ? { ...x, ...p } : x)) });
+  };
+  const dropDay = (i: number) => {
+    const rest = days.filter((_, j) => j !== i);
+    const [f, ...more] = rest;
+    set({ workDate: f.date, start: f.start, end: f.end, moreDays: more.length ? more : undefined });
+  };
+  // 날 더하기: 근무시간은 앞날과 같게 · 날짜는 앞날 + 7일 (다음 주말)
+  const addDay = () => {
+    const last = days[days.length - 1];
+    let date: string | undefined;
+    if (last.date) {
+      const t = new Date(`${last.date}T00:00:00`);
+      t.setDate(t.getDate() + 7);
+      date = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    }
+    set({ moreDays: [...(d.moreDays ?? []), { date, start: last.start, end: last.end }] });
+  };
   const a = ymd(d.applyDate);
   // 화면에선 입력칸, 프린트에선 글자 (printSheet 가 .no-print 를 지우고 .lv-print 만 보임)
   const both = (input: React.ReactNode, text: React.ReactNode) => (
@@ -90,7 +116,10 @@ export default function LeaveForm({ email }: { email: string }) {
           <div className="lv-list">
             {list.map((r) => (
               <button key={r.id} className={`lv-item ${r.id === d.id ? 'on' : ''}`} onClick={() => open(r)}>
-                <b>{r.workDate ? r.workDate.replace(/-/g, '.') : '근무일 없음'}</b>
+                <b>
+                  {r.workDate ? r.workDate.replace(/-/g, '.') : '근무일 없음'}
+                  {r.moreDays?.length ? ` 외 ${r.moreDays.length}일` : ''}
+                </b>
                 <span className="muted small">{r.reason || '근무사유 없음'}</span>
               </button>
             ))}
@@ -175,10 +204,28 @@ export default function LeaveForm({ email }: { email: string }) {
                 <th>근무일자</th>
                 <td colSpan={3}>
                   {both(
-                    <input type="date" value={d.workDate ?? ''} onChange={(x) => set({ workDate: x.target.value || undefined })} />,
-                    <>
-                      {w.y || '20  '} 년 {w.m || '  '} 월 {w.d || '  '} 일
-                    </>,
+                    <span className="lv-days">
+                      {days.map((x, i) => (
+                        <span key={i} className="lv-day">
+                          <input type="date" value={x.date ?? ''} onChange={(e) => setDay(i, { date: e.target.value || undefined })} />
+                          {multi && (
+                            <button type="button" className="link small" title="이 날 빼기" onClick={() => dropDay(i)}>
+                              ✕
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                      <button type="button" className="link small lv-add-day" onClick={addDay}>
+                        + 날짜 추가
+                      </button>
+                    </span>,
+                    multi ? (
+                      <>{days.map((x) => dotD(x.date)).join(',  ')}</>
+                    ) : (
+                      <>
+                        {w.y || '20  '} 년 {w.m || '  '} 월 {w.d || '  '} 일
+                      </>
+                    ),
                   )}
                 </td>
               </tr>
@@ -186,13 +233,29 @@ export default function LeaveForm({ email }: { email: string }) {
                 <th>근무시간</th>
                 <td>
                   {both(
-                    <span className="lv-times">
-                      <input type="time" value={d.start ?? ''} onChange={(x) => set({ start: x.target.value || undefined })} /> ~
-                      <input type="time" value={d.end ?? ''} onChange={(x) => set({ end: x.target.value || undefined })} />
+                    <span className="lv-days col">
+                      {days.map((x, i) => (
+                        <span key={i} className="lv-times">
+                          {multi && <span className="lv-day-tag">{md(x.date) || `${i + 1}일째`}</span>}
+                          <input type="time" value={x.start ?? ''} onChange={(e) => setDay(i, { start: e.target.value || undefined })} /> ~
+                          <input type="time" value={x.end ?? ''} onChange={(e) => setDay(i, { end: e.target.value || undefined })} />
+                        </span>
+                      ))}
                     </span>,
-                    <>
-                      {d.start || '  :  '} ~ {d.end || '  :  '}
-                    </>,
+                    !multi || sameTimes ? (
+                      <>
+                        {d.start || '  :  '} ~ {d.end || '  :  '}
+                        {multi && ` (${days.length}일)`}
+                      </>
+                    ) : (
+                      <span className="lv-print-lines">
+                        {days.map((x, i) => (
+                          <span key={i}>
+                            {md(x.date)} {x.start || '  :  '} ~ {x.end || '  :  '}
+                          </span>
+                        ))}
+                      </span>
+                    ),
                   )}
                 </td>
                 <th className="lv-hours-h">대체휴가 인정시간</th>

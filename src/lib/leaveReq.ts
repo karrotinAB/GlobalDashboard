@@ -5,6 +5,11 @@ import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where } from 'fi
 import { db } from '../firebase';
 import { DATA_MODE } from '../data/store';
 
+export interface LeaveDay {
+  date?: string;
+  start?: string;
+  end?: string;
+}
 export interface LeaveReq {
   id: string;
   email: string;
@@ -15,6 +20,7 @@ export interface LeaveReq {
   workDate?: string; // 근무일자 YYYY-MM-DD
   start?: string; // 근무 시작 HH:MM
   end?: string; // 근무 끝 HH:MM
+  moreDays?: LeaveDay[]; // 근무한 날이 며칠이면 둘째 날부터 (여러 주말 등)
   hours?: string; // 대체휴가 인정시간 (직접 고칠 수 있음)
   reason?: string; // 근무사유
   applyDate?: string; // 신청일
@@ -72,4 +78,12 @@ export function hoursBetween(start?: string, end?: string): string {
   if (m <= 0) m += 24 * 60;
   const h = Math.round((m / 60) * 2) / 2;
   return String(h);
+}
+
+/** 근무한 날 전부 (첫날 = workDate · start · end) */
+export const leaveDays = (r: Pick<LeaveReq, 'workDate' | 'start' | 'end' | 'moreDays'>): LeaveDay[] => [{ date: r.workDate, start: r.start, end: r.end }, ...(r.moreDays ?? [])];
+/** 인정시간 자동: 날마다 근무시간 합 */
+export function totalHours(r: Pick<LeaveReq, 'workDate' | 'start' | 'end' | 'moreDays'>): string {
+  const hs = leaveDays(r).map((d) => hoursBetween(d.start, d.end)).filter(Boolean);
+  return hs.length ? String(hs.reduce((a, h) => a + Number(h), 0)) : '';
 }
