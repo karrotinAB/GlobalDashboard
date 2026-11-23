@@ -127,6 +127,20 @@ export default function Orders() {
   // ERP 내역 보기: 모두 (저장된 값 — API 안 부름) · 'ERP 에서 다시 조회'는 관리자만 (API 2~3번)
   const canQuery = DATA_MODE === 'firestore' && useAccess().role === 'admin';
   // 주문 이름 칸 폭: 머리줄 오른쪽 끝을 끌어서 (사람마다 이 브라우저에 기억 · 두 번 누르면 원래대로)
+  // 표가 카드보다 넓어지면 (주문 칸을 늘렸을 때) 아래에 가로 스크롤바 → 옆까지 보기 (그때만: 스크롤 상자는 머리줄 고정을 막음)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [tableWide, setTableWide] = useState(false);
+  useEffect(() => {
+    const box = scrollRef.current;
+    const tbl = box?.querySelector('table');
+    if (!box || !tbl) return;
+    const check = () => setTableWide(tbl.offsetWidth > box.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(box);
+    ro.observe(tbl);
+    return () => ro.disconnect();
+  });
   const [nameW, setNameW] = useState<number | null>(() => {
     try {
       const v = Number(localStorage.getItem('gd:orderNameW'));
@@ -491,7 +505,7 @@ export default function Orders() {
           />
         </div>
       ) : (
-      <div className="table-scroll">
+      <div className={`table-scroll ${tableWide ? 'is-wide' : ''}`} ref={scrollRef}>
         <table className={`order-table ${rows.some((o) => isOrderDone(o)) ? 'has-done' : ''} ${mobile ? 'm-list' : ''}`}>
           <thead>
             {mobile ? (

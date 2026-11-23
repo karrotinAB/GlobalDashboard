@@ -2993,6 +2993,9 @@ tr.bundle-head td.bundle-amt {
   overflow-x: clip;
   overflow-y: visible;
 }
+.table-scroll.is-wide:has(.order-table) {
+  overflow-x: auto;
+}
 
 /* 이 카드가 나예요 */
 .claim-btn {
