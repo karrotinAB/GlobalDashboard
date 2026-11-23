@@ -8841,3 +8841,11 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .un-new[role="button"] { cursor: pointer; }
 .un-new.on { background: #e03131; color: #fff; }
 .un-new.on b { background: #fff; color: #e03131; }
+/* 홈 THIS WEEK 요일 칸 조금 크게 · 오늘의 날씨 시간 칸은 네모에 가깝게 (컴퓨터) */
+@media (min-width: 601px) {
+  .zone-week .wd { width: 54px; padding: 7px 0; border-radius: 13px; }
+  .zone-week .wd span { font-size: 12px; }
+  .zone-week .wd b { font-size: 18px; }
+  .zs-slide .zw-hours > div { flex: 0 0 78px; max-width: 78px; border-radius: 12px; }
+  .zs-slide .zw-hours { gap: 8px; }
+}
