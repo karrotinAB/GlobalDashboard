@@ -8885,3 +8885,44 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .ts-cur-pick { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 10px; }
 .ts-cur-pick select { font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .ps-table td.r .ts-cur, .ts-page td.r .ts-cur { float: left; padding-left: 1mm; }
+/* ---------- 대체휴가 신청서 ---------- */
+.lv-wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: start; }
+.lv-side { display: flex; flex-direction: column; gap: 8px; }
+.lv-side-title { margin: 8px 0 0; font-size: 13.5px; }
+.lv-list { display: flex; flex-direction: column; gap: 4px; }
+.lv-item { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+.lv-item.on { border-color: var(--primary); background: #fbf1ec; }
+.lv-item .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.lv-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.lv-page { font-size: 10.5pt; }
+.lv-top { position: relative; padding-top: 4mm; }
+.lv-title { text-align: center; font-size: 17pt; font-weight: 700; margin: 0 0 4mm; letter-spacing: 1px; font-family: inherit; }
+.lv-appr { border-collapse: collapse; margin: 0 0 6mm auto; font-size: 8.5pt; }
+.lv-appr td, .lv-appr th { border: 1px solid #000; text-align: center; }
+.lv-appr-side { width: 7mm; font-weight: 700; line-height: 1.4; background: #f2f2f2; }
+.lv-appr-h { width: 17mm; height: 6mm; }
+.lv-appr-sign { height: 13mm; }
+.lv-table { width: 100%; border-collapse: collapse; }
+.lv-table th, .lv-table td { border: 1px solid #999; padding: 2mm 2.5mm; text-align: left; vertical-align: middle; }
+.lv-table th { background: #f2f2f2; font-weight: 700; width: 24mm; text-align: center; white-space: nowrap; }
+.lv-table th.lv-sec { background: #e6e6e6; text-align: center; font-weight: 500; }
+.lv-table th.lv-hours-h { width: 32mm; }
+.lv-hours { white-space: nowrap; }
+.lv-table input, .lv-table textarea, .lv-sign input { font: inherit; border: 0; background: #fff8e1; border-radius: 3px; padding: 1px 4px; width: 100%; box-sizing: border-box; }
+.lv-table input[type="date"], .lv-table input[type="time"], .lv-sign input[type="date"] { width: auto; }
+.lv-times { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.lv-h-in { width: 44px !important; text-align: center; }
+.lv-h-val { display: inline-block; min-width: 14mm; text-align: center; }
+.lv-reason { height: 14mm; }
+.lv-reason textarea { resize: vertical; }
+.lv-say { text-align: center; font-weight: 700; margin: 6mm 0 4mm; }
+.lv-sign { display: flex; flex-direction: column; align-items: flex-end; gap: 3mm; margin-right: 8mm; }
+.lv-sign-name { display: inline-block; min-width: 30mm; text-align: center; }
+.lv-company { text-align: center; font-size: 15pt; font-weight: 700; margin: 14mm 0 30mm; }
+.lv-guide th { width: 22mm; }
+.lv-guide td { font-size: 8.5pt; line-height: 1.6; }
+.lv-foot { display: flex; justify-content: space-between; margin-top: 14mm; padding-top: 2mm; border-top: 1px solid #ccc; font-size: 8pt; color: #888; }
+/* 화면: 입력칸 · 프린트: 글자 */
+.lv-print { display: none; }
+#pc-print-root .lv-print { display: inline; }
+@media (max-width: 900px) { .lv-wrap { grid-template-columns: 1fr; } }

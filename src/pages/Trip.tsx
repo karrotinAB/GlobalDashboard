@@ -2,6 +2,7 @@
 //   [기록] 출장비 내역 · 교통비 (외화는 영수증 날짜 ECOS 환율로 원화) · 오른쪽 이름·계좌(전도금 계좌)·합계(한글 금액)
 //   [프린트] 1. 출장신청서 (A4) · 2. 교통비 사용내역서 · 3. 영수증 정리
 //   [관리] 출장비 항목 · 금액 통화 (관리자 · 전도금 담당자)
+import LeaveForm from '../components/LeaveForm';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
@@ -50,10 +51,10 @@ export default function Trip() {
   const trips = useTrips(email);
   // 화면: 목록 (처음) → 신청서 쓰기 / 신청서 열기 / 관리
   const [view, setView] = useState<{ k: 'list' } | { k: 'new' } | { k: 'trip'; id: string } | { k: 'manage' }>({ k: 'list' });
-  const [tab, setTab] = useState<'record' | 'print'>('record');
+  const [tab, setTab] = useState<'record' | 'print' | 'leave'>('record');
   // 위 탭: 기록 · 프린트 · 관리 (전도금과 같은 모양)
   const topTab = view.k === 'manage' ? 'manage' : tab;
-  const goTab = (t: 'record' | 'print' | 'manage') => {
+  const goTab = (t: 'record' | 'print' | 'leave' | 'manage') => {
     if (t === 'manage') return setView({ k: 'manage' });
     setTab(t);
     if (view.k === 'manage' || view.k === 'new') setView({ k: 'list' });
@@ -77,13 +78,18 @@ export default function Trip() {
         <button className={topTab === 'print' ? 'on' : ''} onClick={() => goTab('print')}>
           🖨 출장비 프린트
         </button>
+        <button className={topTab === 'leave' ? 'on' : ''} onClick={() => goTab('leave')}>
+          🌴 대체휴가 신청서
+        </button>
         {canManage && (
           <button className={topTab === 'manage' ? 'on' : ''} onClick={() => goTab('manage')}>
             🗂 관리
           </button>
         )}
       </div>
-      {view.k === 'list' && (
+      {/* 대체휴가 신청서: 출장과 따로 (내 신청서 목록 + A4 신청서) */}
+      {tab === 'leave' && view.k !== 'manage' && <LeaveForm email={email} />}
+      {view.k === 'list' && tab !== 'leave' && (
         <section className="card trip-home">
           {tab === 'record' ? (
             <div className="trip-home-head">
@@ -137,7 +143,7 @@ export default function Trip() {
           <TripManage />
         </>
       )}
-      {view.k === 'trip' &&
+      {view.k === 'trip' && tab !== 'leave' &&
         (cur ? (
           <>
             {back}
