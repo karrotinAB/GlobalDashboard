@@ -8926,3 +8926,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .lv-print { display: none; }
 #pc-print-root .lv-print { display: inline; }
 @media (max-width: 900px) { .lv-wrap { grid-template-columns: 1fr; } }
+.lv-times input[type="time"] { width: 108px; }

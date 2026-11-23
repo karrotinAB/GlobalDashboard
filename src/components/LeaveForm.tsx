@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { deleteLeaveReq, hoursBetween, saveLeaveReq, useLeaveReqs, type LeaveReq } from '../lib/leaveReq';
 import { useFullName } from '../lib/fullName';
+import { usePeople } from './AddressBook';
 import { printSheet } from '../pages/Petty';
 import { today, uid } from '../lib/date';
 
@@ -10,7 +11,12 @@ const hm = (t?: string) => (t ? { h: String(Number(t.slice(0, 2))), m: t.slice(3
 
 export default function LeaveForm({ email }: { email: string }) {
   const list = useLeaveReqs(email);
-  const myName = useFullName(email);
+  // 성명: 주소록 · 대시보드 사용자 이름 (이름 석 자) → 없으면 계정 이름
+  const { contacts, roles } = usePeople();
+  const acct = useFullName(email);
+  const low = email.toLowerCase();
+  const full = contacts[low]?.name || roles?.find((r) => r.email === low)?.name || '';
+  const myName = /[가-힣]/.test(full) ? full : /[가-힣]/.test(acct) ? acct : full || acct;
   const blank = (): LeaveReq => ({ id: uid(), email, dept: '글로벌사업부', name: myName || '', applyDate: today(), createdAt: new Date().toISOString() });
   const [d, setD] = useState<LeaveReq>(blank);
   const [dirty, setDirty] = useState(false);
@@ -18,7 +24,8 @@ export default function LeaveForm({ email }: { email: string }) {
   const saved = (list ?? []).some((x) => x.id === d.id);
   // 이름이 늦게 들어오면 새 신청서에 채움
   useEffect(() => {
-    if (!saved && !d.name && myName) setD((x) => ({ ...x, name: myName }));
+    // 비어 있거나 계정 아이디(영문)로 들어간 새 신청서는 이름 석 자로
+    if (!saved && myName && (!d.name || (!/[가-힣]/.test(d.name) && /[가-힣]/.test(myName)))) setD((x) => ({ ...x, name: myName }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myName]);
   const set = (p: Partial<LeaveReq>) => {
