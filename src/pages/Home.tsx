@@ -599,7 +599,9 @@ function TodayWeather() {
   const hours = (w?.hours ?? []).slice(0, 6);
   return (
     <>
-      <span className="zone-tag">TODAY'S WEATHER</span>
+      <span className="zone-tag">
+        TODAY'S WEATHER{w?.at && <span className="zw-src"> · 반포대로 {new Date(w.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} 기준</span>}
+      </span>
       {w === undefined ? (
         <p className="muted small zs-empty">날씨 불러오는 중…</p>
       ) : !w || !fresh ? (
@@ -619,8 +621,10 @@ function TodayWeather() {
               {hours.map((x) => (
                 <div key={x.at} className={x.kind ? 'wet' : ''} title={x.rn && !/없음/.test(x.rn) ? x.rn : undefined}>
                   <span>{Number(x.at.slice(11, 13))}시</span>
-                  <b title={x.kind ? KIND[x.kind]?.[1] : SKY[x.sky ?? 0]?.[1]}>{x.kind ? KIND[x.kind]?.[0] : SKY[x.sky ?? 0]?.[0] ?? '·'}</b>
-                  <span>{typeof x.temp === 'number' ? `${x.temp}°` : ''}</span>
+                  <span className="zw-it">
+                    <b title={x.kind ? KIND[x.kind]?.[1] : SKY[x.sky ?? 0]?.[1]}>{x.kind ? KIND[x.kind]?.[0] : SKY[x.sky ?? 0]?.[0] ?? '·'}</b>
+                    {typeof x.temp === 'number' ? `${x.temp}°` : ''}
+                  </span>
                   {x.rn && !/없음/.test(x.rn) && <small className="zw-mm">{x.rn.replace(/\s+/g, '')}</small>}
                 </div>
               ))}
@@ -628,7 +632,6 @@ function TodayWeather() {
           )}
         </>
       )}
-      <span className="zs-more muted small">반포대로{w?.at ? ` · ${new Date(w.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })} 기준` : ''}</span>
     </>
   );
 }
