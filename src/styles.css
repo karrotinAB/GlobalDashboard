@@ -8828,3 +8828,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* 기준 시각: 시간 칸 줄의 오른쪽 아래 */
 .zw-src2 { position: absolute; right: 0; bottom: 0; white-space: nowrap; }
 @media (max-width: 600px) { .zs-slide .zw-hours > div { flex: 1 1 0; max-width: none; } .zw-src2 { display: none; } }
+.un-new-row { display: flex; margin-top: 10px; }
+.member-card.unassigned .un-new-row .un-new { margin-left: 0; }

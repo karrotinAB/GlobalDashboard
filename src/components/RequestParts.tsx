@@ -342,12 +342,12 @@ function Fields({
           title={d.title || '이 요청'}
           current={d.orderLink}
           side={side}
-          onPick={(link, first) => {
+          onPick={(link, first, range) => {
             set({
               orderLink: link,
-              // 비어 있으면 주문의 매장번호·주문일자로 채움
+              // 비어 있으면 주문의 매장번호로 채움 · 주문일자: 묶음이면 묶음 안 가장 빠른 날 ~ 가장 늦은 날, 아니면 (비어 있을 때) 그 주문 날짜
               storeCode: d.storeCode || first?.storeCode,
-              orderDate: d.orderDate || first?.orderDate,
+              ...(range ? { orderDate: range.from, orderDateTo: range.to } : { orderDate: d.orderDate || first?.orderDate }),
             });
             setLinking(false);
           }}
@@ -649,8 +649,8 @@ export function RequestDetail({
               current={r.orderLink}
               side={side}
               defaultTeam={r.team}
-              onPick={(link, first) => {
-                onSave({ orderLink: link, storeCode: r.storeCode || first?.storeCode, orderDate: r.orderDate || first?.orderDate });
+              onPick={(link, first, range) => {
+                onSave({ orderLink: link, storeCode: r.storeCode || first?.storeCode, ...(range ? { orderDate: range.from, orderDateTo: range.to } : { orderDate: r.orderDate || first?.orderDate }) });
                 setLinkingOrder(false);
               }}
               onClose={() => setLinkingOrder(false)}
@@ -909,16 +909,19 @@ export function TradeSummaryCards({
             <b>처리자 미정</b>
             <span className="muted small">무역사무가 정하기 전</span>
           </div>
-          {fresh.count > 0 && (
-            <span className="un-new">
-              NEW <b>{fresh.count}</b>
-            </span>
-          )}
           <span className="un-num">
             {load.unassigned}
             <small>건</small>
           </span>
         </div>
+        {/* NEW: 이름 아래 (다른 카드의 표시 줄 자리) */}
+        {fresh.count > 0 && (
+          <div className="un-new-row">
+            <span className="un-new">
+              NEW <b>{fresh.count}</b>
+            </span>
+          </div>
+        )}
       </button>
     </div>
   );
@@ -1017,7 +1020,7 @@ function RequestOrderLinker({
   current?: OrderLink;
   side: 'team' | 'trade';
   defaultTeam?: string;
-  onPick: (link: OrderLink, first?: Order) => void;
+  onPick: (link: OrderLink, first?: Order, range?: { from?: string; to?: string }) => void;
   onClose: () => void;
 }) {
   const access = useAccess();
@@ -1060,7 +1063,10 @@ function RequestOrderLinker({
         const first = list[0];
         const co = first ? companyName(first.companyId) : undefined;
         const label = bundleId ? `${first?.bundle?.name || '묶음'} (주문 ${list.length}개${co ? ` · ${co}` : ''})` : `${first?.name ?? '주문'}${co ? ` · ${co}` : ''}`;
-        onPick({ team: linkTeam, orderId, bundleId, label: isTrade ? `${linkTeam}조 · ${label}` : label }, first);
+        // 묶음이면 그 안 주문들의 가장 빠른 주문일 ~ 가장 늦은 주문일
+        const dates = list.map((o) => o.orderDate).filter((x): x is string => !!x).sort();
+        const range = bundleId && dates.length ? { from: dates[0], to: dates[dates.length - 1] !== dates[0] ? dates[dates.length - 1] : undefined } : undefined;
+        onPick({ team: linkTeam, orderId, bundleId, label: isTrade ? `${linkTeam}조 · ${label}` : label }, first, range);
       }}
       onClose={onClose}
     />
