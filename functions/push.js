@@ -107,3 +107,24 @@ export async function onRequestCreated(db, id, r, team) {
   const to = roles.filter((x) => x.level === 'trade' && x.email !== by).map((x) => x.email);
   return sendPush(db, to, { title: '📨 새로운 업무가 등록됐어요', body: '', link: './#/twork', tag: `rq-${id}` });
 }
+
+/** 상태 메시지(말풍선)를 바꾸면 → 같은 조 사람들에게 (본인 빼고) · 무역사무는 무역사무끼리
+ *  profiles/{이메일} 의 status 가 바뀌고 비어 있지 않을 때만 */
+export async function onStatusChanged(db, email, before, after) {
+  const now = String(after?.status ?? '').trim();
+  if (!now || now === String(before?.status ?? '').trim()) return { skipped: 'same' };
+  const me = low(email);
+  const roles = (await db.collection('roles').get()).docs.map((d) => ({ email: low(d.id), level: d.get('level'), team: String(d.get('team') ?? '2'), name: d.get('name') }));
+  const mine = roles.find((x) => x.email === me);
+  if (!mine) return { skipped: 'no role' };
+  let to;
+  if (mine.level === 'trade') to = roles.filter((x) => x.level === 'trade');
+  else if (mine.level === 'member' || mine.level === 'admin') to = roles.filter((x) => (x.level === 'member' || x.level === 'admin') && x.team === mine.team);
+  else return { skipped: 'leader' }; // 팀장님 · 이사님은 조가 없음
+  const name = String(after?.name || mine.name || me.split('@')[0]).trim();
+  return sendPush(
+    db,
+    to.map((x) => x.email).filter((e) => e !== me),
+    { title: `💭 ${name}님이 상태메세지를 업데이트 했어요`, body: '', link: './#/home', tag: `st-${me}` },
+  );
+}

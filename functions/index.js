@@ -847,8 +847,8 @@ export const removeUser = onCall({ region: REGION }, async (req) => {
 });
 
 // ---------- 휴대폰 알림 (웹 푸시) ----------
-//   보고방 새 보고 · 답글 · 반응 → 관련된 사람 / 전도금 마감 전날 오전 10시 → 알림 켠 모두
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+//   보고방 새 보고 · 답글 · 반응 → 관련된 사람 / 전도금 마감 전날 오전 10시 → 알림 켠 모두 / 상태 메시지 → 같은 조
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onReportCreated, onReportUpdated, pettyReminder } from './push.js';
 export const pushReportCreated = onDocumentCreated({ document: 'reports/{id}', region: REGION }, async (e) => {
   const r = e.data?.data();
@@ -858,6 +858,13 @@ export const pushReportUpdated = onDocumentUpdated({ document: 'reports/{id}', r
   const before = e.data?.before.data();
   const after = e.data?.after.data();
   if (before && after) await onReportUpdated(db, e.params.id, before, after).catch((err) => logger.warn('push reply', err.message));
+});
+// 상태 메시지(말풍선) 바꾸면 → 같은 조 사람들 (본인 빼고)
+import { onStatusChanged } from './push.js';
+export const pushStatusChanged = onDocumentWritten({ document: 'profiles/{email}', region: REGION }, async (e) => {
+  const before = e.data?.before?.data();
+  const after = e.data?.after?.data();
+  if (after) await onStatusChanged(db, e.params.email, before, after).catch((err) => logger.warn('push status', err.message));
 });
 export const pushPettyReminder = onSchedule({ schedule: '0 10 * * *', region: REGION, timeZone: 'Asia/Seoul' }, async () => {
   const r = await pettyReminder(db).catch((err) => ({ error: err.message }));

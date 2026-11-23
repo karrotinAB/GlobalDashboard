@@ -1389,7 +1389,7 @@ function PushSection({ email }: { email: string }) {
     <section className="card">
       <h2>🔔 휴대폰/노트북 알림</h2>
       <p className="muted small">
-        보고방에 새 보고가 올라오거나, 내 보고 · 댓글에 답글이나 반응이 달리면 알려줘요. 전도금 마감 전날(14일 · 말일 전날) 오전 10시에도 알려줘요. 알림을 누르면 그 페이지로 바로 열려요. 기기마다 따로 켜요.
+        보고방에 새 보고가 올라오거나, 내 보고 · 댓글에 답글이나 반응이 달리면 알려줘요. 전도금 마감 전날(14일 · 말일 전날) 오전 10시에도 알려줘요. 우리 조 사람이 상태 메시지를 바꿔도 알려줘요. 알림을 누르면 그 페이지로 바로 열려요. 기기마다 따로 켜요.
       </p>
       <div className="wxfx-ctl" style={{ alignItems: 'center' }}>
         {st === 'on' ? (
