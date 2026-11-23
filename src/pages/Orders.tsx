@@ -1,4 +1,4 @@
-import { useOrderUsd } from '../lib/sales';
+import { useOrderUsd, useStoreBranches } from '../lib/sales';
 import { rectOf } from '../lib/zoom';
 import { useIsMobile } from '../lib/useMobile';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -58,6 +58,24 @@ export default function Orders() {
   const { myCompanies: companies, companyById } = useLookups();
   // 수출 통화가 USD 가 아닌 업체: 외화는 USD 로 바꿔 보여주고 원래 외화는 아래 작게
   const fxc = useOrderUsd(companies, data.orders);
+  // 주문 이름 보이기
+  //   · 자동 등록된 '새 주문' 은 주문번호로 (ERP 번호)
+  //   · GSK (1조): 자동 이름(ERP/EXP 번호 · 새 주문)은 그 매장코드의 지점 약자로 (GRN · AMD …) — 직접 바꾼 이름은 그대로
+  const gskIds = useMemo(() => new Set(companies.filter((c) => /gsk/i.test(c.name)).map((c) => c.id)), [companies]);
+  const gskCodes = useMemo(() => companies.filter((c) => gskIds.has(c.id)).flatMap((c) => c.storeCodes ?? []), [companies, gskIds]);
+  const gskBranches = useStoreBranches(gskCodes);
+  const isAutoName = (o: Order) => o.name === '새 주문' || /^(ERP|EXP)\s*\d+$/i.test(o.name.trim());
+  const shownName = (o: Order) => {
+    if (gskIds.has(o.companyId ?? '') && isAutoName(o) && o.storeCode) {
+      const co = companies.find((c) => c.id === o.companyId);
+      const abbr = co?.storeAbbr?.[o.storeCode] || gskBranches[o.storeCode];
+      if (abbr) return abbr;
+    }
+    if (o.name === '새 주문' && o.expNo) return `ERP ${o.expNo}`;
+    return o.name;
+  };
+  /** 아직 아무도 이름을 안 바꾼 자동 등록 주문 → NEW */
+  const isFreshAuto = (o: Order) => !!o.autoImported && (o.name === '새 주문' || (!!o.autoName && o.name === o.autoName));
   // 외화 금액 보이기: 보통은 USD 크게 + 원래 통화 작게 · 엔화(JPY)가 주요 통화인 업체는 엔화 크게 + USD 연하게
   const yenFirst = (o: { companyId?: string | null }) => fxc.curOf(o) === 'JPY';
   const fxShow = (o: Order, v: number) =>
@@ -639,8 +657,8 @@ export default function Orders() {
           </td>
           <td className="c-name">
             <div className="m-name">
-              {o.autoImported && o.name === '새 주문' && <span className="auto-tag">NEW</span>}
-              <span className="m-name-t">{o.name}</span>
+              {isFreshAuto(o) && <span className="auto-tag">NEW</span>}
+              <span className="m-name-t">{shownName(o)}</span>
             </div>
             {o.note && <div className="m-note-line">{o.note}</div>}
           </td>
@@ -674,7 +692,7 @@ export default function Orders() {
                 <dl className="m-det-grid">
                   <dt>주문명</dt>
                   <dd>
-                    <EditableText value={o.name} oneLine onSave={(v) => v && patch({ name: v })} />
+                    <EditableText value={shownName(o)} oneLine onSave={(v) => v && v !== shownName(o) && patch({ name: v })} />
                   </dd>
                   {!sheet && (
                     <>
@@ -799,12 +817,12 @@ export default function Orders() {
         </td>
         <td className="c-name">
           <div className="name-wrap">
-            {o.autoImported && o.name === '새 주문' && (
+            {isFreshAuto(o) && (
               <span className="auto-tag" title={`ERP 에서 자동으로 등록된 주문이에요${o.expNo ? ` (EXP_NO ${o.expNo})` : ''}. 이름을 바꾸면 표시가 사라져요.`}>
                 NEW
               </span>
             )}
-            <EditableText value={o.name} oneLine expand onSave={(v) => v && patch({ name: v })} />
+            <EditableText value={shownName(o)} oneLine expand onSave={(v) => v && v !== shownName(o) && patch({ name: v })} />
           </div>
         </td>
         {!sheet && (

@@ -79,7 +79,8 @@ export interface Order {
   amountForeign?: number; // 외화 총 금액 ($)
   // ↓ ERP API 자동 채우기 (서버 함수 functions/ 가 씀)
   erpArchive?: boolean; // ERP 채우기로 넣은 지난 주문 (다 출고됨 — 금액 자동 갱신 안 함)
-  autoImported?: boolean; // ERP 에서 새 주문으로 자동 등록됨
+  autoImported?: boolean;
+  autoName?: string; // 자동으로 붙인 이름 (이 이름 그대로면 NEW 표시) // ERP 에서 새 주문으로 자동 등록됨
   amountSource?: 'manual' | 'api-order' | 'api-outbound'; // 금액을 누가 채웠는지 (manual 이면 API 가 안 건드림)
   expNo?: string; // ERP 수출 주문번호 EXP_NO
   fxCode?: string; // 외화 통화 (USD 등)

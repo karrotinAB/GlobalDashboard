@@ -66,7 +66,9 @@ export async function importNewOrders(db, colOf, spaces, apiKey, { days = 3, fet
           const order = {
             id: uid(),
             companyId,
-            name: '새 주문',
+            // 이름: 주문번호 (없으면 '새 주문') — 사람이 바꾸기 전까지 NEW
+            name: expNo ? `ERP ${expNo}` : '새 주문',
+            autoName: expNo ? `ERP ${expNo}` : '새 주문',
             realOrder: false,
             erp: false,
             inbound: false,
