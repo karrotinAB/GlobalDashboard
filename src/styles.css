@@ -8772,3 +8772,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sl-use-link:hover { text-decoration: underline; }
 .sl-ext { font-size: 11px; opacity: .7; }
 .sl-table tr.sl-form input.sl-url-in { margin-top: 4px; font-size: 12px; }
+.sl-table .more-btn { opacity: 1; }

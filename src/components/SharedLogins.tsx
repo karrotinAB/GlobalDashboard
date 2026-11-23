@@ -7,6 +7,7 @@ import { DATA_MODE } from '../data/store';
 import { useAccess } from './AuthGate';
 import { uid } from '../lib/date';
 import { useNameOf } from './AddressBook';
+import { MoreMenu } from './SheetCells';
 
 export interface SharedLogin {
   id: string;
@@ -249,21 +250,17 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
                       </td>
                       <td className="sl-note">{x.note || <span className="ab-empty">—</span>}</td>
                       <td className="sl-act">
-                        {x.broken ? (
-                          <button className="small sl-resolve" title="다시 로그인 돼요 (경고 지우기)" onClick={() => resolve(x)}>
-                            해결됨
-                          </button>
-                        ) : (
-                          <button className="icon-btn sl-report" title="로그인이 안 돼요 → 모두에게 '업데이트 필요' 표시" onClick={() => report(x)}>
-                            ⚠
-                          </button>
-                        )}
-                        <button className="icon-btn" title="고치기 (저장하면 경고도 사라져요)" onClick={() => start(x)}>
-                          ✎
-                        </button>
-                        <button className="icon-btn" title="지우기" onClick={() => confirm(`'${x.use}' ${x.login} 을(를) 지울까요?`) && void removeLogin(x.id)}>
-                          ✕
-                        </button>
+                        {/* ⋯ 누르면: 로그인 안 돼요 / 해결됨 · 고치기 · 지우기 */}
+                        <MoreMenu
+                          title="설정"
+                          items={[
+                            x.broken
+                              ? { label: '✅ 해결됨 (다시 로그인 돼요)', onClick: () => resolve(x) }
+                              : { label: "⚠ 로그인이 안 돼요 (모두에게 '업데이트 필요')", onClick: () => report(x) },
+                            { label: '✎ 고치기 (저장하면 경고도 사라져요)', onClick: () => start(x) },
+                            { label: '🗑 지우기', danger: true, onClick: () => confirm(`'${x.use}' ${x.login} 을(를) 지울까요?`) && void removeLogin(x.id) },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ),
