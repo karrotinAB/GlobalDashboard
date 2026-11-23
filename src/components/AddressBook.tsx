@@ -166,7 +166,7 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="ab-top">
         <input className="search ab-search" autoFocus placeholder={tab === 'people' ? '🔍 이름 · 이메일 · 번호' : '🔍 용도 · ID · 비고'} value={q} onChange={(e) => setQ(e.target.value)} />
-        <span className="muted small">{tab === 'people' ? '이메일·번호 칸을 누르면 복사돼요' : 'ID · PW 칸을 누르면 복사돼요 · PW 는 👁 로 보기 · 용도를 누르면 로그인 페이지로 · 로그인이 안 되면 ⋯ 에서 알려 주세요 · 누구나 넣고 고칠 수 있어요'}</span>
+        <span className="muted small">{tab === 'people' ? '이메일·번호 칸을 누르면 복사돼요' : 'ID 칸을 누르면 복사돼요 · PW 는 👁 로 보이게 한 뒤 눌러서 복사 · 용도를 누르면 로그인 페이지로 · 로그인이 안 되면 ⋯ 에서 알려 주세요 · 누구나 넣고 고칠 수 있어요'}</span>
       </div>
       {tab === 'logins' ? (
         <SharedLogins q={q} copy={(t) => void copy(t)} copied={copied} />

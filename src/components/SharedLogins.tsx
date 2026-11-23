@@ -180,8 +180,13 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
       </td>
     </tr>
   );
+  // 가려진 PW 는 복사 안 됨 (👁 로 먼저 보이게 해야 복사)
   const copyCell = (v: string, label: string, masked = false) =>
-    v ? (
+    v && masked ? (
+      <span className="sl-masked" title="👁 를 눌러 보이게 하면 복사할 수 있어요">
+        ●●●●●●
+      </span>
+    ) : v ? (
       <span className={`ab-cell-in ${copied === v ? 'done' : ''}`} onClick={() => copy(v)} title={`누르면 ${label} 복사`}>
         {masked ? '●●●●●●' : v}
         {copied === v && <span className="ab-toast">복사됨 ✓</span>}
