@@ -8830,3 +8830,10 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 @media (max-width: 600px) { .zs-slide .zw-hours > div { flex: 1 1 0; max-width: none; } .zw-src2 { display: none; } }
 .un-new-row { display: flex; margin-top: 10px; }
 .member-card.unassigned .un-new-row .un-new { margin-left: 0; }
+/* 홈 TODAY · 슬라이드 카드: 조금 크게 (컴퓨터) — 날씨 시간 칸은 늘어난 만큼 세로로 */
+@media (min-width: 601px) {
+  .zones > .zone { min-height: 188px; box-sizing: border-box; }
+  .zs-slide .zw-hours { flex: 1 1 auto; align-items: stretch; }
+  .zs-slide .zw-hours > div { justify-content: center; gap: 1px; font-size: 11px; }
+  .zs-slide .zw-hours b { font-size: 15px; }
+}

@@ -41,8 +41,13 @@ export const PRIORITY_CLASS: Record<string, string> = {
 /** 무역사무 담당자별 남은 업무 */
 export function workload(requests: TradeRequest[], people: Member[], todayIso = today()) {
   const month = todayIso.slice(0, 7);
+  // 처리자 중 한 명이라도 이 사람이면 그 사람 업무 (목록에서 이 사람을 눌렀을 때와 같은 기준)
+  const isMine = (r: TradeRequest, m: Member) => {
+    const list = assigneesOf(r, people);
+    return r.assigneeId === m.id || list.includes(`tm:${m.id}`) || (!!m.email && list.includes(m.email.toLowerCase()));
+  };
   const rows = people.map((m) => {
-    const mine = requests.filter((r) => r.assigneeId === m.id);
+    const mine = requests.filter((r) => isMine(r, m));
     const open = mine.filter(isOpen);
     return {
       member: m as Member | undefined,
@@ -56,7 +61,7 @@ export function workload(requests: TradeRequest[], people: Member[], todayIso = 
       doneThisMonth: mine.filter((r) => r.status === 'done' && (r.doneAt ?? '').startsWith(month)).length,
     };
   });
-  const un = requests.filter((r) => isOpen(r) && !r.assigneeId);
+  const un = requests.filter((r) => isOpen(r) && assigneesOf(r, people).length === 0 && !r.assigneeId);
   return { rows, unassigned: un.length };
 }
 
