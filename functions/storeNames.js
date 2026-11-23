@@ -15,7 +15,19 @@ export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sle
   for (const id of ids) if (force || !(await db.doc(`storeNames/${id}`).get()).exists) todo.push(id);
   if (!todo.length) return { asked: 0, found: 0, left: 0, results: [] };
   const sec = (await db.doc('secrets/sku').get()).data() ?? {};
-  const cfg = await exCfg(db, sec);
+  // 키: 매장 정보는 주문(ERP) 쪽 키로 열리는 경우가 많음 → partnerKey(있으면) · ERP 키 · 제품(번역) 키 순서로, 401/403 이면 다음 키
+  const erp = (await db.doc('secrets/erp').get()).data() ?? {};
+  const erpField = Object.keys(erp).find((k) => k.replace(/[_\s-]/g, '').toLowerCase() === 'apikey');
+  const cfgs = [];
+  if (sec.partnerKey) cfgs.push({ key: String(sec.partnerKey).trim(), header: String(sec.partnerHeader ?? 'X-API-Key').trim() || 'X-API-Key' });
+  if (erpField && erp[erpField]) cfgs.push({ key: String(erp[erpField]).trim(), header: 'X-API-Key' });
+  try {
+    cfgs.push(await exCfg(db, sec));
+  } catch {
+    /* 제품 키가 없어도 됨 */
+  }
+  if (!cfgs.length) throw new Error('API 키가 없어요 (secrets/erp 또는 secrets/sku)');
+  let ki = 0;
   const url = String(sec.partnerUrl ?? URL).trim() || URL;
   const last = { at: 0 };
   let found = 0;
@@ -25,9 +37,21 @@ export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sle
   for (const id of todo.slice(0, MAX)) {
     let body;
     try {
-      body = await call(url, cfg, { STORE_ID: id }, fetchImpl, wait, last);
+      for (;;) {
+        try {
+          body = await call(url, cfgs[ki], { STORE_ID: id }, fetchImpl, wait, last);
+          break;
+        } catch (e) {
+          // 키가 안 맞으면 다음 키로 (맞는 키를 찾으면 그 뒤 매장도 그 키로)
+          if (/API 40[13]/.test(e.message) && ki < cfgs.length - 1) {
+            ki++;
+            continue;
+          }
+          throw e;
+        }
+      }
     } catch (e) {
-      stopped = e instanceof RateLimited ? e.message : `오류: ${e.message}`;
+      stopped = e instanceof RateLimited ? e.message : `오류: ${e.message}${/API 40[13]/.test(e.message) ? ` — 키 ${cfgs.length}개(${cfgs.length > 1 ? 'ERP · 제품' : '하나'}) 모두 안 맞아요` : ''}`;
       results.push({ id, name: '', error: stopped });
       break;
     }
