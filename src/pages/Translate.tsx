@@ -413,7 +413,7 @@ function TranslateTab() {
   return (
     <div className="tr-wrap">
       <div className="card tr-upload">
-        <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만)">
+        <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 새벽 0시 ~ 8시에도 자동으로 불러와요">
           {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
         </button>
         <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="채우고 있는 제품만 회사 API 에서 다시 확인해서, 다 채워졌으면 목록에서 빼요 (모두의 목록에서)">
@@ -426,6 +426,8 @@ function TranslateTab() {
             {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)} 까지 봤어요`}
             {mMeta.phase !== 'inc' && mMeta.at && ' · 아직 전체를 다 못 훑었어요'}
             {mMeta.order === 'mixed' && ' · ⚠ 등록일 순서가 섞여 있어서 새 제품을 찾을 때 처음부터 다시 봐요'}
+            {mMeta.nightAt && ` · 새벽 자동 ${fmtAt(mMeta.nightAt)}`}
+            {mMeta.nightError && <span className="warn"> · 새벽 자동 오류: {mMeta.nightError}</span>}
           </span>
         ) : (
           <span className="muted small">목록 불러오는 중…</span>

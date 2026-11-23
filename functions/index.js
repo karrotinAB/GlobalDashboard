@@ -758,6 +758,16 @@ export const skuMissingLoad = onCall({ ...skuOpts }, async (req) => {
     throw new HttpsError('failed-precondition', e.message);
   }
 });
+// 새벽 0시 ~ 7시 30분, 30분마다: 처음 전부 훑기가 안 끝났으면 이어서 · 다 끝났으면 그날 밤 한 번만 새 제품(등록일 이후) 확인
+export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '*/30 0-7 * * *', timeZone: 'Asia/Seoul' }, async () => {
+  const meta = (await db.doc('skuMissing/_meta').get()).data() ?? {};
+  const kstDay = (iso) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
+  const today = kstDay(new Date().toISOString());
+  if (meta.phase === 'inc' && meta.at && kstDay(meta.at) === today) return; // 오늘 밤 이미 확인함
+  const r = await loadMissing(db).catch((e) => ({ error: e.message }));
+  await db.doc('skuMissing/_meta').set({ nightAt: new Date().toISOString(), nightError: r.error ?? '' }, { merge: true });
+  logger.info('sku missing nightly', r);
+});
 export const skuMissingRecheck = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
   await dashRole(req);
   const codes = Array.isArray(req.data?.codes) ? req.data.codes.slice(0, 2000) : [];

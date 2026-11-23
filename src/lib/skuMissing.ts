@@ -27,6 +27,8 @@ export interface MissingMeta {
   stopped?: string;
   error?: string;
   lastAdded?: number;
+  nightAt?: string; // 새벽 자동 (0시 ~ 7시 30분, 30분마다)
+  nightError?: string;
 }
 
 // 로컬 테스트용 예시
