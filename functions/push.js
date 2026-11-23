@@ -59,7 +59,7 @@ const link = (id) => `./#/reports?r=${encodeURIComponent(id)}`;
 
 export async function onReportCreated(db, id, r) {
   const to = await reportAudience(db, r);
-  return sendPush(db, to, { title: `${r.authorName ?? ''}님이 보고방에 보고를 올렸어요`, body: '', link: link(id), tag: `rp-${id}` });
+  return sendPush(db, to, { title: `📑 ${r.authorName ?? ''}님이 보고방에 보고를 올렸어요`, body: '', link: link(id), tag: `rp-${id}` });
 }
 
 /** 바뀐 보고: 새 답글 · 새 반응만 골라서 알림 */
@@ -72,7 +72,7 @@ export async function onReportUpdated(db, id, before, after) {
       // 새 답글 → 보고 쓴 사람 + (대댓글이면) 원래 댓글 쓴 사람
       const parent = rp.parentId ? (after.replies ?? []).find((x) => x.id === rp.parentId) : null;
       const to = [after.authorEmail, parent?.email].filter((e) => e && low(e) !== low(rp.email));
-      if (to.length) jobs.push(sendPush(db, to, { title: `${rp.name}님이 보고방에 댓글을 달았어요`, body: '', link: link(id), tag: `rp-${id}-${rp.id}` }));
+      if (to.length) jobs.push(sendPush(db, to, { title: `💬 ${rp.name}님이 보고방에 댓글을 달았어요`, body: '', link: link(id), tag: `rp-${id}-${rp.id}` }));
       continue;
     }
     // 새 반응 → 그 댓글 쓴 사람
@@ -81,7 +81,7 @@ export async function onReportUpdated(db, id, before, after) {
       for (const p of people ?? []) {
         const key = low(p.email) || p.name;
         if (before.has(key) || !rp.email || low(rp.email) === low(p.email)) continue;
-        jobs.push(sendPush(db, [rp.email], { title: `${p.name}님이 댓글을 확인했어요`, body: '', link: link(id), tag: `rx-${id}-${rp.id}` }));
+        jobs.push(sendPush(db, [rp.email], { title: `${emoji || '✅'} ${p.name}님이 댓글을 확인했어요`, body: '', link: link(id), tag: `rx-${id}-${rp.id}` }));
       }
     }
   }
@@ -105,5 +105,5 @@ export async function onRequestCreated(db, id, r, team) {
   const roles = (await db.collection('roles').get()).docs.map((d) => ({ email: low(d.id), level: d.get('level') }));
   const by = low(r.createdByEmail || r.requesterEmail);
   const to = roles.filter((x) => x.level === 'trade' && x.email !== by).map((x) => x.email);
-  return sendPush(db, to, { title: '새로운 업무가 등록됐어요', body: '', link: './#/twork', tag: `rq-${id}` });
+  return sendPush(db, to, { title: '📨 새로운 업무가 등록됐어요', body: '', link: './#/twork', tag: `rq-${id}` });
 }
