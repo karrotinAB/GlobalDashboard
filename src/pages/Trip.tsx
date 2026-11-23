@@ -7,7 +7,7 @@ import { useAccess } from '../components/AuthGate';
 import PettyReceipts from '../components/PettyReceipts';
 import { AddEntry, EntryStoreCtx, EntryTable, printSheet, useFullName } from './Petty';
 import { curLabel, itemOf, usePettyAccount, usePettyCfg, won, type PettyEntry } from '../lib/petty';
-import { rateOn, SALES_CURRENCIES, useFxRates } from '../lib/sales';
+import { CUR_SIGN, rateOn, SALES_CURRENCIES, useFxRates } from '../lib/sales';
 import { today, uid } from '../lib/date';
 import {
   deleteTrip,
@@ -237,7 +237,7 @@ function TripView({ trip, email, tab, onDeleted }: { trip: TripDoc; email: strin
           🗑 신청서 지우기
         </button>
       </div>
-      {tab === 'record' ? <TripRecord trip={trip} email={email} rows={rows} cfg={cfg} fx={fx} loading={entries === null} /> : <TripPrint trip={trip} rows={rows} cats={cfg.categories} />}
+      {tab === 'record' ? <TripRecord trip={trip} email={email} rows={rows} cfg={cfg} fx={fx} loading={entries === null} /> : <TripPrint trip={trip} rows={rows} cats={cfg.categories} fx={fx} curs={cfg.currencies} />}
     </EntryStoreCtx.Provider>
   );
 }
@@ -315,8 +315,43 @@ function TripRecord({
 }
 
 // ===================== 프린트 =====================
-function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; cats: string[] }) {
+function TripPrint({ trip, rows, cats, fx, curs }: { trip: TripDoc; rows: PettyEntry[]; cats: string[]; fx: ReturnType<typeof useFxRates>; curs: string[] }) {
   const [which, setWhich] = useState<'apply' | 'transport' | 'receipt'>('apply');
+  // 프린트 금액 통화: 원칙은 원화 · 엔화 등으로 올리는 사람도 있어서 고를 수 있게 (신청서마다 기억)
+  const cur = trip.printCur || 'KRW';
+  const curList = [...new Set(['KRW', ...curs])];
+  /** 내역 한 줄을 고른 통화로: 그 통화로 적은 건 원래 금액 · 아니면 원화를 그날 환율로 나눔 */
+  const amt = (e: PettyEntry): number | undefined => {
+    if (cur === 'KRW') return e.amount ?? 0;
+    if (e.cur === cur && e.curAmount !== undefined) return e.curAmount;
+    if (e.amount === undefined) return undefined;
+    const r = rateOn(fx, cur, e.date);
+    return r ? Math.round((e.amount / r.rate) * 100) / 100 : undefined;
+  };
+  const noRate = rows.some((e) => amt(e) === undefined);
+  const fmtN = (n: number) => n.toLocaleString('ko-KR', { maximumFractionDigits: cur === 'KRW' || cur === 'JPY' ? 0 : 2 });
+  const sign = cur === 'KRW' ? '' : (CUR_SIGN[cur] ?? cur).trim();
+  /** 금액 칸: 왼쪽에 통화 표시 · 오른쪽에 숫자 */
+  const money = (n: number | undefined, blankZero = false) =>
+    n === undefined || (blankZero && !n) ? null : (
+      <>
+        {sign && <span className="ts-cur">{sign}</span>}
+        {fmtN(n)}
+      </>
+    );
+  const curPick = (
+    <label className="ts-cur-pick">
+      <span className="muted small">금액 통화</span>
+      <select value={cur} onChange={(e) => save({ printCur: e.target.value === 'KRW' ? undefined : e.target.value })}>
+        {curList.map((c) => (
+          <option key={c} value={c}>
+            {c === 'KRW' ? '₩ 원화 (원칙)' : `${(CUR_SIGN[c] ?? '').trim()} ${c}`}
+          </option>
+        ))}
+      </select>
+      {noRate && <span className="warn small">환율이 아직 없는 날이 있어요</span>}
+    </label>
+  );
   const tItem = tripTransportItem(cats);
   const sheetRows: TripRow[] = trip.rows ?? cats.map((c, i) => ({ id: `d${i}`, item: c, desc: '', count: '1' }));
   const save = (p: Partial<TripDoc>) => void saveTrip({ ...trip, ...p });
@@ -326,13 +361,13 @@ function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; ca
   for (const e of rows) {
     const it = itemOf(sheetRows, e, tItem);
     const r = sheetRows.find((x) => x.item.trim() === it);
-    if (r) actual[r.id] += e.amount ?? 0;
+    if (r) actual[r.id] += amt(e) ?? 0;
   }
   const totalA = Object.values(actual).reduce((a, b) => a + b, 0);
   const totalE = sheetRows.reduce((a, r) => a + (r.est ?? 0), 0);
   const missing = [...new Set([...cats])].filter((c) => !sheetRows.some((r) => r.item.trim() === c));
   const transports = rows.filter((e) => e.kind === 'transport').sort((a, b) => a.date.localeCompare(b.date));
-  const tTotal = transports.reduce((a, e) => a + (e.amount ?? 0), 0);
+  const tTotal = transports.reduce((a, e) => a + (amt(e) ?? 0), 0);
   const name = trip.name ?? '';
   return (
     <>
@@ -352,6 +387,7 @@ function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; ca
         <>
           <div className="pc-print-bar">
             <span className="muted small">출장 목적 · 인원수 · 예상경비 · 항공기 이용 · 비고는 눌러서 고쳐요. 실제경비는 기록한 내역을 항목별로 더한 값이에요.</span>
+            {curPick}
             <button className="primary" onClick={() => printSheet('ts-apply')}>
               🖨 프린트 / PDF
             </button>
@@ -447,14 +483,14 @@ function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; ca
                         }}
                       />
                     </td>
-                    <td className="r">{actual[r.id] ? actual[r.id].toLocaleString('ko-KR') : ''}</td>
+                    <td className="r">{money(actual[r.id], true)}</td>
                   </tr>
                 ))}
                 <tr>
                   <td className="c">합계</td>
                   <td className="ts-grey" />
                   <td className="r">{totalE ? totalE.toLocaleString('ko-KR') : '-'}</td>
-                  <td className="r">{totalA.toLocaleString('ko-KR')}</td>
+                  <td className="r">{money(totalA)}</td>
                 </tr>
                 <tr>
                   <th>항공기 이용</th>
@@ -490,6 +526,7 @@ function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; ca
         <>
           <div className="pc-print-bar">
             <span className="muted small">교통비 칸에 기록한 내역을 날짜순으로 모았어요. 이용사유는 기록의 '내역'이에요.</span>
+            {curPick}
             <button className="primary" onClick={() => printSheet('ts-transport')}>
               🖨 프린트 / PDF
             </button>
@@ -516,7 +553,7 @@ function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; ca
                     <td className="c">{e.mode === '기타' ? e.modeOther || '기타' : e.mode}</td>
                     <td className="c">{e.from}</td>
                     <td className="c">{e.to}</td>
-                    <td className="r">{(e.amount ?? 0).toLocaleString('ko-KR')}</td>
+                    <td className="r">{money(amt(e)) ?? <span className="warn small">환율 없음</span>}</td>
                     <td className="c">{e.content}</td>
                   </tr>
                 ))}
@@ -531,7 +568,7 @@ function TripPrint({ trip, rows, cats }: { trip: TripDoc; rows: PettyEntry[]; ca
                   <td colSpan={5} className="c">
                     합계
                   </td>
-                  <td className="r">{tTotal.toLocaleString('ko-KR')}</td>
+                  <td className="r">{money(tTotal)}</td>
                   <td />
                 </tr>
               </tbody>

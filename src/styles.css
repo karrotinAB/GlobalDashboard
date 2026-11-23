@@ -8881,3 +8881,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .order-table tr.bundle-head td.bundle-ship { color: #fff; }
 .order-table tr.bundle-head td.bundle-ship .cell-view { color: #fff; font-weight: 700; }
 .order-table tr.bundle-head td.bundle-ship .cell-view.placeholder, .order-table tr.bundle-head td.bundle-ship .muted { color: rgba(255, 255, 255, .7); }
+/* 출장신청서 프린트: 금액 통화 고르기 · 금액 칸 왼쪽 통화 표시 */
+.ts-cur-pick { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 10px; }
+.ts-cur-pick select { font: inherit; font-size: 13px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.ps-table td.r .ts-cur, .ts-page td.r .ts-cur { float: left; padding-left: 1mm; }

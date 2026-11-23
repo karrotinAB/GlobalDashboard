@@ -252,7 +252,7 @@ export function toUsd(table: FxTable, cur: string, amount: number, iso?: string 
   const u = rateOn(table, 'USD', day) ?? latestRate(table, 'USD');
   return a && u ? (amount * a.rate) / u.rate : null;
 }
-const CUR_SIGN: Record<string, string> = { JPY: '¥', EUR: '€', GBP: '£', CNY: 'CN¥', USD: '$', KRW: '₩' };
+export const CUR_SIGN: Record<string, string> = { JPY: '¥', EUR: '€', GBP: '£', CNY: 'CN¥', USD: '$', KRW: '₩' };
 /** 원래 외화 표시 (예: ¥1,234,567) */
 export const fmtCur = (cur: string, n?: number | null) => (n === undefined || n === null ? '' : `${CUR_SIGN[cur] ?? `${cur} `}${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
 const monthOf = (iso?: string | null) => (iso && /^\d{4}-\d{2}/.test(iso) ? iso.slice(0, 7) : '');

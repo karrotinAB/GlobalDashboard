@@ -28,6 +28,7 @@ export interface Trip {
   note?: string; // 비고 (아래 큰 칸)
   rows?: TripRow[]; // 출장비 표 (없으면 기본 항목)
   rcpt?: Record<string, RcptPos>; // 영수증 배치
+  printCur?: string; // 프린트(출장신청서 · 교통비 사용내역서) 금액 통화 (없으면 원화)
   createdAt: string;
 }
 export interface TripCfg {
