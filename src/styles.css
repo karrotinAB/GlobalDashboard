@@ -9019,3 +9019,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .pc-section > .pc-add { order: 1; margin-top: 0; margin-bottom: 12px; }
   .pc-section > :not(.pc-sec-head):not(.pc-add) { order: 2; }
 }
+
+/* 화면에 맞게 줄인 A4 (lib/a4fit) 는 프린트할 땐 원래 크기 */
+#pc-print-root .ps-page { zoom: 1 !important; }

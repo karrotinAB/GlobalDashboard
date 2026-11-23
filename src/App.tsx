@@ -33,6 +33,7 @@ import Overview from './pages/Overview';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
 import TeamSwitch from './components/TeamSwitch';
+import { useA4Fit } from './lib/a4fit';
 import { DEFAULT_TEAM, isPersonal } from './lib/team';
 
 const PAGES = [
@@ -71,6 +72,7 @@ function readHash(): PageKey {
 
 export default function App() {
   const [hashPage, setPage] = useState<PageKey>(readHash);
+  useA4Fit(); // A4 종이는 좁은 화면에서 폭에 맞게
   // 탭을 누르면 바로 위에 로딩 막대 (새 페이지를 그리는 동안)
   const [navPending, startNav] = useTransition();
   const { loading, error, mode, data, saveMany } = useStore();

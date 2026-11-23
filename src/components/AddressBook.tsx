@@ -80,12 +80,15 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
   const [q, setQ] = useState('');
   const [addSignal, setAddSignal] = useState(0); // ID/PW: 위쪽 '＋ 계정 추가'
   // 표 크기 (사람마다 이 브라우저에 기억): 60% ~ 130%
+  // 표 크기: 이 브라우저에 기억 · 처음엔 휴대폰 60% (한눈에) / 컴퓨터 100%
+  const defZoom = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 600px)').matches ? 0.6 : 1;
   const [zoom, setZoomRaw] = useState(() => {
     try {
-      const v = Number(localStorage.getItem('gd:abZoom'));
-      return v >= 0.6 && v <= 1.3 ? v : 1;
+      const raw = localStorage.getItem('gd:abZoom');
+      const v = Number(raw);
+      return raw && v >= 0.6 && v <= 1.3 ? v : defZoom;
     } catch {
-      return 1;
+      return defZoom;
     }
   });
   const setZoom = (z: number) => {
