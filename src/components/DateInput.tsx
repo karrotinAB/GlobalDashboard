@@ -33,6 +33,7 @@ export default function DateInput({
   value,
   onChange,
   onDone,
+  onEnter,
   autoFocus,
   placeholder = '20261110',
   reject,
@@ -40,6 +41,7 @@ export default function DateInput({
   value?: string;
   onChange: (iso?: string) => void;
   onDone?: () => void;
+  onEnter?: (iso?: string) => void; // Enter 로 확정했을 때 (확정한 날짜) — 줄 추가 등
   autoFocus?: boolean;
   placeholder?: string;
   reject?: (iso: string) => string | null; // 이 날짜는 안 됨 → 안내문 (칸은 원래 값으로)
@@ -100,7 +102,13 @@ export default function DateInput({
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-            if (commit(text)) onDone?.();
+            if (commit(text)) {
+              onDone?.();
+              if (onEnter) {
+                e.preventDefault();
+                onEnter(text.trim() ? (parseDate(text) ?? undefined) : undefined);
+              }
+            }
           }
           if (e.key === 'Escape') {
             setText(show(value));

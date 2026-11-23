@@ -461,12 +461,13 @@ export function AddTaskRow({
     );
   }
 
-  const submit = () => {
+  const submit = (over?: Partial<typeof d>) => {
     if (!d.title.trim()) return;
-    onAdd({ ...d, title: d.title.trim(), note: d.note?.trim() || undefined });
+    onAdd({ ...d, ...over, title: d.title.trim(), note: d.note?.trim() || undefined });
     setD({ ...blank(), assigneeIds: d.assigneeIds, companyId: d.companyId }); // 담당·업체는 유지하고 다음 줄
     setRowKey((k) => k + 1);
-    titleRef.current?.focus();
+    // 다음 줄 그린 뒤에 업무 칸으로 (바로 옮기면 마감일 칸이 닫히며 방금 날짜를 다시 넣음)
+    setTimeout(() => titleRef.current?.focus(), 0);
   };
   const keys = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -502,12 +503,12 @@ export function AddTaskRow({
           members={members}
           ids={d.assigneeIds}
           onChange={(v) => setD((p) => ({ ...p, assigneeIds: v }))}
-          onEnter={submit}
+          onEnter={() => submit()}
           onEscape={() => setOpen(false)}
         />
       </td>
       <td className="c-due">
-        <DateInput value={d.dueDate} onChange={(v) => setD((p) => ({ ...p, dueDate: v }))} placeholder="마감일" />
+        <DateInput key={rowKey} value={d.dueDate} onChange={(v) => setD((p) => ({ ...p, dueDate: v }))} onEnter={(iso) => submit({ dueDate: iso })} placeholder="마감일" />
       </td>
       <td className="c-check" />
       <td className="c-note">
