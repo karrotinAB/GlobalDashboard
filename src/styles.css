@@ -8979,3 +8979,19 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .rq-order-add:hover { text-decoration: underline; }
 .lv-days.col .lv-times { flex-wrap: nowrap; }
 .lv-days.col .lv-times input[type="time"] { width: 100px; }
+/* 우리 부서 오늘 (휴대폰): 한 줄에 두 명 · 카드 안 글자 · 캐릭터 작게 */
+@media (max-width: 600px) {
+  .dept-today .dept-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+  .dept-today .mini-band { padding: 7px 10px; gap: 6px; }
+  .dept-today .mini-band-label { font-size: 9.5px; }
+  .dept-today .mini-band-big { font-size: 17px; }
+  .dept-today .mini-band-big small { font-size: 9.5px; }
+  .dept-today .mini-card.away .mini-band-big { font-size: 15px; }
+  .dept-today .mini-band-main > :last-child:not(.mini-band-big):not(.mini-band-label) { font-size: 10px; }
+  .dept-today .mini-band-side { font-size: 10px; }
+  .dept-today .mini-body { padding: 7px 10px 9px; gap: 7px; }
+  .dept-today .mini-body .mini-char { width: 32px; height: 32px; }
+  .dept-today .mini-body .mini-main { min-width: 0; }
+  .dept-today .mini-body .mini-main b { font-size: 13px; }
+  .dept-today .mini-body .mini-main { font-size: 10.5px; line-height: 1.35; }
+}
