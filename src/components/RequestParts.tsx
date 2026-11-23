@@ -7,6 +7,7 @@ import { isOrderDone, ORDER_STEPS, PRIORITIES, REQUEST_STATUS, type Member, type
 import { useSpaceData, useStore } from '../data/store';
 import { isLeader, useAccess } from './AuthGate';
 import OrderLinkPicker from './OrderLinkPicker';
+import { ClaimLinker, LinkedClaims } from './RequestClaims';
 import { characterSrc, Modal, Ring } from './ui';
 import DateInput from './DateInput';
 import { DateCell } from './OrderCells';
@@ -189,7 +190,7 @@ export function FileBox({ reqId, files, onChange, uploader }: { reqId: string; f
   );
 }
 
-type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderDateTo' | 'orderLink' | 'moreLinks' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
+type Draft = Pick<TradeRequest, 'title' | 'body' | 'storeCode' | 'orderDate' | 'orderDateTo' | 'orderLink' | 'moreLinks' | 'claimLinks' | 'longTerm' | 'dueDate' | 'workType' | 'requesterId' | 'assigneeId' | 'files'> & { priority?: Priority };
 
 export const SAME_DAY_MSG = '당일 업무는 팀장님께 확인 받은 후 의뢰 가능합니다.\n팀장님 및 무역사무팀원에게 확인 부탁드립니다.';
 /** 무역사무 요청 페이지·요청 창 위 고정 안내 */
@@ -264,6 +265,7 @@ function Fields({
 }) {
   const reqRequester = side === 'team'; // 무역사무가 넣는 자체 업무는 요청자 없어도 됨
   const [linking, setLinking] = useState<false | 'main' | 'add'>(false);
+  const [linkingClaim, setLinkingClaim] = useState(false);
   return (
     <div className="rq-form">
       <label className={`rq-f req rq-title-f ${showMissing && !d.title.trim() ? 'missing' : ''}`}>
@@ -358,6 +360,21 @@ function Fields({
             </button>
           </div>
         )}
+        {/* 클레임 기록 연결 (여러 건) */}
+        <div className="rq-claim-row">
+          <span className="rq-claim-label">클레임 연결</span>
+          {(d.claimLinks ?? []).map((l, i) => (
+            <span key={`${l.team}-${l.claimId}`} className="rq-order-chip">
+              🧾 {l.label}
+              <button type="button" className="link" onClick={() => set({ claimLinks: d.claimLinks!.filter((_, j) => j !== i).length ? d.claimLinks!.filter((_, j) => j !== i) : undefined })}>
+                끊기
+              </button>
+            </span>
+          ))}
+          <button type="button" className="rq-order-btn" onClick={() => setLinkingClaim(true)}>
+            🧾 {d.claimLinks?.length ? '클레임 더 연결' : '클레임 연결하기'}
+          </button>
+        </div>
         <label className="rq-f">
           <span>처리자</span>
           <select value={d.assigneeId ?? ''} onChange={(e) => set({ assigneeId: e.target.value || undefined })}>
@@ -370,6 +387,17 @@ function Fields({
           </select>
         </label>
       </div>
+      {linkingClaim && (
+        <ClaimLinker
+          side={side}
+          picked={d.claimLinks ?? []}
+          onPick={(l) => {
+            set({ claimLinks: [...(d.claimLinks ?? []), l] });
+            setLinkingClaim(false);
+          }}
+          onClose={() => setLinkingClaim(false)}
+        />
+      )}
       {linking && (
         <RequestOrderLinker
           title={d.title || '이 요청'}
@@ -667,6 +695,7 @@ export function RequestDetail({
   const canEditDue = access.role === 'admin' || (!!access.email && !!author && author === access.email) || (!author && access.role !== 'trade');
   const [zoom, setZoom] = useState<RequestFile | null>(null); // 사진 크게 보기
   const [linkingOrder, setLinkingOrder] = useState<false | 'main' | 'add'>(false);
+  const [linkingClaimD, setLinkingClaimD] = useState(false);
   const [d, setD] = useState<Draft>(r);
   // 주문 여러 개 연결: 연결한 주문들의 실제 주문일도 모아서 주문일자 기간으로 (예전에 날짜 없이 연결한 것까지)
   const multiLinked = !!r.orderLink && !!r.moreLinks?.length;
@@ -683,7 +712,7 @@ export function RequestDetail({
   const saveEdit = () => {
     if (!d.title.trim()) return;
     const patch: Partial<TradeRequest> = {};
-    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderDateTo', 'orderLink', 'moreLinks', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
+    for (const k of ['title', 'body', 'storeCode', 'orderDate', 'orderDateTo', 'orderLink', 'moreLinks', 'claimLinks', 'longTerm', 'dueDate', 'priority', 'workType', 'requesterId', 'assigneeId', 'files'] as const) {
       const v = typeof d[k] === 'string' ? (d[k] as string).trim() || undefined : d[k];
       if (JSON.stringify(v) !== JSON.stringify(r[k])) (patch as Record<string, unknown>)[k] = v;
     }
@@ -767,6 +796,19 @@ export function RequestDetail({
             </div>
           )}
           {r.orderLink && <LinkedOrderGroups links={linksOf(r)} side={side} />}
+          {!!r.claimLinks?.length && <LinkedClaims links={r.claimLinks} />}
+          {linkingClaimD && (
+            <ClaimLinker
+              side={side}
+              defaultTeam={r.team}
+              picked={r.claimLinks ?? []}
+              onPick={(l) => {
+                onSave({ claimLinks: [...(r.claimLinks ?? []), l] });
+                setLinkingClaimD(false);
+              }}
+              onClose={() => setLinkingClaimD(false)}
+            />
+          )}
           {linkingOrder && (
             <RequestOrderLinker
               title={r.title}
@@ -858,6 +900,14 @@ export function RequestDetail({
               <button className="rq-link-btn" onClick={() => setLinkingOrder('add')}>
                 ＋ 주문 추가
               </button>
+            )}
+            {side === 'trade' && r.status !== 'cancelled' && (
+              <button className="rq-link-btn" onClick={() => setLinkingClaimD(true)}>
+                🧾 클레임 연결
+              </button>
+            )}
+            {side === 'trade' && !!r.claimLinks?.length && r.status !== 'cancelled' && (
+              <button onClick={() => confirm('연결한 클레임을 모두 끊을까요?') && onSave({ claimLinks: undefined })}>클레임 연결 끊기</button>
             )}
             {side === 'trade' && r.orderLink && r.status !== 'cancelled' && (
               <button onClick={() => confirm(r.moreLinks?.length ? '연결한 주문을 모두 끊을까요?' : '주문 연결을 끊을까요?') && onSave({ orderLink: undefined, moreLinks: undefined })}>

@@ -149,6 +149,7 @@ export default function RequestBoard({ side }: { side: 'team' | 'trade' }) {
           return g ? `${g.from}${g.to !== g.from ? ` ~ ${g.to}` : ''}` : '';
         })(),
         '연결 주문': [r.orderLink, ...(r.moreLinks ?? [])].filter(Boolean).map((l) => l!.label).join(' / '),
+        '연결 클레임': (r.claimLinks ?? []).map((l) => l.label).join(' / '),
         진행률: r.longTerm ? `${r.progress ?? 0}%` : '',
       })),
     );
@@ -581,7 +582,7 @@ function Row({
       <td className="c-title">
         <button className="rq-title" onClick={onOpen} title="눌러서 자세히 보기">
           {isNewReq(r, todayIso) && <span className="rq-new-tag">NEW</span>}
-          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${[r.orderLink, ...(r.moreLinks ?? [])].map((l) => l.label).join(' / ')}`}> 📦{r.moreLinks?.length ? <small>{r.moreLinks.length + 1}</small> : null}</span>}
+          {r.title}{r.orderLink && <span className="rq-has-order" title={`연결된 주문: ${[r.orderLink, ...(r.moreLinks ?? [])].map((l) => l.label).join(' / ')}`}> 📦{r.moreLinks?.length ? <small>{r.moreLinks.length + 1}</small> : null}</span>}{!!r.claimLinks?.length && <span className="rq-has-order" title={`연결된 클레임: ${r.claimLinks.map((l) => l.label).join(' / ')}`}> 🧾{r.claimLinks.length > 1 ? <small>{r.claimLinks.length}</small> : null}</span>}
           {!r.longTerm && (side === 'trade' || teamOfRequest(r) !== myTeam) && <span className={`rq-team ${teamTagClass(r)}`}>{requestSideLabel(r)}</span>}
           {r.longTerm && (
             <span className="rq-long-line">

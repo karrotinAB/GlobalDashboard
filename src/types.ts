@@ -256,6 +256,13 @@ export interface OrderLink {
   orderDateTo?: string;
 }
 
+/** 무역사무 요청에 연결한 클레임 기록 */
+export interface ClaimLink {
+  team: string;
+  claimId: string;
+  label: string;
+}
+
 export interface TradeRequest {
   id: string;
   title: string; // 업무 내용(제목)
@@ -266,6 +273,7 @@ export interface TradeRequest {
   orderDateTo?: string; // 주문일자를 기간으로 쓸 때 끝 날짜
   orderLink?: OrderLink; // 연결한 주문 (요청한 조의 주문 관리) — 무역사무도 볼 수 있음
   moreLinks?: OrderLink[]; // 더 연결한 주문 (묶음이 아닌 여러 주문 · 여러 매장) — '+ 주문 추가하기'
+  claimLinks?: ClaimLink[]; // 연결한 클레임 기록 (요청한 조의 클레임 관리)
   longTerm?: boolean; // 장기 업무: 세부 업무 + 진행률 (100% 면 완료)
   subtasks?: { id: string; title: string; done: boolean }[];
   progress?: number; // 0~100 (사람이 직접)
