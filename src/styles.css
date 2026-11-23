@@ -8852,3 +8852,13 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* 오늘의 날씨: 지금 날씨 줄과 시간 칸 사이 띄우기 (카드 높이는 그대로 — 시간 칸이 그만큼 줄어듦) */
 .zs-slide .zw-now { margin-bottom: 8px; }
 @media (max-width: 600px) { .zs-slide .zw-now { margin-bottom: 4px; } }
+/* 주소록 ID/PW: 옆으로 넘치지 않게 칸 안에서 줄바꿈 (가로 스크롤 없이 한 화면) */
+.ab-table.sl-table { table-layout: fixed; width: 100%; }
+.ab-table.sl-table th, .ab-table.sl-table td { white-space: normal; padding: 8px 10px; word-break: break-word; overflow-wrap: anywhere; }
+.ab-table.sl-table th.ab-g { width: 26%; }
+.ab-table.sl-table th:nth-child(2) { width: 22%; }
+.ab-table.sl-table th:nth-child(3) { width: 20%; }
+.ab-table.sl-table th.sl-act-h { width: 52px; }
+.ab-table.sl-table td.sl-pw { white-space: nowrap; }
+.ab-table.sl-table td.sl-note { min-width: 0; max-width: none; }
+.ab-wrap:has(.sl-table) { overflow-x: hidden; }
