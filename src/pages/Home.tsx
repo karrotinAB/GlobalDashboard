@@ -173,21 +173,25 @@ export default function Home(_props: { go: (page: string) => void }) {
 
   // 시계는 계정마다 따로 고름: 내 카드(members.clocks)에 저장, 카드가 없으면 이 브라우저에
   const myCard = members.find((m) => !!access.email && m.email?.toLowerCase() === access.email);
-  const [localPick, setLocalPick] = useState<ClockPick[] | undefined>(() => {
+  // 카드가 없는 화면(관리자가 다른 조를 볼 때 등): 이 브라우저에 조마다 따로 (한 조에서 고른 게 다른 조에 안 섞이게)
+  const clockKey = `gd:clocks:${access.viewTeam}`;
+  const readLocalPick = (): ClockPick[] | undefined => {
     try {
-      return JSON.parse(localStorage.getItem('gd:clocks') ?? 'null') ?? undefined;
+      return JSON.parse(localStorage.getItem(clockKey) ?? 'null') ?? undefined;
     } catch {
       return undefined;
     }
-  });
+  };
+  const [localPick, setLocalPick] = useState<ClockPick[] | undefined>(readLocalPick);
+  useEffect(() => setLocalPick(readLocalPick()), [clockKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const picked = myCard ? myCard.clocks : localPick;
   const saveClocks = (list: ClockPick[] | undefined) => {
     if (myCard) save('members', { ...myCard, clocks: list });
     else {
       setLocalPick(list);
       try {
-        if (list) localStorage.setItem('gd:clocks', JSON.stringify(list));
-        else localStorage.removeItem('gd:clocks');
+        if (list) localStorage.setItem(clockKey, JSON.stringify(list));
+        else localStorage.removeItem(clockKey);
       } catch {
         /* 무시 */
       }
@@ -259,7 +263,7 @@ export default function Home(_props: { go: (page: string) => void }) {
       </section>
 
 
-      <WorldClocks defaults={defaultClocks} picked={picked} onSave={saveClocks} where={myCard ? `${myCard.name} 계정에 저장돼요` : '이 브라우저에 저장돼요 (내 카드가 연결되면 계정에 저장)'} />
+      <WorldClocks defaults={defaultClocks} picked={picked} onSave={saveClocks} where={myCard ? `${myCard.name} 계정에 저장돼요` : `이 브라우저에 ${access.viewLabel} 화면용으로 저장돼요`} />
 
 
       <section className="section">
