@@ -157,7 +157,9 @@ function greeting(h: number, m: number) {
 export default function Home(_props: { go: (page: string) => void }) {
   const { data, save } = useStore();
   const access = useAccess();
-  const [deptOn, flipDept] = useDeptView(); // 우리 팀 오늘 ↔ 우리 부서 오늘
+  const [deptView, flipDept] = useDeptView(); // 우리 팀 오늘 ↔ 우리 부서 오늘
+  // 이사님 · 팀장님 대시보드는 '우리 부서 오늘' 없음 (오른쪽에 부서원 출퇴근이 이미 있어서)
+  const deptOn = deptView && !isPersonal(access.viewTeam);
   const { members, companies } = useLookups();
   const now = useNow();
   const todayIso = today();
@@ -218,7 +220,7 @@ export default function Home(_props: { go: (page: string) => void }) {
         <div className="section-head">
           <h2>👋 {deptOn ? '우리 부서 오늘' : isPersonal(access.viewTeam) ? '오늘의 나' : '우리 팀 오늘'}</h2>
           {!deptOn && <span className="muted small">내 카드의 말풍선·캐릭터를 누르면 바꿀 수 있어요</span>}
-          <DeptToggle on={deptOn} onFlip={flipDept} />
+          {!isPersonal(access.viewTeam) && <DeptToggle on={deptOn} onFlip={flipDept} />}
         </div>
         {deptOn ? (
           <DeptToday side={(isPersonal(access.viewTeam) ? 'leader' : access.viewTeam) as DeptSide} todayIso={todayIso} nowMin={seoul.h * 60 + seoul.mi} myEmail={access.email} />
