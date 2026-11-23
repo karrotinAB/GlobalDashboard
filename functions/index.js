@@ -744,6 +744,30 @@ export const syncSkuNow = onCall(skuOpts, async (req) => {
   }
 });
 
+// 번역: 수출 분류 · 영문명이 빈 제품 목록 (모두가 같이 봄) — ⬇ 없는거 불러오기 · 🔄 새로고침
+import { loadMissing, recheckMissing } from './skuMissing.js';
+const dashRole = async (req) => {
+  const role = await roleOf(req);
+  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
+};
+export const skuMissingLoad = onCall({ ...skuOpts }, async (req) => {
+  await dashRole(req);
+  try {
+    return await loadMissing(db);
+  } catch (e) {
+    throw new HttpsError('failed-precondition', e.message);
+  }
+});
+export const skuMissingRecheck = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
+  await dashRole(req);
+  const codes = Array.isArray(req.data?.codes) ? req.data.codes.slice(0, 2000) : [];
+  try {
+    return await recheckMissing(db, codes);
+  } catch (e) {
+    throw new HttpsError('failed-precondition', e.message);
+  }
+});
+
 // 번역 페이지: 엑셀에서 정보가 없는 제품코드만 찾아오기 (한 번에 300개까지 · 1초씩 쉬며 · 한 번 찾아본 건 다시 안 물음)
 export const lookupSku = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
   const role = await roleOf(req);

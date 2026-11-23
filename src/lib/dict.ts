@@ -8,6 +8,7 @@ export interface DictEntry {
   id: string;
   ko: string;
   en: string;
+  type?: string; // 구분 (sku_type_name: 상품 · 제품 …) — 있으면 그 구분 제품에만 (예: 오토 → 상품이면 auto, 제품이면 Otto)
   by?: string;
   at?: string;
 }
@@ -29,7 +30,7 @@ const writeLocal = (l: DictEntry[]) => {
   window.dispatchEvent(new Event('gd-dict'));
 };
 /** 한글 단어 → 문서 id (같은 단어는 한 줄로) */
-export const dictId = (ko: string) => encodeURIComponent(ko.trim()).replace(/\./g, '%2E').slice(0, 700);
+export const dictId = (ko: string, type?: string) => encodeURIComponent(ko.trim() + (type ? `@${type}` : '')).replace(/\./g, '%2E').slice(0, 700);
 
 export function useDict() {
   const [list, setList] = useState<DictEntry[] | null>(null);
@@ -49,15 +50,15 @@ export function useDict() {
   return list;
 }
 
-export async function saveDict(entries: { ko: string; en: string }[], by?: string) {
+export async function saveDict(entries: { ko: string; en: string; type?: string }[], by?: string) {
   const at = new Date().toISOString();
-  const clean = entries.map((e) => ({ ko: e.ko.trim(), en: e.en.trim() })).filter((e) => e.ko && e.en);
+  const clean = entries.map((e) => ({ ko: e.ko.trim(), en: e.en.trim(), ...(e.type?.trim() ? { type: e.type.trim() } : {}) })).filter((e) => e.ko && e.en);
   if (DATA_MODE === 'local') {
     const map = new Map(readLocal().map((e) => [e.id, e]));
-    for (const e of clean) map.set(dictId(e.ko), { id: dictId(e.ko), ...e, by, at });
+    for (const e of clean) map.set(dictId(e.ko, e.type), { id: dictId(e.ko, e.type), ...e, by, at });
     return writeLocal([...map.values()]);
   }
-  await Promise.all(clean.map((e) => setDoc(doc(db, 'dict', dictId(e.ko)), { ...e, ...(by ? { by } : {}), at })));
+  await Promise.all(clean.map((e) => setDoc(doc(db, 'dict', dictId(e.ko, e.type)), { ...e, ...(by ? { by } : {}), at })));
 }
 
 export async function deleteDict(id: string) {

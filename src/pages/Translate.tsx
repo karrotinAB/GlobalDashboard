@@ -1,4 +1,4 @@
-// 번역: [번역] 엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
+// 번역: [번역] 회사 API 에서 수출 분류 · 영문 제품명이 빈 제품을 불러와 (모두가 같이 봄) 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
 import { useNameOf } from '../components/AddressBook';
 import { rectOf, viewH, viewW } from '../lib/zoom';
@@ -33,36 +33,10 @@ function useKept<T>(key: string, init: T): [T, Dispatch<SetStateAction<T>>] {
   return [v, setV];
 }
 
-// 올린 엑셀 파일 원본을 브라우저(IndexedDB)에 저장 · 다시 꺼내기
-const idb = () =>
-  new Promise<IDBDatabase>((res, rej) => {
-    const r = indexedDB.open('gd-translate', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('files');
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-async function saveFile(name: string, buf: ArrayBuffer) {
-  try {
-    const db = await idb();
-    db.transaction('files', 'readwrite').objectStore('files').put({ name, buf, at: Date.now() }, 'last');
-  } catch {
-    /* 저장 못 해도 작업은 계속 */
-  }
-}
-async function loadFile(): Promise<{ name: string; buf: ArrayBuffer } | null> {
-  try {
-    const db = await idb();
-    return await new Promise((res) => {
-      const g = db.transaction('files').objectStore('files').get('last');
-      g.onsuccess = () => res((g.result as { name: string; buf: ArrayBuffer }) ?? null);
-      g.onerror = () => res(null);
-    });
-  } catch {
-    return null;
-  }
-}
 import { useAccess } from '../components/AuthGate';
-import { lookupSkus, seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
+import { today } from '../lib/date';
+import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing } from '../lib/skuMissing';
+import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
@@ -106,8 +80,11 @@ interface Sheet {
   headers: string[];
   col: Partial<Record<TKey | 'koName' | 'code' | 'season', number>>;
   rows: { r: number; cells: unknown[] }[]; // 데이터 줄 (엑셀 줄 번호 r: 0부터)
-  wb: unknown; // 원본 (내려받을 때 채워 넣음)
+  wb: unknown; // (예전: 올린 엑셀 원본) — 지금은 안 씀
 }
+// 빈 제품 목록 → 표 칸: 제품코드 · 구분(상품/제품) · 한글 제품명(닉네임) · 수출 대분류 3칸 · 중분류 3칸 · 영문 제품명 · 등록일
+const SHEET_HEADERS = ['제품코드', '구분', '한글 제품명', '수출대분류', '수출대분류명', '수출대분류 영문명', '수출중분류', '수출중분류명', '수출중분류 영문명', '영문 제품명', '등록일'];
+const SHEET_COL: Sheet['col'] = { code: 0, koName: 2, mainCode: 3, mainName: 4, mainEn: 5, subCode: 6, subName: 7, subEn: 8, enName: 9 };
 
 export default function Translate() {
   const [tab, setTab] = useKept<Tab>('tab', 'translate');
@@ -115,7 +92,7 @@ export default function Translate() {
     <div className="page">
       <div className="page-head">
         <h1>제품번역</h1>
-        <p className="muted">엑셀을 올리면 비어 있는 분류·영문 제품명을 찾아서 사전으로 자동 번역해요. 모르는 단어는 채워 넣으면 사전에 저장돼서 다음부터 자동으로 들어가요.</p>
+        <p className="muted"><b>⬇ 없는거 불러오기</b>로 수출 분류 · 영문 제품명이 빈 제품을 회사에서 가져와 사전으로 자동 번역해요 (목록은 모두가 같이 봐요). 모르는 단어는 채워 넣으면 사전에 저장돼서 다음부터 자동으로 들어가요.</p>
       </div>
       <div className="seg tr-tabs">
         <button className={tab === 'translate' ? 'on' : ''} onClick={() => setTab('translate')}>
@@ -136,9 +113,23 @@ export default function Translate() {
 function useDictMap() {
   const list = useDict();
   return useMemo(() => {
-    const map = new Map((list ?? []).map((e) => [e.ko, e.en]));
+    // 구분 없는 단어 = 기본 · 구분 있는 단어 (상품 · 제품 …) = 그 구분 제품에서만 기본 대신
+    const map = new Map((list ?? []).filter((e) => !e.type).map((e) => [e.ko, e.en]));
     const keys = [...map.keys()].sort((a, b) => b.length - a.length); // 긴 단어부터
-    return { list, map, keys };
+    const typed = new Map<string, Map<string, string>>();
+    for (const e of list ?? []) if (e.type) typed.set(e.type, (typed.get(e.type) ?? new Map()).set(e.ko, e.en));
+    const cache = new Map<string, { map: Map<string, string>; keys: string[] }>();
+    /** 이 구분 제품에 쓸 사전 (구분 단어가 없으면 기본 그대로) */
+    const forType = (type: string) => {
+      const t = typed.get(type);
+      if (!t) return { map, keys };
+      if (!cache.has(type)) {
+        const m = new Map([...map, ...t]);
+        cache.set(type, { map: m, keys: [...m.keys()].sort((a, b) => b.length - a.length) });
+      }
+      return cache.get(type)!;
+    };
+    return { list, map, keys, forType, types: [...typed.keys()] };
   }, [list]);
 }
 
@@ -147,9 +138,31 @@ function TranslateTab() {
   const isAdmin = role === 'admin' || role === null; // 관리자 (로컬 모드 포함)
   // 제품코드 · 제품명에 마우스 올리면 제품 이미지 · 팀 · 분류 (getSkuList)
   const { bind: skuHover, card: skuCard } = useSkuHover();
-  const { list, map, keys } = useDictMap();
-  const [sheet, setSheet] = useKept<Sheet | null>('sheet', null);
-  const [err, setErr] = useState('');
+  const { list, map, keys, forType } = useDictMap();
+  // 빈 제품 목록 (서버가 회사 API 에서 찾아 둔 것 · 모두가 같이 봄) → 표 한 장처럼
+  const { list: missing, meta: mMeta } = useSkuMissing();
+  const { rows: cats } = useCategories();
+  const sheet = useMemo<Sheet | null>(() => {
+    if (!missing) return null;
+    // 코드가 있으면 이름 · 영문명은 분류표에서 채워 둠 (비어 있는 칸만 고르게)
+    const byMain = new Map<string, Cat>();
+    const byBoth = new Map<string, Cat>();
+    for (const c of cats ?? []) {
+      if (!byMain.has(c.mainCode)) byMain.set(c.mainCode, c);
+      byBoth.set(`${c.mainCode}-${c.subCode}`, c);
+    }
+    const rows = missing.map((m) => {
+      const both = m.lrg && m.midd ? byBoth.get(`${m.lrg}-${m.midd}`) : undefined;
+      const main = m.lrg ? both ?? byMain.get(m.lrg) : undefined;
+      return {
+        r: rowKeyOf(m.code),
+        cells: [m.code, m.type, m.ko, m.lrg, main?.mainName ?? '', main?.mainEn ?? '', m.midd, both?.subName ?? '', both?.subEn ?? '', m.eng, m.reg],
+      };
+    });
+    return { fileName: '수출분류_영문명', sheetName: '빈 제품', headerRow: 0, headers: SHEET_HEADERS, col: SHEET_COL, rows, wb: null };
+  }, [missing, cats]);
+  const typeOf = (row: { cells: unknown[] }) => String(row.cells[1] ?? '');
+  const err = '';
   const [edits, setEdits] = useKept<Record<number, string>>('edits', {}); // 줄 → 직접 고친 영문 제품명
   const [keepParen, setKeepParen] = useKept<Record<number, string[]>>('keepParen', {}); // 줄 → 빼지 말고 번역할 괄호
   // '사전에 없는 단어'에서 ✕ 로 뺀 단어: 번역하지 않음 (영문 제품명에서 빠짐)
@@ -158,58 +171,6 @@ function TranslateTab() {
   const [rowF, setRowF] = useKept<'all' | 'excel' | 'left'>('rowF', 'left');
   const onlyTodo = rowF !== 'all';
   const [page0, setPage] = useKept('page', 0);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [restoring, setRestoring] = useState(false);
-  useEffect(() => {
-    if (sheet) return;
-    setRestoring(true);
-    void loadFile()
-      .then((f) => f && load({ name: f.name, arrayBuffer: async () => f.buf }, false))
-      .finally(() => setRestoring(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // fresh = 새로 올린 파일 (고친 것·고른 분류 비움) / 아니면 저장해 둔 파일 다시 열기 (그대로 둠)
-  const load = async (f: { name: string; arrayBuffer: () => Promise<ArrayBuffer> }, fresh = true) => {
-    setErr('');
-    try {
-      const XLSX = await import('xlsx');
-      const buf = await f.arrayBuffer();
-      if (fresh) void saveFile(f.name, buf.slice(0));
-      const wb = XLSX.read(buf, { type: 'array' });
-      // 찾을 칸이 2개 이상 있는 첫 시트·첫 줄을 머리줄로
-      for (const sn of wb.SheetNames) {
-        const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sn], { header: 1, defval: '', raw: false });
-        for (let h = 0; h < Math.min(aoa.length, 15); h++) {
-          // 칸 이름이 비슷하면 찾음 (띄어쓰기 · [F9] 같은 앞 글자 · 영어/영문 차이 무시). 같은 종류는 처음 나온 칸
-          const col: Sheet['col'] = {};
-          (aoa[h] ?? []).forEach((x, i) => {
-            const k = classify(x);
-            if (k && col[k] === undefined) col[k] = i;
-          });
-          if (TARGETS.filter((t) => col[t.key] !== undefined).length < 2) continue;
-          const rows = aoa
-            .slice(h + 1)
-            .map((cells, i) => ({ r: h + 1 + i, cells }))
-            .filter((x) => x.cells.some((c) => String(c ?? '').trim()));
-          setSheet({ fileName: f.name, sheetName: sn, headerRow: h, headers: (aoa[h] ?? []).map((x) => String(x ?? '')), col, rows, wb });
-          if (fresh) {
-            setEdits({});
-            setKeepParen({});
-            setCodePre('');
-            setSeasonF('');
-            setCatSel({});
-            setPage(0);
-          }
-          return;
-        }
-      }
-      setErr("머리줄에서 '수출 대분류', '영어 제품명' 같은 칸을 못 찾았어요. 칸 이름에 '대분류' · '중분류' · '제품명' 이 들어가 있는지 확인해 주세요.");
-    } catch (e) {
-      setErr(`엑셀을 못 읽었어요: ${(e as Error).message}`);
-    }
-  };
-
   const cell = (row: { cells: unknown[] }, k: keyof Sheet['col']) => (sheet?.col[k] !== undefined ? String(row.cells[sheet.col[k]!] ?? '').trim() : '');
   // 비어 있는 칸이 있는 줄 + 자동 번역
   const hiddenSet = useMemo(() => new Set(hidden), [hidden]);
@@ -225,7 +186,9 @@ function TranslateTab() {
       const parens: string[] = ko.match(/\([^()]*\)|（[^（）]*）/g) ?? [];
       const cut = parens.filter((x) => !kept.includes(x));
       const koEn = cut.length ? ko.replace(/\([^()]*\)|（[^（）]*）/g, (m) => (kept.includes(m) ? m : ' ')).replace(/\s{2,}/g, ' ').trim() : ko;
-      const tr0 = koEn ? translate(koEn, map, keys) : { en: '', unknown: [] as string[], pieces: [] };
+      // 구분(상품 · 제품)마다 다른 단어 (예: 오토 → 상품 auto · 제품 Otto)
+      const dt = forType(typeOf(row));
+      const tr0 = koEn ? translate(koEn, dt.map, dt.keys) : { en: '', unknown: [] as string[], pieces: [] };
       // 뺀 단어는 영문에서 지움 ([호] → 없음)
       const skipped = tr0.unknown.filter((u) => hiddenSet.has(u));
       const en = skipped.length ? skipped.reduce((a, w) => a.split(`[${w}]`).join(''), tr0.en).replace(/\s{2,}/g, ' ').replace(/\s+([)\],.])/g, '$1').trim() : tr0.en;
@@ -235,7 +198,7 @@ function TranslateTab() {
       return { row, empty, ko, tr, cut, parens, season };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet, map, keys, keepParen, hiddenSet, seasonSet]);
+  }, [sheet, map, keys, forType, keepParen, hiddenSet, seasonSet]);
   // 괄호 살리기/다시 빼기 (그 줄에 직접 고친 영문은 지우고 새로 번역)
   const toggleParen = (r: number, part: string) => {
     setKeepParen((x) => {
@@ -291,7 +254,6 @@ function TranslateTab() {
   const enOf = (v: (typeof view)[number]) => edits[v.row.r] ?? v.tr.en;
 
   // 수출 분류: 분류표 · 고른 기록 · 이 파일에서 이미 채워진 줄로 추천
-  const { rows: cats } = useCategories();
   const picks = useCatPicks();
   const catByKey = useMemo(() => new Map((cats ?? []).map((c) => [catKey(c), c])), [cats]);
   const catGroups = useMemo(() => {
@@ -315,31 +277,6 @@ function TranslateTab() {
     return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre, path: pathOf(p.code) }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, picks, seasonSet, skuPaths]);
-  // 빈 칸이 있는 줄의 제품코드 → 서버가 받아 둔 정보(이미지 · 팀 · 대/중/소분류)가 하나라도 빈 것만 회사 API에 물어봄 (파일마다 한 번 자동)
-  const missingCodes = useMemo(() => {
-    if (!sheet || sheet.col.code === undefined) return [];
-    return [...new Set(view.filter((v) => v.empty.length).map((v) => cell(v.row, 'code')).filter(Boolean))];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-  const [lookupMsg, setLookupMsg] = useState('');
-  const lookedRef = useRef('');
-  useEffect(() => {
-    const key = sheet ? `${sheet.fileName}|${sheet.rows.length}` : '';
-    if (!key || !missingCodes.length || lookedRef.current === key) return;
-    lookedRef.current = key;
-    setLookupMsg('🔎 제품 정보(이미지 · 팀 · 분류)가 빈 제품을 찾아보는 중…');
-    lookupSkus(missingCodes)
-      .then((r) =>
-        setLookupMsg(
-          r.unsupported
-            ? '제품코드로 하나씩 찾는 건 회사 API가 안 받아 줘요 (관리자에게 알려 주세요)'
-            : r.asked === 0
-              ? ''
-              : `🔎 없던 제품 ${r.asked}개 찾아봄 → ${r.found}개 새로 받음${r.none ? ` · ${r.none}개는 회사 API에도 없음` : ''}${r.left ? ` · 남은 ${r.left}개는 다음에` : ''}`,
-        ),
-      )
-      .catch((e) => setLookupMsg(`제품 정보 찾기 실패: ${(e as Error).message}`));
-  }, [sheet, missingCodes]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
   const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
@@ -406,77 +343,111 @@ function TranslateTab() {
   const download = async (all = false) => {
     if (!sheet) return;
     const XLSX = await import('xlsx');
-    const wb = sheet.wb as import('xlsx').WorkBook;
-    const ws = wb.Sheets[sheet.sheetName];
-    const c = sheet.col.enName;
+    // 목록 그대로 + 채운 칸 (영문 제품명 · 고른 수출 분류) — 코드는 글자로 (01 의 0 이 안 없어지게)
+    const out = new Map(sheet.rows.map((row) => [row.r, row.cells.map((x) => String(x ?? ''))]));
+    const c = sheet.col.enName!;
     let n = 0;
-    if (c !== undefined)
-      for (const v of needEn) {
-        const en = enOf(v);
-        if (!en || (!all && /\[[^\]]+\]/.test(en))) continue; // 모르는 단어가 남은 건 비워 둠 (관리자 '덜 된 것도' 는 그대로)
-        ws[XLSX.utils.encode_cell({ r: v.row.r, c })] = { t: 's', v: en };
-        n++;
-      }
-    // 고른 수출 분류: 빈 칸만 채움 (코드는 글자로 — 01 의 0 이 안 없어지게)
+    for (const v of needEn) {
+      const en = enOf(v);
+      if (!en || (!all && /\[[^\]]+\]/.test(en))) continue; // 모르는 단어가 남은 건 비워 둠 (관리자 '덜 된 것도' 는 그대로)
+      out.get(v.row.r)![c] = en;
+      n++;
+    }
     let nc = 0;
-    let maxC = c ?? 0;
     for (const v of todo) {
       const cat = catByKey.get(chosen(v));
       if (!cat) continue;
-      for (const t of catCols) {
-        if (!v.empty.includes(t.key)) continue;
-        const col = sheet.col[t.key]!;
-        ws[XLSX.utils.encode_cell({ r: v.row.r, c: col })] = { t: 's', v: catValue(cat, t.key) };
-        maxC = Math.max(maxC, col);
-      }
+      for (const t of catCols) if (v.empty.includes(t.key)) out.get(v.row.r)![sheet.col[t.key]!] = catValue(cat, t.key);
       nc++;
     }
-    const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
-    if (range.e.c < maxC) range.e.c = maxC;
-    ws['!ref'] = XLSX.utils.encode_range(range);
-    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const url = URL.createObjectURL(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = sheet.fileName.replace(/(\.xlsx?|\.csv)?$/i, '_번역.xlsx');
-    a.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const aoa = [sheet.headers, ...sheet.rows.map((row) => out.get(row.r)!)];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    for (const k of Object.keys(ws)) if (!k.startsWith('!') && ws[k].t === 'n') ws[k] = { t: 's', v: String(ws[k].v) };
+    ws['!cols'] = [{ wch: 11 }, { wch: 6 }, { wch: 36 }, { wch: 8 }, { wch: 14 }, { wch: 18 }, { wch: 8 }, { wch: 14 }, { wch: 18 }, { wch: 40 }, { wch: 11 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '빈 제품');
+    XLSX.writeFile(wb, `수출분류_영문명_${today().replace(/-/g, '')}.xlsx`);
     alert(all ? `영문 제품명 ${n}줄(모르는 단어 [ ] 가 남은 것 포함) · 수출 분류 ${nc}줄을 채워서 받았어요.` : `영문 제품명 ${n}줄 · 수출 분류 ${nc}줄을 채워서 받았어요. (모르는 단어가 남은 영문 제품명, 분류를 안 고른 줄은 비워 뒀어요)`);
   };
+
+  // ⬇ 없는거 불러오기 · 🔄 새로고침 (모두가 같이 보는 목록)
+  const [busy, setBusy] = useState<'' | 'load' | 'recheck'>('');
+  const [msg, setMsg] = useState('');
+  // 내가 채우고 있는 것 = 영문 제품명이 완성됐거나 (모르는 단어 없이) 수출 분류를 고른 줄
+  const filling = useMemo(
+    () => (sheet ? view.filter((v) => (v.empty.includes('enName') && enOf(v) && !/\[[^\]]+\]/.test(enOf(v)) && edits[v.row.r] !== undefined) || catByKey.has(chosen(v))).map((v) => cell(v.row, 'code')) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view, edits, catSel, catByKey],
+  );
+  const loadNow = async () => {
+    setBusy('load');
+    setMsg(mMeta.phase === 'inc' ? '지난번 등록일 이후 새 제품을 찾는 중…' : '처음이라 전체 제품을 훑는 중이에요 (회사 API 제한 때문에 몇 분 걸려요)…');
+    try {
+      const r = await loadMissingNow();
+      setMsg(
+        r.busy
+          ? '다른 사람이 지금 불러오는 중이에요 — 조금 뒤에 다시 눌러 주세요'
+          : `${r.phase === 'inc' ? '✓ ' : ''}${r.scanned.toLocaleString()}개를 보고 빈 제품 ${r.added.toLocaleString()}개를 새로 찾았어요 · 목록 ${r.count.toLocaleString()}개${r.stopped ? ` · ${r.stopped}` : ''}${r.phase !== 'inc' ? ' · 아직 다 못 훑었어요 (다시 누르면 이어서)' : ''}`,
+      );
+    } catch (e) {
+      setMsg(`못 불러왔어요: ${(e as Error).message}`);
+    } finally {
+      setBusy('');
+    }
+  };
+  const recheck = async () => {
+    if (!filling.length) return;
+    setBusy('recheck');
+    setMsg(`채운 ${filling.length}개를 회사 API 에서 다시 확인하는 중… (1개에 2초쯤)`);
+    try {
+      const r = await recheckMissingNow(filling);
+      setMsg(`${r.checked}개 확인 → ${r.removed}개는 다 채워져서 목록에서 뺐어요${r.left ? ` · 남은 ${r.left}개는 다시 누르면 이어서` : ''}${r.stopped ? ` · ${r.stopped}` : ''}`);
+    } catch (e) {
+      setMsg(`확인 못 했어요: ${(e as Error).message}`);
+    } finally {
+      setBusy('');
+    }
+  };
+  const fmtAt = (iso?: string) => (iso ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 
   return (
     <div className="tr-wrap">
       <div className="card tr-upload">
-        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files?.[0] && void load(e.target.files[0])} />
-        <button className="primary" onClick={() => fileRef.current?.click()}>
-          📤 엑셀 올리기
+        <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만)">
+          {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
+        </button>
+        <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="채우고 있는 제품만 회사 API 에서 다시 확인해서, 다 채워졌으면 목록에서 빼요 (모두의 목록에서)">
+          {busy === 'recheck' ? '확인 중…' : `🔄 새로고침${filling.length ? ` (채운 ${filling.length}개 확인)` : ''}`}
         </button>
         {sheet ? (
           <span className="muted small">
-            <span className="tr-saved" title="고친 것·고른 분류는 이 브라우저에 자동 저장돼요 (새로고침해도 그대로)">💾 자동 저장</span> {sheet.fileName} · {sheet.sheetName} · 전체 {sheet.rows.length}줄 중 <b>빈 칸 있는 줄 {todo.length}</b> · 영문 제품명 빈 줄 {needEn.length}
-            {sheet.col.koName === undefined && ' · ⚠ 한글 제품명 칸을 못 찾아서 자동 번역은 안 돼요'}
+            빈 제품 <b>{sheet.rows.length.toLocaleString()}개</b> (모두가 같이 봐요) · 영문 제품명 빈 것 {needEn.length.toLocaleString()}
+            {mMeta.at && ` · 마지막 불러오기 ${fmtAt(mMeta.at)}`}
+            {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)} 까지 봤어요`}
+            {mMeta.phase !== 'inc' && mMeta.at && ' · 아직 전체를 다 못 훑었어요'}
+            {mMeta.order === 'mixed' && ' · ⚠ 등록일 순서가 섞여 있어서 새 제품을 찾을 때 처음부터 다시 봐요'}
           </span>
         ) : (
-          <span className="muted small">{restoring ? '저장해 둔 작업 불러오는 중… · ' : ''}찾는 칸: {TARGETS.map((t) => t.label).join(' · ')} (+ 한글 제품명)</span>
+          <span className="muted small">목록 불러오는 중…</span>
         )}
-        {sheet && (
+        {sheet && sheet.rows.length > 0 && (
           <button className="tr-dl" onClick={() => void download()}>
             ⬇ 채운 엑셀 받기
           </button>
         )}
         {isAdmin && <SkuSyncBtn />}
-        {sheet && isAdmin && (
+        {sheet && sheet.rows.length > 0 && isAdmin && (
           <button className="tr-dl tr-dl-all" onClick={() => void download(true)} title="관리자만: 모르는 단어가 [ ] 로 남은 영문 제품명도 그대로 채워서 받아요">
             ⬇ 덜 된 것도 받기
           </button>
         )}
+        {msg && <span className="small tr-sku-msg">{msg}</span>}
       </div>
       {err && <p className="warn small">{err}</p>}
-      {lookupMsg && <p className="muted small">{lookupMsg}</p>}
       {list === null && <p className="muted small">사전 불러오는 중…</p>}
       {skuCard}
 
-      {sheet && unknownAll.length > 0 && <UnknownWords words={unknownAll} hidden={hidden} setHidden={setHidden} rowsOf={(w) => needEn.filter((v) => v.tr.unknown.includes(w) || v.tr.skipped.includes(w)).map((v) => ({ r: v.row.r, ko: v.ko, en: v.tr.en }))} />}
+      {sheet && unknownAll.length > 0 && <UnknownWords words={unknownAll} hidden={hidden} setHidden={setHidden} rowsOf={(w) => needEn.filter((v) => v.tr.unknown.includes(w) || v.tr.skipped.includes(w)).map((v) => ({ r: v.row.r, code: cell(v.row, 'code'), ko: v.ko, en: v.tr.en }))} />}
 
       {sheet && (
         <div className="card tr-rows">
@@ -549,19 +520,20 @@ function TranslateTab() {
                 </tr>
               </thead>
               <tbody>
-                {shown.slice(page * PAGE, page * PAGE + PAGE).map((v) => {
+                {shown.slice(page * PAGE, page * PAGE + PAGE).map((v, i) => {
                   const enEmpty = v.empty.includes('enName');
                   const en = enOf(v);
                   const left = /\[[^\]]+\]/.test(en);
                   return (
                     <tr key={v.row.r}>
-                      <td className="muted">{v.row.r + 1}</td>
+                      <td className="muted">{page * PAGE + i + 1}</td>
                       {sheet.col.code !== undefined && (
                         <td className="tr-code" {...skuHover(cell(v.row, 'code'))}>
                           {cell(v.row, 'code')}
                         </td>
                       )}
                       <td className="tr-ko-name" {...skuHover(cell(v.row, 'code'))}>
+                        {typeOf(v.row) && <span className="tag small tr-type" title="구분 (sku_type_name) — 사전에 이 구분 단어가 있으면 그걸로 번역">{typeOf(v.row)}</span>}
                         {v.season === 'S' && (
                           <span className="tr-season" title="시즌 (제품 정보의 팀 · 대/중/소분류에 '시즌')">
                             🎄 시즌
@@ -651,10 +623,14 @@ function TranslateTab() {
 function DictTab() {
   const { email, accountName } = useAccess();
   const nameOf = useNameOf(); // 넣은 사람: 이메일 대신 이름 두 글자
-  const { list } = useDictMap();
+  const { list, types: dictTypes } = useDictMap();
+  const { list: missing } = useSkuMissing();
+  // 구분 (sku_type_name): 빈 제품 목록에 나온 것 + 사전에 이미 있는 것 (상품 · 제품 은 늘)
+  const typeOpts = useMemo(() => [...new Set(['상품', '제품', ...dictTypes, ...(missing ?? []).map((m) => m.type).filter(Boolean)])], [dictTypes, missing]);
   const [q, setQ] = useState('');
   const [ko, setKo] = useState('');
   const [en, setEn] = useState('');
+  const [type, setType] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
   const [editEn, setEditEn] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -663,7 +639,7 @@ function DictTab() {
   const shown = (list ?? []).filter((e) => !nq || e.ko.toLowerCase().includes(nq) || e.en.toLowerCase().includes(nq)).sort((a, b) => a.ko.localeCompare(b.ko, 'ko'));
   const add = async () => {
     if (!ko.trim() || !en.trim()) return;
-    await saveDict([{ ko, en }], accountName ?? email);
+    await saveDict([{ ko, en, type }], accountName ?? email);
     setKo('');
     setEn('');
   };
@@ -672,8 +648,8 @@ function DictTab() {
     const XLSX = await import('xlsx');
     const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
     const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
-    const rows = aoa.map((r) => ({ ko: String(r[0] ?? '').trim(), en: String(r[1] ?? '').trim() })).filter((r) => /[가-힣]/.test(r.ko) && r.en);
-    if (!rows.length) return setMsg('넣을 단어를 못 찾았어요 (첫 칸 한글, 둘째 칸 영어)');
+    const rows = aoa.map((r) => ({ ko: String(r[0] ?? '').trim(), en: String(r[1] ?? '').trim(), type: String(r[2] ?? '').trim() })).filter((r) => /[가-힣]/.test(r.ko) && r.en);
+    if (!rows.length) return setMsg('넣을 단어를 못 찾았어요 (첫 칸 한글, 둘째 칸 영어, 셋째 칸 구분은 선택)');
     await saveDict(rows, accountName ?? email);
     setMsg(`${rows.length}개 단어를 사전에 넣었어요 ✓`);
   };
@@ -683,15 +659,24 @@ function DictTab() {
         <input className="search" placeholder="🔍 한글 · 영어로 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted small">{(list ?? []).length}개 단어</span>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files?.[0] && void bulk(e.target.files[0])} />
-        <button onClick={() => fileRef.current?.click()} title="첫 칸 한글, 둘째 칸 영어인 엑셀">
+        <button onClick={() => fileRef.current?.click()} title="첫 칸 한글, 둘째 칸 영어 (셋째 칸에 상품 · 제품을 쓰면 그 구분에만)">
           📥 엑셀로 한꺼번에 넣기
         </button>
       </div>
       {msg && <p className="small">{msg}</p>}
       <p className="muted small" style={{ marginTop: 0 }}>
+        <b>구분</b>을 고르면 그 구분 제품에만 써요. 예: <code>오토</code> → 상품이면 <code>auto</code>, 제품이면 <code>Otto</code> (구분 없는 단어는 모두에게) ·{' '}
         숫자가 들어간 단어는 <b>틀</b>로 번역해요. 예: <code>0호0합</code> → <code>No.0 0-Ply</code> 로 넣으면 3호5합 → No.3 5-Ply, 12호 2합 → No.12 2-Ply (숫자는 차례대로 옮겨져요)
       </p>
       <div className="tr-dict-add">
+        <select value={type} onChange={(e) => setType(e.target.value)} title="구분: 이 구분(상품 · 제품) 제품에만 쓰기">
+          <option value="">구분 없음 (모두)</option>
+          {typeOpts.map((t) => (
+            <option key={t} value={t}>
+              {t}에만
+            </option>
+          ))}
+        </select>
         <input placeholder="한글 (예: 스티커 · 0호0합)" value={ko} onChange={(e) => setKo(e.target.value)} />
         <span>→</span>
         <input placeholder="영어 (예: Sticker)" value={en} onChange={(e) => setEn(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} />
@@ -717,6 +702,7 @@ function DictTab() {
                 <td className="tr-ko">
                   {e.ko}
                   {isPattern(e.ko) && <span className="tag small tr-pat">틀</span>}
+                  {e.type && <span className="tag small tr-type">{e.type}</span>}
                 </td>
                 <td>
                   {editing === e.id ? (
@@ -725,7 +711,7 @@ function DictTab() {
                       value={editEn}
                       onChange={(x) => setEditEn(x.target.value)}
                       onBlur={() => {
-                        if (editEn.trim() && editEn.trim() !== e.en) void saveDict([{ ko: e.ko, en: editEn }], accountName ?? email);
+                        if (editEn.trim() && editEn.trim() !== e.en) void saveDict([{ ko: e.ko, en: editEn, type: e.type }], accountName ?? email);
                         setEditing(null);
                       }}
                       onKeyDown={(x) => x.key === 'Enter' && (x.target as HTMLInputElement).blur()}
@@ -954,7 +940,7 @@ function UnknownWords({
   setHidden,
 }: {
   words: [string, number][];
-  rowsOf: (w: string) => { r: number; ko: string; en: string }[];
+  rowsOf: (w: string) => { r: number; code: string; ko: string; en: string }[];
   hidden: string[];
   setHidden: Dispatch<SetStateAction<string[]>>;
 }) {
@@ -1062,7 +1048,7 @@ function UnknownWords({
           <ul>
             {peekRows.slice(0, 50).map((v) => (
               <li key={v.r}>
-                <span className="muted small">{v.r + 1}줄</span> {mark(v.ko, peek)}
+                <span className="muted small">{v.code}</span> {mark(v.ko, peek)}
                 <span className="muted small"> → {v.en}</span>
               </li>
             ))}

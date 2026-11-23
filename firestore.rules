@@ -155,6 +155,10 @@ service cloud.firestore {
     match /skuPath/{id} {
       allow read: if isAny();
     }
+    // 번역: 수출 분류 · 영문명이 빈 제품 목록 (서버 함수만 씀 · 모두가 같이 봄)
+    match /skuMissing/{id} {
+      allow read: if isAny();
+    }
     // 날씨 (서버 함수만 씀)
     match /weatherNow/{id} {
       allow read: if isAny();

@@ -8736,3 +8736,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .rq-m-grid dd select, .rq-m-grid dd .wt-input { max-width: 100%; }
   .rq-table tr.rq-group td { padding-left: 10px !important; }
 }
+.tr-type { background: #eef3ff; color: #3b5bb5; margin-left: 4px; }
+.tr-dict-add select { flex: none; }
