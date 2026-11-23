@@ -83,7 +83,8 @@ export interface Order {
   erpArchive?: boolean; // ERP 채우기로 넣은 지난 주문 (다 출고됨 — 금액 자동 갱신 안 함)
   autoImported?: boolean;
   shipDate?: string; // 출고일 (묶음 아닌 주문 · 묶음이면 묶음 출고일)
-  autoName?: string; // 자동으로 붙인 이름 (이 이름 그대로면 NEW 표시) // ERP 에서 새 주문으로 자동 등록됨
+  autoName?: string; // 자동으로 붙인 이름 (이 이름 그대로면 NEW 표시)
+  autoNamed?: string; // 사이트가 자동으로 바꿔 둔 이름 (매장 약자 · 매장명) — 이 이름 그대로면 설정을 바꿀 때 다시 바꿈 // ERP 에서 새 주문으로 자동 등록됨
   amountSource?: 'manual' | 'api-order' | 'api-outbound'; // 금액을 누가 채웠는지 (manual 이면 API 가 안 건드림)
   expNo?: string; // ERP 수출 주문번호 EXP_NO
   fxCode?: string; // 외화 통화 (USD 등)

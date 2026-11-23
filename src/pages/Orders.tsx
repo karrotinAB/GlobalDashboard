@@ -65,12 +65,21 @@ export default function Orders() {
   // 업체마다: 'abbr' = 매장 약자 · 'storeName' = 매장명 (회사 API STORE_NAME) — 관리자 설정에서 고름
   const modeOf = (c?: { orderNameMode?: 'abbr' | 'storeName'; orderNameByStore?: boolean }) => c?.orderNameMode ?? (c?.orderNameByStore ? 'abbr' : undefined);
   const byStoreIds = useMemo(() => new Set(companies.filter((c) => modeOf(c)).map((c) => c.id)), [companies]);
-  const byStoreCodes = useMemo(() => companies.filter((c) => modeOf(c) === 'abbr').flatMap((c) => c.storeCodes ?? []), [companies]);
+  const byStoreCodes = useMemo(() => companies.filter((c) => modeOf(c)).flatMap((c) => c.storeCodes ?? []), [companies]);
   const byStoreBranches = useStoreBranches(byStoreCodes);
   const nameModeIds = useMemo(() => new Set(companies.filter((c) => modeOf(c) === 'storeName').map((c) => c.id)), [companies]);
   const storeIdsForName = useMemo(() => data.orders.filter((o) => nameModeIds.has(o.companyId ?? '') && !isOrderDone(o) && o.storeCode).map((o) => o.storeCode!.trim()), [data.orders, nameModeIds]);
   const storeNames = useStoreNames(storeIdsForName, nameModeIds.size > 0);
-  const isAutoName = (o: Order) => o.name === '새 주문' || /^(ERP|EXP)\s*\d+$/i.test(o.name.trim());
+  // 자동 이름: ERP/EXP 번호 · 새 주문 · 사이트가 자동으로 바꿔 둔 이름 (사람이 직접 바꾼 이름은 아님)
+  const isAutoName = (o: Order) => o.name === '새 주문' || /^(ERP|EXP)\s*\d+$/i.test(o.name.trim()) || (!!o.autoNamed && o.name === o.autoNamed) || (!!o.autoName && o.name === o.autoName) || isOldAbbr(o);
+  // 예전에 매장 약자로 바꿔 둔 이름 (표시가 없던 때): 지금 그 매장의 약자와 같으면 자동 이름으로 봄
+  function isOldAbbr(o: Order) {
+    if (!o.storeCode) return false;
+    const co = companies.find((c) => c.id === o.companyId);
+    const sc = o.storeCode.trim();
+    const ab = co?.storeAbbr?.[sc] || byStoreBranches[sc];
+    return !!ab && o.name === ab;
+  }
   const shownName = (o: Order) => {
     if (byStoreIds.has(o.companyId ?? '') && isAutoName(o) && o.storeCode) {
       const co = companies.find((c) => c.id === o.companyId);
@@ -93,7 +102,7 @@ export default function Orders() {
       fix.map((o) => {
         const name = shownName(o);
         const fresh = isFreshAuto(o);
-        return { ...o, name, ...(fresh ? { autoName: name } : {}) };
+        return { ...o, name, autoNamed: name, ...(fresh ? { autoName: name } : {}) };
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
