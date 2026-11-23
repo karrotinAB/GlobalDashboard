@@ -8,6 +8,7 @@ export interface DictEntry {
   id: string;
   ko: string;
   en: string;
+  tags?: string[]; // 태그 (예: '캐릭터')
   type?: string; // 구분 (sku_type_name: 상품 · 제품 …) — 있으면 그 구분 제품에만 (예: 오토 → 상품이면 auto, 제품이면 Otto)
   by?: string;
   at?: string;
@@ -55,10 +56,16 @@ export async function saveDict(entries: { ko: string; en: string; type?: string 
   const clean = entries.map((e) => ({ ko: e.ko.trim(), en: e.en.trim(), ...(e.type?.trim() ? { type: e.type.trim() } : {}) })).filter((e) => e.ko && e.en);
   if (DATA_MODE === 'local') {
     const map = new Map(readLocal().map((e) => [e.id, e]));
-    for (const e of clean) map.set(dictId(e.ko, e.type), { id: dictId(e.ko, e.type), ...e, by, at });
+    for (const e of clean) map.set(dictId(e.ko, e.type), { ...map.get(dictId(e.ko, e.type)), id: dictId(e.ko, e.type), ...e, by, at });
     return writeLocal([...map.values()]);
   }
-  await Promise.all(clean.map((e) => setDoc(doc(db, 'dict', dictId(e.ko, e.type)), { ...e, ...(by ? { by } : {}), at })));
+  await Promise.all(clean.map((e) => setDoc(doc(db, 'dict', dictId(e.ko, e.type)), { ...e, ...(by ? { by } : {}), at }, { merge: true })));
+}
+
+/** 태그 켜고 끄기 (예: '캐릭터') */
+export async function setDictTags(e: DictEntry, tags: string[]) {
+  if (DATA_MODE === 'local') return writeLocal(readLocal().map((x) => (x.id === e.id ? { ...x, tags } : x)));
+  await setDoc(doc(db, 'dict', e.id), { tags }, { merge: true });
 }
 
 export async function deleteDict(id: string) {

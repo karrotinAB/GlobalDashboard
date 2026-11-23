@@ -37,7 +37,7 @@ import { useAccess } from '../components/AuthGate';
 import { today } from '../lib/date';
 import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing } from '../lib/skuMissing';
 import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
-import { deleteDict, isPattern, saveDict, translate, useDict, type DictEntry } from '../lib/dict';
+import { deleteDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
@@ -633,15 +633,24 @@ function DictTab() {
   const [ko, setKo] = useState('');
   const [en, setEn] = useState('');
   const [type, setType] = useState('');
+  const [isChar, setIsChar] = useState(false); // 넣을 때 '캐릭터' 태그
+  const [onlyChar, setOnlyChar] = useState(false); // 캐릭터 단어만 보기
+  const CHAR = '캐릭터';
+  const hasChar = (e: DictEntry) => (e.tags ?? []).includes(CHAR);
+  const toggleChar = (e: DictEntry) => void setDictTags(e, hasChar(e) ? (e.tags ?? []).filter((t) => t !== CHAR) : [...(e.tags ?? []), CHAR]);
+  const nChar = (list ?? []).filter(hasChar).length;
   const [editing, setEditing] = useState<string | null>(null);
   const [editEn, setEditEn] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
   const nq = q.trim().toLowerCase();
-  const shown = (list ?? []).filter((e) => !nq || e.ko.toLowerCase().includes(nq) || e.en.toLowerCase().includes(nq)).sort((a, b) => a.ko.localeCompare(b.ko, 'ko'));
+  const shown = (list ?? [])
+    .filter((e) => !nq || e.ko.toLowerCase().includes(nq) || e.en.toLowerCase().includes(nq) || (nq === '캐릭터' && (e.tags ?? []).includes('캐릭터')))
+    .filter((e) => !onlyChar || (e.tags ?? []).includes('캐릭터'))
+    .sort((a, b) => a.ko.localeCompare(b.ko, 'ko'));
   const add = async () => {
     if (!ko.trim() || !en.trim()) return;
-    await saveDict([{ ko, en, type }], accountName ?? email);
+    await saveDict([{ ko, en, type, ...(isChar ? { tags: [CHAR] } : {}) }], accountName ?? email);
     setKo('');
     setEn('');
   };
@@ -660,6 +669,9 @@ function DictTab() {
       <div className="tr-dict-tools">
         <input className="search" placeholder="🔍 한글 · 영어로 찾기" value={q} onChange={(e) => setQ(e.target.value)} />
         <span className="muted small">{(list ?? []).length}개 단어</span>
+        <button className={`tr-char-filter ${onlyChar ? 'on' : ''}`} onClick={() => setOnlyChar((v) => !v)} title="캐릭터 태그를 단 단어만 보기">
+          🧸 캐릭터만 {nChar > 0 && <b>{nChar}</b>}
+        </button>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={(e) => e.target.files?.[0] && void bulk(e.target.files[0])} />
         <button onClick={() => fileRef.current?.click()} title="첫 칸 한글, 둘째 칸 영어 (셋째 칸에 상품 · 제품을 쓰면 그 구분에만)">
           📥 엑셀로 한꺼번에 넣기
@@ -682,6 +694,9 @@ function DictTab() {
         <input placeholder="한글 (예: 스티커 · 0호0합)" value={ko} onChange={(e) => setKo(e.target.value)} />
         <span>→</span>
         <input placeholder="영어 (예: Sticker)" value={en} onChange={(e) => setEn(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} />
+        <label className={`tr-char-chk ${isChar ? 'on' : ''}`} title="캐릭터 이름이면 체크 (🧸 태그)">
+          <input type="checkbox" checked={isChar} onChange={(e) => setIsChar(e.target.checked)} /> 🧸 캐릭터
+        </label>
         <button className="primary" disabled={!ko.trim() || !en.trim()} onClick={() => void add()}>
           추가
         </button>
@@ -705,6 +720,9 @@ function DictTab() {
                   {e.ko}
                   {isPattern(e.ko) && <span className="tag small tr-pat">틀</span>}
                   {e.type && <span className="tag small tr-type">{e.type}</span>}
+                  <button className={`tr-char-tag ${hasChar(e) ? 'on' : ''}`} onClick={() => toggleChar(e)} title={hasChar(e) ? '캐릭터 태그 빼기' : '캐릭터 태그 달기'}>
+                    🧸{hasChar(e) ? ' 캐릭터' : ''}
+                  </button>
                 </td>
                 <td>
                   {editing === e.id ? (

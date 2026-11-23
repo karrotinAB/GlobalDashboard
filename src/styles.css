@@ -8759,3 +8759,12 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sl-warn small { font-weight: 500; color: #c0564d; font-size: 10.5px; }
 .sl-report { color: #c97a00; }
 .sl-resolve { font-size: 11.5px; padding: 2px 8px; margin-right: 2px; }
+/* 사전: 🧸 캐릭터 태그 */
+.tr-char-tag { border: 1px dashed #e0cfc9; background: none; border-radius: 999px; padding: 0 7px; margin-left: 6px; font-size: 11px; line-height: 18px; color: var(--mut); cursor: pointer; opacity: .45; }
+.tr-dict-table tr:hover .tr-char-tag { opacity: 1; }
+.tr-char-tag.on { opacity: 1; border-style: solid; border-color: #f2c94c; background: #fff6d6; color: #8a6100; font-weight: 700; }
+.tr-char-filter { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; }
+.tr-char-filter.on { background: #fff6d6; border-color: #f2c94c; color: #8a6100; font-weight: 700; }
+.tr-char-filter b { margin-left: 2px; }
+.tr-char-chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; white-space: nowrap; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
+.tr-char-chk.on { background: #fff6d6; color: #8a6100; font-weight: 700; }
