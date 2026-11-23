@@ -3,6 +3,7 @@ import { useLookups, useStore } from '../data/store';
 import { memNames, parseImport, sharedRecords } from '../lib/mem';
 import { useAccess } from './AuthGate';
 import { DEFAULT_TEAM } from '../lib/team';
+import { usePeople } from './AddressBook';
 
 /**
  * 크롬 확장 프로그램 "2조 근태 보내기" 와 대화하는 부분.
@@ -13,6 +14,7 @@ export default function ExtensionBridge() {
   const { saveMany, save, data } = useStore();
   const { members: team } = useLookups();
   const { role, viewTeam } = useAccess();
+  const { roles, contacts } = usePeople();
   const trade = useMemo(() => [...data.tradeMembers].sort((a, b) => a.order - b.order), [data.tradeMembers]);
   // 이 공간(조·개인 대시보드) 사람: 무역사무 계정은 조 담당자를 쓰지 않음 (여러 조 이름이 섞여 있음)
   const own = useMemo(() => (role === 'trade' ? [] : team), [team, role]);
@@ -30,8 +32,15 @@ export default function ExtensionBridge() {
     };
     if (role !== 'trade' && own.length) put(viewTeam, own);
     if (trade.length) put('trade', trade);
+    // 이사님 · 팀장님: 본인이 대시보드를 안 열어도 근태가 들어오게 (사용자 목록 · 주소록 이름)
+    const lead = (roles ?? []).filter((x) => x.role === 'lead' || x.role === 'director').map((x) => (contacts[x.email]?.name || x.name || '').trim()).filter(Boolean);
+    if (lead.length) {
+      const names = [...new Set(lead)].sort();
+      const cur = data.memDirectory.find((d) => d.id === 'leaders');
+      if (!cur || JSON.stringify(cur.names) !== JSON.stringify(names)) save('memDirectory', { id: 'leaders', names, updatedAt: new Date().toISOString() });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [own, trade, viewTeam, role, data.memDirectory.length]);
+  }, [own, trade, viewTeam, role, data.memDirectory.length, roles, contacts]);
 
   // 모든 공간의 이름 (확장 프로그램은 이 사람들 줄만 읽음)
   const allNames = useMemo(() => {

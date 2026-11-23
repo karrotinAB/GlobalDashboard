@@ -15,6 +15,7 @@ const ampm = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
   return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 };
+const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 const dur = (min: number) => {
   const h = Math.floor(min / 60);
   const m = min % 60;
@@ -77,6 +78,10 @@ export default function DeptRoster({ todayIso, nowMin }: { todayIso: string; now
 function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number }) {
   const out = !!r && r.status.includes('퇴근');
   const working = !!r && (r.status === '근무' || out);
+  // 대체시차 · 반차 · 외출: 하루 종일 쉬는 게 아니라 일부 시간만 (예: '대체시차 10:00~11:00')
+  const shift = !!r && /시차|반차|외출|조퇴|지각/.test(`${r.status} ${r.period ?? ''}`);
+  const tm = r?.period?.match(/(\d{1,2}):(\d{2})\s*[~\-–]\s*(\d{1,2}):(\d{2})/);
+  const shiftAt = tm ? ([Number(tm[1]) * 60 + Number(tm[2]), Number(tm[3]) * 60 + Number(tm[4])] as const) : null;
   // 위쪽 색 띠: 작은 글씨(무엇) + 큰 글씨(시각/상태) + 옆 설명
   let label = '오늘';
   let big = '—';
@@ -90,11 +95,19 @@ function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number 
     big = r.end ? ampm(r.end) : '퇴근';
     side = '퇴근했어요 👋';
     tone = 'off';
-  } else if (r.end && working) {
+  } else if (r.end && (working || shift)) {
+    // 근무 중 (대체시차 · 반차 · 외출을 썼으면 그만큼 당겨진 퇴근 시각)
     const min = toMin(r.end) - nowMin;
     label = '퇴근 예정';
     big = ampm(r.end);
     side = min > 0 ? `퇴근까지 ${dur(min)}` : '퇴근 시간 지남';
+    tone = 'on';
+  } else if (shift && shiftAt) {
+    // 아직 출근 전인데 시차를 씀: 아침 쪽이면 '출근 예정', 오후 쪽이면 '퇴근 예정'
+    const [a, b] = shiftAt;
+    label = a < 12 * 60 ? '출근 예정' : '퇴근 예정';
+    big = ampm(hm(a < 12 * 60 ? b : a));
+    side = r.period ?? r.status;
     tone = 'on';
   } else {
     big = r.status; // 근무전 · 연차 · 출장 …
@@ -119,8 +132,8 @@ function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number 
         <div className="mini-main">
           <b>{m.name}</b>
           <span className="mini-sub">
-            {r?.start && working && !out && <span>출근 {ampm(r.start)}</span>}
-            {r?.period && working && <span className="mini-period">⏱ {r.period}</span>}
+            {r?.start && (working || shift) && !out && <span>출근 {ampm(r.start)}</span>}
+            {r?.period && (working || shift) && r.end && <span className="mini-period">⏱ {r.period}</span>}
           </span>
         </div>
       </div>
@@ -172,16 +185,14 @@ export function DeptToday({ side, todayIso, nowMin, myEmail }: { side: DeptSide;
   const loading = !roles || [t1, t2, t3].some((t, i) => String(i + 1) !== side && !t.ready);
   return (
     <div className="dept-today">
-      {groups.map((g) => (
-        <div key={g.key} className="dept-group">
-          <span className="dept-label">{g.label}</span>
-          <div className="roster-grid">
-            {g.people.map((m) => (
-              <MiniCard key={m.id} m={{ ...m, name: g.key === 'leader' ? `${short(m.name)} ${leaders.find((x) => x.m.id === m.id)?.label ?? ''}` : m.name }} r={attOf(m, todayIso, data.memAttendance, altNames(m.email))} nowMin={nowMin} />
-            ))}
-          </div>
-        </div>
-      ))}
+      {/* 조 구분 없이 한 판에 쭉 (이사님 · 팀장님 → 1조 → 2조 → 3조 → 무역사무 순서) */}
+      <div className="roster-grid dept-grid">
+        {groups.flatMap((g) =>
+          g.people.map((m) => (
+            <MiniCard key={m.id} m={{ ...m, name: g.key === 'leader' ? `${short(m.name)} ${leaders.find((x) => x.m.id === m.id)?.label ?? ''}` : m.name }} r={attOf(m, todayIso, data.memAttendance, altNames(m.email))} nowMin={nowMin} />
+          )),
+        )}
+      </div>
       {loading && <p className="muted small">불러오는 중…</p>}
       {!loading && !groups.length && <p className="muted small">보여줄 부서원이 없어요.</p>}
     </div>

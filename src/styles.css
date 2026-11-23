@@ -8783,3 +8783,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .dept-group { display: flex; flex-direction: column; gap: 6px; }
 .dept-label { font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .dept-today .roster-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.dept-today .dept-grid { width: 100%; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
