@@ -21,6 +21,9 @@ export interface Trip {
   email: string;
   name?: string;
   region: string; // 출장 지역
+  label?: string; // 덧붙임 (같은 달 같은 지역 두 번째 출장이면 '두번째' …)
+  memo?: string; // 비고 (제목 끝에 '- 엔화' 처럼 붙음)
+  title?: string; // 사람이 고친 제목 (없으면 자동: '2026년 10월 미국 두번째')
   from: string; // 출장 시작 YYYY-MM-DD
   to: string; // 출장 끝
   purpose?: string; // 출장 목적
@@ -38,7 +41,12 @@ export interface TripCfg {
 export type TripEntry = PettyEntry & { tripId?: string };
 
 /** 페이지 제목: '2026년 10월 미국' */
-export const tripTitle = (t: Pick<Trip, 'from' | 'region'>) => (t.from ? `${t.from.slice(0, 4)}년 ${Number(t.from.slice(5, 7))}월 ${t.region}` : t.region);
+// 제목: '삿포로 2026.11 두번째- 엔화' (지역 · 연.월 · 덧붙임 · 비고) — 사람이 고친 제목이 있으면 그것
+export const tripTitle = (t: Pick<Trip, 'from' | 'region'> & Partial<Pick<Trip, 'label' | 'title' | 'memo'>>) =>
+  t.title?.trim() ||
+  [t.region, t.from ? t.from.slice(0, 7).replace('-', '.') : '', t.label?.trim()].filter(Boolean).join(' ') + (t.memo?.trim() ? `${t.label?.trim() ? '' : ' '}- ${t.memo.trim()}` : '');
+/** 몇 번째 → '두번째' (1 → '', 11 이상은 '11번째') */
+export const ordinalKo = (n: number) => (n <= 1 ? '' : (['', '', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열'][n] ?? String(n)) + '번째');
 /** 교통비 칸 내역이 들어갈 출장비 항목 ('교통' 이 들어간 첫 항목) */
 export const tripTransportItem = (cats: string[]) => cats.find((c) => c.includes('교통')) ?? '교통(항공/열차)';
 

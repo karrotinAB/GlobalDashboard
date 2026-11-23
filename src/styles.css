@@ -8123,6 +8123,14 @@ span.rp-ack { cursor: default; }
 .trip-row:hover { background: #fbf6f4; border-color: #e3cfca; }
 .trip-row b { font-size: 15px; }
 .trip-row-purpose { color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.trip-row-wrap { display: flex; align-items: center; gap: 6px; }
+.trip-row-wrap .trip-row { flex: 1; min-width: 0; }
+.trip-row-pen { flex: none; opacity: 0.45; }
+.trip-row-wrap:hover .trip-row-pen { opacity: 1; }
+.trip-row-edit { cursor: default; }
+.trip-row-edit input { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; }
+.trip-note-in { flex: 1 1 220px; }
+.trip-note-in input { width: 100%; }
 .trip-row-go { margin-left: auto; color: #8c2f3c; font-size: 13px; white-space: nowrap; }
 .trip-back { display: inline-block; margin-bottom: 10px; font-size: 13.5px; }
 

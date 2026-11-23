@@ -16,6 +16,7 @@ import {
   saveTrip,
   saveTripCfg,
   saveTripEntry,
+  ordinalKo,
   tripTitle,
   tripTransportItem,
   useTripCfg,
@@ -60,6 +61,18 @@ export default function Trip() {
     if (view.k === 'manage' || view.k === 'new') setView({ k: 'list' });
   };
   const cur = view.k === 'trip' ? trips?.find((t) => t.id === view.id) : undefined;
+  // 목록에서 제목 고치기 (비우면 자동 제목으로)
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const saveTitle = async (t: TripDoc) => {
+    const v = editText.trim();
+    const auto = tripTitle({ ...t, title: undefined });
+    const next: TripDoc = { ...t };
+    if (!v || v === auto) delete next.title;
+    else next.title = v;
+    await saveTrip(next);
+    setEditing(null);
+  };
   const back = (
     <button className="link trip-back" onClick={() => setView({ k: 'list' })}>
       ← 신청서 목록
@@ -109,17 +122,53 @@ export default function Trip() {
             <p className="muted small">아직 쓴 신청서가 없어요. 위의 '＋ 신청서 쓰기'로 시작해요.</p>
           ) : (
             <div className="trip-rows">
-              {trips.map((t) => (
-                <button key={t.id} className="trip-row" onClick={() => setView({ k: 'trip', id: t.id })}>
-                  <span className="trip-row-icon">✈️</span>
-                  <b>{tripTitle(t)}</b>
-                  <span className="muted small">
-                    {dots(t.from)} ~ {dots(t.to)}
-                  </span>
-                  {t.purpose && <span className="trip-row-purpose">{t.purpose}</span>}
-                  <span className="trip-row-go">열기 ›</span>
-                </button>
-              ))}
+              {trips.map((t) =>
+                editing === t.id ? (
+                  <div key={t.id} className="trip-row trip-row-edit">
+                    <span className="trip-row-icon">✈️</span>
+                    <input
+                      autoFocus
+                      value={editText}
+                      placeholder={tripTitle({ ...t, title: undefined })}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void saveTitle(t);
+                        if (e.key === 'Escape') setEditing(null);
+                      }}
+                    />
+                    <button className="primary small" onClick={() => void saveTitle(t)}>
+                      저장
+                    </button>
+                    <button className="small" onClick={() => setEditing(null)}>
+                      취소
+                    </button>
+                  </div>
+                ) : (
+                  <div key={t.id} className="trip-row-wrap">
+                    <button className="trip-row" onClick={() => setView({ k: 'trip', id: t.id })}>
+                      <span className="trip-row-icon">✈️</span>
+                      <b>{tripTitle(t)}</b>
+                      <span className="muted small">
+                        {dots(t.from)} ~ {dots(t.to)}
+                      </span>
+                      {t.purpose && <span className="trip-row-purpose">{t.purpose}</span>}
+                      <span className="trip-row-go">열기 ›</span>
+                    </button>
+                    {(
+                      <button
+                        className="icon-btn trip-row-pen"
+                        title="제목 고치기"
+                        onClick={() => {
+                          setEditing(t.id);
+                          setEditText(tripTitle(t));
+                        }}
+                      >
+                        ✏️
+                      </button>
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           )}
         </section>
@@ -129,6 +178,7 @@ export default function Trip() {
           {back}
           <NewTrip
             email={email}
+            trips={trips ?? []}
             onMade={(id) => {
               setView({ k: 'trip', id });
               setTab('record');
@@ -159,16 +209,28 @@ export default function Trip() {
   );
 }
 
-function NewTrip({ email, onMade, onCancel }: { email: string; onMade: (id: string) => void; onCancel?: () => void }) {
+function NewTrip({ email, trips, onMade, onCancel }: { email: string; trips: TripDoc[]; onMade: (id: string) => void; onCancel?: () => void }) {
   const name = useFullName(email);
   const [region, setRegion] = useState('');
+  // 덧붙임: 같은 달에 같은 지역으로 이미 간 적이 있으면 '두번째' · '세번째' … 자동 (직접 고치면 그대로)
+  const [label, setLabel] = useState('');
+  const [labelTouched, setLabelTouched] = useState(false);
+  const [memo, setMemo] = useState(''); // 비고 (제목 끝에 '- 엔화' 처럼)
+  // 지역 추천: 내가 썼던 지역 (최근 순)
+  const pastRegions = useMemo(() => [...new Set([...trips].sort((a, b) => (b.from ?? '').localeCompare(a.from ?? '')).map((t) => t.region.trim()).filter(Boolean))], [trips]);
   const [from, setFrom] = useState(today());
   const [to, setTo] = useState(today());
   const [err, setErr] = useState('');
   const ok = region.trim() && from && to && from <= to;
+  const norm = (x: string) => x.replace(/\s+/g, '').toLowerCase();
+  const sameMonth = region.trim() && from ? trips.filter((t) => norm(t.region) === norm(region) && (t.from ?? '').slice(0, 7) === from.slice(0, 7)).length : 0;
+  const nth = ordinalKo(sameMonth + 1);
+  useEffect(() => {
+    if (!labelTouched) setLabel(nth);
+  }, [nth, labelTouched]);
   const make = async () => {
     if (!ok) return;
-    const t: TripDoc = { id: uid(), email, name, region: region.trim(), from, to, createdAt: new Date().toISOString() };
+    const t: TripDoc = { id: uid(), email, name, region: region.trim(), ...(label.trim() ? { label: label.trim() } : {}), ...(memo.trim() ? { memo: memo.trim() } : {}), from, to, createdAt: new Date().toISOString() };
     try {
       await saveTrip(t);
       onMade(t.id);
@@ -182,7 +244,27 @@ function NewTrip({ email, onMade, onCancel }: { email: string; onMade: (id: stri
       <div className="trip-newrow">
         <label>
           <span>출장 지역</span>
-          <input autoFocus placeholder="예: 미국" value={region} onChange={(e) => setRegion(e.target.value)} />
+          <input autoFocus placeholder="예: 미국" list="trip-regions" value={region} onChange={(e) => setRegion(e.target.value)} />
+          <datalist id="trip-regions">
+            {pastRegions.map((r) => (
+              <option key={r} value={r} />
+            ))}
+          </datalist>
+        </label>
+        <label>
+          <span>덧붙임 (안 써도 돼요)</span>
+          <input
+            placeholder="예: 두번째"
+            value={label}
+            onChange={(e) => {
+              setLabel(e.target.value);
+              setLabelTouched(true);
+            }}
+          />
+        </label>
+        <label className="trip-note-in">
+          <span>비고</span>
+          <input placeholder="예: 엔화" value={memo} onChange={(e) => setMemo(e.target.value)} />
         </label>
         <label>
           <span>출장 기간</span>
@@ -193,7 +275,12 @@ function NewTrip({ email, onMade, onCancel }: { email: string; onMade: (id: stri
           </span>
         </label>
       </div>
-      {region.trim() && <p className="muted small">페이지 제목: {tripTitle({ from, region: region.trim() })}</p>}
+      {sameMonth > 0 && (
+        <p className="warn small">
+          이미 이번달에 다녀온 출장지에요. {nth} 인가요?
+        </p>
+      )}
+      {region.trim() && <p className="muted small">신청서 제목: {tripTitle({ from, region: region.trim(), label, memo })}</p>}
       {err && <p className="warn small">{err}</p>}
       <div className="btn-row" style={{ gap: 8 }}>
         <button className="primary" disabled={!ok} onClick={() => void make()}>
