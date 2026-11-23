@@ -89,8 +89,7 @@ export function withProfile<T extends Member>(m: T, profiles: Record<string, Pro
 export async function saveProfileFrom(m: Member, home?: string) {
   const email = low(m.email);
   if (!email) return;
-  // 관리자가 '사람 정보 합치기'를 하기 전에는 카드에만 저장 (사람 정보는 관리자가 처음 만듦)
-  if (!cache[email]) return;
+  // 사람 정보가 아직 없는 사람(새로 온 사람): 처음 만드는 건 관리자만 (규칙) — 조원이 저장하면 카드에만 저장됨
   const v: Profile = { updatedAt: new Date().toISOString() };
   for (const k of PROFILE_KEYS) (v as Record<string, unknown>)[k] = (m as unknown as Record<string, unknown>)[k] ?? (k === 'status' ? '' : null);
   if (home) v.home = home;

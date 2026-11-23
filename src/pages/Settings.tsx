@@ -15,7 +15,6 @@ import DateInput from '../components/DateInput';
 import { DEFAULT_TEAM, TEAMS } from '../lib/team';
 import { isFresh, syncWeatherNow, useWeatherRaw, weatherFxOf } from '../lib/weather';
 import AccessAdmin from '../components/AccessAdmin';
-import ProfileMerge from '../components/ProfileMerge';
 import { SalesApiAdmin, StoreAreaSection } from '../components/SalesSettings';
 import ChangePassword from '../components/ChangePassword';
 import { Modal } from '../components/ui';
@@ -354,7 +353,6 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       )}
 
       {showAdm && access.role === 'admin' && <AccessAdmin />}
-      {showAdm && access.role === 'admin' && <ProfileMerge />}
       {showAdm && access.canManage && <HolidayAdmin />}
       {showAdm && access.role === 'admin' && <MemAutoSection />}
       {showAdm && access.role === 'admin' && <SalesApiAdmin />}
