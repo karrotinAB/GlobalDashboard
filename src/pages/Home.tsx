@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTodayEvents } from '../lib/calToday';
+import { lazyPage } from '../lib/lazyPage';
 import { birthdayGreeting, birthdaysOn, useBirthdays } from '../lib/birthdays';
 import { isFresh, useWeather, useWeatherRaw, weatherGreeting } from '../lib/weather';
 import { useLookups, useStore } from '../data/store';
@@ -18,7 +19,7 @@ import { CHARACTERS, characterSrc, Modal, Ring, charOf } from '../components/ui'
 
 const HOME_TZ = 'Asia/Seoul';
 // 휴대폰에서만 쓰는 시계 지도 (지도 데이터는 그때만 불러옴)
-const ClockMap = lazy(() => import('../components/ClockMap'));
+const ClockMap = lazyPage(() => import('../components/ClockMap'));
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 

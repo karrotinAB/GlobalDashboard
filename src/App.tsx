@@ -1,14 +1,15 @@
-import { lazy, Suspense, useEffect, useState, useTransition } from 'react';
+import { Suspense, useEffect, useState, useTransition } from 'react';
+import { lazyPage, PageErrorBoundary } from './lib/lazyPage';
 // 가끔 쓰는 무거운 페이지는 처음 열 때만 따로 받음 (앱 처음 켜는 속도)
-const TradeExport = lazy(() => import('./pages/TradeExport'));
-const Translate = lazy(() => import('./pages/Translate'));
-const Trip = lazy(() => import('./pages/Trip'));
-const Contracts = lazy(() => import('./pages/Contracts'));
-const Calendar = lazy(() => import('./pages/Calendar'));
-const Import = lazy(() => import('./pages/Import'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Petty = lazy(() => import('./pages/Petty'));
+const TradeExport = lazyPage(() => import('./pages/TradeExport'));
+const Translate = lazyPage(() => import('./pages/Translate'));
+const Trip = lazyPage(() => import('./pages/Trip'));
+const Contracts = lazyPage(() => import('./pages/Contracts'));
+const Calendar = lazyPage(() => import('./pages/Calendar'));
+const Import = lazyPage(() => import('./pages/Import'));
+const Reports = lazyPage(() => import('./pages/Reports'));
+const Settings = lazyPage(() => import('./pages/Settings'));
+const Petty = lazyPage(() => import('./pages/Petty'));
 import { BirthdayBubbles, BirthdayWishPopup } from './components/BirthdayWish';
 import { rectOf } from './lib/zoom';
 import AddressBook from './components/AddressBook';
@@ -340,6 +341,7 @@ export default function App() {
         )}
         {navPending && <div className="nav-progress" aria-hidden="true" />}
         <main>
+          <PageErrorBoundary resetKey={page}>
           <Suspense fallback={<div className="page muted">불러오는 중…</div>}>
           {loading ? (
             <div className="page muted">불러오는 중…</div>
@@ -383,6 +385,7 @@ export default function App() {
             <Settings side={side} />
           )}
           </Suspense>
+          </PageErrorBoundary>
         </main>
         <footer className="site-footer">© 2026 Karrot in AB</footer>
       </div>
