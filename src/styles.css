@@ -8802,3 +8802,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .zw-hours > div { font-size: 9.5px; padding: 2px 1px; }
   .zw-hours b { font-size: 11px; }
 }
+.zw-mm { font-size: 9.5px; color: #3b7dbf; white-space: nowrap; letter-spacing: -0.3px; }
+@media (max-width: 600px) { .zw-mm { font-size: 8px; } }

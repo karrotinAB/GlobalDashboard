@@ -621,6 +621,7 @@ function TodayWeather() {
                   <span>{Number(x.at.slice(11, 13))}시</span>
                   <b>{x.kind ? KIND[x.kind]?.[0] : '·'}</b>
                   <span>{typeof x.temp === 'number' ? `${x.temp}°` : ''}</span>
+                  {x.rn && !/없음/.test(x.rn) && <small className="zw-mm">{x.rn.replace(/\s+/g, '')}</small>}
                 </div>
               ))}
             </div>
