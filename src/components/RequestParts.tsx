@@ -1,5 +1,5 @@
 // 무역사무 요청: 새 요청 창, 상세 창(수정·취소·기록), 작은 표시들
-import { useOrderUsd } from '../lib/sales';
+import { fmtCur, useOrderUsd } from '../lib/sales';
 import { viewH, viewW } from '../lib/zoom';
 import { useWorkTypes } from '../lib/workTypes';
 import { useEffect, useRef, useState, type ClipboardEvent, type CSSProperties } from 'react';
@@ -507,18 +507,21 @@ function LinkedOrders({
   const fxc = useOrderUsd(companies, orders);
   const list = given ?? (link.bundleId ? orders.filter((o) => o.bundle?.id === link.bundleId) : orders.filter((o) => o.id === link.orderId));
   const won = (n?: number) => (n !== undefined ? `₩${Math.round(n).toLocaleString()}` : '-');
-  const usd = (n?: number) => (n !== undefined ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-');
   // 묶음은 처음엔 이름만 — 눌러야 주문 표가 펼쳐짐
   const [open, setOpen] = useState(!!given || !link.bundleId);
   const bundle = list[0]?.bundle;
   const sumK = list.reduce((a, o) => a + (o.amountKRW ?? 0), 0);
   const doneN = list.filter((o) => isOrderDone(o)).length;
+  // 외화 합계: 묶음 안 주문이 모두 같은 수출 통화일 때
+  const fCurs = [...new Set(list.map((o) => fxc.curOf(o)))];
+  const fgnSum = fCurs.length === 1 && list.some((o) => o.amountForeign !== undefined && o.amountForeign !== null) ? fmtCur(fCurs[0], list.reduce((a, o) => a + (o.amountForeign ?? 0), 0)) : '';
   const foldBar = (isOpen: boolean) => (
     <button className={`rq-bundle-fold ${isOpen ? 'open' : ''}`} onClick={() => setOpen(!isOpen)} style={{ '--c': bundle?.color ?? '#8c2f3c' } as CSSProperties}>
       <span className="rq-bundle-dot" />
       <b>{bundle?.name || '묶음 주문'}</b>
       <span className="muted small">
         주문 {list.length}개 · 완료 {doneN} · {won(sumK)}
+        {fgnSum && ` · ${fgnSum}`}
       </span>
       <span className="rq-bundle-more">{isOpen ? '접기 ▴' : '주문 보기 ▾'}</span>
     </button>
@@ -577,8 +580,8 @@ function LinkedOrders({
                   <td>{o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : isOrderDone(o) ? '완료' : '대기'}</td>
                   <td className="r">{won(o.amountKRW)}</td>
                   <td className="r">
-                    {usd(fxc.usd(o, o.amountForeign))}
-                    {fxc.orig(o, o.amountForeign) && <small className="fx-orig">{fxc.orig(o, o.amountForeign)}</small>}
+                    {/* 그 업체와 거래하는 수출 통화 그대로 (엔화 업체면 ¥) */}
+                    {o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}
                   </td>
                 </tr>
               ))}
