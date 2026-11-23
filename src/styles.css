@@ -8750,7 +8750,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sl-table .sl-act { white-space: nowrap; width: 1%; }
 .sl-table .sl-act-h { width: 1%; }
 .sl-table tr.sl-form td { padding: 6px; }
-.sl-table tr.sl-form input { width: 100%; min-width: 80px; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13px; }
+.sl-table tr.sl-form input { display: block; width: 100%; min-width: 80px; box-sizing: border-box; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13px; }
 .sl-table .sl-btns { display: inline-flex; gap: 4px; }
 .sl-table tr.sl-form .sl-act { padding: 6px 8px; }
 .sl-table td.sl-add { text-align: left; padding: 8px 14px; }
@@ -8768,3 +8768,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .tr-char-filter b { margin-left: 2px; }
 .tr-char-chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; white-space: nowrap; padding: 4px 8px; border-radius: 8px; cursor: pointer; }
 .tr-char-chk.on { background: #fff6d6; color: #8a6100; font-weight: 700; }
+.sl-use-link { color: var(--primary); text-decoration: none; font-weight: 600; }
+.sl-use-link:hover { text-decoration: underline; }
+.sl-ext { font-size: 11px; opacity: .7; }
+.sl-table tr.sl-form input.sl-url-in { margin-top: 4px; font-size: 12px; }

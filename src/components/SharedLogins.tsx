@@ -11,6 +11,7 @@ import { useNameOf } from './AddressBook';
 export interface SharedLogin {
   id: string;
   use: string; // 용도 (예: 관세청 유니패스)
+  url?: string; // 로그인 페이지 주소 (용도를 누르면 열림)
   login: string; // ID
   pw: string;
   note?: string;
@@ -68,8 +69,15 @@ async function removeLogin(id: string) {
   await deleteDoc(doc(db, 'sharedLogins', id));
 }
 
-type Draft = { use: string; login: string; pw: string; note: string };
-const blank: Draft = { use: '', login: '', pw: '', note: '' };
+type Draft = { use: string; url: string; login: string; pw: string; note: string };
+const blank: Draft = { use: '', url: '', login: '', pw: '', note: '' };
+/** 링크: http(s) 만 · 'www.xx.com' 처럼 쓰면 https:// 붙임 */
+const cleanUrl = (u: string) => {
+  const t = u.trim();
+  if (!t) return '';
+  const v = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`;
+  return /^https?:\/\//i.test(v) ? v : '';
+};
 
 export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t: string) => void; copied: string }) {
   const { list, error } = useSharedLogins();
@@ -90,13 +98,14 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
   const uses = useMemo(() => [...new Set((list ?? []).map((x) => x.use))].sort((a, b) => a.localeCompare(b, 'ko')), [list]);
   const start = (x?: SharedLogin) => {
     setEditing(x?.id ?? 'new');
-    setD(x ? { use: x.use, login: x.login, pw: x.pw, note: x.note ?? '' } : blank);
+    // 같은 용도에 이미 링크가 있으면 새 줄에도 미리 채움
+    setD(x ? { use: x.use, url: x.url ?? (list ?? []).find((y) => y.use === x.use && y.url)?.url ?? '', login: x.login, pw: x.pw, note: x.note ?? '' } : blank);
   };
   const ok = d.use.trim() && (d.login.trim() || d.pw.trim());
   const submit = async () => {
     if (!ok) return;
     const base = editing && editing !== 'new' ? (list ?? []).find((x) => x.id === editing) : undefined;
-    await saveLogin({ id: base?.id ?? uid(), use: d.use.trim(), login: d.login.trim(), pw: d.pw, note: d.note.trim() || undefined, by: accountName ?? email, at: new Date().toISOString() });
+    await saveLogin({ id: base?.id ?? uid(), use: d.use.trim(), url: cleanUrl(d.url) || undefined, login: d.login.trim(), pw: d.pw, note: d.note.trim() || undefined, by: accountName ?? email, at: new Date().toISOString() });
     setEditing(null);
     setD(blank);
   };
@@ -129,7 +138,20 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
   const form = (
     <tr className="sl-form">
       <td>
-        <input list="sl-uses" autoFocus placeholder="용도 (예: 유니패스)" value={d.use} onChange={(e) => setD({ ...d, use: e.target.value })} onKeyDown={keys} />
+        <input
+          list="sl-uses"
+          autoFocus
+          placeholder="용도 (예: 유니패스)"
+          value={d.use}
+          onChange={(e) => {
+            const use = e.target.value;
+            // 이미 있는 용도를 고르면 그 링크를 가져옴 (비어 있을 때만)
+            const known = (list ?? []).find((x) => x.use === use && x.url)?.url;
+            setD({ ...d, use, url: d.url || known || '' });
+          }}
+          onKeyDown={keys}
+        />
+        <input className="sl-url-in" placeholder="🔗 로그인 페이지 링크 (선택)" value={d.url} onChange={(e) => setD({ ...d, url: e.target.value })} onKeyDown={keys} />
         <datalist id="sl-uses">
           {uses.map((u) => (
             <option key={u} value={u} />
@@ -194,7 +216,16 @@ export default function SharedLogins({ q, copy, copied }: { q: string; copy: (t:
                     <tr key={x.id}>
                       {(!grouped || i === 0) && (
                         <th className="ab-g" rowSpan={grouped ? rows.length : 1}>
-                          {use}
+                          {(() => {
+                            const link = (grouped ? rows.find((y) => y.url)?.url : x.url) ?? '';
+                            return link ? (
+                              <a className="sl-use-link" href={link} target="_blank" rel="noopener noreferrer" title={`로그인 페이지 열기 — ${link}`}>
+                                {use} <span className="sl-ext">↗</span>
+                              </a>
+                            ) : (
+                              use
+                            );
+                          })()}
                         </th>
                       )}
                       <td className={`ab-cell sl-id ${x.broken ? 'sl-broken' : ''}`}>
