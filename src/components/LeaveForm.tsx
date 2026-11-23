@@ -17,12 +17,24 @@ export default function LeaveForm({ email }: { email: string }) {
   const low = email.toLowerCase();
   const full = contacts[low]?.name || roles?.find((r) => r.email === low)?.name || '';
   const myName = /[가-힣]/.test(full) ? full : /[가-힣]/.test(acct) ? acct : full || acct;
-  const blank = (): LeaveReq => ({ id: uid(), email, dept: '글로벌사업부', name: myName || '', applyDate: today(), createdAt: new Date().toISOString() });
+  // 사번 · 직급 · 부서명 · 성명: 마지막으로 저장한 신청서 값을 새 신청서에 그대로 (고치기 전까지)
+  const lastSaved = () => [...(list ?? [])].sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))[0];
+  const blank = (): LeaveReq => {
+    const l = lastSaved();
+    return { id: uid(), email, dept: l?.dept || '글로벌사업부', empNo: l?.empNo, rank: l?.rank, name: l?.name && /[가-힣]/.test(l.name) ? l.name : myName || '', applyDate: today(), createdAt: new Date().toISOString() };
+  };
   const [d, setD] = useState<LeaveReq>(blank);
   const [dirty, setDirty] = useState(false);
   const [msg, setMsg] = useState('');
   const saved = (list ?? []).some((x) => x.id === d.id);
   // 이름이 늦게 들어오면 새 신청서에 채움
+  // 목록이 늦게 들어오면: 아직 손대지 않은 새 신청서에 지난번 사번 · 직급 · 부서명 채움
+  useEffect(() => {
+    if (saved || dirty) return;
+    const l = lastSaved();
+    if (l) setD((x) => ({ ...x, dept: x.dept && x.dept !== '글로벌사업부' ? x.dept : l.dept || x.dept, empNo: x.empNo || l.empNo, rank: x.rank || l.rank, name: x.name && /[가-힣]/.test(x.name) ? x.name : l.name || x.name }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list]);
   useEffect(() => {
     // 비어 있거나 계정 아이디(영문)로 들어간 새 신청서는 이름 석 자로
     if (!saved && myName && (!d.name || (!/[가-힣]/.test(d.name) && /[가-힣]/.test(myName)))) setD((x) => ({ ...x, name: myName }));
