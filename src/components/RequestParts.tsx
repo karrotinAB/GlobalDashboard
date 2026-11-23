@@ -415,23 +415,75 @@ function dropMainPatch(r: { moreLinks?: OrderLink[] }) {
 }
 
 /** 요청에 연결된 주문 (요청한 조의 주문 관리에서 실시간) — 무역사무도 봄 */
-function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' }) {
-  const space = useSpaceData(link.team, ['orders', 'companies']);
+/** 연결한 주문들: 조마다 불러와서, 같은 업체(매장번호 앞 4자리)끼리 한 표로 */
+function LinkedOrderGroups({ links, side }: { links: OrderLink[]; side: 'team' | 'trade' }) {
+  const teams = [...new Set(links.map((l) => l.team))];
+  return (
+    <>
+      {teams.map((t) => (
+        <LinkedTeamOrders key={t} links={links.filter((l) => l.team === t)} side={side} />
+      ))}
+    </>
+  );
+}
+function LinkedTeamOrders({ links, side }: { links: OrderLink[]; side: 'team' | 'trade' }) {
+  const space = useSpaceData(links[0].team, ['orders', 'companies']);
   const orders = (space.data.orders as Order[] | undefined) ?? [];
   const companies = (space.data.companies as { id: string; name: string; exportCurrency?: string }[] | undefined) ?? [];
+  if (links.length === 1) return <LinkedOrders link={links[0]} side={side} space={space} orders={orders} companies={companies} />;
+  // 연결 순서대로 주문 모으기 (같은 주문은 한 번)
+  const seen = new Set<string>();
+  const all: Order[] = [];
+  for (const l of links)
+    for (const o of l.bundleId ? orders.filter((x) => x.bundle?.id === l.bundleId) : orders.filter((x) => x.id === l.orderId))
+      if (!seen.has(o.id)) {
+        seen.add(o.id);
+        all.push(o);
+      }
+  const keyOf = (o: Order) => (o.storeCode?.trim().slice(0, 4) || '') || `c:${o.companyId ?? ''}`;
+  const groups = new Map<string, Order[]>();
+  for (const o of all) groups.set(keyOf(o), [...(groups.get(keyOf(o)) ?? []), o]);
+  if (!space.ready || !all.length) return <LinkedOrders link={links[0]} side={side} space={space} orders={orders} companies={companies} label={links.map((l) => l.label).join(' · ')} />;
+  return (
+    <>
+      {[...groups.values()].map((g) => {
+        const co = companies.find((c) => c.id === g[0].companyId)?.name;
+        return <LinkedOrders key={g[0].id} link={links[0]} side={side} space={space} orders={orders} companies={companies} list={g} label={`${co ?? '주문'} · 주문 ${g.length}개`} />;
+      })}
+    </>
+  );
+}
+
+function LinkedOrders({
+  link,
+  side,
+  space,
+  orders,
+  companies,
+  list: given,
+  label,
+}: {
+  link: OrderLink;
+  side: 'team' | 'trade';
+  space: ReturnType<typeof useSpaceData>;
+  orders: Order[];
+  companies: { id: string; name: string; exportCurrency?: string }[];
+  list?: Order[]; // 여러 주문을 한 표로 (같은 업체)
+  label?: string;
+}) {
   const fxc = useOrderUsd(companies, orders);
-  const list = link.bundleId ? orders.filter((o) => o.bundle?.id === link.bundleId) : orders.filter((o) => o.id === link.orderId);
+  const list = given ?? (link.bundleId ? orders.filter((o) => o.bundle?.id === link.bundleId) : orders.filter((o) => o.id === link.orderId));
   const won = (n?: number) => (n !== undefined ? `₩${Math.round(n).toLocaleString()}` : '-');
   const usd = (n?: number) => (n !== undefined ? `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '-');
   // 묶음은 처음엔 이름만 — 눌러야 주문 표가 펼쳐짐
-  const [open, setOpen] = useState(!link.bundleId);
+  const [open, setOpen] = useState(!!given || !link.bundleId);
   const bundle = list[0]?.bundle;
   const sumK = list.reduce((a, o) => a + (o.amountKRW ?? 0), 0);
   const doneN = list.filter((o) => isOrderDone(o)).length;
   return (
     <div className="rq-linked">
       <div className="rq-linked-head">
-        <b>📦 연결된 주문</b> <span className="muted small">{link.label}</span>
+        <b>📦 연결된 주문</b> <span className="muted small">{label ?? link.label}</span>
       </div>
       {!space.ready ? (
         <p className="muted small">불러오는 중…</p>
@@ -448,7 +500,7 @@ function LinkedOrders({ link, side }: { link: OrderLink; side: 'team' | 'trade' 
         </button>
       ) : (
         <div className="sales-table-wrap">
-          {link.bundleId && (
+          {link.bundleId && !given && (
             <button className="link small rq-bundle-close" onClick={() => setOpen(false)}>
               ▴ 접기
             </button>
@@ -698,9 +750,7 @@ export function RequestDetail({
               ))}
             </div>
           )}
-          {linksOf(r).map((l, i) => (
-            <LinkedOrders key={`${l.team}-${l.bundleId ?? l.orderId}-${i}`} link={l} side={side} />
-          ))}
+          {r.orderLink && <LinkedOrderGroups links={linksOf(r)} side={side} />}
           {linkingOrder && (
             <RequestOrderLinker
               title={r.title}
