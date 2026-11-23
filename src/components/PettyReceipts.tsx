@@ -30,8 +30,31 @@ export function labelOf(e: PettyEntry) {
 }
 export const HL_COLORS = ['#fff36b', '#b6f2a9', '#ffc6dd', '#bfe3ff', '#ffd59a'];
 
-/** 자동 배치 + 담당자가 옮긴 것 합치기 */
-function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string, RcptPos>, transportItem?: string) {
+/** 영수증 사진의 세로/가로 비율 (불러오면 채워짐 · 사진이 아니면 없음) */
+function useAspects(entries: PettyEntry[]) {
+  const [asp, setAsp] = useState<Record<string, number>>({});
+  const sig = entries.map((e) => (e.receipt && isImg(e) ? `${e.id}|${e.receipt.url.slice(0, 80)}` : '')).join(',');
+  useEffect(() => {
+    let alive = true;
+    for (const e of entries) {
+      if (!e.receipt || !isImg(e) || asp[e.id]) continue;
+      const img = new Image();
+      img.onload = () => alive && img.naturalWidth > 0 && setAsp((a) => ({ ...a, [e.id]: img.naturalHeight / img.naturalWidth }));
+      img.src = e.receipt.url;
+    }
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
+  return asp;
+}
+/** 글자 줄 높이 (mm) */
+const labelHOf = (label: string, fs = DEF_FS) => Math.max(LABEL_H, label.split('\n').length * fs * 0.3528 * 1.3 + 3);
+
+/** 자동 배치 + 담당자가 옮긴 것 합치기
+ *  기본: 영수증마다 A4 가로 반(한 칸 폭) · 높이는 사진 비율대로 → 두 줄(왼쪽 · 오른쪽)에 위에서부터 쌓고, 넘치면 다음 장 */
+function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string, RcptPos>, transportItem?: string, asp: Record<string, number> = {}) {
   return useMemo(() => {
     const order = rows.map((r) => r.item.trim());
     const withRc = entries.filter((e) => e.receipt) // 종이영수증은 자리를 따로 비우지 않음.sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
@@ -42,9 +65,21 @@ function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string,
     }
     const boxes: Box[] = [];
     for (const [item, list] of byItem) {
-      list.forEach((e, i) => {
-        const slot = i % 4;
-        const def = { page: `${item}#${Math.floor(i / 4) + 1}`, x: M + (slot % 2) * (CELL_W + GAP), y: M + Math.floor(slot / 2) * (CELL_H + GAP), w: CELL_W, h: CELL_H, fs: DEF_FS, lx: 0, ly: 0 };
+      let pageN = 1;
+      let colY = [M, M];
+      const bottom = PAGE_H - M;
+      list.forEach((e) => {
+        const lh = labelHOf(over[e.id]?.text ?? labelOf(e), over[e.id]?.fs ?? DEF_FS);
+        // 사진이면 폭(A4 가로 반)에 맞춘 높이 · 사진이 아니거나 아직 모르면 예전처럼 반 장 높이
+        const h = Math.min(bottom - M, asp[e.id] ? lh + CELL_W * asp[e.id] : CELL_H);
+        let c = colY[0] <= colY[1] ? 0 : 1;
+        if (colY[c] + h > bottom) {
+          pageN++;
+          colY = [M, M];
+          c = 0;
+        }
+        const def = { page: `${item}#${pageN}`, x: M + c * (CELL_W + GAP), y: colY[c], w: CELL_W, h, fs: DEF_FS, lx: 0, ly: 0 };
+        colY[c] += h + GAP;
         const o = over[e.id] ?? {};
         const b = { e, item, label: labelOf(e), ...def, ...o, moved: !!over[e.id] } as Box;
         if (o.text) b.label = o.text;
@@ -66,7 +101,7 @@ function useLayout(entries: PettyEntry[], rows: SheetRow[], over: Record<string,
     const noReceipt = entries.filter((e) => !e.receipt && !e.paper);
     const paperN = entries.filter((e) => !e.receipt && e.paper).length;
     return { boxes, pages: keys, noReceipt, paperN };
-  }, [entries, rows, over]);
+  }, [entries, rows, over, asp]);
 }
 
 export default function PettyReceipts({
@@ -90,7 +125,8 @@ export default function PettyReceipts({
   // 끄는 중에는 화면에서만 바꾸고, 손을 떼면 저장
   const [draft, setDraft] = useState<Record<string, RcptPos>>(saved);
   useEffect(() => setDraft(per.rcpt ?? {}), [per.rcpt]);
-  const { boxes, pages, noReceipt, paperN } = useLayout(entries, rows, draft, transportItem);
+  const asp = useAspects(entries);
+  const { boxes, pages, noReceipt, paperN } = useLayout(entries, rows, draft, transportItem, asp);
   const [cur, setCur] = useState('');
   const page = pages.includes(cur) ? cur : pages[0] ?? '';
   const [sel, setSel] = useState<string | null>(null);
@@ -378,7 +414,7 @@ function RcPage({
                 </span>
               </div>
             )}
-            <div className="rc-img" style={{ top: u(Math.max(LABEL_H, b.label.split('\n').length * b.fs * 0.3528 * 1.3 + 3)) }}>
+            <div className="rc-img" style={{ top: u(labelHOf(b.label, b.fs)) }}>
               {b.e.receipt && isImg(b.e) ? (
                 <img src={b.e.receipt.url} alt="" draggable={false} />
               ) : b.e.receipt ? (
