@@ -3090,6 +3090,10 @@ tr.bundle-head .bundle-undo {
   width: auto !important;
   min-width: 0 !important;
 }
+/* 비고가 남는 폭만 받아서 0 으로 줄던 것 → 최소 넓이 (표가 카드보다 넓어지면 아래 가로 스크롤바로 끝까지) */
+.order-table th.c-onote {
+  width: 96px !important;
+}
 
 /* 빈 표 안내 · '+ 주문 추가' 줄: 주문명 칸과 같은 줄에서 시작 (왼쪽 여백 맞춤) */
 .order-table td.empty-cell,

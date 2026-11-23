@@ -7,7 +7,6 @@ import { printSheet } from '../pages/Petty';
 import { today, uid } from '../lib/date';
 
 const ymd = (iso?: string) => (iso ? { y: iso.slice(0, 4), m: String(Number(iso.slice(5, 7))), d: String(Number(iso.slice(8, 10))) } : { y: '', m: '', d: '' });
-const hm = (t?: string) => (t ? { h: String(Number(t.slice(0, 2))), m: t.slice(3, 5) } : { h: '', m: '' });
 
 export default function LeaveForm({ email }: { email: string }) {
   const list = useLeaveReqs(email);
@@ -69,8 +68,6 @@ export default function LeaveForm({ email }: { email: string }) {
   };
   const w = ymd(d.workDate);
   const a = ymd(d.applyDate);
-  const s = hm(d.start);
-  const e = hm(d.end);
   // 화면에선 입력칸, 프린트에선 글자 (printSheet 가 .no-print 를 지우고 .lv-print 만 보임)
   const both = (input: React.ReactNode, text: React.ReactNode) => (
     <>
@@ -190,11 +187,11 @@ export default function LeaveForm({ email }: { email: string }) {
                 <td>
                   {both(
                     <span className="lv-times">
-                      <input type="time" value={d.start ?? ''} onChange={(x) => set({ start: x.target.value || undefined })} /> 부터
-                      <input type="time" value={d.end ?? ''} onChange={(x) => set({ end: x.target.value || undefined })} /> 까지
+                      <input type="time" value={d.start ?? ''} onChange={(x) => set({ start: x.target.value || undefined })} /> ~
+                      <input type="time" value={d.end ?? ''} onChange={(x) => set({ end: x.target.value || undefined })} />
                     </span>,
                     <>
-                      {s.h || '  '} 시 {s.m || '  '} 분부터 {e.h || '  '} 시 {e.m || '  '} 분까지
+                      {d.start || '  :  '} ~ {d.end || '  :  '}
                     </>,
                   )}
                 </td>
