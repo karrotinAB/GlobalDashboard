@@ -56,12 +56,10 @@ export async function reportAudience(db, r) {
 }
 
 const link = (id) => `./#/reports?r=${encodeURIComponent(id)}`;
-const cut = (s, n) => (String(s ?? '').length > n ? `${String(s).slice(0, n)}…` : String(s ?? ''));
-const plain = (html) => String(html ?? '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
 export async function onReportCreated(db, id, r) {
   const to = await reportAudience(db, r);
-  return sendPush(db, to, { title: `📑 새 보고 · ${r.authorName ?? ''}`, body: `${r.title}${plain(r.body) ? ` — ${cut(plain(r.body), 60)}` : ''}`, link: link(id), tag: `rp-${id}` });
+  return sendPush(db, to, { title: `${r.authorName ?? ''}님이 보고방에 보고를 올렸어요`, body: '', link: link(id), tag: `rp-${id}` });
 }
 
 /** 바뀐 보고: 새 답글 · 새 반응만 골라서 알림 */
@@ -74,7 +72,7 @@ export async function onReportUpdated(db, id, before, after) {
       // 새 답글 → 보고 쓴 사람 + (대댓글이면) 원래 댓글 쓴 사람
       const parent = rp.parentId ? (after.replies ?? []).find((x) => x.id === rp.parentId) : null;
       const to = [after.authorEmail, parent?.email].filter((e) => e && low(e) !== low(rp.email));
-      if (to.length) jobs.push(sendPush(db, to, { title: `💬 ${rp.name}님이 ${parent ? '댓글에 답글을' : '답글을'} 달았어요`, body: `${cut(after.title, 30)} — ${cut(rp.text, 70)}`, link: link(id), tag: `rp-${id}-${rp.id}` }));
+      if (to.length) jobs.push(sendPush(db, to, { title: `${rp.name}님이 보고방에 댓글을 달았어요`, body: '', link: link(id), tag: `rp-${id}-${rp.id}` }));
       continue;
     }
     // 새 반응 → 그 댓글 쓴 사람
@@ -83,7 +81,7 @@ export async function onReportUpdated(db, id, before, after) {
       for (const p of people ?? []) {
         const key = low(p.email) || p.name;
         if (before.has(key) || !rp.email || low(rp.email) === low(p.email)) continue;
-        jobs.push(sendPush(db, [rp.email], { title: `${emoji} ${p.name}님이 내 댓글에 반응했어요`, body: `${cut(after.title, 30)} — ${cut(rp.text, 60)}`, link: link(id), tag: `rx-${id}-${rp.id}` }));
+        jobs.push(sendPush(db, [rp.email], { title: `${p.name}님이 댓글을 확인했어요`, body: '', link: link(id), tag: `rx-${id}-${rp.id}` }));
       }
     }
   }
@@ -99,7 +97,7 @@ export async function pettyReminder(db, now = new Date()) {
   const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const half = d === 14 ? '상반기' : d === last - 1 ? '하반기' : null;
   if (!half) return { sent: 0, skipped: true };
-  return sendPushAll(db, { title: `💰 ${m}월 ${half} 전도금 마감이 내일이에요!`, body: '눌러서 전도금을 기록해 주세요', link: './#/petty', tag: `petty-${y}-${m}-${half}` });
+  return sendPushAll(db, { title: `💰 ${String(m).padStart(2, '0')}월 ${half} 전도금 마감이 내일이에요!`, body: '', link: './#/petty', tag: `petty-${y}-${m}-${half}` });
 }
 
 /** 무역사무: 새 업무(요청) 등록 → 무역사무 사람들 (등록한 사람 빼고) */
@@ -107,8 +105,5 @@ export async function onRequestCreated(db, id, r, team) {
   const roles = (await db.collection('roles').get()).docs.map((d) => ({ email: low(d.id), level: d.get('level') }));
   const by = low(r.createdByEmail || r.requesterEmail);
   const to = roles.filter((x) => x.level === 'trade' && x.email !== by).map((x) => x.email);
-  const self = !r.team && !r.requesterId && !r.requesterEmail && !r.teamName;
-  const side = r.teamName || (self ? '무역사무' : `${r.team || team}조`);
-  const who = r.requesterName ? ` ${r.requesterName}` : '';
-  return sendPush(db, to, { title: `📨 새 업무 · ${side}${who}`, body: `${r.priority ? `[${r.priority}] ` : ''}${cut(r.title, 80)}`, link: './#/twork', tag: `rq-${id}` });
+  return sendPush(db, to, { title: '새로운 업무가 등록됐어요', body: '', link: './#/twork', tag: `rq-${id}` });
 }
