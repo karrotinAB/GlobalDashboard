@@ -2987,10 +2987,11 @@ tr.bundle-head td.bundle-amt {
 .shell {
   max-width: 1360px;
 }
-@media (min-width: 1300px) {
-  .table-scroll:has(.order-table) {
-    overflow: visible;
-  }
+/* 주문 표가 카드보다 넓어지면 (주문 칸을 늘렸을 때 등) 옆으로 넘치거나 밀리지 않고 카드 안에서 잘림
+   clip 은 스크롤 상자를 만들지 않아서 머리줄 고정(sticky)은 그대로 */
+.table-scroll:has(.order-table) {
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 /* 이 카드가 나예요 */

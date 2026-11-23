@@ -1035,9 +1035,9 @@ function SyncButton({ companyId, last }: { companyId: string; last?: ConfigDoc }
   };
   const lastAt = last?.at ? new Date(last.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
   return (
-    <span className="sync-box" title={msg || (lastAt ? `마지막 자동 갱신 ${lastAt}` : 'ERP 에서 원화·외화 금액 불러오기')}>
+    <span className="sync-box" title={msg || (lastAt ? `마지막 자동 갱신 ${lastAt}` : 'ERP 에서 최근 3일 새 주문 + 원화·외화 금액 바로 불러오기')}>
       <button className="sync-btn" onClick={run} disabled={busy}>
-        {busy ? '불러오는 중…' : '↻ 금액 새로고침'}
+        {busy ? '불러오는 중…' : '↻ 주문 불러오기'}
       </button>
       {(msg || lastAt) && <span className="sync-msg">{msg || `자동 ${lastAt}`}</span>}
       {result && (
