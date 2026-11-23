@@ -9012,3 +9012,10 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .lv-main .pc-print-bar { flex-wrap: wrap; position: sticky; left: 0; }
   .lv-main .ps-page { margin-left: 0; }
 }
+/* 전도금 · 출장비 (휴대폰): 입력칸을 위에, 그 밑에 내역 */
+@media (max-width: 600px) {
+  .pc-section { display: flex; flex-direction: column; }
+  .pc-section > .pc-sec-head { order: 0; }
+  .pc-section > .pc-add { order: 1; margin-top: 0; margin-bottom: 12px; }
+  .pc-section > :not(.pc-sec-head):not(.pc-add) { order: 2; }
+}
