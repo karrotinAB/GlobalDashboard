@@ -9197,3 +9197,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* 발표 표: 강조할 줄 */
 .pm-table tr.hot td { background: #e3effc; }
 .pm-table tr.hot td:first-child { box-shadow: inset 5px 0 0 #2f6db5; color: #1d4f8a; }
+/* 묶음 머리줄 출고일: 두 줄로 꺾이지 않게 */
+.order-table tr.bundle-head td.bundle-ship, .order-table tr.bundle-head td.bundle-ship .cell-view { white-space: nowrap; }
+.order-table tr.bundle-head td.bundle-ship .cell-view { font-size: 13px; letter-spacing: -0.2px; overflow: visible; }
