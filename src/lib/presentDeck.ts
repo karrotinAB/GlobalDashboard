@@ -61,7 +61,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S0,
     kicker: 'IT 실 발표 · 글로벌사업부',
     title: 'Global Dashboard',
-    body: ['글로벌사업부 업무 대시보드 — 무엇을, 어떻게, 얼마나 안전하게'],
+    body: ['글로벌사업부 업무를 더 쉽고 정확하게'],
   },
 
   // ───────── 1. 이게 뭔가요

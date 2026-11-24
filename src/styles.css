@@ -9138,7 +9138,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 }
 .pm-slide { overflow-y: auto; align-items: safe center; }
 .pm-slide-in { max-width: 1120px; }
-.pm-slide-title.cover { font-size: 88px; }
+.pm-slide-title.pm-cover { font-size: 88px; }
 .pm-foot { margin: 18px 0 0; font-size: 0.72em; color: var(--mut); }
 .pm-slide .pm-body { margin-top: 18px; }
 /* 상자 그림 */
@@ -9184,7 +9184,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pm-toc-steps button.on { color: var(--primary); font-weight: 700; }
 .pm-toc-n { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--mut); min-width: 18px; }
 @media (max-width: 720px) {
-  .pm-slide-title.cover { font-size: 44px; }
+  .pm-slide-title.pm-cover { font-size: 44px; }
   .pm-flow-label { width: 100%; }
   .pm-box { min-width: 0; }
   .pm-table th, .pm-table td { padding: 6px 8px; }

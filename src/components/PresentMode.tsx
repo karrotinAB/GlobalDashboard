@@ -137,7 +137,7 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
         <div className="pm-slide">
           <div className="pm-slide-in">
             {s.kicker && <div className="pm-kicker">{s.kicker}</div>}
-            <h1 className={`pm-slide-title ${step === 0 ? 'cover' : ''}`}>{s.title}</h1>
+            <h1 className={`pm-slide-title ${step === 0 ? 'pm-cover' : ''}`}>{s.title}</h1>
             <Extras s={s} />
             {s.body && <Body lines={s.body} />}
             {s.foot && <p className="pm-foot">{s.foot}</p>}
