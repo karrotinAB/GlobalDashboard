@@ -9136,3 +9136,56 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .pm-slide-title { font-size: 38px; }
   .pm-dots { display: none; }
 }
+.pm-slide { overflow-y: auto; align-items: safe center; }
+.pm-slide-in { max-width: 1120px; }
+.pm-slide-title.cover { font-size: 88px; }
+.pm-foot { margin: 18px 0 0; font-size: 0.72em; color: var(--mut); }
+.pm-slide .pm-body { margin-top: 18px; }
+/* 상자 그림 */
+.pm-flow { display: flex; flex-direction: column; gap: 14px; margin: 6px 0 4px; }
+.pm-flow-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 0; }
+.pm-flow-label { align-self: center; width: 72px; flex: none; font-size: 0.62em; font-weight: 700; color: var(--mut); }
+.pm-flow-cell { display: flex; align-items: stretch; }
+.pm-flow-arrow { align-self: center; padding: 0 10px; color: var(--primary); font-weight: 700; }
+.pm-flow-row:not(:has(.pm-flow-arrow)) .pm-flow-cell + .pm-flow-cell { margin-left: 12px; }
+.pm-box { display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 150px; padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1.5px solid var(--line); box-shadow: var(--shadow); line-height: 1.3; }
+.pm-box b { font-size: 0.85em; color: var(--ink); }
+.pm-box small { font-size: 0.58em; color: var(--ink-2); }
+.pm-box.hot { border-color: var(--primary); background: var(--primary-soft); }
+.pm-note .pm-flow { margin-bottom: 12px; }
+.pm-note .pm-box { min-width: 0; padding: 10px 12px; }
+.pm-note:has(.pm-flow) { width: min(900px, calc(100vw - 32px)); }
+/* 두 칸 비교 */
+.pm-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; font-size: 0.8em; }
+.pm-col { padding: 20px 24px; border-radius: 16px; background: var(--surface); border: 2px solid var(--line); box-shadow: var(--shadow); }
+.pm-col.good { border-color: var(--olive); }
+.pm-col.good .pm-col-title { color: var(--olive); }
+.pm-col.warn { border-color: var(--amber); }
+.pm-col.warn .pm-col-title { color: var(--amber); }
+.pm-col-title { display: block; margin-bottom: 10px; }
+.pm-col ul { margin: 0; padding-left: 1.1em; }
+.pm-col li { margin: 0 0 6px; color: var(--ink); }
+/* 표 */
+.pm-table { width: 100%; border-collapse: collapse; font-size: 0.7em; background: var(--surface); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.pm-table th { text-align: left; padding: 10px 16px; background: var(--primary); color: #fff; font-weight: 600; }
+.pm-table td { padding: 9px 16px; border-top: 1px solid var(--line); color: var(--ink); vertical-align: top; }
+.pm-table td:first-child { font-weight: 600; }
+/* 목차 */
+.pm-toc-bg { position: fixed; inset: 0; pointer-events: auto; background: rgba(30, 14, 16, 0.35); }
+.pm-toc { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 120px); overflow-y: auto; background: var(--surface); border-radius: 18px; padding: 16px; box-shadow: 0 18px 50px rgba(40, 12, 16, 0.35); animation: pm-in 0.18s ease-out; }
+.pm-toc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 6px 10px; font-size: 16px; }
+.pm-toc-sec { border-top: 1px solid var(--line-2); padding: 4px 0; }
+.pm-toc-sec.here { background: var(--surface-2); border-radius: 10px; }
+.pm-toc button { display: flex; width: 100%; align-items: center; gap: 8px; border: 0; background: none; text-align: left; border-radius: 8px; padding: 7px 10px; white-space: normal; }
+.pm-toc button:hover { background: var(--primary-soft); }
+.pm-toc-title { justify-content: space-between; font-weight: 700; font-size: 15px; }
+.pm-toc-steps { padding: 0 0 4px 14px; }
+.pm-toc-steps button { font-size: 13px; color: var(--ink-2); padding: 4px 10px; }
+.pm-toc-steps button.on { color: var(--primary); font-weight: 700; }
+.pm-toc-n { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--mut); min-width: 18px; }
+@media (max-width: 720px) {
+  .pm-slide-title.cover { font-size: 44px; }
+  .pm-flow-label { width: 100%; }
+  .pm-box { min-width: 0; }
+  .pm-table th, .pm-table td { padding: 6px 8px; }
+}
