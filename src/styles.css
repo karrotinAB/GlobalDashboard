@@ -7293,7 +7293,7 @@ tr.is-done .repeat-btn.on { text-decoration: none; }
 .tr-word input { flex: 1; min-width: 0; }
 .tr-ko { font-weight: 600; white-space: nowrap; }
 .tr-rows { margin-top: 12px; }
-.tr-rows-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.tr-rows-head { display: flex; align-items: center; gap: 8px 12px; margin-bottom: 8px; flex-wrap: wrap; min-width: 0; }
 .tr-table-wrap { overflow: auto; max-height: 70vh; }
 .tr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .tr-table th { position: sticky; top: 0; background: #fbf6f4; text-align: left; padding: 7px 8px; border-bottom: 1px solid #eadcd9; white-space: nowrap; font-size: 12px; color: #6b5753; z-index: 1; }
