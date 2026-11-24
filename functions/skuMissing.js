@@ -4,7 +4,7 @@
 //     그 뒤: 지난번 가장 늦은 등록일 이후 제품만 (등록일 순서대로 앞쪽 / 뒤쪽 몇 쪽만)
 //   🔄 새로고침 (개별: getproductinfo.asp?SKU_CODE=): 채우고 있는 코드만 다시 보고, 다 채워졌으면 목록에서 뺌
 //   회사 API 제한: 1분에 30번 (API마다) · 한 쪽 최대 2,000개 → 부를 때마다 2.1초 이상 쉼
-//   저장: skuMissing/{제품코드 앞 2자리} = { data: '{"코드":[닉네임, 구분, 대분류, 중분류, 영문명, 등록일]}' }
+//   저장: skuMissing/h000~h255 (제품코드를 고르게 나눈 칸) = {  (예전 앞 2자리 문서는 다음 실행 때 옮김) data: '{"코드":[닉네임, 구분, 대분류, 중분류, 영문명, 등록일]}' }
 //         skuMissing/_meta = { phase, page, order, lastReg, lastPage, count, at, ... }
 import { skuCfg, RateLimited } from './sku.js';
 
@@ -136,11 +136,36 @@ async function readList(db) {
   });
   return all;
 }
+// 문서 하나 = 제품코드를 256 칸에 고르게 나눈 묶음 h000 ~ h255 (Firestore 문서는 1MB 까지 · 앞 2자리 묶음은 한쪽에 몰려 넘쳤음)
+//   한 칸 ≈ 목록 전체 / 256 → 수백만 개까지 1MB 아래
+const shardOf = (c) => {
+  let h = 0;
+  for (const ch of String(c)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `h${String(h % 256).padStart(3, '0')}`;
+};
+const isShard = (id) => id !== '_meta';
+const isNewShard = (id) => /^h\d{3}$/.test(id);
+/** 예전 앞 2자리 문서 → 4자리 문서로 옮기고 지움 (한 번만, 그 뒤엔 할 일 없음) */
+async function migrateShards(db) {
+  const snap = await db.collection('skuMissing').get();
+  const old = snap.docs.filter((d) => isShard(d.id) && !isNewShard(d.id));
+  for (const d of old) {
+    let v = {};
+    try {
+      v = JSON.parse(d.get('data') ?? '{}');
+    } catch {
+      v = {};
+    }
+    await d.ref.delete();
+    if (Object.keys(v).length) await writeChanged(db, v);
+  }
+  return old.length;
+}
 async function writeChanged(db, changes) {
   // changes: { code: row | null }
   const by = new Map();
   for (const [c, v] of Object.entries(changes)) {
-    const p = c.slice(0, 2) || '__';
+    const p = shardOf(c);
     if (!by.has(p)) by.set(p, {});
     by.get(p)[c] = v;
   }
@@ -176,6 +201,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   if (meta.lockUntil && Date.parse(meta.lockUntil) > Date.now()) return { busy: true, ...publicMeta(meta) };
   const lockUntil = new Date(Date.now() + budgetMs + 60000).toISOString();
   await metaRef.set({ lockUntil }, { merge: true });
+  await migrateShards(db); // 예전 앞 2자리 묶음 → 고르게 나눈 칸
   const t0 = Date.now();
   const last = { at: 0 };
   const changes = {};
@@ -303,6 +329,7 @@ export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sle
   const sec = (await db.doc('secrets/sku').get()).data() ?? {};
   const cfg0 = await exCfg(db, sec);
   const cfg = { ...cfg0, one: String(sec.oneUrl ?? ONE).trim() || ONE };
+  await migrateShards(db);
   const list = await readList(db);
   const codes = [...new Set(codes0.map(str))].filter((c) => list[c]);
   const t0 = Date.now();
