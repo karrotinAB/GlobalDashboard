@@ -169,7 +169,7 @@ function TranslateTab() {
   // '사전에 없는 단어'에서 ✕ 로 뺀 단어: 번역하지 않음 (영문 제품명에서 빠짐)
   const [hidden, setHidden] = useKept<string[]>('hiddenWords', []);
   // 줄 거르기: 전체 · 엑셀에서 빈 칸 있는 줄 · 아직 덜 채운 줄 (사이트에서 채운 것 빼고)
-  const [rowF, setRowF] = useKept<'all' | 'excel' | 'left'>('rowF', 'left');
+  const [rowF, setRowF] = useKept<'all' | 'excel' | 'left' | 'en' | 'cat'>('rowF', 'left');
   const onlyTodo = rowF !== 'all';
   const [page0, setPage] = useKept('page', 0);
   const cell = (row: { cells: unknown[] }, k: keyof Sheet['col']) => (sheet?.col[k] !== undefined ? String(row.cells[sheet.col[k]!] ?? '').trim() : '');
@@ -297,7 +297,16 @@ function TranslateTab() {
   const isLeft = (v: (typeof view)[number]) => (v.empty.includes('enName') && (!enOf(v) || /\[[^\]]+\]/.test(enOf(v)))) || (needCat(v) && !chosen(v));
   const [refilter, setRefilter] = useState(0);
   const shown = useMemo(
-    () => (rowF === 'left' ? shownAll.filter(isLeft) : rowF === 'excel' ? shownAll.filter((v) => v.empty.length > 0) : shownAll),
+    () =>
+      rowF === 'left'
+        ? shownAll.filter(isLeft)
+        : rowF === 'excel'
+          ? shownAll.filter((v) => v.empty.length > 0)
+          : rowF === 'en'
+            ? shownAll.filter((v) => v.empty.includes('enName')) // 영문 제품명이 빈 줄
+            : rowF === 'cat'
+              ? shownAll.filter(needCat) // 수출 분류가 빈 줄
+              : shownAll,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [rowF, shownAll, refilter],
   );
@@ -469,9 +478,11 @@ function TranslateTab() {
       {sheet && (
         <div className="card tr-rows">
           <div className="tr-rows-head">
-            <select className={`tr-code-pre ${rowF !== 'all' ? 'set' : ''}`} value={rowF} onChange={(e) => (setRowF(e.target.value as 'all' | 'excel' | 'left'), setPage(0))} title="어떤 줄을 볼지">
+            <select className={`tr-code-pre ${rowF !== 'all' ? 'set' : ''}`} value={rowF} onChange={(e) => (setRowF(e.target.value as 'all' | 'excel' | 'left' | 'en' | 'cat'), setPage(0))} title="어떤 줄을 볼지">
               <option value="left">아직 덜 채운 줄 (사이트에서 채운 것 빼고)</option>
-              <option value="excel">엑셀에서 빈 칸 있는 줄</option>
+              <option value="en">영문 제품명 빈 줄 ({view.filter((v) => v.empty.includes('enName')).length.toLocaleString()})</option>
+              <option value="cat">수출 분류 빈 줄 ({view.filter(needCat).length.toLocaleString()})</option>
+              <option value="excel">빈 칸 있는 줄 (전부)</option>
               <option value="all">모든 줄</option>
             </select>
             <input className="search tr-row-q" placeholder="🔍 제품명 · 코드로 찾기" value={rowQ} onChange={(e) => (setRowQ(e.target.value), setPage(0))} />
