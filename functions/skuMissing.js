@@ -201,7 +201,8 @@ async function writeChanged(db, changes) {
     else await ref.delete().catch(() => {});
   }
 }
-const packRow = (r) => [r.nick || r.kor, r.type, r.lrg, r.midd, r.eng, r.reg];
+// 재고 · 수출구분도 같이 적어 둠 → 다음에 거르는 기준이 바뀌어도 목록 안의 제품은 다시 안 불러오고 바로 거를 수 있게
+const packRow = (r) => [r.nick || r.kor, r.type, r.lrg, r.midd, r.eng, r.reg, r.qty ?? '', r.exp ?? ''];
 
 /**
  * ⬇ 없는거 불러오기. 한 번에 최대 budgetMs (함수 시간 안에서) — 다 못 하면 다음에 이어서 (page 기억)
