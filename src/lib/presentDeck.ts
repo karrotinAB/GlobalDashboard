@@ -39,6 +39,10 @@ export interface PresentStep {
   table?: string[][];
   /** 아래 작은 글씨 (출처 · 주의) */
   foot?: string;
+  /** page 와 같이: 실제 화면을 어둡게 깔고 그 위에 슬라이드 */
+  over?: boolean;
+  /** 메모 없이 화면만 보여주기 */
+  bare?: boolean;
   /** 메모 위치 (기본: 오른쪽 아래) */
   note?: 'right' | 'left' | 'bottom' | 'top';
 }
@@ -67,6 +71,14 @@ export const PRESENT_DECK: PresentStep[] = [
   // ───────── 1. 이게 뭔가요
   {
     section: S1,
+    page: 'home',
+    bare: true,
+    title: '홈 화면 한번 쓱',
+  },
+  {
+    section: S1,
+    page: 'home',
+    over: true,
     kicker: S1,
     title: '흩어진 업무를 한 곳에서',
     body: [

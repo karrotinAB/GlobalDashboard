@@ -128,13 +128,14 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
 
   if (step === null || !s || !allowed) return null;
   const slide = !s.page;
+  const over = !!s.page && !!s.over; // 실제 화면 위에 어둡게 깔고 슬라이드
   const last = step === PRESENT_DECK.length - 1;
   const pad = 10;
 
   return (
     <div className="pm" aria-live="polite">
-      {slide ? (
-        <div className="pm-slide">
+      {slide || over ? (
+        <div className={over ? 'pm-over' : 'pm-slide'}>
           <div className="pm-slide-in">
             {s.kicker && <div className="pm-kicker">{s.kicker}</div>}
             <h1 className={`pm-slide-title ${step === 0 ? 'pm-cover' : ''}`}>{s.title}</h1>
@@ -151,7 +152,7 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
               style={{ left: box.left - pad, top: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2 }}
             />
           )}
-          {!hideNote && (
+          {!hideNote && !s.bare && (
             <div className={`pm-note pm-note-${s.note ?? 'right'}`}>
               {s.kicker && <div className="pm-kicker">{s.kicker}</div>}
               <h2 className="pm-note-title">{s.title}</h2>
@@ -205,12 +206,12 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
         <button onClick={() => (last ? setStep(null) : setStep(step + 1))} aria-label={last ? '발표 끝내기' : '다음'}>
           {last ? '끝' : '→'}
         </button>
-        {!slide && (
+        {!slide && !over && !s.bare && (
           <button className={hideNote ? 'on' : ''} onClick={() => setHideNote((v) => !v)} title="메모 숨기기/보이기 (H)">
             메모
           </button>
         )}
-        {!slide && s.target && (
+        {!slide && !over && s.target && (
           <button className={noDim ? 'on' : ''} onClick={() => setNoDim((v) => !v)} title="어둡게 하기 끄기/켜기 (D)">
             밝게
           </button>
