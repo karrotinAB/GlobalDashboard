@@ -240,7 +240,7 @@ const calList = async () => ((await db.doc('secrets/calendars').get()).get('list
 
 export const calendarEvents = onCall({ region: REGION }, async (req) => {
   const role = await roleOf(req);
-  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 볼 수 있어요');
+  if (!['admin', 'member', 'trade', 'lead', 'director', 'auditor'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 볼 수 있어요');
   const from = new Date(req.data?.from);
   const to = new Date(req.data?.to);
   if (Number.isNaN(+from) || Number.isNaN(+to) || to <= from || to - from > 70 * 86400000) throw new HttpsError('invalid-argument', '기간을 확인해 주세요');
@@ -257,7 +257,7 @@ export const calendarEvents = onCall({ region: REGION }, async (req) => {
 });
 
 export const calendarConfig = onCall({ region: REGION }, async (req) => {
-  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
+  if (!['admin', 'auditor'].includes(await roleOf(req))) throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
   return { list: (await calList()).map(({ id, name, color, url }) => ({ id, name, color, masked: `${url.slice(0, 48)}…` })) };
 });
 
@@ -282,7 +282,7 @@ export const saveCalendars = onCall({ region: REGION }, async (req) => {
 // ------------------------------------------------------------------
 export const worldHolidays = onCall({ region: REGION }, async (req) => {
   const role = await roleOf(req);
-  if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만');
+  if (!['admin', 'member', 'trade', 'lead', 'director', 'auditor'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만');
   const year = Number(req.data?.year);
   const codes = (Array.isArray(req.data?.codes) ? req.data.codes : []).map((c) => String(c).toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)).slice(0, 15);
   if (!Number.isInteger(year) || year < 2025 || year > 2100) throw new HttpsError('invalid-argument', '해를 확인해 주세요');
@@ -504,7 +504,7 @@ export const inspectSalesApi = onCall({ region: REGION }, async (req) => {
 });
 
 export const salesConfig = onCall({ region: REGION }, async (req) => {
-  if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
+  if (!['admin', 'auditor'].includes(await roleOf(req))) throw new HttpsError('permission-denied', '관리자만 볼 수 있어요');
   const c = await salesCfg();
   return { hasEcos: !!(await ecosKey()), hasUrl: !!c.url, masked: c.url ? `${c.url.slice(0, 40)}…` : '', dateParam: c.dateParam, endParam: c.endParam, storeParam: c.storeParam, dateFormat: c.dateFormat, fields: c.fields ?? {} };
 });
@@ -824,6 +824,21 @@ export const syncWeatherNow = onCall({ region: REGION }, async (req) => {
 //   roles/{이메일} 지움 → 사이트 권한 없음 · Firebase 로그인 계정 삭제 → 로그인 안 됨
 //   이름은 contacts/{이메일}.name 에 남겨서 예전 기록(보고 · 댓글 · 업무)에 계속 이름으로 보임
 import { getAuth } from 'firebase-admin/auth';
+/** IT 검토용 계정이 만든 가짜 문서 지우기: 맨 위 컬렉션 전부에서 dummyBy == 이메일 */
+async function purgeDummy(email) {
+  let n = 0;
+  for (const col of await db.listCollections()) {
+    if (col.id === 'secrets') continue;
+    const snap = await col.where('dummyBy', '==', email).get();
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const b = db.batch();
+      snap.docs.slice(i, i + 400).forEach((d) => b.delete(d.ref));
+      await b.commit();
+    }
+    n += snap.size;
+  }
+  return n;
+}
 export const removeUser = onCall({ region: REGION }, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   const email = String(req.data?.email ?? '').trim().toLowerCase();
@@ -831,6 +846,9 @@ export const removeUser = onCall({ region: REGION }, async (req) => {
   if (email === req.auth?.token?.email?.toLowerCase()) throw new HttpsError('failed-precondition', '나 자신은 뺄 수 없어요');
   const roleRef = db.doc(`roles/${email}`);
   const role = (await roleRef.get()).data() ?? {};
+  // IT 검토용 계정: 그 계정이 넣은 가짜 데이터(dummyBy = 그 이메일)를 모든 컬렉션에서 지움
+  let dummies = 0;
+  if (role.level === 'auditor') dummies = await purgeDummy(email);
   const contact = (await db.doc(`contacts/${email}`).get()).data() ?? {};
   const name = contact.name || role.name || email.split('@')[0];
   await db.doc(`contacts/${email}`).set({ name, removed: true, removedAt: new Date().toISOString() }, { merge: true });
@@ -843,7 +861,7 @@ export const removeUser = onCall({ region: REGION }, async (req) => {
     if (e?.code === 'auth/user-not-found') account = 'none';
     else throw new HttpsError('internal', `권한은 뺐는데 로그인 계정을 못 지웠어요: ${e.message}`);
   }
-  return { ok: true, name, account };
+  return { ok: true, name, account, dummies };
 });
 
 // ---------- 휴대폰 알림 (웹 푸시) ----------

@@ -19,8 +19,8 @@ interface Row {
 }
 
 const ROLE_LABEL = ROLE_NAME;
-const ROLE_ORDER: Record<Role, number> = { admin: 0, director: 1, lead: 2, member: 3, trade: 4 };
-const ROLE_OPTIONS: Role[] = ['member', 'trade', 'lead', 'director', 'admin'];
+const ROLE_ORDER: Record<Role, number> = { admin: 0, director: 1, lead: 2, member: 3, trade: 4, auditor: 5 };
+const ROLE_OPTIONS: Role[] = ['member', 'trade', 'lead', 'director', 'admin', 'auditor'];
 
 /** 새 로그인 계정 만들기. 보조 앱으로 만들어서 관리자 본인의 로그인은 그대로 유지됨 */
 async function createAccount(email: string, password: string): Promise<'created' | 'exists'> {
@@ -124,6 +124,8 @@ export default function AccessAdmin() {
       <h2>
         대시보드 사용자 <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
+      {me.auditor && <p className="warn small">🔒 IT 검토용 계정은 사용자 · 권한을 볼 수만 있어요 (추가 · 변경 · 삭제 안 됨)</p>}
+      <fieldset className="plain-fieldset" disabled={!!me.auditor}>
       <p className="muted small">
         여기 추가한 사람만 대시보드에 로그인해서 쓸 수 있어요. 이메일과 임시 비밀번호를 넣으면 로그인 계정까지 만들어져요.
         <br />
@@ -204,11 +206,11 @@ export default function AccessAdmin() {
                     <button
                       className="danger small"
                       onClick={async () => {
-                        if (!confirm(`${r.name || r.email} 을(를) 대시보드 사용자에서 뺄까요?\n\n· 로그인 계정이 지워져서 더 이상 로그인할 수 없어요\n· 남긴 기록(보고 · 댓글 · 업무 등)과 이름은 그대로 남아요`)) return;
+                        if (!confirm(r.role === 'auditor' ? `${r.name || r.email} (IT 검토용) 을 뺄까요?\n\n· 로그인 계정이 지워져요\n· 이 계정이 넣은 가짜 데이터도 모두 같이 지워져요` : `${r.name || r.email} 을(를) 대시보드 사용자에서 뺄까요?\n\n· 로그인 계정이 지워져서 더 이상 로그인할 수 없어요\n· 남긴 기록(보고 · 댓글 · 업무 등)과 이름은 그대로 남아요`)) return;
                         try {
                           const res = await httpsCallable(functions, 'removeUser')({ email: r.email });
-                          const d = res.data as { name: string; account: 'deleted' | 'none' };
-                          setMsg(`${d.name} 님을 뺐어요 ✓ ${d.account === 'deleted' ? '로그인 계정도 지웠어요' : '(로그인 계정은 원래 없었어요)'}`);
+                          const d = res.data as { name: string; account: 'deleted' | 'none'; dummies?: number };
+                          setMsg(`${d.name} 님을 뺐어요 ✓ ${d.account === 'deleted' ? '로그인 계정도 지웠어요' : '(로그인 계정은 원래 없었어요)'}${d.dummies ? ` · 가짜 데이터 ${d.dummies}개도 지웠어요` : ''}`);
                         } catch (err) {
                           setMsg(`빼지 못했어요: ${(err as Error).message} — 서버 함수를 새로 올렸는지 확인해 주세요 (deploy.bat)`);
                         }
@@ -248,6 +250,7 @@ export default function AccessAdmin() {
         </button>
       </form>
       {msg && <p className="small" style={{ marginBottom: 0 }}>{msg}</p>}
+      </fieldset>
     </section>
   );
 }

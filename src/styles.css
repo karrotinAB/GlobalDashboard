@@ -9208,3 +9208,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .tr-apicheck summary { cursor: pointer; color: var(--ink-2); }
 .tr-apicheck p { margin: 6px 0 0; }
 .tr-apicheck-fields { display: block; white-space: pre-wrap; word-break: break-all; font-size: 11px; background: #faf6f4; border-radius: 8px; padding: 6px 8px; margin-top: 4px; max-height: 200px; overflow: auto; }
+
+/* IT 검토용 계정 */
+.auditor-banner { position: sticky; top: 0; z-index: 200; padding: 6px 14px; background: #2f6db5; color: #fff; font-size: 12.5px; text-align: center; line-height: 1.4; }
+.auditor-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 300; padding: 10px 16px; border-radius: 12px; background: #3b2f2f; color: #fff; font-size: 13px; box-shadow: var(--shadow); }
+.plain-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }

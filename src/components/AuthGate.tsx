@@ -3,11 +3,12 @@ import Splash from './Splash';
 import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { setFsGuard } from '../lib/fsGuard';
 import { Cover } from './ui';
 import { DEFAULT_TEAM, isPersonal, savedViewLabel, savedViewTeam, spaceLabel, TEAMS } from '../lib/team';
 
-export type Role = 'admin' | 'member' | 'trade' | 'lead' | 'director'; // trade = 무역사무, lead = 팀장님, director = 이사님
-export const ROLE_NAME: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무', lead: '팀장님', director: '이사님' };
+export type Role = 'admin' | 'member' | 'trade' | 'lead' | 'director' | 'auditor'; // trade = 무역사무, lead = 팀장님, director = 이사님, auditor = IT 검토용 (가짜 관리자)
+export const ROLE_NAME: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무', lead: '팀장님', director: '이사님', auditor: 'IT 검토용' };
 /** 팀장님·이사님: 자기만의 대시보드 + 모든 조 현황 보기 */
 export const isLeader = (r: Role | null) => r === 'lead' || r === 'director';
 
@@ -35,6 +36,7 @@ interface Access {
   canManage: boolean; // 이 공간을 관리 (업체 삭제·홈 구성 등): 관리자·팀장님·이사님·로컬
   accountName?: string; // 설정 > 대시보드 사용자에 적힌 이름 (roles.name)
   realRole?: Role | null; // 실제 권한 (관리자가 '일반 유저로 보기' 중이면 role 은 member, realRole 은 admin)
+  auditor?: boolean; // IT 검토용 계정: 화면은 관리자처럼 · 새로 넣는 건 가짜 데이터 · 기존 데이터 · 계정은 못 고침
 }
 
 /** 관리자의 '일반 유저로 보기' (화면만 조원처럼, 실제 권한은 그대로) */
@@ -71,6 +73,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | 'none' | undefined>(undefined);
   const [team, setTeam] = useState<string>(DEFAULT_TEAM);
   const [space, setSpace] = useState<{ id?: string; name?: string }>({});
+  const [auditor, setAuditor] = useState(false);
 
   useEffect(
     () =>
@@ -93,7 +96,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         setTeam((TEAMS as readonly string[]).includes(t) ? t : DEFAULT_TEAM);
         const sp = snap.data()?.space;
         setSpace({ id: isPersonal(sp) ? sp : undefined, name: snap.data()?.name });
-        setRole(r === 'admin' || r === 'member' || r === 'trade' || r === 'lead' || r === 'director' ? r : 'none');
+        // IT 검토용(auditor): 화면은 관리자처럼, 쓰기는 가짜 데이터로만 (fsGuard + 서버 규칙)
+        setAuditor(r === 'auditor');
+        setFsGuard(email, r === 'auditor');
+        setRole(r === 'auditor' ? 'admin' : r === 'admin' || r === 'member' || r === 'trade' || r === 'lead' || r === 'director' ? r : 'none');
       },
       () => setRole('none'),
     );
@@ -125,7 +131,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       : spaceLabel(viewTeam);
   const canManage = role === 'admin' || leader;
   return (
-    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name, realRole: role }}>
+    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name, realRole: role, auditor }}>
+      {auditor && <AuditorBanner />}
       {children}
     </AccessContext.Provider>
   );
@@ -209,5 +216,26 @@ function NoAccess({ email }: { email: string }) {
         로그아웃
       </button>
     </Shell>
+  );
+}
+
+/** IT 검토용 계정: 맨 위 안내 + 막힌 저장 알림 */
+function AuditorBanner() {
+  const [denied, setDenied] = useState(0);
+  useEffect(() => {
+    const f = () => setDenied(Date.now());
+    window.addEventListener('gd-guard-denied', f);
+    return () => window.removeEventListener('gd-guard-denied', f);
+  }, []);
+  useEffect(() => {
+    if (!denied) return;
+    const t = setTimeout(() => setDenied(0), 4000);
+    return () => clearTimeout(t);
+  }, [denied]);
+  return (
+    <>
+      <div className="auditor-banner">🧪 IT 검토용 계정 · 모든 화면을 볼 수 있어요 · 새로 넣는 건 가짜 데이터로만 저장돼요 (다른 사람에겐 안 보이고, 계정을 지우면 같이 지워져요) · 기존 데이터와 계정 · 권한은 고칠 수 없어요</div>
+      {!!denied && <div className="auditor-toast" role="alert">🔒 검토용 계정이라 기존 데이터는 고칠 수 없어요</div>}
+    </>
   );
 }

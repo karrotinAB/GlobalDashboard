@@ -4,25 +4,33 @@ service firebase.storage {
   match /b/{bucket}/o {
     function isTeam() {
       return request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'lead', 'director'];
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'lead', 'director', 'auditor'];
     }
     function isAny() {
       return request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'trade', 'lead', 'director'];
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'member', 'trade', 'lead', 'director', 'auditor'];
+    }
+    // IT 검토용 계정: 파일은 보기 · 올리기만 (지우기 안 됨)
+    function notAuditor() {
+      return firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level != 'auditor';
     }
     // 무역사무 요청 사진
     match /requests/{reqId}/{file} {
-      allow read, delete: if isAny();
+      allow read: if isAny();
+      allow delete: if isAny() && notAuditor();
       allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
     }
     // 보고방 사진·파일 (조원 · 팀장님 · 이사님 · 관리자)
     match /reports/{reportId}/{file} {
-      allow read, delete: if isAny();
+      allow read: if isAny();
+      allow delete: if isAny() && notAuditor();
       allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
     }
     // 계약서 원본 (관리자만)
     match /contracts/{id}/{file} {
-      allow read, delete: if request.auth != null && request.auth.token.email != null
+      allow read: if request.auth != null && request.auth.token.email != null
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'auditor'];
+      allow delete: if request.auth != null && request.auth.token.email != null
         && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level == 'admin';
       allow create: if request.auth != null && request.auth.token.email != null
         && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level == 'admin'
@@ -32,10 +40,11 @@ service firebase.storage {
     match /petty/{email}/{file} {
       allow read: if isAny();
       allow create: if isAny() && request.auth.token.email.lower() == email && request.resource.size < 20 * 1024 * 1024;
-      allow delete: if isAny() && request.auth.token.email.lower() == email;
+      allow delete: if isAny() && notAuditor() && request.auth.token.email.lower() == email;
     }
     match /claims/{claimId}/{file} {
-      allow read, delete: if isTeam();
+      allow read: if isTeam();
+      allow delete: if isTeam() && notAuditor();
       allow create: if isTeam() && request.resource.size < 20 * 1024 * 1024;
     }
   }

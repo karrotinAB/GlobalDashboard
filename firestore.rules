@@ -27,10 +27,20 @@ service cloud.firestore {
       return exists(roleDoc()) ? get(roleDoc()).data.get('space', '') : '';
     }
     function isLeader() { return signedIn() && role() in ['lead', 'director']; }
-    function isTeam() { return signedIn() && role() in ['admin', 'member']; }
-    function isAdmin() { return signedIn() && role() == 'admin'; }
+    // IT 검토용 계정 (auditor · 가짜 관리자): 관리자가 볼 수 있는 건 다 읽음
+    //   쓰기는 '내 가짜 표시(dummyBy = 내 이메일)가 붙은 새 문서' 와 '내가 만든 가짜 문서' 만 → 기존 데이터 수정 · 삭제 불가
+    //   계정 · 권한(roles)은 칸이 정해져 있어서(dummyBy 못 넣음) 못 바꿈 · 계정을 지우면 서버(removeUser)가 가짜 문서를 다 지움
+    function auditOk() {
+      return request.method in ['get', 'list']
+        || (request.method == 'create' && request.resource.data.get('dummyBy', '') == myEmail())
+        || (request.method == 'update' && resource.data.get('dummyBy', '') == myEmail() && request.resource.data.get('dummyBy', '') == myEmail())
+        || (request.method == 'delete' && resource.data.get('dummyBy', '') == myEmail());
+    }
+    function isAuditor() { return signedIn() && role() == 'auditor' && auditOk(); }
+    function isTeam() { return signedIn() && (role() in ['admin', 'member'] || isAuditor()); }
+    function isAdmin() { return signedIn() && (role() == 'admin' || isAuditor()); }
     function isTrade() { return signedIn() && role() == 'trade'; }
-    function isAny() { return signedIn() && role() in ['admin', 'member', 'trade', 'lead', 'director']; }
+    function isAny() { return signedIn() && (role() in ['admin', 'member', 'trade', 'lead', 'director'] || isAuditor()); }
 
     // 컬렉션 이름 → 조 / 원래 이름
     function prefixed(col) { return col.matches('[tp][a-z0-9]+_.+'); }
@@ -105,7 +115,7 @@ service cloud.firestore {
       // 관리자만 추가·변경·삭제. 내 권한은 내가 못 바꿈 (실수로 관리자가 0명 되는 것 방지)
       allow create, update: if isAdmin() && email != myEmail()
         && email == email.lower()
-        && request.resource.data.level in ['admin', 'member', 'trade', 'lead', 'director']
+        && request.resource.data.level in ['admin', 'member', 'trade', 'lead', 'director', 'auditor']
         && request.resource.data.get('team', '2') in ['1', '2', '3']
         && (request.resource.data.get('space', '') == '' || request.resource.data.get('space', '').matches('p[a-z0-9]+'))
         && request.resource.data.keys().hasOnly(['level', 'name', 'team', 'space', 'addedBy', 'addedAt']);
