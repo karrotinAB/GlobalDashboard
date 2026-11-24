@@ -161,7 +161,7 @@ export default function Home(_props: { go: (page: string) => void }) {
   const [deptView, flipDept] = useDeptView(); // 우리 팀 오늘 ↔ 우리 부서 오늘
   // 이사님 · 팀장님 대시보드는 '우리 부서 오늘' 없음 (오른쪽에 부서원 출퇴근이 이미 있어서)
   const deptOn = deptView && !isPersonal(access.viewTeam);
-  const { members, companies } = useLookups();
+  const { members, companies, myCompanies, hasMirror } = useLookups();
   const now = useNow();
   const todayIso = today();
   const monday = weekStart(todayIso);
@@ -206,7 +206,8 @@ export default function Home(_props: { go: (page: string) => void }) {
   const summary = useMemo(() => summarize(weekRows, members, todayIso), [weekRows, members, todayIso]);
   const openOrders = data.orders.filter((o) => !isOrderDone(o));
 
-  const companyStats = companies.map((c) => {
+  // 조 업체가 같이 보이는 화면(팀장님 · 이사님 · IT팀): 설정 › 업체에서 '내 담당'으로 고른 업체만
+  const companyStats = (hasMirror ? myCompanies : companies).map((c) => {
     const rows = weekRows.filter((r) => r.task.companyId === c.id);
     const done = rows.filter((r) => r.doneInWeek).length;
     return { c, total: rows.length, done, open: rows.length - done, orders: openOrders.filter((o) => o.companyId === c.id).length };
@@ -273,9 +274,16 @@ export default function Home(_props: { go: (page: string) => void }) {
       <section className="section">
         <div className="section-head">
           <h2>🗂️ 업체 tracking</h2>
-          <span className="muted small">진행중 주문이나 남은 할일이 있는 업체만</span>
+          <span className="muted small">{hasMirror ? "'내 담당'으로 고른 업체 중 " : ''}진행중 주문이나 남은 할일이 있는 업체만</span>
         </div>
-        {companyGroups.length === 0 && <p className="muted small">지금 진행중인 주문이나 남은 할일이 있는 업체가 없어요 🍵</p>}
+        {companyGroups.length === 0 &&
+          (hasMirror && !myCompanies.length ? (
+            <p className="muted small">
+              고른 업체가 없어요 — <a href="#/settings">설정 › 업체</a>에서 '내 담당'을 체크하면 그 업체만 여기 보여요
+            </p>
+          ) : (
+            <p className="muted small">지금 진행중인 주문이나 남은 할일이 있는 업체가 없어요 🍵</p>
+          ))}
         {/* 팀장님·이사님 화면: 내 업체 / 1조 / 2조 / 3조 로 나눠서 */}
         {companyGroups.map((g) => (
           <div key={g.key} className="company-group">
