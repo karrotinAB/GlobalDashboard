@@ -538,8 +538,8 @@ function LinkedOrders({
       ) : !open ? (
         foldBar(false)
       ) : (
-        <>
-          {/* 묶음: 펼쳐도 위에 묶음 머리줄 (누르면 접힘) */}
+        <div className={link.bundleId && !given ? 'rq-bundle-box' : 'rq-plain-box'} style={{ '--c': bundle?.color ?? '#8c2f3c' } as CSSProperties}>
+          {/* 묶음: 펼쳐도 위에 묶음 머리줄 (누르면 접힘) · 머리줄과 주문 표를 묶음 색 테두리로 감쌈 */}
           {link.bundleId && !given && foldBar(true)}
           <div className="sales-table-wrap">
           <table className="mini-table rq-linked-table">
@@ -588,7 +588,7 @@ function LinkedOrders({
             </tbody>
           </table>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

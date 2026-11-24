@@ -9071,3 +9071,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .tr-admin-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 300px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
 .tr-admin-pop .tr-sku-status, .tr-admin-pop .tr-sku-msg { font-size: 11.5px; }
 .tr-admin-pop .tr-dl { margin-left: 0; }
+
+/* 무역사무 요청 › 펼친 묶음: 머리줄 + 주문 표를 묶음 색 테두리로 (같은 묶음이라는 표시) */
+.rq-bundle-box { border: 2px solid var(--c); border-radius: 12px; overflow: hidden; background: #fff; }
+.rq-bundle-box > .rq-bundle-fold { border: 0; border-radius: 0; margin-bottom: 0; }
+.rq-bundle-box > .sales-table-wrap { border: 0; border-radius: 0; margin: 0; }
