@@ -29,6 +29,8 @@ export interface MissingMeta {
   lastAdded?: number;
   nightAt?: string; // 새벽 자동 (0시 ~ 7시 30분, 30분마다)
   nightError?: string;
+  filterVer?: number; // 지금 목록을 거른 기준 번호 (다 훑으면 올라감)
+  rescanVer?: number;
   rescan?: boolean; // 거르는 기준이 바뀌어서 처음부터 다시 훑는 중
   lastDropped?: number; // 지난번에 목록에서 뺀 수
   lastScanned?: number;

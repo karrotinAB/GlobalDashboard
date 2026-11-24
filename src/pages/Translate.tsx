@@ -391,7 +391,15 @@ function TranslateTab() {
   );
   const loadNow = async () => {
     setBusy('load');
-    setMsg(mMeta.phase === 'inc' ? '지난번 등록일 이후 새 제품을 찾는 중…' : '처음이라 전체 제품을 훑는 중이에요 (회사 API 제한 때문에 몇 분 걸려요)…');
+    // 거르는 기준(서버 skuMissing.js FILTER_VER)이 바뀐 뒤 처음이면 서버가 처음부터 다시 훑음
+    const reScan = (mMeta.filterVer ?? 1) < FILTER_VER_CLIENT;
+    setMsg(
+      reScan
+        ? '새 기준(재고 100 이하 · 수출제한 01 빼기)으로 처음부터 다시 훑는 중… (몇 분 걸려요)'
+        : mMeta.phase === 'inc'
+          ? '지난번 등록일 이후 새 제품을 찾는 중…'
+          : '전체 제품을 이어서 훑는 중이에요 (회사 API 제한 때문에 몇 분 걸려요)…',
+    );
     try {
       const r = await loadMissingNow();
       setMsg(
@@ -1602,6 +1610,9 @@ function skuStatus(m: SkuMeta) {
 }
 
 /** 없는거 불러오기 진행 상황: 도는 중 / 멈춤(몇 %, 언제 이어지는지) / 다 훑음 */
+/** 서버 functions/skuMissing.js 의 FILTER_VER 와 같게 (기준이 바뀌면 둘 다 올림) */
+const FILTER_VER_CLIENT = 3;
+
 function ScanProgress({ meta, total, busy }: { meta: MissingMeta; total: number; busy: boolean }) {
   const [, tick] = useState(0);
   useEffect(() => {
