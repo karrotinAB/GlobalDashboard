@@ -56,9 +56,8 @@ const S3 = '3. 사용 기술 · 작업 방식';
 const S4 = '4. 사용 중인 API';
 const S5 = '5. ERP 연동 · 실행 시간';
 const S6 = '6. 계정 · 비밀번호';
-const S7 = '7. 비밀값 · 서버 함수';
-const S8 = '8. Firebase 용량';
-const S9 = '9. 운영 현황';
+const S8 = '7. Firebase 용량';
+const S9 = '8. 운영 현황';
 const SE = '마무리';
 
 export const PRESENT_DECK: PresentStep[] = [
@@ -337,18 +336,6 @@ export const PRESENT_DECK: PresentStep[] = [
     body: ['여기 있는 이메일만 로그인 가능', '권한: 관리자 · 조원 · 무역사무 · 팀장님 · 이사님'],
   },
 
-  // ───────── 7. 비밀값 · 서버 함수
-  {
-    section: S7,
-    kicker: S7,
-    title: '서버 함수도 문을 지켜요',
-    body: [
-      '· 버튼으로 부르는 함수: 로그인 확인 → roles 권한 확인 → 그다음 실행',
-      '· 함수가 화면에 돌려주는 값에 API 키는 절대 안 담음 (설정 화면도 주소 앞부분만 가려서)',
-      '· 데이터 읽기 · 쓰기 권한은 Firestore 보안 규칙이 서버에서 검사 — 화면에서 버튼만 숨기는 게 아님',
-      '· 파일 업로드: 대시보드 사용자만 · 20MB 까지 (계약서는 관리자만)',
-    ],
-  },
 
   // ───────── 8. Firebase 용량
   {
