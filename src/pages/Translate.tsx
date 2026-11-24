@@ -442,6 +442,7 @@ function TranslateTab() {
               <summary>관리자 ▾</summary>
               <div className="tr-admin-pop">
                 <SkuSyncBtn />
+                <ApiCheck meta={mMeta} />
                 {sheet && sheet.rows.length > 0 && (
                   <button onClick={() => void download(true)} title="모르는 단어가 [ ] 로 남은 영문 제품명도 그대로 채워서 받아요">
                     ⬇ 덜 된 것도 받기
@@ -1629,5 +1630,32 @@ function ScanProgress({ meta, total, busy }: { meta: MissingMeta; total: number;
         <span className="muted small">이제는 새로 등록된 제품만 봐요{meta.lastDropped ? ` · 지난번에 ${meta.lastDropped.toLocaleString()}개 뺐어요` : ''}</span>
       )}
     </div>
+  );
+}
+
+/** 관리자 확인용: 지난번 불러오기에서 본 제품들 — 빈 칸 수 · 수출 대분류 값 · 회사 API 칸 이름 예시 */
+function ApiCheck({ meta }: { meta: MissingMeta }) {
+  const st = meta.lastStats;
+  const sm = meta.lastSample;
+  if (!st && !sm) return <span className="muted small">API 칸 확인: 다음 불러오기 뒤에 보여요</span>;
+  const top = Object.entries(st?.lrgVals ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  return (
+    <details className="tr-apicheck">
+      <summary className="small">🔍 API 칸 확인 (지난번 본 {st?.seen.toLocaleString() ?? 0}개)</summary>
+      {st && (
+        <p className="small">
+          대분류 빈 것 <b>{st.lrgEmpty.toLocaleString()}</b> · 중분류 빈 것 <b>{st.middEmpty.toLocaleString()}</b> · 영문명 빈 것 <b>{st.engEmpty.toLocaleString()}</b>
+        </p>
+      )}
+      {top.length > 0 && <p className="small muted">대분류 값: {top.map(([k, n]) => `${k} (${n.toLocaleString()})`).join(' · ')}</p>}
+      {sm && (
+        <div className="small">
+          <div className="muted">
+            {sm.lrgEmpty ? '대분류가 빈' : '예시'} 제품 {sm.code} 의 칸:
+          </div>
+          <code className="tr-apicheck-fields">{Object.entries(sm.fields).map(([k, v]) => `${k} = ${v || '(빈칸)'}`).join('\n')}</code>
+        </div>
+      )}
+    </details>
   );
 }

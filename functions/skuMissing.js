@@ -232,6 +232,27 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   }
   const isFull = m.phase !== 'inc';
   const known = new Set(Object.keys(await readList(db))); // 이미 목록에 있는 코드 (새로 더한 수만 셈)
+  // 확인용: 이번에 본 제품들의 칸 (회사 API 가 어떤 이름 · 값으로 주는지) · 빈 칸 수 · 대분류 값 분포
+  const st = { seen: 0, lrgEmpty: 0, middEmpty: 0, engEmpty: 0, lrgVals: {} };
+  let sample = null;
+  const see = (raws) => {
+    for (const raw of raws) {
+      const r = rowOf(raw);
+      if (!r.code) continue;
+      st.seen++;
+      if (!r.lrg) st.lrgEmpty++;
+      if (!r.midd) st.middEmpty++;
+      if (!r.eng) st.engEmpty++;
+      const k = r.lrg || '(빈칸)';
+      if (Object.keys(st.lrgVals).length < 40 || st.lrgVals[k]) st.lrgVals[k] = (st.lrgVals[k] ?? 0) + 1;
+      // 대분류가 빈 제품 하나 (없으면 아무거나 하나) — 칸 이름 : 값
+      if (!sample || (!r.lrg && !sample.lrgEmpty)) {
+        const f = flat(raw);
+        sample = { lrgEmpty: !r.lrg, code: r.code, fields: Object.fromEntries(Object.entries(f).filter(([k]) => /categ|export|lrg|midd|large|mid|eng|qty|yn/.test(k)).map(([k, v]) => [k, String(v ?? '').slice(0, 40)])) };
+      }
+    }
+    return raws;
+  };
   try {
     if (isFull) {
       // 처음: 전부 훑기 (이어서)
@@ -246,7 +267,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           stopped = '시간이 다 돼서 (다시 누르면 이어서)';
           break;
         }
-        const list = listOf(await call(cfg.bulk, cfg, { page, page_size: SIZE }, fetchImpl, wait, last)).map(rowOf).filter((r) => r.code);
+        const list = see(listOf(await call(cfg.bulk, cfg, { page, page_size: SIZE }, fetchImpl, wait, last))).map(rowOf).filter((r) => r.code);
         scanned += list.length;
         // 등록일 순서 보기 (쪽 안에서 앞 → 뒤)
         for (let i = 1; i < list.length; i++) {
@@ -295,7 +316,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
             stopped = '시간이 다 돼서';
             break;
           }
-          const list = listOf(await call(cfg.bulk, cfg, { page, page_size: SIZE }, fetchImpl, wait, last)).map(rowOf).filter((r) => r.code);
+          const list = see(listOf(await call(cfg.bulk, cfg, { page, page_size: SIZE }, fetchImpl, wait, last))).map(rowOf).filter((r) => r.code);
           scanned += list.length;
           const news = list.filter(fresh);
           for (const r of news) {
@@ -319,7 +340,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
             stopped = '시간이 다 돼서';
             break;
           }
-          const list = listOf(await call(cfg.bulk, cfg, { page, page_size: SIZE }, fetchImpl, wait, last)).map(rowOf).filter((r) => r.code);
+          const list = see(listOf(await call(cfg.bulk, cfg, { page, page_size: SIZE }, fetchImpl, wait, last))).map(rowOf).filter((r) => r.code);
           scanned += list.length;
           for (const r of list.filter(fresh)) {
             if (regKey(r.reg) > regKey(maxReg)) maxReg = r.reg;
@@ -348,7 +369,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   }
   if (Object.keys(changes).length) await writeChanged(db, changes);
   const count = Object.keys(await readList(db)).length;
-  const out = { ...m, count, at: new Date().toISOString(), lockUntil: null, error: stopped && /오류/.test(stopped) ? stopped : '', stopped, lastAdded: added, lastDropped: dropped, lastScanned: scanned };
+  const out = { ...m, count, at: new Date().toISOString(), lockUntil: null, error: stopped && /오류/.test(stopped) ? stopped : '', stopped, lastAdded: added, lastDropped: dropped, lastScanned: scanned, lastStats: st, lastSample: sample };
   delete out.asc;
   delete out.desc;
   await metaRef.set({ ...out, asc: m.asc ?? 0, desc: m.desc ?? 0 });

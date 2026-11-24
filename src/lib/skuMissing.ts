@@ -32,6 +32,9 @@ export interface MissingMeta {
   rescan?: boolean; // 거르는 기준이 바뀌어서 처음부터 다시 훑는 중
   lastDropped?: number; // 지난번에 목록에서 뺀 수
   lastScanned?: number;
+  // 확인용 (관리자): 지난번 본 제품들의 빈 칸 수 · 대분류 값 분포 · 칸 이름 예시
+  lastStats?: { seen: number; lrgEmpty: number; middEmpty: number; engEmpty: number; lrgVals: Record<string, number> };
+  lastSample?: { lrgEmpty: boolean; code: string; fields: Record<string, string> } | null;
 }
 
 // 로컬 테스트용 예시

@@ -9200,3 +9200,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* 묶음 머리줄 출고일: 두 줄로 꺾이지 않게 */
 .order-table tr.bundle-head td.bundle-ship, .order-table tr.bundle-head td.bundle-ship .cell-view { white-space: nowrap; }
 .order-table tr.bundle-head td.bundle-ship .cell-view { font-size: 13px; letter-spacing: -0.2px; overflow: visible; }
+
+.tr-apicheck { width: 100%; }
+.tr-apicheck summary { cursor: pointer; color: var(--ink-2); }
+.tr-apicheck p { margin: 6px 0 0; }
+.tr-apicheck-fields { display: block; white-space: pre-wrap; word-break: break-all; font-size: 11px; background: #faf6f4; border-radius: 8px; padding: 6px 8px; margin-top: 4px; max-height: 200px; overflow: auto; }
