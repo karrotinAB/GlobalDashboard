@@ -9076,3 +9076,16 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .rq-bundle-box { border: 2px solid var(--c); border-radius: 12px; overflow: hidden; background: #fff; }
 .rq-bundle-box > .rq-bundle-fold { border: 0; border-radius: 0; margin-bottom: 0; }
 .rq-bundle-box > .sales-table-wrap { border: 0; border-radius: 0; margin: 0; }
+
+/* 로딩 화면 (Splash): 0.3초 뒤에 천천히 나타남 → 빨리 끝나면 깜빡임 없음 */
+.splash { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-height: 52vh; padding: 40px 16px; text-align: center; opacity: 0; animation: splash-in 0.4s ease 0.3s forwards; }
+.splash-jelly { width: 76px; height: 76px; object-fit: contain; animation: splash-float 2.4s ease-in-out infinite; filter: drop-shadow(0 8px 10px rgba(120, 70, 90, 0.18)); }
+.splash-bar { position: relative; width: 160px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--primary) 12%, transparent); overflow: hidden; }
+.splash-bar span { position: absolute; top: 0; left: -40%; width: 40%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, transparent, var(--primary), transparent); animation: splash-flow 1.3s ease-in-out infinite; }
+.splash-text { margin: 0; font-size: 14px; color: var(--ink-2); }
+.splash-slow { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 6px; font-size: 12.5px; color: var(--mut); animation: splash-in 0.4s ease forwards; }
+.splash-slow p { margin: 0; }
+@keyframes splash-in { to { opacity: 1; } }
+@keyframes splash-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
+@keyframes splash-flow { 0% { left: -40%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .splash-jelly, .splash-bar span { animation: none; } .splash-bar span { left: 30%; } }

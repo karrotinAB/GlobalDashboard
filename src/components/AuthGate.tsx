@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import Splash from './Splash';
 import { onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -98,9 +99,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     );
   }, [user]);
 
-  if (user === undefined) return <Centered>불러오는 중…</Centered>;
+  if (user === undefined) return <Splash text="로그인 확인 중…" />;
   if (!user) return <LoginForm />;
-  if (role === undefined) return <Centered>권한 확인 중…</Centered>;
+  if (role === undefined) return <Splash text="권한 확인 중…" />;
   if (role === 'none') return <NoAccess email={user.email ?? ''} />;
   const leader = isLeader(role);
   if (leader && !space.id) return <NoAccess email={user.email ?? ''} />; // 개인 공간이 아직 없음 (관리자가 권한을 다시 저장하면 생김)
@@ -127,14 +128,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name, realRole: role }}>
       {children}
     </AccessContext.Provider>
-  );
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return (
-    <div className="page muted" style={{ textAlign: 'center' }}>
-      {children}
-    </div>
   );
 }
 

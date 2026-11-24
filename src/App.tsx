@@ -33,6 +33,7 @@ import Overview from './pages/Overview';
 import ExtensionBridge from './components/ExtensionBridge';
 import Presence from './components/Presence';
 import TeamSwitch from './components/TeamSwitch';
+import Splash from './components/Splash';
 import { useA4Fit } from './lib/a4fit';
 import { DEFAULT_TEAM, isPersonal } from './lib/team';
 
@@ -344,9 +345,9 @@ export default function App() {
         {navPending && <div className="nav-progress" aria-hidden="true" />}
         <main>
           <PageErrorBoundary resetKey={page}>
-          <Suspense fallback={<div className="page muted">불러오는 중…</div>}>
+          <Suspense fallback={<Splash text="화면 여는 중…" fromPageLoad={false} />}>
           {loading ? (
-            <div className="page muted">불러오는 중…</div>
+            <Splash text="오늘 데이터 불러오는 중…" />
           ) : page === 'home' ? (
             <Home go={go} />
           ) : page === 'todos' ? (
