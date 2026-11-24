@@ -238,7 +238,7 @@ function AuditorBanner() {
   }, [denied]);
   return (
     <>
-      <div className="auditor-banner">🧪 IT 검토용 계정 · 모든 화면을 볼 수 있어요 · 새로 넣는 건 가짜 데이터로만 저장돼요 (다른 사람에겐 안 보이고, 계정을 지우면 같이 지워져요) · 기존 데이터와 계정 · 권한은 고칠 수 없어요</div>
+      <div className="auditor-banner">🧪 IT 검토용 계정 · 모든 화면을 볼 수 있어요 · 새로 넣는 건 가짜 데이터로만 저장돼요 (다른 사람에겐 안 보이고, 계정을 지우면 같이 지워져요)</div>
       {!!denied && <div className="auditor-toast" role="alert">🔒 검토용 계정이라 기존 데이터는 고칠 수 없어요</div>}
     </>
   );
