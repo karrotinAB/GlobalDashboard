@@ -67,9 +67,11 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
     let scrolled = false;
     let raf = 0;
     const tick = () => {
-      const el = findTarget(s.target!);
+      // 발표 중에 창(주소록 등)을 열면 그 창을 밝게 · 닫으면 다시 원래 자리
+      const pops = Array.from(document.querySelectorAll('[role="dialog"], .img-zoom')).filter((d) => !d.closest('.pm'));
+      const el = pops[pops.length - 1] ?? findTarget(s.target!);
       if (el) {
-        if (!scrolled) {
+        if (!scrolled && !pops.length) {
           scrolled = true;
           el.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
