@@ -51,6 +51,7 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
   const [noDim, setNoDim] = useState(false);
   const [toc, setToc] = useState(false);
   const [box, setBox] = useState<Box | null>(null);
+  const [mark, setMark] = useState<Box | null>(null); // 메뉴 안 눌러야 할 줄
   const s: PresentStep | null = step === null ? null : PRESENT_DECK[step];
 
   // 단계가 바뀌면 그 페이지로
@@ -78,6 +79,7 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
   // 밝게 할 부분 찾기 (페이지가 늦게 그려져도 따라가게 계속 잼) · 처음 찾으면 그쪽으로 스크롤
   useLayoutEffect(() => {
     setBox(null);
+    setMark(null);
     if (!s?.target) return;
     let scrolled = false;
     let raf = 0;
@@ -103,8 +105,14 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
           r.right = right;
           r.bottom = bottom;
         }
+        const it = s.target!.item ? Array.from(el.querySelectorAll('[role="menuitem"]')).find((m) => m.textContent?.includes(s.target!.item!)) : null;
+        const ir = it ? rectOf(it) : null;
+        setMark((b) => (!ir ? null : b && Math.abs(b.left - ir.left) < 0.5 && Math.abs(b.top - ir.top) < 0.5 && Math.abs(b.width - ir.width) < 0.5 ? b : { left: ir.left, top: ir.top, width: ir.width, height: ir.height }));
         setBox((b) => (b && Math.abs(b.left - r.left) < 0.5 && Math.abs(b.top - r.top) < 0.5 && Math.abs(b.width - r.width) < 0.5 && Math.abs(b.height - r.height) < 0.5 ? b : { left: r.left, top: r.top, width: r.width, height: r.height }));
-      } else setBox(null);
+      } else {
+        setBox(null);
+        setMark(null);
+      }
       raf = requestAnimationFrame(tick);
     };
     tick();
@@ -184,6 +192,7 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
               style={{ left: box.left - pad, top: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2 }}
             />
           )}
+          {mark && <div className="pm-mark" style={{ left: mark.left - 4, top: mark.top - 2, width: mark.width + 8, height: mark.height + 4 }} />}
           {!hideNote && !s.bare && (
             <div className={`pm-note pm-note-${s.note ?? 'right'}`}>
               {s.kicker && <div className="pm-kicker">{s.kicker}</div>}
