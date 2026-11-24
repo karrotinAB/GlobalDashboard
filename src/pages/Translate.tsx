@@ -413,37 +413,50 @@ function TranslateTab() {
   return (
     <div className="tr-wrap">
       <div className="card tr-upload">
-        <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 새벽 0시 ~ 8시에도 자동으로 불러와요">
-          {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
-        </button>
-        <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="채우고 있는 제품만 회사 API 에서 다시 확인해서, 다 채워졌으면 목록에서 빼요 (모두의 목록에서)">
-          {busy === 'recheck' ? '확인 중…' : `🔄 새로고침${filling.length ? ` (채운 ${filling.length}개 확인)` : ''}`}
-        </button>
+        {/* 1줄: 하는 일 버튼 · 오른쪽에 받기 · 관리자 */}
+        <div className="tr-up-row">
+          <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 새벽에도 자동으로 불러와요">
+            {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
+          </button>
+          <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="채우고 있는 제품만 회사 API 에서 다시 확인해서, 다 채워졌으면 목록에서 빼요 (모두의 목록에서)">
+            {busy === 'recheck' ? '확인 중…' : `🔄 새로고침${filling.length ? ` (채운 ${filling.length}개)` : ''}`}
+          </button>
+          <span className="tr-up-spacer" />
+          {sheet && sheet.rows.length > 0 && (
+            <button onClick={() => void download()} title="채운 영문 제품명 · 수출 분류를 엑셀로">
+              ⬇ 채운 엑셀 받기
+            </button>
+          )}
+          {isAdmin && (
+            <details className="tr-admin">
+              <summary>관리자 ▾</summary>
+              <div className="tr-admin-pop">
+                <SkuSyncBtn />
+                {sheet && sheet.rows.length > 0 && (
+                  <button onClick={() => void download(true)} title="모르는 단어가 [ ] 로 남은 영문 제품명도 그대로 채워서 받아요">
+                    ⬇ 덜 된 것도 받기
+                  </button>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+        {/* 2줄: 지금 상태 (조용히) */}
         {sheet ? (
-          <span className="muted small">
-            빈 제품 <b>{sheet.rows.length.toLocaleString()}개</b> (모두가 같이 봐요) · 영문 제품명 빈 것 {needEn.length.toLocaleString()}
+          <div className="tr-up-status muted small">
+            빈 제품 <b>{sheet.rows.length.toLocaleString()}개</b> · 영문 제품명 빈 것 {needEn.length.toLocaleString()}
             {mMeta.at && ` · 마지막 불러오기 ${fmtAt(mMeta.at)}`}
-            {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)} 까지 봤어요`}
-            {mMeta.phase !== 'inc' && mMeta.at && ' · 아직 전체를 다 못 훑었어요'}
-            {mMeta.order === 'mixed' && ' · ⚠ 등록일 순서가 섞여 있어서 새 제품을 찾을 때 처음부터 다시 봐요'}
             {mMeta.nightAt && ` · 새벽 자동 ${fmtAt(mMeta.nightAt)}`}
-            {mMeta.nightError && <span className="warn"> · 새벽 자동 오류: {mMeta.nightError}</span>}
-          </span>
+            {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)}까지 봄`}
+            {mMeta.phase !== 'inc' && mMeta.at && ' · 아직 전체를 다 못 훑음'}
+          </div>
         ) : (
-          <span className="muted small">목록 불러오는 중…</span>
+          <div className="tr-up-status muted small">목록 불러오는 중…</div>
         )}
-        {sheet && sheet.rows.length > 0 && (
-          <button className="tr-dl" onClick={() => void download()}>
-            ⬇ 채운 엑셀 받기
-          </button>
-        )}
-        {isAdmin && <SkuSyncBtn />}
-        {sheet && sheet.rows.length > 0 && isAdmin && (
-          <button className="tr-dl tr-dl-all" onClick={() => void download(true)} title="관리자만: 모르는 단어가 [ ] 로 남은 영문 제품명도 그대로 채워서 받아요">
-            ⬇ 덜 된 것도 받기
-          </button>
-        )}
-        {msg && <span className="small tr-sku-msg">{msg}</span>}
+        {/* 3줄: 알릴 것만 (방금 결과 · 오류) */}
+        {msg && <div className="small tr-sku-msg">{msg}</div>}
+        {!msg && mMeta.nightError && <div className="warn small">새벽 자동 불러오기 오류: {mMeta.nightError}</div>}
+        {mMeta.order === 'mixed' && <div className="muted small">⚠ 등록일 순서가 섞여 있어서 새 제품을 찾을 때 처음부터 다시 봐요</div>}
       </div>
       {err && <p className="warn small">{err}</p>}
       {list === null && <p className="muted small">사전 불러오는 중…</p>}
@@ -1370,7 +1383,7 @@ function SkuSyncBtn() {
       </button>
       {!busy && (
         <button className="link small" onClick={() => confirm('제품 정보를 1쪽부터 다시 받을까요? (1차 10쪽은 지금, 나머지는 새벽에)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
-          처음부터 다시
+          제품 정보 처음부터 다시
         </button>
       )}
       {/* 휴대폰에서도 보이게: 제품 정보 받은 상태 */}

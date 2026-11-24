@@ -9057,3 +9057,17 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .rq-bundle-fold .muted { color: rgba(255, 255, 255, 0.85) !important; }
 .rq-bundle-fold .rq-bundle-dot { display: none; }
 .rq-bundle-fold .rq-bundle-more { color: #fff; }
+
+/* 제품번역 위 칸: 1줄 버튼 · 2줄 상태 · 3줄 알림 / 관리자 기능은 '관리자 ▾' 안에 */
+.tr-upload { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.tr-up-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tr-up-spacer { flex: 1; }
+.tr-up-status { line-height: 1.5; }
+.tr-upload .tr-sku-msg { max-width: none; }
+.tr-admin { position: relative; }
+.tr-admin > summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--mut); padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.tr-admin > summary::-webkit-details-marker { display: none; }
+.tr-admin[open] > summary { color: var(--ink); border-color: var(--ink-2); }
+.tr-admin-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 300px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.tr-admin-pop .tr-sku-status, .tr-admin-pop .tr-sku-msg { font-size: 11.5px; }
+.tr-admin-pop .tr-dl { margin-left: 0; }
