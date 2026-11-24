@@ -238,7 +238,7 @@ export default function Home(_props: { go: (page: string) => void }) {
               record={adjustLeave(todayAtt.get(s.member.id)) ?? attendanceOf(s.member, todayIso, [], data.memAttendance)}
               nowMin={seoul.h * 60 + seoul.mi}
               mine={access.role === null || (!!s.member.email && s.member.email.toLowerCase() === access.email)}
-              canPickChar={access.canManage}
+              canPickChar={access.canManage && !access.auditor} // IT 검토용은 자기 카드만
               // 카드 연결은 관리자가 (설정 › 관리자 설정 › 사람 정보 합치기)
               canClaim={
                 false &&
