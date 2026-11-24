@@ -220,6 +220,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   const last = { at: 0 };
   const changes = {};
   let added = 0;
+  let dropped = 0; // 목록에서 뺀 수
   let scanned = 0;
   let stopped = '';
   const m = { ...meta };
@@ -259,7 +260,10 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           if (wanted(r)) {
             if (!known.has(r.code) && !changes[r.code]) added++;
             changes[r.code] = packRow(r);
-          } else if (known.has(r.code)) changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
+          } else if (known.has(r.code) && changes[r.code] !== null) {
+            changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
+            dropped++;
+          }
         }
         if (Object.keys(changes).length > 3000) {
           await writeChanged(db, changes);
@@ -299,7 +303,10 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
             if (wanted(r)) {
               if (!known.has(r.code) && !changes[r.code]) added++;
               changes[r.code] = packRow(r);
-            } else if (known.has(r.code)) changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
+            } else if (known.has(r.code) && changes[r.code] !== null) {
+            changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
+            dropped++;
+          }
           }
           if (news.length < list.length || list.length < SIZE) break;
         }
@@ -319,7 +326,10 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
             if (wanted(r)) {
               if (!known.has(r.code) && !changes[r.code]) added++;
               changes[r.code] = packRow(r);
-            } else if (known.has(r.code)) changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
+            } else if (known.has(r.code) && changes[r.code] !== null) {
+            changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
+            dropped++;
+          }
           }
           if (list.length < SIZE) {
             m.lastPage = page;
@@ -338,11 +348,11 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   }
   if (Object.keys(changes).length) await writeChanged(db, changes);
   const count = Object.keys(await readList(db)).length;
-  const out = { ...m, count, at: new Date().toISOString(), lockUntil: null, error: stopped && /오류/.test(stopped) ? stopped : '', stopped, lastAdded: added, lastScanned: scanned };
+  const out = { ...m, count, at: new Date().toISOString(), lockUntil: null, error: stopped && /오류/.test(stopped) ? stopped : '', stopped, lastAdded: added, lastDropped: dropped, lastScanned: scanned };
   delete out.asc;
   delete out.desc;
   await metaRef.set({ ...out, asc: m.asc ?? 0, desc: m.desc ?? 0 });
-  return { added, scanned, stopped, ...publicMeta(out) };
+  return { added, dropped, scanned, stopped, ...publicMeta(out) };
 }
 const publicMeta = (m) => ({ phase: m.phase ?? 'full', count: m.count ?? 0, lastReg: m.lastReg ?? '', order: m.order ?? '', page: m.page ?? 1, rescan: !!m.rescan });
 

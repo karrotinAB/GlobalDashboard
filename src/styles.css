@@ -9089,3 +9089,13 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 @keyframes splash-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
 @keyframes splash-flow { 0% { left: -40%; } 100% { left: 100%; } }
 @media (prefers-reduced-motion: reduce) { .splash-jelly, .splash-bar span { animation: none; } .splash-bar span { left: 30%; } }
+
+/* 제품번역: 없는거 불러오기 진행 상황 */
+.tr-scan { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 6px 10px; border-radius: 10px; background: #faf6f4; font-size: 12.5px; }
+.tr-scan-state { font-weight: 700; white-space: nowrap; }
+.tr-scan.run .tr-scan-state { color: #2f6db5; }
+.tr-scan.pause .tr-scan-state { color: #b5651d; }
+.tr-scan.done .tr-scan-state { color: #2e7d4f; }
+.tr-scan-bar { position: relative; width: 160px; height: 6px; border-radius: 999px; background: #eadcd9; overflow: hidden; }
+.tr-scan-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: #b5651d; }
+.tr-scan.run .tr-scan-bar > span { background: #2f6db5; }

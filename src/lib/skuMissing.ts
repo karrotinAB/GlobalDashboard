@@ -30,6 +30,8 @@ export interface MissingMeta {
   nightAt?: string; // 새벽 자동 (0시 ~ 7시 30분, 30분마다)
   nightError?: string;
   rescan?: boolean; // 거르는 기준이 바뀌어서 처음부터 다시 훑는 중
+  lastDropped?: number; // 지난번에 목록에서 뺀 수
+  lastScanned?: number;
 }
 
 // 로컬 테스트용 예시
@@ -77,7 +79,7 @@ export function useSkuMissing(): { list: MissingItem[] | null; meta: MissingMeta
   return { list, meta };
 }
 
-export type LoadResult = { added: number; scanned: number; stopped?: string; busy?: boolean; phase: string; count: number; lastReg: string; order: string; page: number };
+export type LoadResult = { added: number; dropped?: number; scanned: number; stopped?: string; busy?: boolean; phase: string; count: number; lastReg: string; order: string; page: number };
 /** ⬇ 없는거 불러오기 (처음엔 전부 훑고, 그 뒤엔 지난번 등록일 이후만) */
 export async function loadMissingNow(): Promise<LoadResult> {
   if (DATA_MODE === 'local') return { added: 0, scanned: 0, phase: 'inc', count: DEMO.length, lastReg: '2026-11-20', order: 'asc', page: 1 };

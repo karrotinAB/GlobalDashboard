@@ -35,7 +35,7 @@ function useKept<T>(key: string, init: T): [T, Dispatch<SetStateAction<T>>] {
 
 import { useAccess } from '../components/AuthGate';
 import { today } from '../lib/date';
-import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing } from '../lib/skuMissing';
+import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing, type MissingMeta } from '../lib/skuMissing';
 import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
 import { deleteDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
@@ -141,6 +141,7 @@ function TranslateTab() {
   const { list, map, keys, forType } = useDictMap();
   // 빈 제품 목록 (서버가 회사 API 에서 찾아 둔 것 · 모두가 같이 봄) → 표 한 장처럼
   const { list: missing, meta: mMeta } = useSkuMissing();
+  const skuTotal = useSkuMeta()?.count ?? 0; // 회사 전체 제품 수 (제품 정보 받기에서)
   const { rows: cats } = useCategories();
   const sheet = useMemo<Sheet | null>(() => {
     if (!missing) return null;
@@ -387,7 +388,7 @@ function TranslateTab() {
       setMsg(
         r.busy
           ? '다른 사람이 지금 불러오는 중이에요 — 조금 뒤에 다시 눌러 주세요'
-          : `${r.phase === 'inc' ? '✓ ' : ''}${r.scanned.toLocaleString()}개를 보고 빈 제품 ${r.added.toLocaleString()}개를 새로 찾았어요 · 목록 ${r.count.toLocaleString()}개${r.stopped ? ` · ${r.stopped}` : ''}${r.phase !== 'inc' ? ' · 아직 다 못 훑었어요 (다시 누르면 이어서)' : ''}`,
+          : `${r.phase === 'inc' ? '✓ ' : ''}${r.scanned.toLocaleString()}개를 보고 새로 ${r.added.toLocaleString()}개 넣고${r.dropped ? ` ${r.dropped.toLocaleString()}개 뺐어요` : ' 뺀 건 없어요'} · 목록 ${r.count.toLocaleString()}개${r.phase !== 'inc' ? ' · 아직 다 못 훑었어요 (다시 누르면 이어서)' : ''}`,
       );
     } catch (e) {
       setMsg(`못 불러왔어요: ${(e as Error).message}`);
@@ -448,11 +449,12 @@ function TranslateTab() {
             {mMeta.at && ` · 마지막 불러오기 ${fmtAt(mMeta.at)}`}
             {mMeta.nightAt && ` · 새벽 자동 ${fmtAt(mMeta.nightAt)}`}
             {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)}까지 봄`}
-            {mMeta.phase !== 'inc' && mMeta.at && (mMeta.rescan ? ' · 새 기준(재고 100 이하 · 수출제한 빼기)으로 다시 훑는 중 — 다시 누르면 이어서' : ' · 아직 전체를 다 못 훑음')}
           </div>
         ) : (
           <div className="tr-up-status muted small">목록 불러오는 중…</div>
         )}
+        {/* 진행 상황: 지금 도는 중인지 · 전체 훑기 몇 % · 멈췄으면 언제 이어지는지 */}
+        <ScanProgress meta={mMeta} total={skuTotal} busy={busy === 'load'} />
         {/* 3줄: 알릴 것만 (방금 결과 · 오류) */}
         {msg && <div className="small tr-sku-msg">{msg}</div>}
         {!msg && mMeta.nightError && <div className="warn small">새벽 자동 불러오기 오류: {mMeta.nightError}</div>}
@@ -1585,4 +1587,36 @@ function skuStatus(m: SkuMeta) {
   if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개${all}까지 받음 · ${m.resumePage}쪽부터 새벽에 이어서 받아요${m.triedAt ? ` (마지막 ${when(m.triedAt)})` : ''}${err}`;
   if (m.at) return `✅ 제품 정보 ${(m.count ?? 0).toLocaleString()}개 다 받음 · ${when(m.at)}${m.noCat ? ` · 분류 빈 제품 ${m.noCat.toLocaleString()}개` : ''}`;
   return '아직 제품 정보를 안 받았어요';
+}
+
+/** 없는거 불러오기 진행 상황: 도는 중 / 멈춤(몇 %, 언제 이어지는지) / 다 훑음 */
+function ScanProgress({ meta, total, busy }: { meta: MissingMeta; total: number; busy: boolean }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 15000); // 다른 사람이 돌리는 중인지 15초마다 다시 봄
+    return () => clearInterval(t);
+  }, []);
+  const running = busy || (!!meta.lockUntil && Date.parse(meta.lockUntil) > Date.now());
+  const full = meta.phase !== 'inc';
+  const seen = Math.max(0, ((meta.page ?? 1) - 1) * 2000);
+  const pct = full && total ? Math.min(99, Math.round((seen / total) * 100)) : 100;
+  if (!meta.at && !running) return null;
+  return (
+    <div className={`tr-scan ${running ? 'run' : full ? 'pause' : 'done'}`}>
+      <span className="tr-scan-state">{running ? '⏳ 지금 불러오는 중' : full ? '⏸ 멈춤' : '✓ 다 훑음'}</span>
+      {full ? (
+        <>
+          <span className="tr-scan-bar" title={`${seen.toLocaleString()} / ${total ? total.toLocaleString() : '?'}개`}>
+            <span style={{ width: `${pct}%` }} />
+          </span>
+          <span className="small">
+            {meta.rescan ? '새 기준(재고 100 이하 · 수출제한 빼기)으로 ' : ''}전체 {total ? `${pct}% (${seen.toLocaleString()} / ${total.toLocaleString()}개)` : `${seen.toLocaleString()}개`} 봤어요
+          </span>
+          {!running && <span className="muted small">— ⬇ 없는거 불러오기를 누르면 이어서 해요 · 새벽 0~7시에 30분마다 자동으로도 이어서 해요</span>}
+        </>
+      ) : (
+        <span className="muted small">이제는 새로 등록된 제품만 봐요{meta.lastDropped ? ` · 지난번에 ${meta.lastDropped.toLocaleString()}개 뺐어요` : ''}</span>
+      )}
+    </div>
+  );
 }
