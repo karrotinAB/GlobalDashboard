@@ -11,7 +11,7 @@ import { holidayName } from '../lib/holidays';
 import { COUNTRY_OPTIONS, countryCode, useWorldHolidays } from '../lib/worldHolidays';
 import { useAccess } from '../components/AuthGate';
 import { attendanceOf, adjustLeave } from '../lib/mem';
-import { isPersonal, TEAMS } from '../lib/team';
+import { isPersonal, IT_SPACE, TEAMS } from '../lib/team';
 import DeptRoster, { DeptToday, DeptToggle, useDeptView, type DeptSide } from '../components/DeptRoster';
 import { useIsMobile } from '../lib/useMobile';
 import { isOrderDone, type Attendance, type ClockPick, type Member } from '../types';
@@ -169,7 +169,11 @@ export default function Home(_props: { go: (page: string) => void }) {
   const todayAtt = new Map(data.attendance.filter((a) => a.date === todayIso).map((a) => [a.memberId, a]));
   const [editing, setEditing] = useState<Member | null>(null);
 
-  const defaultClocks = useMemo(() => clockDefaultsOf(companies), [companies]);
+  // IT팀: 시계 기본은 정해진 나라만 (업체가 1~3조 전부라 많아서) — 서울은 늘 따로 나옴
+  const defaultClocks = useMemo(() => {
+    const all = clockDefaultsOf(companies);
+    return access.viewTeam === IT_SPACE ? IT_CLOCKS.map((c) => ({ ...c, color: all.find((x) => x.tz === c.tz)?.color })) : all;
+  }, [companies, access.viewTeam]);
 
   // 시계는 계정마다 따로 고름: 내 카드(members.clocks)에 저장, 카드가 없으면 이 브라우저에
   const myCard = members.find((m) => !!access.email && m.email?.toLowerCase() === access.email);
@@ -758,6 +762,14 @@ export { CharacterPicker, LeaveBand };
 
 type ClockDef = { tz: string; label: string; codes: string[]; color?: string };
 /** 업체 타임존 → 기본 시계 (같은 시간대는 하나로, 이름은 나라들) */
+/** IT팀 기본 시계 */
+const IT_CLOCKS: ClockDef[] = [
+  { tz: 'America/Los_Angeles', label: '미국 LA', codes: ['US'] },
+  { tz: 'Asia/Ulaanbaatar', label: '몽골', codes: ['MN'] },
+  { tz: 'Asia/Almaty', label: '카자흐스탄', codes: ['KZ'] },
+  { tz: 'Europe/Berlin', label: '독일', codes: ['DE'] },
+  { tz: 'Asia/Tokyo', label: '일본', codes: ['JP'] },
+];
 export function clockDefaultsOf(companies: { timezone?: string; country?: string; name: string; color?: string }[]): ClockDef[] {
   const map = new Map<string, { names: string[]; codes: string[]; color?: string }>();
   for (const c of companies) {
