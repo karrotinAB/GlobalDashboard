@@ -341,15 +341,6 @@ export const PRESENT_DECK: PresentStep[] = [
   {
     section: S7,
     kicker: S7,
-    title: '비밀값은 브라우저로 절대 안 내려가요',
-    cols: [
-      { title: 'secrets (Firestore)', tone: 'good', items: ['ERP · 제품 · 환율 · 날씨 API 키, 캘린더 주소', '보안 규칙에 허용이 하나도 없음 → 사이트에서 아무도 읽기 · 쓰기 불가', '서버 함수(관리자 권한 SDK)만 읽음', '키 넣기: Firebase 콘솔 또는 관리자 전용 서버 함수 — 넣은 뒤엔 화면에 “있음/없음”만'] },
-      { title: 'Google Secret Manager', tone: 'good', items: ['mem 아이디 · 비밀번호', 'Firestore 에도 없음 — 서버 함수가 실행될 때만 꺼내 씀', '관리자 PC 의 명령어로만 넣고 바꿈'] },
-    ],
-  },
-  {
-    section: S7,
-    kicker: '서버 함수',
     title: '서버 함수도 문을 지켜요',
     body: [
       '· 버튼으로 부르는 함수: 로그인 확인 → roles 권한 확인 → 그다음 실행',
