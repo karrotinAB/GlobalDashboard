@@ -103,6 +103,12 @@ export const PRESENT_DECK: PresentStep[] = [
   {
     section: S2,
     page: 'home',
+    bare: true,
+    title: '홈 둘러보기 (자유롭게 스크롤)',
+  },
+  {
+    section: S2,
+    page: 'home',
     target: { sel: 'h2', text: '👋', closest: 'section' },
     kicker: '홈',
     title: '출퇴근 시간 확인',
