@@ -332,7 +332,6 @@ export const PRESENT_DECK: PresentStep[] = [
   {
     section: S6,
     page: 'settings',
-    target: { sel: 'h2', text: '대시보드 사용자', closest: 'section' },
     kicker: '데모 · 관리자만 보이는 칸',
     title: '설정 › 대시보드 사용자',
     body: ['여기 있는 이메일만 로그인 가능', '권한: 관리자 · 조원 · 무역사무 · 팀장님 · 이사님'],
