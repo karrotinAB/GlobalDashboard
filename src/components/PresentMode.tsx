@@ -60,6 +60,21 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
     if (window.location.hash.split('?')[0] !== want) window.location.hash = `/${s.page}`;
   }, [s]);
 
+  // target.open: 드롭다운(내 계정 · 도구함)을 열어 둔 채로 보여주기 · 다른 장으로 가면 닫기
+  useEffect(() => {
+    if (!s?.target?.open) return;
+    const t = s.target;
+    const btn = () => findTarget(t)?.querySelector<HTMLButtonElement>(':scope > button');
+    const isOpen = () => !!findTarget(t)?.querySelector('[role="menu"]');
+    const timer = window.setTimeout(() => {
+      if (!isOpen()) btn()?.click();
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      if (isOpen()) btn()?.click();
+    };
+  }, [s]);
+
   // 밝게 할 부분 찾기 (페이지가 늦게 그려져도 따라가게 계속 잼) · 처음 찾으면 그쪽으로 스크롤
   useLayoutEffect(() => {
     setBox(null);

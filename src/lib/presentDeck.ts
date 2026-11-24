@@ -12,6 +12,8 @@ export interface PresentTarget {
   text?: string;
   /** 찾은 것에서 위로 올라가 이걸 밝게 (예: h2 를 찾고 'section' 전체를 밝게) */
   closest?: string;
+  /** 이 장에 오면 안의 버튼을 눌러 드롭다운을 열어 둠 (다음 장으로 가면 닫음) */
+  open?: boolean;
 }
 
 export interface FlowRow {
@@ -181,7 +183,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile:not(.tools)' },
+    target: { sel: '.profile:not(.tools)', open: true },
     kicker: '어디서 여나요',
     title: '오른쪽 위 내 계정 › 전도금',
     body: ['눌러서 들어가 볼게요'],
@@ -199,28 +201,9 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile.tools' },
+    target: { sel: '.profile.tools', open: true },
     kicker: '어디서 여나요',
-    title: '오른쪽 위 🧰 도구함 › 제품번역',
-    body: ['도구함을 눌러 제품번역으로'],
-  },
-  {
-    section: S2,
-    page: 'translate',
-    kicker: '도구함 › 제품번역',
-    title: '빈 칸 제품 자동 번역 · 분류',
-    flow: [
-      { items: [{ t: '회사 제품 API', s: '영문명 · 수출 분류가 빈 제품' }, { t: '사전으로 자동 번역', s: '한글 → 영어 단어장 (모두 같이 키움)' }, { t: '분류 자동 추천', s: '수출 분류표 + 지난번에 고른 기록' }] },
-    ],
-    note: 'top',
-  },
-  {
-    section: S2,
-    page: 'home',
-    stay: true,
-    target: { sel: '.profile.tools' },
-    kicker: '어디서 여나요',
-    title: '🧰 도구함 › 출장신청서',
+    title: '오른쪽 위 🧰 도구함 › 출장신청서',
     body: ['도구함을 눌러 출장신청서로'],
   },
   {
@@ -234,7 +217,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile.tools' },
+    target: { sel: '.profile.tools', open: true },
     kicker: '어디서 여나요',
     title: '🧰 도구함 › 계약서',
     body: ['도구함을 눌러 계약서로'],
@@ -245,6 +228,25 @@ export const PRESENT_DECK: PresentStep[] = [
     kicker: '도구함 › 계약서',
     title: '계약서를 모아두고 키워드로 찾기',
     body: ['조항 · 업체로 검색 (보증금 → deposit 처럼 같은 뜻 말도 같이)', '원본 파일 + 조항별로 정리된 본문 · 관리자만'],
+  },
+  {
+    section: S2,
+    page: 'home',
+    stay: true,
+    target: { sel: '.profile.tools', open: true },
+    kicker: '어디서 여나요',
+    title: '🧰 도구함 › 제품번역',
+    body: ['도구함을 눌러 제품번역으로'],
+  },
+  {
+    section: S2,
+    page: 'translate',
+    kicker: '도구함 › 제품번역',
+    title: '빈 칸 제품 자동 번역 · 분류',
+    flow: [
+      { items: [{ t: '회사 제품 API', s: '영문명 · 수출 분류가 빈 제품' }, { t: '사전으로 자동 번역', s: '한글 → 영어 단어장 (모두 같이 키움)' }, { t: '분류 자동 추천', s: '수출 분류표 + 지난번에 고른 기록' }] },
+    ],
+    note: 'top',
   },
 
   // ───────── 3. 사용 기술 · 작업 방식
