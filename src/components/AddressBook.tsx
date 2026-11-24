@@ -60,6 +60,7 @@ const GROUPS: { key: string; label: string; match: (p: Person) => boolean }[] = 
   { key: '2', label: '2조', match: (p) => (p.role === 'member' || p.role === 'admin') && (p.team ?? '2') === '2' },
   { key: '3', label: '3조', match: (p) => (p.role === 'member' || p.role === 'admin') && (p.team ?? '2') === '3' },
   { key: 'trade', label: '무역사무', match: (p) => p.role === 'trade' },
+  { key: 'it', label: 'IT팀', match: (p) => p.role === 'auditor' }, // IT 검토용 계정
 ];
 
 /** 위쪽 '주소록' 버튼 + 창 */

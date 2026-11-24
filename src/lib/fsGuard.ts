@@ -2,7 +2,7 @@
 //   · IT 검토용 계정(auditor): 쓰는 모든 문서에 dummyBy = 내 이메일 표시를 붙임
 //       → 서버 규칙이 '표시가 붙은 새 문서 / 내가 만든 가짜 문서' 만 허락 (기존 데이터 수정 · 삭제 불가)
 //       → 계정을 지우면 서버(removeUser)가 표시가 붙은 문서를 모두 지움
-//   · 모든 사람: 다른 사람의 가짜 문서(dummyBy 가 내가 아님)는 읽을 때 숨김 → 실제 화면에 안 섞임
+//   · 일반 계정: 가짜 문서(dummyBy)는 읽을 때 숨김 → 실제 화면에 안 섞임 (IT 검토용 계정끼리는 서로 보임)
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export * from '@firebase/firestore';
 import * as F from '@firebase/firestore';
@@ -53,6 +53,7 @@ export function writeBatch(db: any): any {
 
 // ---- 읽기: 다른 사람의 가짜 문서 숨기기 ----
 const hiddenDoc = (d: any) => {
+  if (dummyBy) return false; // IT 검토용 계정끼리는 서로의 가짜 데이터도 봄 (IT팀 대시보드를 같이 씀)
   try {
     const by = d?.get?.('dummyBy');
     return !!by && by !== viewer;

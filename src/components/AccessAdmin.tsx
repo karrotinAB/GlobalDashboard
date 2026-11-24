@@ -178,8 +178,8 @@ export default function AccessAdmin() {
                   )}
                 </td>
                 <td>
-                  {r.role === 'trade' || isLeader(r.role) ? (
-                    <span className="muted small">{isLeader(r.role) ? '개인 대시보드' : '-'}</span>
+                  {r.role === 'trade' || r.role === 'auditor' || isLeader(r.role) ? (
+                    <span className="muted small">{isLeader(r.role) ? '개인 대시보드' : r.role === 'auditor' ? 'IT팀 대시보드' : '-'}</span>
                   ) : self ? (
                     teamLabel(r.team)
                   ) : (

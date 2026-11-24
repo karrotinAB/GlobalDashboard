@@ -5,7 +5,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { setFsGuard } from '../lib/fsGuard';
 import { Cover } from './ui';
-import { DEFAULT_TEAM, isPersonal, savedViewLabel, savedViewTeam, spaceLabel, TEAMS } from '../lib/team';
+import { DEFAULT_TEAM, isPersonal, IT_SPACE, savedViewLabel, savedViewTeam, spaceLabel, TEAMS } from '../lib/team';
 
 export type Role = 'admin' | 'member' | 'trade' | 'lead' | 'director' | 'auditor'; // trade = 무역사무, lead = 팀장님, director = 이사님, auditor = IT 검토용 (가짜 관리자)
 export const ROLE_NAME: Record<Role, string> = { admin: '관리자', member: '조원', trade: '무역사무', lead: '팀장님', director: '이사님', auditor: 'IT 검토용' };
@@ -121,17 +121,21 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       </AccessContext.Provider>
     );
   }
-  const viewTeam = leader ? space.id! : role === 'admin' ? savedViewTeam() ?? team : team;
+  // IT 검토용: 내 조 = IT팀 (처음 화면) · 다른 조도 골라 볼 수 있음
+  const myTeam = auditor ? IT_SPACE : team;
+  const viewTeam = leader ? space.id! : role === 'admin' ? savedViewTeam() ?? myTeam : myTeam;
   const viewLabel = leader
     ? space.name
       ? `${space.name} (${ROLE_NAME[role]})` // 이름 먼저: '이락연 (팀장님)'
       : ROLE_NAME[role]
-    : isPersonal(viewTeam)
-      ? savedViewLabel() ?? '개인 대시보드'
+    : viewTeam === IT_SPACE
+      ? 'IT팀'
+      : isPersonal(viewTeam)
+        ? savedViewLabel() ?? '개인 대시보드'
       : spaceLabel(viewTeam);
   const canManage = role === 'admin' || leader;
   return (
-    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team, viewTeam, viewLabel, canManage, accountName: space.name, realRole: role, auditor }}>
+    <AccessContext.Provider value={{ email: (user.email ?? '').toLowerCase(), role, team: myTeam, viewTeam, viewLabel, canManage, accountName: space.name, realRole: role, auditor }}>
       {auditor && <AuditorBanner />}
       {children}
     </AccessContext.Provider>

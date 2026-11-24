@@ -14,13 +14,15 @@ export const TEAM_SCOPED: CollectionName[] = ['members', 'companies', 'tasks', '
 /** 개인 공간 (팀장님·이사님 계정마다 하나, 'p' + 영문·숫자) */
 export const isPersonal = (space?: string) => !!space && /^p[a-z0-9]+$/.test(space);
 export const newPersonalSpace = () => 'p' + Math.random().toString(36).slice(2, 10);
+/** IT 검토용 계정들이 같이 쓰는 'IT팀' 대시보드 공간 (컬렉션 pit_…) — 거기 넣는 건 전부 가짜 데이터 */
+export const IT_SPACE = 'pit';
 
 /** 실제 Firestore 컬렉션 이름: 2조 = 그대로, 1조 = t1_…, 개인 공간 = p…_… */
 export const physName = (col: CollectionName, team: string) =>
   team === DEFAULT_TEAM || !TEAM_SCOPED.includes(col) ? col : isPersonal(team) ? `${team}_${col}` : `t${team}_${col}`;
 
 /** 화면에 보일 이름: '1조' 또는 개인 공간 이름 ('팀장님' …) */
-export const spaceLabel = (space: string, personalName?: string) => (isPersonal(space) ? personalName || '내' : `${space}조`);
+export const spaceLabel = (space: string, personalName?: string) => (space === IT_SPACE ? 'IT팀' : isPersonal(space) ? personalName || '내' : `${space}조`);
 
 const VIEW_KEY = 'gd:viewTeam';
 /** 관리자(또는 로컬 모드)가 골라 보는 조 */
