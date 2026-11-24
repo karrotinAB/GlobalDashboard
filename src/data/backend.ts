@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, onSnapshot, query, setDoc, where, writeBatch, type Firestore } from 'firebase/firestore';
 import type { CollectionName, Collections } from '../types';
-import { DEFAULT_TEAM, isPersonal, physName, TEAMS } from '../lib/team';
+import { DEFAULT_TEAM, isPersonal, IT_SPACE, physName, TEAMS } from '../lib/team';
 
 export const COLLECTIONS: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims', 'requests', 'tradeMembers', 'memDirectory', 'memAttendance'];
 // 보안 규칙이 아직 안 바뀌어도 대시보드는 열리게: 이 컬렉션들은 못 읽으면 빈 채로 계속
@@ -113,7 +113,8 @@ export function createFirestoreBackend(db: Firestore): Backend {
     trade && col === 'members'
       ? TEAMS.map((t) => ({ path: physName('members', t), tag: t }))
       : // 팀장님·이사님 개인 대시보드: 1~3조 업체(매장코드 있는 것)도 같이 보여줌 (읽기만, 저장은 내 공간에)
-        isPersonal(team) && col === 'companies'
+        // (IT팀은 업체를 2조 컬렉션 그대로 써서 합칠 것 없음 — 같은 곳을 두 번 읽으면 '다 읽음' 이 안 끝남)
+        isPersonal(team) && team !== IT_SPACE && col === 'companies'
         ? [{ path: phys(col) }, ...TEAMS.map((t) => ({ path: physName('companies', t), tag: t }))]
         : [{ path: phys(col) }];
 

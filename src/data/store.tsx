@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { isAuditorSession } from '../lib/fsGuard';
 import type { CollectionName, Collections, Item } from '../types';
 import { createFirestoreBackend, createLocalBackend, emptyCollections, type Backend } from './backend';
 import { DEFAULT_TEAM, physName } from '../lib/team';
@@ -67,7 +68,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await fn();
         setError(null);
       } catch (e) {
-        setError(`저장 실패: ${(e as Error).message}`);
+        // IT 검토용 계정: 기존 데이터 고치기는 막혀 있음 → 알아듣기 쉽게
+        setError(isAuditorSession() && /permission/i.test(String((e as { code?: string }).code ?? (e as Error).message)) ? '🔒 IT 검토용 계정이라 기존 데이터는 고칠 수 없어요 (새로 넣는 건 가짜 데이터로 저장돼요)' : `저장 실패: ${(e as Error).message}`);
         pending.current--;
         await reload();
         return;

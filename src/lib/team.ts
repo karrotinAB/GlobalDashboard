@@ -11,17 +11,18 @@ export const teamLabel = (t?: string) => `${t ?? DEFAULT_TEAM}조`;
 /** 조마다 따로인 컬렉션 */
 export const TEAM_SCOPED: CollectionName[] = ['members', 'companies', 'tasks', 'orders', 'attendance', 'config', 'claims'];
 
-/** 개인 공간 (팀장님·이사님 계정마다 하나, 'p' + 영문·숫자) */
-export const isPersonal = (space?: string) => !!space && /^p[a-z0-9]+$/.test(space);
-export const newPersonalSpace = () => 'p' + Math.random().toString(36).slice(2, 10);
-/** IT 검토용 계정들이 같이 쓰는 'IT팀' 대시보드 공간 (컬렉션 pit_…) — 거기 넣는 건 전부 가짜 데이터 */
+/** IT 검토용 계정들이 같이 쓰는 'IT팀' 대시보드 공간 (컬렉션 pit_…) — 거기 넣는 건 전부 가짜 데이터 · 화면은 보통 조처럼 */
 export const IT_SPACE = 'pit';
+
+/** 개인 공간 (팀장님·이사님 계정마다 하나, 'p' + 영문·숫자) */
+export const isPersonal = (space?: string) => !!space && space !== IT_SPACE && /^p[a-z0-9]+$/.test(space); // IT팀(pit)은 개인 공간 아님 — 보통 조처럼
+export const newPersonalSpace = () => 'p' + Math.random().toString(36).slice(2, 10);
 
 /** 실제 Firestore 컬렉션 이름: 2조 = 그대로, 1조 = t1_…, 개인 공간 = p…_… */
 export const physName = (col: CollectionName, team: string) =>
   team === DEFAULT_TEAM || !TEAM_SCOPED.includes(col) || (team === IT_SPACE && col === 'companies') // IT팀은 업체를 2조 것으로 (볼 수만 · 새로 넣는 건 가짜)
     ? col
-    : isPersonal(team)
+    : isPersonal(team) || team === IT_SPACE
       ? `${team}_${col}`
       : `t${team}_${col}`;
 
@@ -33,7 +34,7 @@ const VIEW_KEY = 'gd:viewTeam';
 export function savedViewTeam(): string | undefined {
   try {
     const t = localStorage.getItem(VIEW_KEY);
-    return t && ((TEAMS as readonly string[]).includes(t) || isPersonal(t)) ? t : undefined;
+    return t && ((TEAMS as readonly string[]).includes(t) || isPersonal(t) || t === IT_SPACE) ? t : undefined;
   } catch {
     return undefined;
   }
