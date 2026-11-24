@@ -6,8 +6,8 @@ import { DATA_MODE } from '../data/store';
 import { startPresent } from './PresentMode';
 
 export default function ProfileMenu() {
-  const { email, accountName, role, realRole } = useAccess();
-  const isAdmin = (realRole ?? role) === 'admin' || role === null; // IT 발표 모드: 관리자 · 로컬만
+  const { email, accountName, role, realRole, auditor } = useAccess();
+  const isAdmin = ((realRole ?? role) === 'admin' && !auditor) || role === null; // IT 발표 모드: 관리자 · 로컬만 (IT 검토용 계정은 안 보임)
   const { data } = useStore();
   const card = [...data.members, ...data.tradeMembers].find((m) => !!email && m.email?.toLowerCase() === email);
   const name = accountName || card?.name || (email ? email.split('@')[0] : '로컬 모드');

@@ -78,7 +78,7 @@ export default function App() {
   // 탭을 누르면 바로 위에 로딩 막대 (새 페이지를 그리는 동안)
   const [navPending, startNav] = useTransition();
   const { loading, error, mode, data, saveMany } = useStore();
-  const { role, realRole, viewTeam, viewLabel } = useAccess();
+  const { role, realRole, viewTeam, viewLabel, auditor } = useAccess();
   const leader = isLeader(role); // 팀장님·이사님
   const tradeOnly = role === 'trade'; // 무역사무 계정: 무역사무 페이지 + 설정만
   const canTrade = role === null || role === 'admin' || role === 'trade'; // 무역사무 페이지를 볼 수 있음 (무역사무·관리자·로컬)
@@ -151,7 +151,7 @@ export default function App() {
     <div className="app">
       <ExtensionBridge />
       <ReportTaskSync />
-      <PresentMode allowed={(realRole ?? role) === 'admin' || role === null} />
+      <PresentMode allowed={((realRole ?? role) === 'admin' && !auditor) || role === null} />
       <div className="mobile-bar">
         <button className="mb-menu" onClick={() => setDrawer(true)} aria-label="메뉴 열기">
           ☰
