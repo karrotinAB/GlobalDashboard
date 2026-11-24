@@ -55,6 +55,7 @@ function toUnits(rows: Order[]): Unit[] {
 }
 
 export default function Orders() {
+  const auditorView = !!useAccess().auditor; // IT 검토용 계정
   const { data, save, saveMany, remove } = useStore();
   const { myCompanies: companies, companyById } = useLookups();
   // 수출 통화가 USD 가 아닌 업체: 외화는 USD 로 바꿔 보여주고 원래 외화는 아래 작게
@@ -379,7 +380,8 @@ export default function Orders() {
   const hasAmt = (list: Order[], k: 'amountKRW' | 'amountForeign') => list.some((o) => o[k] !== undefined);
 
   // 팀장님·이사님: 조 업체를 고르면 그 조의 주문을 그대로 (보기만)
-  if (sheet?.team) return <LinkedTeamView company={sheet} kind="orders" onBack={() => setCompanyFilter('')} />;
+  // IT 검토용: 조 업체도 바로 고칠 수 있게 (고친 건 IT팀 사본 · 가짜 데이터)
+  if (sheet?.team && !auditorView) return <LinkedTeamView company={sheet} kind="orders" onBack={() => setCompanyFilter('')} />;
 
   return (
     <div className="page">

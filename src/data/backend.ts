@@ -120,13 +120,16 @@ export function createFirestoreBackend(db: Firestore): Backend {
           team === IT_SPACE && IT_SHARED.includes(col)
           ? [{ path: phys(col) }, ...TEAMS.map((t) => ({ path: physName(col, t), tag: t }))]
           : [{ path: phys(col) }];
-  /** IT팀 화면에서 1~3조 실제 데이터(조 표시 team 이 붙은 것)는 고치지 못하게 */
-  const guardReal = (items: { team?: unknown }[]) => {
-    if (team === IT_SPACE && items.some((x) => x && x.team)) {
-      window.dispatchEvent(new CustomEvent('gd-guard-denied'));
-      throw Object.assign(new Error('permission-denied: IT 검토용 계정은 실제 데이터를 고칠 수 없어요'), { code: 'permission-denied' });
-    }
-  };
+  /** IT팀 화면에서 1~3조 실제 데이터(조 표시 team 이 붙은 것)를 고치면: 실제 데이터는 그대로, IT팀 사본(가짜 데이터)으로 저장
+   *  → IT 화면에서는 고친 대로 보이고(같은 id 면 사본이 이김), 다른 조에는 영향 없음 */
+  const ownCopies = <T,>(items: T[]): T[] =>
+    team === IT_SPACE
+      ? items.map((x) => {
+          if (!x || typeof x !== 'object' || !(x as { team?: unknown }).team) return x;
+          const { team: _t, ...rest } = x as Record<string, unknown>;
+          return rest as T;
+        })
+      : items;
 
   // 컬렉션마다 실시간 구독 1개. 처음 받은 결과로 load() 를 끝내고, 이후 변경은 patch 로 전달
   const start = () =>
@@ -147,7 +150,9 @@ export function createFirestoreBackend(db: Firestore): Backend {
               parts.set(src.path, snap.docs.map((d) => ({ ...d.data(), id: d.id, ...(src.tag ? { team: src.tag } : {}) })));
               got.add(src.path);
               (latest[col] as unknown[]) =
-                col === 'companies' && srcs.length > 1
+                team === IT_SPACE && IT_SHARED.includes(col)
+                  ? ownFirst(srcs.map((x) => (parts.get(x.path) ?? []) as { id: string }[]))
+                  : col === 'companies' && srcs.length > 1
                   ? mergeMirrored(srcs.map((x) => (parts.get(x.path) ?? []) as { id: string; team?: string; storeCodes?: string[] }[]))
                   : srcs.flatMap((x) => parts.get(x.path) ?? []);
               if (got.size === srcs.length) seen.add(col);
@@ -176,11 +181,11 @@ export function createFirestoreBackend(db: Firestore): Backend {
       return ready.then((d) => ({ ...d }));
     },
     async upsert(col, item) {
-      guardReal([item as { team?: unknown }]);
-      await setDoc(doc(db, phys(col), item.id), item);
+      const [own] = ownCopies([item]);
+      await setDoc(doc(db, phys(col), own.id), own);
     },
     async upsertMany(col, items) {
-      guardReal(items as { team?: unknown }[]);
+      items = ownCopies(items);
       for (let i = 0; i < items.length; i += 400) {
         const batch = writeBatch(db);
         for (const item of items.slice(i, i + 400)) batch.set(doc(db, phys(col), item.id), item);
@@ -211,6 +216,12 @@ export function createFirestoreBackend(db: Firestore): Backend {
 }
 
 /** 내 업체 + 조 업체(매장코드 있는 것만). 같은 id 면 내 것이 이김 (조 업체 순서·메모를 바꾸면 내 공간에 복사됨) */
+/** IT팀: IT팀 사본(첫 묶음)이 같은 id 의 조 실제 데이터보다 이김 */
+function ownFirst(parts: { id: string }[][]) {
+  const [own, ...teams] = parts;
+  const ids = new Set(own.map((c) => c.id));
+  return [...own, ...teams.flat().filter((c) => !ids.has(c.id))];
+}
 function mergeMirrored(parts: { id: string; team?: string; storeCodes?: string[] }[][]) {
   const [own, ...teams] = parts;
   const ids = new Set(own.map((c) => c.id));

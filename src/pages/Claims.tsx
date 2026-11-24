@@ -1,3 +1,4 @@
+import { useAccess } from '../components/AuthGate';
 import { useMirrorClaims } from '../lib/teamClaims';
 import { rectOf, viewW } from '../lib/zoom';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -33,11 +34,12 @@ type Source = {
 const sum = (os: Order[], k: 'amountKRW' | 'amountForeign') => os.reduce((a, o) => a + (o[k] ?? 0), 0);
 
 export default function Claims() {
+  const auditorView = !!useAccess().auditor; // IT 검토용 계정
   const { data, save, saveMany, remove } = useStore();
   // 팀장님·이사님: '내 담당'에서 뺀 업체라도 클레임이 있으면 계속 보이고, ＋ 업체 추가에서 모든 업체(1~3조 포함)를 고를 수 있게
   //  (클레임 있는 업체는 칩으로, 나머지는 ＋ 업체 추가 목록에)
   const { companies, companyById } = useLookups();
-  const allClaims = [...data.claims, ...useMirrorClaims(companies)]; // 조 업체 클레임도 (칩·숫자)
+  const allClaims = [...data.claims, ...useMirrorClaims(auditorView ? [] : companies)]; // 조 업체 클레임도 (칩·숫자) · IT팀은 이미 같이 불러옴
   // 주문 관리의 [클레임] 버튼으로 오면 #/claims?c=업체id
   const [companyFilter, setCompanyFilterState] = useState(() => {
     const fromLink = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('c');
@@ -169,7 +171,8 @@ export default function Claims() {
   };
 
   // 팀장님·이사님: 조 업체를 고르면 그 조의 클레임을 그대로 (보기만)
-  if (sheet?.team) return <LinkedTeamView company={sheet} kind="claims" onBack={() => setCompanyFilter('')} />;
+  // IT 검토용: 조 업체도 바로 고칠 수 있게 (고친 건 IT팀 사본 · 가짜 데이터)
+  if (sheet?.team && !auditorView) return <LinkedTeamView company={sheet} kind="claims" onBack={() => setCompanyFilter('')} />;
 
   return (
     <div className="page">
