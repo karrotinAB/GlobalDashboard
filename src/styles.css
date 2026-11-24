@@ -9051,3 +9051,9 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .rq-linked-claim { background: #fbfaf6; }
 .rq-claim-note { max-width: 220px; white-space: normal; font-size: 11.5px; color: var(--ink-2); }
 .rq-claim-file { text-decoration: none; margin-right: 2px; }
+/* 무역사무 요청 › 연결된 묶음: 주문 관리 묶음 머리줄처럼 묶음 색으로 꽉 채움 (펼쳐도 그대로) */
+.rq-bundle-fold, .rq-bundle-fold.open { background: var(--c); border: 1px solid var(--c); border-left-width: 1px; color: #fff; }
+.rq-bundle-fold:hover { background: color-mix(in srgb, var(--c) 88%, #000); }
+.rq-bundle-fold .muted { color: rgba(255, 255, 255, 0.85) !important; }
+.rq-bundle-fold .rq-bundle-dot { display: none; }
+.rq-bundle-fold .rq-bundle-more { color: #fff; }
