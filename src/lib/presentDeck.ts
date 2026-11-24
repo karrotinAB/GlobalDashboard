@@ -450,9 +450,7 @@ export const PRESENT_DECK: PresentStep[] = [
   // ───────── 마무리
   {
     section: SE,
-    kicker: '마무리',
-    title: '질문 받을게요 🙌',
-    body: ['· 공개 GitHub 에는 틀만, 데이터 · 비밀값은 Firebase 에', '· API 키는 서버에서만, 비밀번호는 본인만', '· 권한은 서버 쪽 규칙으로'],
+    title: '감사합니다',
   },
 ];
 
