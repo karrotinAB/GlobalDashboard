@@ -84,7 +84,7 @@ export function rowOf(raw) {
     eng: pick(f, /^sku(name)?eng$|^skunameeng$/),
     reg: pick(f, /^(sku)?regdate$|^regdt$|regdate$/),
     qty: pick(f, /^physicalqty$|physicalqty$/), // 실재고
-    exp: pick(f, /^exportyn$|exportyn$/), // 수출 가능 여부
+    exp: pick(f, /^exportyn$|exportyn$|^export(gb|gubun|div|type)(cd|code)?$/), // 수출 가능 여부 · 수출구분
   };
 }
 /** 비었다 = 수출 대분류 · 중분류 · 영문명 중 하나라도 비어 있음 */
@@ -95,12 +95,13 @@ export const isExcluded = (r) => {
   const q = str(r.qty).replace(/,/g, '');
   if (q !== '' && Number.isFinite(Number(q)) && Number(q) <= 100) return true;
   const e = str(r.exp);
-  return /제한/.test(e) || /^n$/i.test(e);
+  // ERP 수출구분: 01 = 수출제한 (코드로 옴) · 글자로 오면 '수출제한' · Y/N 이면 N
+  return /제한/.test(e) || /^n$/i.test(e) || e === '01';
 };
 /** 목록에 둘 제품 = 비어 있고 + 거를 것이 아님 */
 const wanted = (r) => isMissing(r) && !isExcluded(r);
 // 거르는 기준이 바뀌면 숫자를 올림 → 다음 불러오기 때 처음부터 다시 훑으며 이미 있는 것도 다시 거름
-const FILTER_VER = 2;
+const FILTER_VER = 3; // 2: 재고 100 이하 · 수출제한 글자 / 3: 수출구분 코드 01 도
 /** 등록일 비교용 (2026-11-20 · 20261120 · 2026-11-20 13:01:02 → 20261120130102) */
 const regKey = (s) => str(s).replace(/[^\d]/g, '').padEnd(14, '0').slice(0, 14);
 
@@ -225,10 +226,11 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   let stopped = '';
   const m = { ...meta };
   // 거르는 기준이 바뀌었으면: 처음부터 다시 훑기 (이미 불러온 것도 새 기준으로 정리)
-  if ((m.filterVer ?? 1) !== FILTER_VER && !m.rescan) {
+  if ((m.filterVer ?? 1) !== FILTER_VER && m.rescanVer !== FILTER_VER) {
     m.phase = 'full';
     m.page = 1;
     m.rescan = true;
+    m.rescanVer = FILTER_VER; // 이 기준으로 다시 훑는 중 (중간에 기준이 또 바뀌면 처음부터)
   }
   const isFull = m.phase !== 'inc';
   const known = new Set(Object.keys(await readList(db))); // 이미 목록에 있는 코드 (새로 더한 수만 셈)
