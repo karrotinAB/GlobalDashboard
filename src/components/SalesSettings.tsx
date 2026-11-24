@@ -285,14 +285,13 @@ export function SalesApiAdmin() {
       <h2>
         판매 데이터 API <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
+      {/* 상태 한 줄: 마지막 가져오기 · 매주 자동 */}
       <p className="muted small">
-        매주 월요일 아침 7시에 지난 달 + 이번 달 판매를 <b>판매데이터 켠 업체의 지점마다</b> 가져와서 일자별로 합쳐요. 키는 ERP 와 같은 키를 써요. 주소는 서버에만 저장되고 이 사이트에서는 다시 볼 수 없어요.
+        매주 월요일 7시 자동 (판매데이터 켠 업체의 지점마다 · 지난 달 + 이번 달)
+        {status && ` · 마지막 ${status.at ? new Date(status.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'} ${status.skipped ? `· ${status.skipped}` : `· ${status.rows ?? 0}건`}`}
+        {DATA_MODE !== 'local' &&
+          (!salesBf ? ' · 1월부터 처음 받기: 아직 시작 전' : salesBf.done ? '' : ` · 1월부터 처음 받기: ${salesBf.next ?? '2026-01'} 부터 남음`)}
       </p>
-      {status && (
-        <p className="muted small">
-          마지막 가져오기: {status.at ? new Date(status.at).toLocaleString() : '-'} {status.skipped ? `· ${status.skipped}` : `· 계산 ${status.rows ?? 0}건`}
-        </p>
-      )}
       {!!errs.length && (
         <details className="status-errors" open>
           <summary className="small">문제 {errs.length}개 보기</summary>
@@ -314,7 +313,7 @@ export function SalesApiAdmin() {
           <div className="sa-step">
             <h3>판매 데이터 가져오기</h3>
             <p className="muted small" style={{ margin: 0 }}>
-              매주 월요일 아침 7시에 지난 달 + 이번 달이 자동으로 들어와요. 그 사이에 빠졌거나 다시 받고 싶을 때만 여기서 골라서 가져오세요 (필요한 것만 골라야 API 를 덜 불러요).
+              빠졌거나 다시 받고 싶을 때만 골라서 가져와요 (필요한 것만 골라야 API 를 덜 불러요).
             </p>
             <div className="sa-pick">
               <label className="row-field">
@@ -504,23 +503,12 @@ export function SalesApiAdmin() {
         </div>
       )}
       {DATA_MODE !== 'local' && (
-        <div className="backfill-box">
-          <b>판매 데이터 자동 가져오기 (매주 월요일 7시)</b>
-          <span className="muted small"> 매주 월요일 아침 7시 자동: 처음 한 번은 2026년 1월부터 이번 달까지, 그 뒤로는 매주 지난 달 + 이번 달만 다시 가져와요 (한 달 치를 한꺼번에 올리는 매장도 잡혀요). 빠진 곳만 급하게 받고 싶으면 위 '판매 데이터 가져오기'에서 업체·지점·기간을 골라 주세요.</span>
-          <div className="small">
-            {!salesBf
-              ? '아직 시작 전'
-              : salesBf.done
-                ? `✓ 다 채웠어요 (${salesBf.end ?? ''}까지)`
-                : `진행 중: ${salesBf.next ?? '2026-01'} 부터 남음`}
-            {salesBf?.last?.length ? ` · 최근: ${salesBf.last.map((x) => `${x.month} ${x.rows}건${x.errors ? ` (문제 ${x.errors})` : ''}${x.skipped ? ` (${x.skipped})` : ''}`).join(', ')}` : ''}
-          </div>
-
-        </div>
-      )}
-      {DATA_MODE !== 'local' && (
-        <div className="backfill-box">
-          <b>지난 수출 데이터 채우기 (2026년 1월 ~ 오늘)</b>
+        // 다 채웠으면 접어 둠 (처음 한 번 하는 작업)
+        <details className="backfill-box" open={!backfill?.backfillDone}>
+          <summary>
+            <b>지난 수출 데이터 채우기 (2026년 1월 ~ 오늘)</b>
+            {backfill?.backfillDone && <span className="muted small"> · ✓ 다 채웠어요</span>}
+          </summary>
           <span className="muted small">
             {' '}
             ERP 에서 매장코드별 지난 출고를 한 번 가져와요 (주문 관리에 없는 것). 새벽 4시부터 (4:00~5:50) 10분마다 자동으로 이어서 하고, 다 채우면 멈춰요.
@@ -552,7 +540,7 @@ export function SalesApiAdmin() {
           })}>
             지금 채우기
           </button>
-        </div>
+        </details>
       )}
       {busyBox}
       {msg && <pre className="sync-result">{msg}</pre>}
