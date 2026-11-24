@@ -37,6 +37,8 @@ export interface PresentStep {
   cols?: { title: string; tone?: 'good' | 'warn'; items: string[] }[];
   /** 첫 줄 = 머리줄 */
   table?: string[][];
+  /** 표에서 칠할 줄 (머리줄 빼고 1부터) */
+  hotRows?: number[];
   /** 아래 작은 글씨 (출처 · 주의) */
   foot?: string;
   /** page 와 같이: 실제 화면을 어둡게 깔고 그 위에 슬라이드 */
@@ -287,6 +289,83 @@ export const PRESENT_DECK: PresentStep[] = [
     ],
     foot: '키가 필요한 API 는 전부 서버에서만 부름 → 브라우저에는 키가 한 번도 안 내려감',
   },
+  // API 마다 실제로 쓰는 화면으로 넘어가며 그 부분을 밝게
+  {
+    section: S4,
+    page: 'orders',
+    target: { sel: 'th', text: '원화 금액', closest: 'table' },
+    kicker: 'API · 어디서 쓰나',
+    title: '회사 ERP 주문 · 출고 → 주문 관리',
+    body: ['실주문 · 출고 승인 · 원화/외화 금액이 ERP 에서 자동으로', '· 평일 9~18시 30분마다 + ↻ 주문 불러오기 버튼'],
+    note: 'top',
+  },
+  {
+    section: S4,
+    page: 'home',
+    target: { sel: 'section.card.sales' },
+    kicker: 'API · 어디서 쓰나',
+    title: '회사 판매 데이터 (POS) → 홈 판매 · 수출',
+    body: ['업체별 판매 데이터 · 비중 · 수출 매출 (주 1회 + 버튼)'],
+    note: 'top',
+  },
+  {
+    section: S4,
+    page: 'translate',
+    target: { sel: '.tr-upload' },
+    kicker: 'API · 어디서 쓰나',
+    title: '회사 제품 정보 → 제품번역',
+    body: ['영문명 · 수출 분류가 빈 제품을 회사 API 에서 찾아옴', '· 재고 100 이하 · 수출제한 제품은 빼고 · 새벽에 자동으로 이어서'],
+    note: 'bottom',
+  },
+  {
+    section: S4,
+    page: 'orders',
+    target: { sel: 'th.c-name', closest: 'table' },
+    kicker: 'API · 어디서 쓰나',
+    title: '회사 거래처 정보 → 주문 이름 (매장명)',
+    body: ['ERP 에서 들어온 새 주문 이름을 매장명으로 (한 번 찾은 매장은 저장 · 다시 안 물음)'],
+    note: 'top',
+  },
+  {
+    section: S4,
+    page: 'home',
+    target: { sel: 'h2', text: '👋', closest: 'section' },
+    kicker: 'API · 어디서 쓰나',
+    title: 'mem 근태 → 홈 출퇴근',
+    body: ['출근 · 퇴근 예정 · 휴가 · 대체시차 (평일 정해진 시간에 서버가 가져옴)'],
+  },
+  {
+    section: S4,
+    page: 'petty',
+    target: { sel: '.pc-add-expense' },
+    kicker: 'API · 어디서 쓰나',
+    title: '한국은행 ECOS 환율 → 전도금 · 출장 · 수출매출',
+    body: ['외화로 적으면 그날 환율로 원화가 자동으로 들어감'],
+    note: 'top',
+  },
+  {
+    section: S4,
+    page: 'home',
+    target: { sel: '.zone-slider' },
+    kicker: 'API · 어디서 쓰나',
+    title: '기상청 초단기예보 → 홈 날씨',
+    body: ['이번 주 · 오늘 일정 옆 세 번째 장 (오늘의 날씨) + 헤더 비 · 눈 효과', '· 하루 종일 시간마다 10분 · 50분에 받아 둠'],
+  },
+  {
+    section: S4,
+    page: 'calendar',
+    kicker: 'API · 어디서 쓰나',
+    title: '구글 캘린더 (iCal) → 달력 · 한국 공휴일',
+    body: ['부서 일정 · 공휴일을 달력에 (비공개 iCal 주소는 서버에만)'],
+  },
+  {
+    section: S4,
+    page: 'home',
+    target: { sel: 'h2', text: '지금 몇 시', closest: 'section' },
+    kicker: 'API · 어디서 쓰나',
+    title: 'date.nager.at 공휴일 → 홈 나라 시계',
+    body: ['나라별 공휴일 (키 없는 공개 API · 브라우저에서 바로)'],
+  },
 
   // ───────── 5. ERP 연동
   {
@@ -296,7 +375,6 @@ export const PRESENT_DECK: PresentStep[] = [
     flow: [
       { items: [{ t: '서버 함수', s: '서울 리전 · 정해진 시간' }, { t: 'secrets/erp', s: 'API 키 읽기 (서버만)', hot: true }, { t: 'ERP API', s: 'X-API-Key 헤더 · 읽기만' }, { t: 'Firestore 저장', s: '주문 금액 · 출고 승인' }, { t: '화면', s: '실시간 반영' }] },
     ],
-    body: ['· ERP 에는 읽기(조회)만 — 쓰기 · 수정 요청은 없음', '· 사람이 직접 고친 금액은 덮어쓰지 않음'],
   },
   {
     section: S5,
@@ -312,6 +390,7 @@ export const PRESENT_DECK: PresentStep[] = [
       ['날씨', '매시 10분 · 50분'],
       ['전도금 알림', '매일 10시'],
     ],
+    hotRows: [1, 3, 4, 5], // 회사 ERP · 판매 · 제품 API 를 부르는 작업
     foot: '+ 화면의 “새로고침” 버튼 (로그인 · 권한 확인 후에만 실행)',
   },
   {

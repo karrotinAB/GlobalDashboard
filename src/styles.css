@@ -9193,3 +9193,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pm-over { position: fixed; inset: 0; pointer-events: auto; display: flex; align-items: safe center; justify-content: center; overflow-y: auto; padding: 40px 32px 110px; background: rgba(30, 14, 16, 0.55); backdrop-filter: blur(3px); animation: pm-in 0.3s ease-out; }
 .pm-over .pm-slide-in { background: color-mix(in srgb, var(--surface) 94%, transparent); border-radius: 24px; padding: 44px 52px; box-shadow: 0 24px 70px rgba(20, 6, 10, 0.4); }
 @media (max-width: 720px) { .pm-over .pm-slide-in { padding: 24px 20px; } }
+
+/* 발표 표: 강조할 줄 */
+.pm-table tr.hot td { background: #e3effc; }
+.pm-table tr.hot td:first-child { box-shadow: inset 5px 0 0 #2f6db5; color: #1d4f8a; }

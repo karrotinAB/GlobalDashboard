@@ -311,7 +311,7 @@ function Extras({ s }: { s: PresentStep }) {
           </thead>
           <tbody>
             {s.table.slice(1).map((row, r) => (
-              <tr key={r}>
+              <tr key={r} className={s.hotRows?.includes(r + 1) ? 'hot' : undefined}>
                 {row.map((c, i) => (
                   <td key={i}>{c}</td>
                 ))}
