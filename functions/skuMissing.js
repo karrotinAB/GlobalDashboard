@@ -15,10 +15,24 @@ const GAP = 2100; // 1분 30번 아래로
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const META = 'skuMissing/_meta';
 /** 키: secrets/sku 의 exKey · exHeader (새 API 키가 다르면) → 없으면 기존 apiKey · header */
+//   키가 거절되면(401 · 403) 다른 키로 다시: exKey → 제품 키(apiKey) → 주문(ERP) 키 — call() 이 alts 를 차례로 씀
 export async function exCfg(db, sec) {
-  if (sec.exKey) return { key: String(sec.exKey).trim(), header: String(sec.exHeader ?? sec.header ?? 'X-API-Key').trim() || 'X-API-Key' };
-  const c = await skuCfg(db);
-  return { ...c, header: String(sec.exHeader ?? c.header).trim() || c.header };
+  const hdr = String(sec.exHeader ?? sec.header ?? 'X-API-Key').trim() || 'X-API-Key';
+  const list = [];
+  if (sec.exKey) list.push({ key: String(sec.exKey).trim(), header: hdr });
+  try {
+    const c = await skuCfg(db);
+    list.push({ key: c.key, header: String(sec.exHeader ?? c.header).trim() || c.header });
+  } catch {
+    /* 제품 키가 없어도 됨 */
+  }
+  const erp = (await db.doc('secrets/erp').get()).data() ?? {};
+  const ef = Object.keys(erp).find((k) => k.replace(/[_\s-]/g, '').toLowerCase() === 'apikey');
+  if (ef && erp[ef]) list.push({ key: String(erp[ef]).trim(), header: 'X-API-Key' });
+  const uniq = list.filter((x, i) => x.key && list.findIndex((y) => y.key === x.key && y.header === x.header) === i);
+  if (!uniq.length) throw new Error('회사 API 키가 없어요 (secrets/sku 또는 secrets/erp)');
+  const [first, ...alts] = uniq;
+  return { ...first, alts, tried: uniq.length };
 }
 
 /** 응답에서 제품 목록 */
@@ -90,7 +104,15 @@ export async function call(url, cfg, params, fetchImpl, wait, last) {
       await wait(backoff[t]);
       continue;
     }
-    if (!res.ok) throw new Error(`회사 API ${res.status}${res.status === 401 || res.status === 403 ? ' (키 확인)' : ''}`);
+    // 키가 안 맞으면 다음 키로 (찾은 키는 이번 실행 동안 계속 씀)
+    if ((res.status === 401 || res.status === 403) && cfg.alts?.length) {
+      const next = cfg.alts.shift();
+      cfg.key = next.key;
+      cfg.header = next.header;
+      t--;
+      continue;
+    }
+    if (!res.ok) throw new Error(`회사 API ${res.status}${res.status === 401 || res.status === 403 ? ` (키 확인 · 키 ${cfg.tried ?? 1}개 모두 거절)` : ''}`);
     const text = await res.text();
     try {
       return JSON.parse(text);
