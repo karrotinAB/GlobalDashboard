@@ -70,7 +70,8 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
       // 발표 중에 창(주소록 등)을 열면 그 창을 밝게 · 닫으면 다시 원래 자리
       const pops = Array.from(document.querySelectorAll('[role="dialog"], .img-zoom')).filter((d) => !d.closest('.pm'));
       const el = pops[pops.length - 1] ?? findTarget(s.target!);
-      if (el) {
+      // 숨은 칸(다른 탭 안 등)은 없는 것으로 — 화면 전체가 어두워지지 않게
+      if (el && el.getClientRects().length > 0) {
         if (!scrolled && !pops.length) {
           scrolled = true;
           el.scrollIntoView({ block: 'center', behavior: 'smooth' });

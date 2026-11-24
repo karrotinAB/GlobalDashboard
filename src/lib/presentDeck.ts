@@ -58,9 +58,8 @@ const S3 = '3. 사용 기술 · 작업 방식';
 const S4 = '4. 사용 중인 API';
 const S5 = '5. ERP 연동 · 실행 시간';
 const S6 = '6. 계정 · 비밀번호';
-const S7 = '7. 비밀값 · 서버 함수';
-const S8 = '8. Firebase 용량';
-const S9 = '9. 운영 현황';
+const S8 = '7. Firebase 용량';
+const S9 = '8. 운영 현황';
 const SE = '마무리';
 
 export const PRESENT_DECK: PresentStep[] = [
@@ -393,13 +392,6 @@ export const PRESENT_DECK: PresentStep[] = [
     hotRows: [1, 3, 4, 5], // 회사 ERP · 판매 · 제품 API 를 부르는 작업
     foot: '+ 화면의 “새로고침” 버튼 (로그인 · 권한 확인 후에만 실행)',
   },
-  {
-    section: S5,
-    page: 'orders',
-    kicker: '데모',
-    title: '주문 관리 › ↻ 금액 새로고침',
-    body: ['버튼 = 같은 서버 함수를 지금 바로 실행', '로그인한 사람이 자기 조 주문만 새로고침할 수 있음 (서버가 권한 확인)'],
-  },
 
   // ───────── 6. 계정
   {
@@ -418,33 +410,11 @@ export const PRESENT_DECK: PresentStep[] = [
   {
     section: S6,
     page: 'settings',
-    target: { sel: 'h2', text: '대시보드 사용자', closest: 'section' },
     kicker: '데모 · 관리자만 보이는 칸',
     title: '설정 › 대시보드 사용자',
     body: ['여기 있는 이메일만 로그인 가능', '권한: 관리자 · 조원 · 무역사무 · 팀장님 · 이사님'],
   },
 
-  // ───────── 7. 비밀값 · 서버 함수
-  {
-    section: S7,
-    kicker: S7,
-    title: '비밀값은 브라우저로 절대 안 내려가요',
-    cols: [
-      { title: 'secrets (Firestore)', tone: 'good', items: ['ERP · 제품 · 환율 · 날씨 API 키, 캘린더 주소', '보안 규칙에 허용이 하나도 없음 → 사이트에서 아무도 읽기 · 쓰기 불가', '서버 함수(관리자 권한 SDK)만 읽음', '키 넣기: Firebase 콘솔 또는 관리자 전용 서버 함수 — 넣은 뒤엔 화면에 “있음/없음”만'] },
-      { title: 'Google Secret Manager', tone: 'good', items: ['mem 아이디 · 비밀번호', 'Firestore 에도 없음 — 서버 함수가 실행될 때만 꺼내 씀', '관리자 PC 의 명령어로만 넣고 바꿈'] },
-    ],
-  },
-  {
-    section: S7,
-    kicker: '서버 함수',
-    title: '서버 함수도 문을 지켜요',
-    body: [
-      '· 버튼으로 부르는 함수: 로그인 확인 → roles 권한 확인 → 그다음 실행',
-      '· 함수가 화면에 돌려주는 값에 API 키는 절대 안 담음 (설정 화면도 주소 앞부분만 가려서)',
-      '· 데이터 읽기 · 쓰기 권한은 Firestore 보안 규칙이 서버에서 검사 — 화면에서 버튼만 숨기는 게 아님',
-      '· 파일 업로드: 대시보드 사용자만 · 20MB 까지 (계약서는 관리자만)',
-    ],
-  },
 
   // ───────── 8. Firebase 용량
   {
