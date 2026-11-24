@@ -408,10 +408,10 @@ function TranslateTab() {
   const recheck = async () => {
     if (!filling.length) return;
     setBusy('recheck');
-    setMsg(`채운 ${filling.length}개를 회사 API 에서 다시 확인하는 중… (1개에 2초쯤)`);
+    setMsg(`사이트에서 채운 ${filling.length.toLocaleString()}개가 ERP 에 들어갔는지 확인하는 중… (1개에 2초쯤 · 한 번에 100개 남짓)`);
     try {
       const r = await recheckMissingNow(filling);
-      setMsg(`${r.checked}개 확인 → ${r.removed}개는 다 채워져서 목록에서 뺐어요${r.left ? ` · 남은 ${r.left}개는 다시 누르면 이어서` : ''}${r.stopped ? ` · ${r.stopped}` : ''}`);
+      setMsg(`${r.checked}개 확인 → ${r.removed}개는 ERP 에 다 채워져서 목록에서 뺐어요${r.left ? ` · 남은 ${r.left}개는 다시 누르면 이어서` : ''}${r.stopped ? ` · ${r.stopped}` : ''}`);
     } catch (e) {
       setMsg(`확인 못 했어요: ${(e as Error).message}`);
     } finally {
@@ -428,8 +428,8 @@ function TranslateTab() {
           <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 새벽에도 자동으로 불러와요">
             {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
           </button>
-          <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="채우고 있는 제품만 회사 API 에서 다시 확인해서, 다 채워졌으면 목록에서 빼요 (모두의 목록에서)">
-            {busy === 'recheck' ? '확인 중…' : `🔄 새로고침${filling.length ? ` (채운 ${filling.length}개)` : ''}`}
+          <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="사이트에서 채운 제품을 ERP(회사 API)에서 다시 확인해서, ERP 에 수출 분류 · 영문명이 다 들어가 있으면 목록에서 빼요. 사이트에서만 채운 건 안 빠져요. (ERP 에 채워진 제품은 없는거 불러오기 · 새벽 자동에서도 알아서 빠져요)">
+            {busy === 'recheck' ? '확인 중…' : `🔄 ERP 반영 확인${filling.length ? ` (사이트에서 채운 ${filling.length.toLocaleString()}개)` : ''}`}
           </button>
           <span className="tr-up-spacer" />
           {sheet && sheet.rows.length > 0 && (
