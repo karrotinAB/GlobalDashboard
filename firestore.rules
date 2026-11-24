@@ -120,6 +120,12 @@ service cloud.firestore {
         && (request.resource.data.get('space', '') == '' || request.resource.data.get('space', '').matches('p[a-z0-9]+'))
         && request.resource.data.keys().hasOnly(['level', 'name', 'team', 'space', 'addedBy', 'addedAt']);
       allow delete: if isAdmin() && email != myEmail();
+      // IT 검토용 계정: 새 IT 검토용 계정만 추가할 수 있음 (기존 사람 권한은 못 바꿈 — 없는 문서 만들기만)
+      allow create: if signedIn() && role() == 'auditor' && email != myEmail()
+        && email == email.lower()
+        && request.resource.data.level == 'auditor'
+        && request.resource.data.get('dummyBy', '') == myEmail()
+        && request.resource.data.keys().hasOnly(['level', 'name', 'addedBy', 'addedAt', 'dummyBy']);
     }
 
     // 지금 보고 있는 페이지 (탭 오른쪽 위 동그라미): 모두 읽고, 자기 것만 씀

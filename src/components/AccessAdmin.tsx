@@ -97,7 +97,7 @@ export default function AccessAdmin() {
     setBusy(true);
     try {
       const result = await createAccount(e, pw);
-      if (await put(e, role, name.trim() || undefined, team)) {
+      if (await put(e, me.auditor ? 'auditor' : role, name.trim() || undefined, team)) {
         setMsg(
           result === 'created'
             ? `${e} 계정을 만들었어요. 임시 비밀번호를 알려 주고, 로그인 후 설정에서 비밀번호를 바꾸라고 해 주세요.`
@@ -124,7 +124,7 @@ export default function AccessAdmin() {
       <h2>
         대시보드 사용자 <span className="tag gray">관리자만 보이는 칸</span>
       </h2>
-      {me.auditor && <p className="warn small">🔒 IT 검토용 계정은 사용자 · 권한을 볼 수만 있어요 (추가 · 변경 · 삭제 안 됨)</p>}
+      {me.auditor && <p className="warn small">🔒 IT 검토용 계정은 사용자 · 권한을 볼 수만 있어요 · 맨 아래에서 IT 검토용 계정만 새로 추가할 수 있어요</p>}
       <fieldset className="plain-fieldset" disabled={!!me.auditor}>
       <p className="muted small">
         여기 추가한 사람만 대시보드에 로그인해서 쓸 수 있어요. 이메일과 임시 비밀번호를 넣으면 로그인 계정까지 만들어져요.
@@ -225,18 +225,20 @@ export default function AccessAdmin() {
           })}
         </tbody>
       </table>
+      </fieldset>
+      {/* 계정 추가: IT 검토용 계정은 IT 검토용 계정만 만들 수 있음 (서버 규칙도 같음) */}
       <form className="btn-row" onSubmit={add}>
         <input type="email" placeholder="추가할 이메일" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 2, minWidth: 200 }} />
         <input placeholder="이름 (선택)" value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1, minWidth: 100 }} />
         <input placeholder="임시 비밀번호 (6자 이상)" value={pw} onChange={(e) => setPw(e.target.value)} style={{ flex: 1, minWidth: 140 }} autoComplete="off" />
-        <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-          {ROLE_OPTIONS.map((o) => (
+        <select value={me.auditor ? 'auditor' : role} onChange={(e) => setRole(e.target.value as Role)} disabled={!!me.auditor}>
+          {(me.auditor ? (['auditor'] as Role[]) : ROLE_OPTIONS).map((o) => (
             <option key={o} value={o}>
               {ROLE_LABEL[o]}
             </option>
           ))}
         </select>
-        {(role === 'member' || role === 'admin') && (
+        {!me.auditor && (role === 'member' || role === 'admin') && (
           <select value={team} onChange={(e) => setTeam(e.target.value)} title="어느 조 대시보드를 쓸지">
             {TEAMS.map((t) => (
               <option key={t} value={t}>
@@ -250,7 +252,6 @@ export default function AccessAdmin() {
         </button>
       </form>
       {msg && <p className="small" style={{ marginBottom: 0 }}>{msg}</p>}
-      </fieldset>
     </section>
   );
 }

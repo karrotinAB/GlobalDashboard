@@ -828,7 +828,7 @@ import { getAuth } from 'firebase-admin/auth';
 async function purgeDummy(email) {
   let n = 0;
   for (const col of await db.listCollections()) {
-    if (col.id === 'secrets') continue;
+    if (['secrets', 'roles', 'contacts'].includes(col.id)) continue; // 계정 · 주소록은 그대로 (IT 계정이 추가한 다른 IT 계정은 남김)
     const snap = await col.where('dummyBy', '==', email).get();
     for (let i = 0; i < snap.docs.length; i += 400) {
       const b = db.batch();
