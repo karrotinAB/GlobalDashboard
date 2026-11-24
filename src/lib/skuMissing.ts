@@ -14,6 +14,14 @@ export interface MissingItem {
   eng: string; // 영문 제품명
   reg: string; // 등록일
 }
+/** 저장된 재고(7번째) · 수출구분(8번째)로 거름 — 서버 functions/skuMissing.js isExcluded 와 같은 기준 */
+function excludedRow(a: string[]): boolean {
+  if (a.length < 8) return false;
+  const q = String(a[6] ?? '').replace(/,/g, '').trim();
+  if (q !== '' && Number.isFinite(Number(q)) && Number(q) <= 100) return true;
+  const e = String(a[7] ?? '').trim();
+  return /제한|불가|금지/.test(e) || /^n$/i.test(e) || e === '01';
+}
 export interface MissingMeta {
   phase?: 'full' | 'inc';
   page?: number;
@@ -68,7 +76,10 @@ export function useSkuMissing(): { list: MissingItem[] | null; meta: MissingMeta
           }
           try {
             const v = JSON.parse((d.get('data') as string) ?? '{}') as Record<string, string[]>;
-            for (const [code, a] of Object.entries(v)) out.push({ code, ko: a[0] ?? '', type: a[1] ?? '', lrg: a[2] ?? '', midd: a[3] ?? '', eng: a[4] ?? '', reg: a[5] ?? '' });
+            for (const [code, a] of Object.entries(v)) {
+              if (excludedRow(a)) continue; // 재고 100 이하 · 수출 불가 (서버가 다음 불러오기 때 목록에서도 뺌)
+              out.push({ code, ko: a[0] ?? '', type: a[1] ?? '', lrg: a[2] ?? '', midd: a[3] ?? '', eng: a[4] ?? '', reg: a[5] ?? '' });
+            }
           } catch {
             /* 무시 */
           }

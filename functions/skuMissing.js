@@ -95,8 +95,9 @@ export const isExcluded = (r) => {
   const q = str(r.qty).replace(/,/g, '');
   if (q !== '' && Number.isFinite(Number(q)) && Number(q) <= 100) return true;
   const e = str(r.exp);
-  // ERP 수출구분: 01 = 수출제한 (코드로 옴) · 글자로 오면 '수출제한' · Y/N 이면 N
-  return /제한/.test(e) || /^n$/i.test(e) || e === '01';
+  // ERP 수출구분: 01 = 수출제한 (코드) · 글자로 오면 '수출제한' · '수출불가능' · '불가' · '금지' · Y/N 이면 N
+  //   ('수출가능' 은 통과 — '불가' 가 없음)
+  return /제한|불가|금지/.test(e) || /^n$/i.test(e) || e === '01';
 };
 /** 목록에 둘 제품 = 비어 있고 + 거를 것이 아님 */
 const wanted = (r) => isMissing(r) && !isExcluded(r);
@@ -160,6 +161,18 @@ const shardOf = (c) => {
 };
 const isShard = (id) => id !== '_meta';
 const isNewShard = (id) => /^h\d{3}$/.test(id);
+/** 저장해 둔 재고 · 수출구분(7 · 8번째 칸)으로 지금 기준에 걸리는 제품을 목록에서 뺌 — 회사 API 다시 안 부름
+ *  (기준만 바뀌었을 때 처음부터 다시 훑지 않아도 되게) */
+async function pruneStored(db) {
+  const all = await readList(db);
+  const drop = {};
+  for (const [code, a] of Object.entries(all)) {
+    if (!Array.isArray(a) || a.length < 8) continue; // 재고 · 수출구분을 아직 안 적어 둔 예전 줄 → 다시 훑을 때 거름
+    if (isExcluded({ qty: a[6], exp: a[7] })) drop[code] = null;
+  }
+  if (Object.keys(drop).length) await writeChanged(db, drop);
+  return Object.keys(drop).length;
+}
 /** 예전 앞 2자리 문서 → 4자리 문서로 옮기고 지움 (한 번만, 그 뒤엔 할 일 없음) */
 async function migrateShards(db) {
   const snap = await db.collection('skuMissing').get();
@@ -218,11 +231,12 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   const lockUntil = new Date(Date.now() + budgetMs + 60000).toISOString();
   await metaRef.set({ lockUntil }, { merge: true });
   await migrateShards(db); // 예전 앞 2자리 묶음 → 고르게 나눈 칸
+  const pruned = await pruneStored(db); // 저장된 값으로 바로 거르기 (수출불가능 등)
   const t0 = Date.now();
   const last = { at: 0 };
   const changes = {};
   let added = 0;
-  let dropped = 0; // 목록에서 뺀 수
+  let dropped = pruned; // 목록에서 뺀 수 (저장된 값으로 바로 거른 것 포함)
   let scanned = 0;
   let stopped = '';
   const m = { ...meta };
