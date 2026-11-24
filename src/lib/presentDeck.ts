@@ -41,6 +41,8 @@ export interface PresentStep {
   foot?: string;
   /** page 와 같이: 실제 화면을 어둡게 깔고 그 위에 슬라이드 */
   over?: boolean;
+  /** 페이지를 옮기지 않고 지금 화면 그대로 (어디서 누르는지 보여줄 때) */
+  stay?: boolean;
   /** 메모 없이 화면만 보여주기 */
   bare?: boolean;
   /** 메모 위치 (기본: 오른쪽 아래) */
@@ -176,6 +178,15 @@ export const PRESENT_DECK: PresentStep[] = [
   },
   {
     section: S2,
+    page: 'home',
+    stay: true,
+    target: { sel: '.profile:not(.tools)' },
+    kicker: '어디서 여나요',
+    title: '오른쪽 위 내 계정 › 전도금',
+    body: ['눌러서 들어가 볼게요'],
+  },
+  {
+    section: S2,
     page: 'petty',
     kicker: '전도금',
     title: '전도금 수합',
@@ -185,17 +196,12 @@ export const PRESENT_DECK: PresentStep[] = [
   },
   {
     section: S2,
-    page: 'contract',
-    kicker: '도구함 › 계약서',
-    title: '계약서를 모아두고 키워드로 찾기',
-    body: ['조항 · 업체로 검색 (보증금 → deposit 처럼 같은 뜻 말도 같이)', '원본 파일 + 조항별로 정리된 본문 · 관리자만'],
-  },
-  {
-    section: S2,
-    page: 'trip',
-    kicker: '도구함 › 출장신청서',
-    title: '출장비 정리 + 대체휴가 신청서',
-    body: ['전도금과 같은 방식으로 출장비 · 교통비 기록 → A4 신청서 · 영수증 정리 프린트', '🌴 대체휴가 신청서도 여기서 바로 작성'],
+    page: 'home',
+    stay: true,
+    target: { sel: '.profile.tools' },
+    kicker: '어디서 여나요',
+    title: '오른쪽 위 🧰 도구함 › 제품번역',
+    body: ['도구함을 눌러 제품번역으로'],
   },
   {
     section: S2,
@@ -206,6 +212,38 @@ export const PRESENT_DECK: PresentStep[] = [
       { items: [{ t: '회사 제품 API', s: '영문명 · 수출 분류가 빈 제품' }, { t: '사전으로 자동 번역', s: '한글 → 영어 단어장 (모두 같이 키움)' }, { t: '분류 자동 추천', s: '수출 분류표 + 지난번에 고른 기록' }] },
     ],
     note: 'top',
+  },
+  {
+    section: S2,
+    page: 'home',
+    stay: true,
+    target: { sel: '.profile.tools' },
+    kicker: '어디서 여나요',
+    title: '🧰 도구함 › 출장신청서',
+    body: ['도구함을 눌러 출장신청서로'],
+  },
+  {
+    section: S2,
+    page: 'trip',
+    kicker: '도구함 › 출장신청서',
+    title: '출장비 정리 + 대체휴가 신청서',
+    body: ['전도금과 같은 방식으로 출장비 · 교통비 기록 → A4 신청서 · 영수증 정리 프린트', '🌴 대체휴가 신청서도 여기서 바로 작성'],
+  },
+  {
+    section: S2,
+    page: 'home',
+    stay: true,
+    target: { sel: '.profile.tools' },
+    kicker: '어디서 여나요',
+    title: '🧰 도구함 › 계약서',
+    body: ['도구함을 눌러 계약서로'],
+  },
+  {
+    section: S2,
+    page: 'contract',
+    kicker: '도구함 › 계약서',
+    title: '계약서를 모아두고 키워드로 찾기',
+    body: ['조항 · 업체로 검색 (보증금 → deposit 처럼 같은 뜻 말도 같이)', '원본 파일 + 조항별로 정리된 본문 · 관리자만'],
   },
 
   // ───────── 3. 사용 기술 · 작업 방식

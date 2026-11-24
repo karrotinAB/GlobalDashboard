@@ -55,7 +55,7 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
 
   // 단계가 바뀌면 그 페이지로
   useEffect(() => {
-    if (!s?.page) return;
+    if (!s?.page || s.stay) return;
     const want = `#/${s.page}`;
     if (window.location.hash.split('?')[0] !== want) window.location.hash = `/${s.page}`;
   }, [s]);
@@ -75,7 +75,18 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
           scrolled = true;
           el.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
+        // 버튼 + 열린 드롭다운(내 계정 · 도구함)을 같이 밝게
         const r = rectOf(el);
+        for (const m of Array.from(el.querySelectorAll('[role="menu"]'))) {
+          const q = rectOf(m);
+          const right = Math.max(r.right, q.right), bottom = Math.max(r.bottom, q.bottom);
+          r.left = Math.min(r.left, q.left);
+          r.top = Math.min(r.top, q.top);
+          r.width = right - r.left;
+          r.height = bottom - r.top;
+          r.right = right;
+          r.bottom = bottom;
+        }
         setBox((b) => (b && Math.abs(b.left - r.left) < 0.5 && Math.abs(b.top - r.top) < 0.5 && Math.abs(b.width - r.width) < 0.5 && Math.abs(b.height - r.height) < 0.5 ? b : { left: r.left, top: r.top, width: r.width, height: r.height }));
       } else setBox(null);
       raf = requestAnimationFrame(tick);
@@ -105,7 +116,10 @@ export default function PresentMode({ allowed }: { allowed: boolean }) {
       else if (k === 'ArrowLeft' || k === 'PageUp') setStep(step - 1);
       else if (k === 'Home') setStep(0);
       else if (k === 'End') setStep(PRESENT_DECK.length - 1);
-      else if (k === 'Escape') setStep(null);
+      else if (k === 'Escape') {
+        if (document.querySelector('[role="menu"], [role="dialog"]')) return; // 열린 메뉴 · 창부터 닫기
+        setStep(null);
+      }
       else if (k === 'h' || k === 'H') setHideNote((v) => !v);
       else if (k === 'd' || k === 'D') setNoDim((v) => !v);
       else if (k === 't' || k === 'T') setToc((v) => !v);
