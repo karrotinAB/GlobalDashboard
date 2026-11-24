@@ -9200,6 +9200,9 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* 묶음 머리줄 출고일: 두 줄로 꺾이지 않게 */
 .order-table tr.bundle-head td.bundle-ship, .order-table tr.bundle-head td.bundle-ship .cell-view { white-space: nowrap; }
 .order-table tr.bundle-head td.bundle-ship .cell-view { font-size: 13px; letter-spacing: -0.2px; overflow: visible; }
+/* 메뉴 안 눌러야 할 줄: 형광펜 */
+.pm-mark { position: fixed; border-radius: 8px; background: rgba(255, 226, 64, 0.38); box-shadow: 0 0 0 2.5px #f2c200; animation: pm-mark 1.4s ease-in-out infinite; }
+@keyframes pm-mark { 50% { box-shadow: 0 0 0 5px rgba(242, 194, 0, 0.45); } }
 
 .tr-apicheck { width: 100%; }
 .tr-apicheck summary { cursor: pointer; color: var(--ink-2); }

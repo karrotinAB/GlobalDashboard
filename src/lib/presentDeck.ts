@@ -14,6 +14,8 @@ export interface PresentTarget {
   closest?: string;
   /** 이 장에 오면 안의 버튼을 눌러 드롭다운을 열어 둠 (다음 장으로 가면 닫음) */
   open?: boolean;
+  /** 열린 메뉴에서 이 글자가 있는 줄을 형광펜처럼 표시 (예: '출장신청서') */
+  item?: string;
 }
 
 export interface FlowRow {
@@ -183,7 +185,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile:not(.tools)', open: true },
+    target: { sel: '.profile:not(.tools)', open: true, item: '전도금' },
     kicker: '어디서 여나요',
     title: '오른쪽 위 내 계정 › 전도금',
     body: ['눌러서 들어가 볼게요'],
@@ -201,7 +203,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile.tools', open: true },
+    target: { sel: '.profile.tools', open: true, item: '출장신청서' },
     kicker: '어디서 여나요',
     title: '오른쪽 위 🧰 도구함 › 출장신청서',
     body: ['도구함을 눌러 출장신청서로'],
@@ -217,7 +219,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile.tools', open: true },
+    target: { sel: '.profile.tools', open: true, item: '계약서' },
     kicker: '어디서 여나요',
     title: '🧰 도구함 › 계약서',
     body: ['도구함을 눌러 계약서로'],
@@ -233,7 +235,7 @@ export const PRESENT_DECK: PresentStep[] = [
     section: S2,
     page: 'home',
     stay: true,
-    target: { sel: '.profile.tools', open: true },
+    target: { sel: '.profile.tools', open: true, item: '제품번역' },
     kicker: '어디서 여나요',
     title: '🧰 도구함 › 제품번역',
     body: ['도구함을 눌러 제품번역으로'],
