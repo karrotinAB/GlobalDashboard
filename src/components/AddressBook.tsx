@@ -3,7 +3,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useStore } from '../data/store';
 import { Modal } from './ui';
-import type { Role } from './AuthGate';
+import { useAccess, type Role } from './AuthGate';
 import SharedLogins from './SharedLogins';
 
 /** 주소록에 쓰는 연락처 (관리자가 설정 > 대시보드 사용자에서 넣음): contacts/{이메일} */
@@ -77,6 +77,7 @@ export default function AddressBook({ className, label = '📇 주소록' }: { c
 }
 
 function AddressBookModal({ onClose }: { onClose: () => void }) {
+  const { auditor } = useAccess(); // IT팀(검토용 계정)은 IT 계정끼리만 보임
   const { roles, contacts, error } = usePeople();
   const [q, setQ] = useState('');
   const [addSignal, setAddSignal] = useState(0); // ID/PW: 위쪽 '＋ 계정 추가'
@@ -176,7 +177,7 @@ function AddressBookModal({ onClose }: { onClose: () => void }) {
         —
       </td>
     );
-  const groups = GROUPS.map((g) => ({ g, list: people.filter((p) => g.match(p) && hit(p)).sort((a, b) => a.name.localeCompare(b.name, 'ko')) })).filter((x) => x.list.length);
+  const groups = GROUPS.filter((g) => g.key !== 'it' || auditor).map((g) => ({ g, list: people.filter((p) => g.match(p) && hit(p)).sort((a, b) => a.name.localeCompare(b.name, 'ko')) })).filter((x) => x.list.length);
   return (
     <Modal
       title={tab === 'people' ? '📇 주소록' : '🔑 같이 쓰는 계정'}

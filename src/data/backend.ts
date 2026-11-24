@@ -104,6 +104,7 @@ export function createFirestoreBackend(db: Firestore): Backend {
   const listeners = new Set<(patch?: Partial<Collections>) => void>();
   let unsubs: (() => void)[] = [];
   let ready: Promise<Collections> | null = null;
+  const IT_SHARED: CollectionName[] = ['companies', 'orders', 'claims'];
   let active: CollectionName[] = COLLECTIONS;
   let team = DEFAULT_TEAM;
   let trade = false;
@@ -113,10 +114,19 @@ export function createFirestoreBackend(db: Firestore): Backend {
     trade && col === 'members'
       ? TEAMS.map((t) => ({ path: physName('members', t), tag: t }))
       : // 팀장님·이사님 개인 대시보드: 1~3조 업체(매장코드 있는 것)도 같이 보여줌 (읽기만, 저장은 내 공간에)
-        // (IT팀은 업체를 2조 컬렉션 그대로 써서 합칠 것 없음 — 같은 곳을 두 번 읽으면 '다 읽음' 이 안 끝남)
-        isPersonal(team) && team !== IT_SPACE && col === 'companies'
+        isPersonal(team) && col === 'companies'
         ? [{ path: phys(col) }, ...TEAMS.map((t) => ({ path: physName('companies', t), tag: t }))]
-        : [{ path: phys(col) }];
+        : // IT팀: 1~3조의 업체 · 주문 · 클레임도 같이 (보기만 — 조 표시가 붙은 건 못 고침) + IT팀 가짜 데이터
+          team === IT_SPACE && IT_SHARED.includes(col)
+          ? [{ path: phys(col) }, ...TEAMS.map((t) => ({ path: physName(col, t), tag: t }))]
+          : [{ path: phys(col) }];
+  /** IT팀 화면에서 1~3조 실제 데이터(조 표시 team 이 붙은 것)는 고치지 못하게 */
+  const guardReal = (items: { team?: unknown }[]) => {
+    if (team === IT_SPACE && items.some((x) => x && x.team)) {
+      window.dispatchEvent(new CustomEvent('gd-guard-denied'));
+      throw Object.assign(new Error('permission-denied: IT 검토용 계정은 실제 데이터를 고칠 수 없어요'), { code: 'permission-denied' });
+    }
+  };
 
   // 컬렉션마다 실시간 구독 1개. 처음 받은 결과로 load() 를 끝내고, 이후 변경은 patch 로 전달
   const start = () =>
@@ -166,9 +176,11 @@ export function createFirestoreBackend(db: Firestore): Backend {
       return ready.then((d) => ({ ...d }));
     },
     async upsert(col, item) {
+      guardReal([item as { team?: unknown }]);
       await setDoc(doc(db, phys(col), item.id), item);
     },
     async upsertMany(col, items) {
+      guardReal(items as { team?: unknown }[]);
       for (let i = 0; i < items.length; i += 400) {
         const batch = writeBatch(db);
         for (const item of items.slice(i, i + 400)) batch.set(doc(db, phys(col), item.id), item);

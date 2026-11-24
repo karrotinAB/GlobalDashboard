@@ -20,7 +20,7 @@ export const newPersonalSpace = () => 'p' + Math.random().toString(36).slice(2, 
 
 /** 실제 Firestore 컬렉션 이름: 2조 = 그대로, 1조 = t1_…, 개인 공간 = p…_… */
 export const physName = (col: CollectionName, team: string) =>
-  team === DEFAULT_TEAM || !TEAM_SCOPED.includes(col) || (team === IT_SPACE && col === 'companies') // IT팀은 업체를 2조 것으로 (볼 수만 · 새로 넣는 건 가짜)
+  team === DEFAULT_TEAM || !TEAM_SCOPED.includes(col)
     ? col
     : isPersonal(team) || team === IT_SPACE
       ? `${team}_${col}`
