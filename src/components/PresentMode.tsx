@@ -1,0 +1,197 @@
+// IT 발표 모드: 실제 화면 위에 메모를 크게 띄우고, 보여줄 부분만 밝게
+//   켜기: 프로필 › 🎤 IT 발표 모드 (관리자만)   순서·글: src/lib/presentDeck.ts
+//   → / Space / PageDown 다음 · ← / PageUp 이전 · H 메모 숨기기 · D 어둡게 끄기 · Esc 끝내기
+//   발표 중에도 화면은 그대로 눌러짐 (진짜 데모)
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { PRESENT_DECK, type PresentStep, type PresentTarget } from '../lib/presentDeck';
+import { rectOf } from '../lib/zoom';
+
+const KEY = 'gd:present';
+const subs = new Set<() => void>();
+const read = (): number | null => {
+  try {
+    const v = localStorage.getItem(KEY);
+    if (v === null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(0, Math.min(PRESENT_DECK.length - 1, n)) : 0;
+  } catch {
+    return null;
+  }
+};
+let cur: number | null = read();
+function setStep(n: number | null) {
+  cur = n === null ? null : Math.max(0, Math.min(PRESENT_DECK.length - 1, n));
+  try {
+    if (cur === null) localStorage.removeItem(KEY);
+    else localStorage.setItem(KEY, String(cur));
+  } catch {
+    /* 저장 못 해도 발표는 됨 (새로고침하면 처음부터) */
+  }
+  subs.forEach((f) => f());
+}
+const subscribe = (f: () => void) => {
+  subs.add(f);
+  return () => subs.delete(f);
+};
+export const startPresent = () => setStep(0);
+export const usePresenting = () => useSyncExternalStore(subscribe, () => cur) !== null;
+
+function findTarget(t: PresentTarget): Element | null {
+  const all = Array.from(document.querySelectorAll(t.sel));
+  const hit = t.text ? all.find((el) => el.textContent?.includes(t.text!)) : all[0];
+  if (!hit) return null;
+  return t.closest ? hit.closest(t.closest) ?? hit : hit;
+}
+
+type Box = { left: number; top: number; width: number; height: number };
+
+export default function PresentMode({ allowed }: { allowed: boolean }) {
+  const step = useSyncExternalStore(subscribe, () => cur);
+  const [hideNote, setHideNote] = useState(false);
+  const [noDim, setNoDim] = useState(false);
+  const [box, setBox] = useState<Box | null>(null);
+  const s: PresentStep | null = step === null ? null : PRESENT_DECK[step];
+
+  // 단계가 바뀌면 그 페이지로
+  useEffect(() => {
+    if (!s?.page) return;
+    const want = `#/${s.page}`;
+    if (window.location.hash.split('?')[0] !== want) window.location.hash = `/${s.page}`;
+  }, [s]);
+
+  // 밝게 할 부분 찾기 (페이지가 늦게 그려져도 따라가게 계속 잼) · 처음 찾으면 그쪽으로 스크롤
+  useLayoutEffect(() => {
+    setBox(null);
+    if (!s?.target) return;
+    let scrolled = false;
+    let raf = 0;
+    const tick = () => {
+      const el = findTarget(s.target!);
+      if (el) {
+        if (!scrolled) {
+          scrolled = true;
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+        const r = rectOf(el);
+        setBox((b) => (b && Math.abs(b.left - r.left) < 0.5 && Math.abs(b.top - r.top) < 0.5 && Math.abs(b.width - r.width) < 0.5 && Math.abs(b.height - r.height) < 0.5 ? b : { left: r.left, top: r.top, width: r.width, height: r.height }));
+      } else setBox(null);
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [s]);
+
+  // 키보드 (발표용 리모컨은 PageUp/PageDown 을 보냄) · 입력 칸에서 쓰는 중이면 무시
+  useEffect(() => {
+    if (step === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) {
+        if (e.key === 'Escape') el.blur();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key;
+      if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') setStep(step + 1);
+      else if (k === 'ArrowLeft' || k === 'PageUp') setStep(step - 1);
+      else if (k === 'Home') setStep(0);
+      else if (k === 'End') setStep(PRESENT_DECK.length - 1);
+      else if (k === 'Escape') setStep(null);
+      else if (k === 'h' || k === 'H') setHideNote((v) => !v);
+      else if (k === 'd' || k === 'D') setNoDim((v) => !v);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [step]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('presenting', step !== null);
+    return () => document.documentElement.classList.remove('presenting');
+  }, [step]);
+
+  if (step === null || !s || !allowed) return null;
+  const slide = !s.page;
+  const last = step === PRESENT_DECK.length - 1;
+  const pad = 10;
+
+  return (
+    <div className="pm" aria-live="polite">
+      {slide ? (
+        <div className="pm-slide">
+          <div className="pm-slide-in">
+            {s.kicker && <div className="pm-kicker">{s.kicker}</div>}
+            <h1 className="pm-slide-title">{s.title}</h1>
+            {s.body && <Body lines={s.body} />}
+          </div>
+        </div>
+      ) : (
+        <>
+          {box && !noDim && (
+            <div
+              className="pm-spot"
+              style={{ left: box.left - pad, top: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2 }}
+            />
+          )}
+          {!hideNote && (
+            <div className={`pm-note pm-note-${s.note ?? 'right'}`}>
+              {s.kicker && <div className="pm-kicker">{s.kicker}</div>}
+              <h2 className="pm-note-title">{s.title}</h2>
+              {s.body && <Body lines={s.body} />}
+            </div>
+          )}
+        </>
+      )}
+      <div className="pm-bar">
+        <button onClick={() => setStep(step - 1)} disabled={step === 0} aria-label="이전">
+          ←
+        </button>
+        <span className="pm-count">
+          {step + 1} / {PRESENT_DECK.length}
+        </span>
+        <button onClick={() => (last ? setStep(null) : setStep(step + 1))} aria-label={last ? '발표 끝내기' : '다음'}>
+          {last ? '끝' : '→'}
+        </button>
+        {!slide && (
+          <button className={hideNote ? 'on' : ''} onClick={() => setHideNote((v) => !v)} title="메모 숨기기/보이기 (H)">
+            메모
+          </button>
+        )}
+        {!slide && s.target && (
+          <button className={noDim ? 'on' : ''} onClick={() => setNoDim((v) => !v)} title="어둡게 하기 끄기/켜기 (D)">
+            밝게
+          </button>
+        )}
+        <span className="pm-dots" aria-hidden="true">
+          {PRESENT_DECK.map((_, i) => (
+            <i key={i} className={i === step ? 'on' : i < step ? 'done' : ''} onClick={() => setStep(i)} />
+          ))}
+        </span>
+        <button className="pm-exit" onClick={() => setStep(null)} title="발표 끝내기 (Esc)">
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Body({ lines }: { lines: string[] }) {
+  const items = lines.filter((l) => l.startsWith('· '));
+  const paras = lines.filter((l) => !l.startsWith('· '));
+  return (
+    <div className="pm-body">
+      {paras.map((l, i) => (
+        <p key={i}>{l}</p>
+      ))}
+      {items.length > 0 && (
+        <ul>
+          {items.map((l, i) => (
+            <li key={i}>{l.slice(2)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

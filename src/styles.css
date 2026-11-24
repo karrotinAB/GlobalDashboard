@@ -9099,3 +9099,40 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .tr-scan-bar { position: relative; width: 160px; height: 6px; border-radius: 999px; background: #eadcd9; overflow: hidden; }
 .tr-scan-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: #b5651d; }
 .tr-scan.run .tr-scan-bar > span { background: #2f6db5; }
+/* ---------- IT 발표 모드 (components/PresentMode.tsx) ---------- */
+.pm { position: fixed; inset: 0; z-index: 2000; pointer-events: none; font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+.pm-spot { position: fixed; border-radius: 14px; box-shadow: 0 0 0 4px rgba(255, 214, 150, 0.95), 0 0 0 9999px rgba(30, 14, 16, 0.62); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
+.pm-kicker { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; color: var(--primary); margin-bottom: 8px; }
+.pm-body p { margin: 0 0 8px; }
+.pm-body ul { margin: 6px 0 0; padding-left: 1.1em; }
+.pm-body li { margin: 0 0 8px; }
+.pm-body li::marker { color: var(--primary); }
+.pm-note { position: fixed; pointer-events: auto; width: min(520px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); border: 2px solid var(--primary); border-radius: 18px; padding: 22px 26px 18px; box-shadow: 0 18px 50px rgba(40, 12, 16, 0.35); font-size: 20px; line-height: 1.5; animation: pm-in 0.22s ease-out; }
+.pm-note-title { font-family: var(--serif); font-size: 30px; line-height: 1.25; margin: 0 0 12px; }
+.pm-note-right { right: 24px; bottom: 92px; }
+.pm-note-left { left: 24px; bottom: 92px; }
+.pm-note-bottom { left: 50%; bottom: 92px; transform: translateX(-50%); width: min(760px, calc(100vw - 32px)); }
+.pm-note-top { left: 50%; top: 24px; transform: translateX(-50%); width: min(760px, calc(100vw - 32px)); }
+@keyframes pm-in { from { opacity: 0; translate: 0 10px; } to { opacity: 1; translate: 0 0; } }
+.pm-slide { position: fixed; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; padding: 40px 32px 110px; background: radial-gradient(1200px 700px at 20% 10%, var(--surface) 0%, var(--bg) 60%, var(--bg-2) 100%); animation: pm-in 0.25s ease-out; }
+.pm-slide-in { max-width: 980px; width: 100%; font-size: 26px; line-height: 1.55; color: var(--ink-2); }
+.pm-slide .pm-kicker { font-size: 20px; }
+.pm-slide-title { font-family: var(--serif); font-size: 64px; line-height: 1.15; color: var(--ink); margin: 0 0 24px; letter-spacing: -1px; }
+.pm-bar { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); pointer-events: auto; display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); padding: 8px 10px; border-radius: 999px; background: rgba(40, 20, 22, 0.88); color: #fff; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3); }
+.pm-bar button { border: 0; background: rgba(255, 255, 255, 0.14); color: #fff; border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.pm-bar button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.26); }
+.pm-bar button:disabled { opacity: 0.35; cursor: default; }
+.pm-bar button.on { background: var(--amber); }
+.pm-count { font-variant-numeric: tabular-nums; font-size: 14px; min-width: 52px; text-align: center; }
+.pm-dots { display: flex; gap: 5px; padding: 0 6px; overflow: hidden; }
+.pm-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); cursor: pointer; flex: none; }
+.pm-dots i.done { background: rgba(255, 255, 255, 0.6); }
+.pm-dots i.on { background: var(--amber); transform: scale(1.3); }
+@media (max-width: 720px) {
+  .pm-note { font-size: 16px; padding: 16px 18px; }
+  .pm-note-title { font-size: 22px; }
+  .pm-note-right, .pm-note-left { left: 16px; right: 16px; width: auto; }
+  .pm-slide-in { font-size: 18px; }
+  .pm-slide-title { font-size: 38px; }
+  .pm-dots { display: none; }
+}
