@@ -19,7 +19,11 @@ export const IT_SPACE = 'pit';
 
 /** 실제 Firestore 컬렉션 이름: 2조 = 그대로, 1조 = t1_…, 개인 공간 = p…_… */
 export const physName = (col: CollectionName, team: string) =>
-  team === DEFAULT_TEAM || !TEAM_SCOPED.includes(col) ? col : isPersonal(team) ? `${team}_${col}` : `t${team}_${col}`;
+  team === DEFAULT_TEAM || !TEAM_SCOPED.includes(col) || (team === IT_SPACE && col === 'companies') // IT팀은 업체를 2조 것으로 (볼 수만 · 새로 넣는 건 가짜)
+    ? col
+    : isPersonal(team)
+      ? `${team}_${col}`
+      : `t${team}_${col}`;
 
 /** 화면에 보일 이름: '1조' 또는 개인 공간 이름 ('팀장님' …) */
 export const spaceLabel = (space: string, personalName?: string) => (space === IT_SPACE ? 'IT팀' : isPersonal(space) ? personalName || '내' : `${space}조`);
