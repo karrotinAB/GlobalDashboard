@@ -29,6 +29,7 @@ export interface MissingMeta {
   lastAdded?: number;
   nightAt?: string; // 새벽 자동 (0시 ~ 7시 30분, 30분마다)
   nightError?: string;
+  rescan?: boolean; // 거르는 기준이 바뀌어서 처음부터 다시 훑는 중
 }
 
 // 로컬 테스트용 예시

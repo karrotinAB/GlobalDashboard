@@ -448,7 +448,7 @@ function TranslateTab() {
             {mMeta.at && ` · 마지막 불러오기 ${fmtAt(mMeta.at)}`}
             {mMeta.nightAt && ` · 새벽 자동 ${fmtAt(mMeta.nightAt)}`}
             {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)}까지 봄`}
-            {mMeta.phase !== 'inc' && mMeta.at && ' · 아직 전체를 다 못 훑음'}
+            {mMeta.phase !== 'inc' && mMeta.at && (mMeta.rescan ? ' · 새 기준(재고 100 이하 · 수출제한 빼기)으로 다시 훑는 중 — 다시 누르면 이어서' : ' · 아직 전체를 다 못 훑음')}
           </div>
         ) : (
           <div className="tr-up-status muted small">목록 불러오는 중…</div>

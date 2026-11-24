@@ -83,10 +83,24 @@ export function rowOf(raw) {
     midd: pick(f, /^(export(info)?)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/),
     eng: pick(f, /^sku(name)?eng$|^skunameeng$/),
     reg: pick(f, /^(sku)?regdate$|^regdt$|regdate$/),
+    qty: pick(f, /^physicalqty$|physicalqty$/), // 실재고
+    exp: pick(f, /^exportyn$|exportyn$/), // 수출 가능 여부
   };
 }
 /** 비었다 = 수출 대분류 · 중분류 · 영문명 중 하나라도 비어 있음 */
 export const isMissing = (r) => !r.lrg || !r.midd || !r.eng;
+/** 번역할 필요 없는 제품: 실재고(physical_qty) 100개 이하 · 수출제한(export_yn = 수출제한 / N)
+ *  칸이 아예 없으면 거르지 않음 */
+export const isExcluded = (r) => {
+  const q = str(r.qty).replace(/,/g, '');
+  if (q !== '' && Number.isFinite(Number(q)) && Number(q) <= 100) return true;
+  const e = str(r.exp);
+  return /제한/.test(e) || /^n$/i.test(e);
+};
+/** 목록에 둘 제품 = 비어 있고 + 거를 것이 아님 */
+const wanted = (r) => isMissing(r) && !isExcluded(r);
+// 거르는 기준이 바뀌면 숫자를 올림 → 다음 불러오기 때 처음부터 다시 훑으며 이미 있는 것도 다시 거름
+const FILTER_VER = 2;
 /** 등록일 비교용 (2026-11-20 · 20261120 · 2026-11-20 13:01:02 → 20261120130102) */
 const regKey = (s) => str(s).replace(/[^\d]/g, '').padEnd(14, '0').slice(0, 14);
 
@@ -209,6 +223,12 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   let scanned = 0;
   let stopped = '';
   const m = { ...meta };
+  // 거르는 기준이 바뀌었으면: 처음부터 다시 훑기 (이미 불러온 것도 새 기준으로 정리)
+  if ((m.filterVer ?? 1) !== FILTER_VER && !m.rescan) {
+    m.phase = 'full';
+    m.page = 1;
+    m.rescan = true;
+  }
   const isFull = m.phase !== 'inc';
   const known = new Set(Object.keys(await readList(db))); // 이미 목록에 있는 코드 (새로 더한 수만 셈)
   try {
@@ -236,10 +256,10 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
         }
         for (const r of list) {
           if (regKey(r.reg) > regKey(m.maxReg)) m.maxReg = r.reg;
-          if (isMissing(r)) {
+          if (wanted(r)) {
             if (!known.has(r.code) && !changes[r.code]) added++;
             changes[r.code] = packRow(r);
-          }
+          } else if (known.has(r.code)) changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
         }
         if (Object.keys(changes).length > 3000) {
           await writeChanged(db, changes);
@@ -253,6 +273,8 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           m.order = (m.asc ?? 0) >= (m.desc ?? 0) * 3 ? 'asc' : (m.desc ?? 0) >= (m.asc ?? 0) * 3 ? 'desc' : 'mixed';
           m.page = 1;
           m.fullAt = new Date().toISOString();
+          m.filterVer = FILTER_VER;
+          m.rescan = false;
           break;
         }
         m.page = page + 1;
@@ -274,10 +296,10 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           const news = list.filter(fresh);
           for (const r of news) {
             if (regKey(r.reg) > regKey(maxReg)) maxReg = r.reg;
-            if (isMissing(r)) {
+            if (wanted(r)) {
               if (!known.has(r.code) && !changes[r.code]) added++;
               changes[r.code] = packRow(r);
-            }
+            } else if (known.has(r.code)) changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
           }
           if (news.length < list.length || list.length < SIZE) break;
         }
@@ -294,10 +316,10 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           scanned += list.length;
           for (const r of list.filter(fresh)) {
             if (regKey(r.reg) > regKey(maxReg)) maxReg = r.reg;
-            if (isMissing(r)) {
+            if (wanted(r)) {
               if (!known.has(r.code) && !changes[r.code]) added++;
               changes[r.code] = packRow(r);
-            }
+            } else if (known.has(r.code)) changes[r.code] = null; // 이미 목록에 있지만 이제 필요 없음 (채워짐 · 재고 100 이하 · 수출제한)
           }
           if (list.length < SIZE) {
             m.lastPage = page;
@@ -322,7 +344,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   await metaRef.set({ ...out, asc: m.asc ?? 0, desc: m.desc ?? 0 });
   return { added, scanned, stopped, ...publicMeta(out) };
 }
-const publicMeta = (m) => ({ phase: m.phase ?? 'full', count: m.count ?? 0, lastReg: m.lastReg ?? '', order: m.order ?? '', page: m.page ?? 1 });
+const publicMeta = (m) => ({ phase: m.phase ?? 'full', count: m.count ?? 0, lastReg: m.lastReg ?? '', order: m.order ?? '', page: m.page ?? 1, rescan: !!m.rescan });
 
 /** 🔄 새로고침: 이 코드들만 개별 API 로 다시 보고, 다 채워졌으면 목록에서 뺌 (한 번에 최대 budgetMs) */
 export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sleep, budgetMs = 230000 } = {}) {
@@ -353,8 +375,8 @@ export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sle
     checked++;
     const r = rows.find((x) => x.code === code) ?? rows[0];
     if (!r) continue;
-    if (!isMissing(r)) {
-      changes[code] = null;
+    if (!wanted(r)) {
+      changes[code] = null; // 다 채워졌거나, 재고 100 이하 · 수출제한
       removed++;
     } else changes[code] = packRow({ ...r, code });
   }
