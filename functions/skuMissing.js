@@ -97,7 +97,8 @@ export function infoOf(raw) {
     l: pick(f, /^categor(y)?(lrg|large)(name|nm)$/),
     m: pick(f, /^categor(y)?(midd|middle|mid)(name|nm)$/),
     s: pick(f, /^categor(y)?(sml|small|sm)(name|nm)$/),
-    i: pick(f, /^(sku)?(imageurl|imgurl|image|img|thumbnail|thumburl|mainimg(url)?)$/),
+    // 이미지: bulk 의 image_dir (이미지 경로) — 예전 이름들도
+    i: pick(f, /^(sku)?imagedir$/) || pick(f, /^(sku)?(imageurl|imgurl|image|img|thumbnail|thumburl|mainimg(url)?)$/),
   };
 }
 /** 비었다 = 수출 대분류 · 중분류 · 영문명 중 하나라도 비어 있음 */
