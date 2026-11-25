@@ -105,7 +105,9 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
   const hit = (g: Group) =>
     !query || `${g.name} ${companyById.get(g.companyId ?? '')?.name ?? ''} ${g.orders.map((o) => `${o.name} ${o.storeCode ?? ''} ${o.expNo ?? ''}`).join(' ')}`.toLowerCase().includes(query);
   const base = groups.filter((g) => (!co || g.companyId === co) && (!teamF || g.team === teamF) && hit(g));
-  const shown = base.filter((g) => (tab === 'all' ? true : tab === 'done' ? !!g.ship.closeOut : !g.ship.closeOut));
+  // 완료 = 출고마감 + 결재서류 둘 다 체크 → '완료' 탭으로 넘어감
+  const isDone = (g: Group) => !!g.ship.closeOut && !!g.ship.papers;
+  const shown = base.filter((g) => (tab === 'all' ? true : tab === 'done' ? isDone(g) : !isDone(g)));
   const coIds = [...new Set(groups.filter((g) => !teamF || g.team === teamF).map((g) => g.companyId).filter((x): x is string => !!x))];
   const teams = [...new Set(groups.map((g) => g.team).filter((x): x is string => !!x))].sort();
 
@@ -291,12 +293,12 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
               {(
                 [
                   ['open', '진행중'],
-                  ['done', '출고마감'],
+                  ['done', '완료'],
                   ['all', '전체'],
                 ] as const
               ).map(([k, l]) => (
                 <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
-                  {l} {k === 'open' ? base.filter((g) => !g.ship.closeOut).length : k === 'done' ? base.filter((g) => g.ship.closeOut).length : base.length}
+                  {l} {k === 'open' ? base.filter((g) => !isDone(g)).length : k === 'done' ? base.filter(isDone).length : base.length}
                 </button>
               ))}
             </span>
@@ -340,11 +342,11 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
         {coOpen && (
         <div className="company-chips sh-cos">
           <button className={`cchip ${!co ? 'on' : ''}`} onClick={() => (setCo(''), setCoOpen(false))}>
-            업체 전체 <span className="cchip-n">{groups.filter((g) => (!teamF || g.team === teamF) && !g.ship.closeOut).length}</span>
+            업체 전체 <span className="cchip-n">{groups.filter((g) => (!teamF || g.team === teamF) && !isDone(g)).length}</span>
           </button>
           {coIds.map((id) => {
             const c = companyById.get(id);
-            const n = groups.filter((g) => g.companyId === id && (!teamF || g.team === teamF) && !g.ship.closeOut).length;
+            const n = groups.filter((g) => g.companyId === id && (!teamF || g.team === teamF) && !isDone(g)).length;
             return (
               <button key={id} className={`cchip ${co === id ? 'on' : ''}`} style={{ '--c': c?.color ?? '#999' } as CSSProperties} onClick={() => (setCo(co === id ? '' : id), setCoOpen(false))} title={co === id ? '다시 누르면 업체 전체' : '이 업체만'}>
                 <span className="dot" style={{ background: c?.color }} />
@@ -392,7 +394,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
                   const cur = curOf(g);
                   return (
                     <Fragment key={g.key}>
-                      <tr className={`sh-row ${g.ship.closeOut ? 'done' : ''}`} style={{ '--c': g.color ?? companyById.get(g.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties}>
+                      <tr className={`sh-row ${isDone(g) ? 'done' : ''}`} style={{ '--c': g.color ?? companyById.get(g.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties}>
                         <td className="sh-name">
                           <button className="sh-title" onClick={() => setCalPick(g.key)} title="눌러서 상세 (출고 일정 · 안의 주문)">
                             <span className="sh-dot" />
