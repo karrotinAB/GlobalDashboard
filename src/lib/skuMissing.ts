@@ -35,7 +35,7 @@ export interface MissingMeta {
   stopped?: string;
   error?: string;
   lastAdded?: number;
-  nightAt?: string; // 새벽 자동 (0시 ~ 7시 30분, 30분마다)
+  nightAt?: string; // 아침 자동 (6시대 15분마다)
   nightError?: string;
   filterVer?: number; // 지금 목록을 거른 기준 번호 (다 훑으면 올라감)
   rescanVer?: number;

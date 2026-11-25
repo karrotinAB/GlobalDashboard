@@ -722,8 +722,8 @@ export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, 
 //   키: secrets/sku 문서 apiKey · 번역 페이지 '제품 정보 받기' (관리자) + 엑셀의 빈 제품코드만 찾아오기 (lookupSku)
 import { lookupSkus, syncSku } from './sku.js';
 const skuOpts = { region: REGION, timeoutSeconds: 540, memory: '512MiB' };
-//   새벽 1시~5시 30분마다: 다 못 받은 게 있으면 이어서 (천천히 · 3초 간격)
-export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '*/30 1-5 * * *', timeZone: 'Asia/Seoul' }, async () => {
+//   매일 아침 6시대 (6:05 · 6:35): 다 못 받은 게 있으면 이어서 (천천히 · 3초 간격) — 제품 API 는 6~7시에만
+export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '5,35 6 * * *', timeZone: 'Asia/Seoul' }, async () => {
   const meta = (await db.doc('skuMeta/main').get()).data() ?? {};
   // (월요일마다 처음부터 새로 받던 건 없앰 — 새 제품은 번역 페이지에서 엑셀의 빈 제품코드만 찾아옴)
   if (!(Number(meta.resumePage) > 1)) return;
@@ -759,8 +759,8 @@ export const skuMissingLoad = onCall({ ...skuOpts }, async (req) => {
     throw new HttpsError('failed-precondition', e.message);
   }
 });
-// 새벽 0시 ~ 7시 30분, 30분마다: 처음 전부 훑기가 안 끝났으면 이어서 · 다 끝났으면 그날 밤 한 번만 새 제품(등록일 이후) 확인
-export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '*/30 0-7 * * *', timeZone: 'Asia/Seoul' }, async () => {
+// 매일 아침 6시대 (6:00 · 6:15 · 6:30 · 6:45, 한 번에 8분 남짓): 전부 훑기가 안 끝났으면 이어서 · 다 끝났으면 그날 한 번만 새 제품(등록일 이후) 확인 — 제품 API 는 6~7시에만
+export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '0,15,30,45 6 * * *', timeZone: 'Asia/Seoul' }, async () => {
   const meta = (await db.doc('skuMissing/_meta').get()).data() ?? {};
   const kstDay = (iso) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
   const today = kstDay(new Date().toISOString());

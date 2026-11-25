@@ -433,10 +433,10 @@ function TranslateTab() {
       <div className="card tr-upload">
         {/* 1줄: 하는 일 버튼 · 오른쪽에 받기 · 관리자 */}
         <div className="tr-up-row">
-          <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 새벽에도 자동으로 불러와요">
+          <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 아침 6~7시에도 자동으로 불러와요">
             {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
           </button>
-          <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="사이트에서 채운 제품을 ERP(회사 API)에서 다시 확인해서, ERP 에 수출 분류 · 영문명이 다 들어가 있으면 목록에서 빼요. 사이트에서만 채운 건 안 빠져요. (ERP 에 채워진 제품은 없는거 불러오기 · 새벽 자동에서도 알아서 빠져요)">
+          <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="사이트에서 채운 제품을 ERP(회사 API)에서 다시 확인해서, ERP 에 수출 분류 · 영문명이 다 들어가 있으면 목록에서 빼요. 사이트에서만 채운 건 안 빠져요. (ERP 에 채워진 제품은 없는거 불러오기 · 아침 자동에서도 알아서 빠져요)">
             {busy === 'recheck' ? '확인 중…' : `🔄 ERP 반영 확인${filling.length ? ` (사이트에서 채운 ${filling.length.toLocaleString()}개)` : ''}`}
           </button>
           <span className="tr-up-spacer" />
@@ -465,7 +465,7 @@ function TranslateTab() {
           <div className="tr-up-status muted small">
             빈 제품 <b>{sheet.rows.length.toLocaleString()}개</b> · 영문 제품명 빈 것 {needEn.length.toLocaleString()}
             {mMeta.at && ` · 마지막 불러오기 ${fmtAt(mMeta.at)}`}
-            {mMeta.nightAt && ` · 새벽 자동 ${fmtAt(mMeta.nightAt)}`}
+            {mMeta.nightAt && ` · 아침 자동 ${fmtAt(mMeta.nightAt)}`}
             {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)}까지 봄`}
           </div>
         ) : (
@@ -475,7 +475,7 @@ function TranslateTab() {
         <ScanProgress meta={mMeta} total={skuTotal} busy={busy === 'load'} />
         {/* 3줄: 알릴 것만 (방금 결과 · 오류) */}
         {msg && <div className="small tr-sku-msg">{msg}</div>}
-        {!msg && mMeta.nightError && <div className="warn small">새벽 자동 불러오기 오류: {mMeta.nightError}</div>}
+        {!msg && mMeta.nightError && <div className="warn small">아침 자동 불러오기 오류: {mMeta.nightError}</div>}
         {mMeta.order === 'mixed' && <div className="muted small">⚠ 등록일 순서가 섞여 있어서 새 제품을 찾을 때 처음부터 다시 봐요</div>}
       </div>
       {err && <p className="warn small">{err}</p>}
@@ -1385,7 +1385,7 @@ function SkuSyncBtn() {
     setMsg('');
     try {
       const r = await syncSkuNow(restart);
-      const head = r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `1차로 ${r.count.toLocaleString()}개 받았어요 ✓ 나머지(${r.nextPage}쪽부터)는 새벽에 자동으로 받아요${r.stopped && !r.stopped.includes('다 못') ? ` (${r.stopped})` : ''}`;
+      const head = r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `1차로 ${r.count.toLocaleString()}개 받았어요 ✓ 나머지(${r.nextPage}쪽부터)는 아침 6시대에 자동으로 받아요${r.stopped && !r.stopped.includes('다 못') ? ` (${r.stopped})` : ''}`;
       setMsg(`${head}${r.noCat ? ` · 분류가 비어서 온 제품 ${r.noCat.toLocaleString()}개 (예: ${(r.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ' · 모든 제품에 분류가 있어요'}`);
     } catch (e) {
       setMsg(`못 받았어요: ${(e as Error).message}`);
@@ -1398,13 +1398,13 @@ function SkuSyncBtn() {
       <button
         className="tr-dl"
         disabled={busy}
-        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 새벽에 자동 · 그 뒤 새 제품은 엑셀의 빈 제품코드만 찾아와요)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 이미지 주소 · 팀 · 대/중/소분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 아침 6시대에 자동 · 그 뒤 새 제품은 엑셀의 빈 제품코드만 찾아와요)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 이미지 주소 · 팀 · 대/중/소분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
         onClick={() => void run(false)}
       >
         {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}
       </button>
       {!busy && (
-        <button className="link small" onClick={() => confirm('제품 정보를 1쪽부터 다시 받을까요? (1차 10쪽은 지금, 나머지는 새벽에)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
+        <button className="link small" onClick={() => confirm('제품 정보를 1쪽부터 다시 받을까요? (1차 10쪽은 지금, 나머지는 아침 6시대에)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
           제품 정보 처음부터 다시
         </button>
       )}
@@ -1604,7 +1604,7 @@ function skuStatus(m: SkuMeta) {
   const when = (iso?: string) => (iso ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
   const err = m.nightError ? ` · ⚠ ${when(m.nightAt)} 받다가 멈춤: ${m.nightError}` : m.nightAt ? ` · 마지막 자동 받기 ${when(m.nightAt)}` : '';
   const all = m.apiTotal?.count ? ` / 전체 ${m.apiTotal.count.toLocaleString()}개` : m.apiTotal?.pages ? ` / 전체 ${m.apiTotal.pages}쪽` : '';
-  if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개${all}까지 받음 · ${m.resumePage}쪽부터 새벽에 이어서 받아요${m.triedAt ? ` (마지막 ${when(m.triedAt)})` : ''}${err}`;
+  if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개${all}까지 받음 · ${m.resumePage}쪽부터 아침 6시대에 이어서 받아요${m.triedAt ? ` (마지막 ${when(m.triedAt)})` : ''}${err}`;
   if (m.at) return `✅ 제품 정보 ${(m.count ?? 0).toLocaleString()}개 다 받음 · ${when(m.at)}${m.noCat ? ` · 분류 빈 제품 ${m.noCat.toLocaleString()}개` : ''}`;
   return '아직 제품 정보를 안 받았어요';
 }
@@ -1635,7 +1635,7 @@ function ScanProgress({ meta, total, busy }: { meta: MissingMeta; total: number;
           <span className="small">
             {meta.rescan ? '새 기준(재고 100 이하 · 수출제한 빼기)으로 ' : ''}전체 {total ? `${pct}% (${seen.toLocaleString()} / ${total.toLocaleString()}개)` : `${seen.toLocaleString()}개`} 봤어요
           </span>
-          {!running && <span className="muted small">— ⬇ 없는거 불러오기를 누르면 이어서 해요 · 새벽 0~7시에 30분마다 자동으로도 이어서 해요</span>}
+          {!running && <span className="muted small">— ⬇ 없는거 불러오기를 누르면 이어서 해요 · 매일 아침 6~7시에 자동으로도 이어서 해요</span>}
         </>
       ) : (
         <span className="muted small">이제는 새로 등록된 제품만 봐요{meta.lastDropped ? ` · 지난번에 ${meta.lastDropped.toLocaleString()}개 뺐어요` : ''}</span>
