@@ -8895,7 +8895,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .ab-zoom button:disabled { opacity: .35; cursor: default; }
 .ab-zoom .ab-zoom-pct { font-size: 12.5px; font-weight: 700; min-width: 46px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 /* 주문 관리: 출고일 칸 (묶음은 머리줄에서) */
-.order-table .c-shipd { width: 96px; }
+.order-table .c-shipd { width: 104px; }
 /* 맨 끝 칸(완료 · ERP 출고일 · ⋯): 완료건이 있을 때만 넓게 — 남는 자리는 비고로 (표 전체 폭은 그대로, 카드 밖으로 안 나가게) */
 .order-table:not(.m-list):not(.has-done) .c-more { width: 52px; }
 .order-table:not(.m-list).has-done .c-more { width: 150px; }
@@ -8903,7 +8903,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .order-table tr.bundle-head td.bundle-ship .cell-view { color: #fff; font-weight: 700; }
 .order-table tr.bundle-head td.bundle-ship .cell-view.placeholder, .order-table tr.bundle-head td.bundle-ship .muted { color: rgba(255, 255, 255, .7); }
 /* 주문 관리: 출고일 칸 (묶음은 머리줄에서) */
-.order-table .c-shipd { width: 96px; }
+.order-table .c-shipd { width: 104px; }
 /* 맨 끝 칸(완료 · ERP 출고일 · ⋯): 완료건이 있을 때만 넓게 — 남는 자리는 비고로 (표 전체 폭은 그대로, 카드 밖으로 안 나가게) */
 .order-table:not(.m-list):not(.has-done) .c-more { width: 52px; }
 .order-table:not(.m-list).has-done .c-more { width: 150px; }

@@ -564,7 +564,7 @@ export default function Orders() {
               <th className="c-from">출고 장소</th>
               <th className="c-amt c-krw">원화 금액</th>
               <th className="c-amt">외화 금액</th>
-              <th className="c-shipd">출고일</th>
+              <th className="c-shipd">관리부 출고일</th>
               <th className="c-onote">비고</th>
               <th className="c-more" />
             </tr>
@@ -840,7 +840,7 @@ export default function Orders() {
                   </dd>
                   <dt>비고</dt>
                   <dd className="m-note-cell">{txt('note', '비고', true)}</dd>
-                  <dt>출고일</dt>
+                  <dt>관리부 출고일</dt>
                   <dd>
                     {bundle ? (
                       <DateCell value={bundle.shipDate} onSave={(v) => setBundleShip(bundle, v)} />
