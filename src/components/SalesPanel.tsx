@@ -1244,7 +1244,19 @@ function YearView({
                   {!mobile &&
                     ids.map((sid) => (
                       <td key={sid} className="r">
-                        {ok && total(m, sid) ? `${sym}${fullAmt(total(m, sid))}` : <span className="muted">—</span>}
+                        {ok && total(m, sid) ? (
+                          <>
+                            {sym}
+                            {fullAmt(total(m, sid))}
+                            {/* 지점도 환산 금액 (외화 업체) */}
+                            {kk !== null && (() => {
+                              const kb = krwOf(m, sid);
+                              return kb !== null ? <small className="krw">{tSym}{fmtConv(kb, target)}</small> : null;
+                            })()}
+                          </>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
                       </td>
                     ))}
                 </tr>
@@ -1266,6 +1278,10 @@ function YearView({
                   <td key={sid} className="r">
                     {sym}
                     {fullAmt(withData.reduce((a, m) => a + total(m, sid), 0))}
+                    {yearConv !== null && (() => {
+                      const cs = withData.map((m) => (total(m, sid) ? krwOf(m, sid) : 0));
+                      return cs.every((x) => x !== null) ? <small className="krw">{tSym}{fmtConv(cs.reduce<number>((a, x) => a + (x ?? 0), 0), target)}</small> : null;
+                    })()}
                   </td>
                 ))}
             </tr>
