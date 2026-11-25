@@ -1,5 +1,6 @@
 // 번역: [번역] 회사 API 에서 수출 분류 · 영문 제품명이 빈 제품을 불러와 (모두가 같이 봄) 사전으로 자동 번역 · 모르는 단어는 채워서 사전에 추가
 //       [사전] 한글 → 영어 단어장 (모두 같이 씀, 계속 업데이트)
+import { DATA_MODE } from '../data/store';
 import { useNameOf } from '../components/AddressBook';
 import { rectOf, viewH, viewW } from '../lib/zoom';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react';
@@ -37,7 +38,7 @@ import { useAccess } from '../components/AuthGate';
 import { today } from '../lib/date';
 import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing, type MissingMeta } from '../lib/skuMissing';
 import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
-import { deleteDict, untypeDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry, type Piece } from '../lib/dict';
+import { deleteDict, fixJunkTypes, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry, type Piece } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
@@ -745,7 +746,9 @@ function DictTab() {
   const { list, types: dictTypes } = useDictMap();
   const { list: missing } = useSkuMissing();
   // 구분 (sku_type_name): 빈 제품 목록에 나온 것 + 사전에 이미 있는 것 (상품 · 제품 은 늘)
-  const typeOpts = useMemo(() => [...new Set(['상품', '제품', ...dictTypes, ...(missing ?? []).map((m) => m.type).filter(Boolean)])], [dictTypes, missing]);
+  // 실제 제품 구분 (상품 · 제품 + 제품 목록에 나오는 구분) — 사전 구분은 이것만
+  const realTypes = useMemo(() => new Set(['상품', '제품', ...(missing ?? []).map((m) => m.type).filter((t): t is string => !!t)]), [missing]);
+  const typeOpts = useMemo(() => [...new Set(['상품', '제품', ...dictTypes.filter((t) => realTypes.has(t)), ...realTypes])], [dictTypes, realTypes]);
   const [q, setQ] = useState('');
   const [ko, setKo] = useState('');
   const [en, setEn] = useState('');
@@ -778,7 +781,7 @@ function DictTab() {
     const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
     const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
     // 셋째 칸은 구분(상품 · 제품 같은 짧은 말)일 때만 — 메모 같은 긴 글은 구분으로 안 넣음
-    const typeOk = (t: string) => t.length <= 8 && !/\s/.test(t);
+    const typeOk = (t: string) => realTypes.has(t); // 상품 · 제품 같은 실제 구분만 (미번역 · 숫자 · 메모는 구분 아님)
     const rows = aoa.map((r) => ({ ko: String(r[0] ?? '').trim(), en: String(r[1] ?? '').trim(), type: typeOk(String(r[2] ?? '').trim()) ? String(r[2] ?? '').trim() : '' })).filter((r) => /[가-힣]/.test(r.ko) && r.en);
     if (!rows.length) return setMsg('넣을 단어를 못 찾았어요 (첫 칸 한글, 둘째 칸 영어, 셋째 칸 구분은 선택)');
     await saveDict(rows, accountName ?? email);
@@ -799,32 +802,24 @@ function DictTab() {
       </div>
       {msg && <p className="small">{msg}</p>}
       {(() => {
-        const typed = (list ?? []).filter((e) => e.type);
-        if (!typed.length) return null;
+        // 이상한 구분 (상품 · 제품 같은 실제 제품 구분이 아닌 것: 미번역 · 53 · 메모 …) — 그 구분 제품이 없어서 그 단어는 아무 데도 안 쓰임
+        const junk = (list ?? []).filter((e) => e.type && !realTypes.has(e.type));
+        if (!junk.length || (DATA_MODE !== 'local' && !missing)) return null; // 제품 목록(구분)을 불러온 뒤에
         return (
           <p className="small tr-untype">
-            구분이 들어간 단어 {typed.length}개{' '}
+            <b>구분이 이상한 단어 {junk.length}개</b> (예: {[...new Set(junk.map((e) => e.type))].slice(0, 5).join(' · ')}) — 이 구분 제품이 없어서 번역에 안 쓰여요{' '}
             <button
               className="link"
               disabled={untyping}
               onClick={async () => {
-                if (!confirm(`구분이 들어간 단어 ${typed.length}개의 구분 칸을 모두 지울까요?\n(지우면 모든 제품에 그 영어로 번역돼요. 같은 한글 단어가 이미 있는 건 그대로 둬요)`)) return;
+                if (!confirm(`구분이 이상한 단어 ${junk.length}개를 '구분 없음 (모두)' 로 정리할까요?\n같은 한글이 여러 개면 하나로 합쳐요 (영어가 서로 다르면 그대로 두고 알려 드려요). 상품 · 제품 구분 단어는 그대로예요.`)) return;
                 setUntyping(true);
-                const kept: string[] = [];
-                let n = 0;
-                for (const e of typed) {
-                  try {
-                    if (await untypeDict(e, list ?? [])) n++;
-                    else kept.push(`${e.ko}(${e.type})`);
-                  } catch {
-                    kept.push(`${e.ko}(${e.type})`);
-                  }
-                }
+                const r = await fixJunkTypes(list ?? [], realTypes, accountName ?? email).catch((e) => ({ fixed: 0, removed: 0, kept: [`오류: ${(e as Error).message}`] }));
                 setUntyping(false);
-                setMsg(`구분 칸 ${n}개 지웠어요 ✓${kept.length ? ` · 같은 한글 단어가 따로 있어서 그대로 둔 것 ${kept.length}개: ${kept.slice(0, 10).join(', ')}${kept.length > 10 ? ' …' : ''}` : ''}`);
+                setMsg(`정리했어요 ✓ 구분 없음으로 ${r.fixed}개 · 겹쳐서 지운 것 ${r.removed}개${r.kept.length ? ` · 영어가 달라서 그대로 둔 것 ${r.kept.length}개: ${r.kept.slice(0, 8).join(', ')}${r.kept.length > 8 ? ' …' : ''}` : ''}`);
               }}
             >
-              {untyping ? '지우는 중…' : '구분 칸 모두 지우기'}
+              {untyping ? '정리하는 중…' : '구분 정리하기'}
             </button>
           </p>
         );

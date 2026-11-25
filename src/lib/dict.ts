@@ -69,22 +69,55 @@ export async function setDictTags(e: DictEntry, tags: string[]) {
   await setDoc(doc(db, 'dict', e.id), { tags }, { merge: true });
 }
 
-/** 구분 칸 지우기: 구분 없는 단어로 옮김 (같은 한글 단어가 이미 있으면 건드리지 않음 → false) */
-export async function untypeDict(e: DictEntry, all: DictEntry[]): Promise<boolean> {
-  if (!e.type) return true;
-  if (all.some((x) => x.id !== e.id && x.ko.trim() === e.ko.trim() && (!x.type || x.type !== e.type))) return false;
-  const id = dictId(e.ko);
-  const { type: _t, id: _old, ...rest } = e;
-  void _t;
-  void _old;
+/** 이상한 구분 정리: 실제 구분(상품 · 제품 …)이 아닌 단어를 '구분 없음' 으로. 같은 한글이 여러 개면 하나로 합침
+ *  (구분 없는 단어가 이미 있으면 그걸 두고 겹치는 건 지움 · 영어가 서로 다르면 그대로 두고 kept 로 알려줌) */
+export async function fixJunkTypes(all: DictEntry[], real: Set<string>, by?: string) {
+  const byKo = new Map<string, DictEntry[]>();
+  for (const e of all) byKo.set(e.ko.trim(), [...(byKo.get(e.ko.trim()) ?? []), e]);
+  let fixed = 0;
+  let removed = 0;
+  const kept: string[] = [];
   const at = new Date().toISOString();
-  if (DATA_MODE === 'local') {
-    writeLocal([...readLocal().filter((x) => x.id !== e.id && x.id !== id), { ...rest, id, at }]);
-    return true;
+  const put: DictEntry[] = [];
+  const del: string[] = [];
+  for (const [ko, es] of byKo) {
+    const junk = es.filter((e) => e.type && !real.has(e.type));
+    if (!junk.length) continue;
+    const plain = es.find((e) => !e.type);
+    const ens = new Set(junk.map((e) => e.en.trim()));
+    const tags = [...new Set([...(plain?.tags ?? []), ...junk.flatMap((e) => e.tags ?? [])])];
+    if (plain) {
+      // 구분 없는 단어가 이미 있음: 영어가 같은 건 지우고 (태그는 합침), 다른 건 그대로
+      const same = junk.filter((e) => e.en.trim() === plain.en.trim());
+      same.forEach((e) => del.push(e.id));
+      removed += same.length;
+      if (tags.length !== (plain.tags ?? []).length) put.push({ ...plain, tags });
+      junk.filter((e) => e.en.trim() !== plain.en.trim()).forEach((e) => kept.push(`${ko}(${e.type}: ${e.en})`));
+      continue;
+    }
+    if (ens.size > 1) {
+      junk.forEach((e) => kept.push(`${ko}(${e.type}: ${e.en})`));
+      continue;
+    }
+    const base = junk[0];
+    put.push({ id: dictId(ko), ko, en: base.en.trim(), ...(tags.length ? { tags } : {}), ...(base.by ?? by ? { by: base.by ?? by } : {}), at } as DictEntry);
+    junk.forEach((e) => del.push(e.id));
+    fixed++;
+    removed += junk.length - 1;
   }
-  await setDoc(doc(db, 'dict', id), { ...JSON.parse(JSON.stringify(rest)), at });
-  await deleteDoc(doc(db, 'dict', e.id));
-  return true;
+  if (DATA_MODE === 'local') {
+    const map = new Map(readLocal().map((e) => [e.id, e]));
+    del.forEach((id) => map.delete(id));
+    put.forEach((e) => map.set(e.id, e));
+    writeLocal([...map.values()]);
+    return { fixed, removed, kept };
+  }
+  for (const e of put) {
+    const { id, ...rest } = e;
+    await setDoc(doc(db, 'dict', id), JSON.parse(JSON.stringify(rest)));
+  }
+  for (const id of del) await deleteDoc(doc(db, 'dict', id));
+  return { fixed, removed, kept };
 }
 
 export async function deleteDict(id: string) {
