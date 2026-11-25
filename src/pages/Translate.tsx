@@ -814,7 +814,7 @@ function DictTab() {
               onClick={async () => {
                 if (!confirm(`구분이 이상한 단어 ${junk.length}개를 '구분 없음 (모두)' 로 정리할까요?\n같은 한글이 여러 개면 하나로 합쳐요 (영어가 서로 다르면 그대로 두고 알려 드려요). 상품 · 제품 구분 단어는 그대로예요.`)) return;
                 setUntyping(true);
-                const r = await fixJunkTypes(list ?? [], realTypes, accountName ?? email).catch((e) => ({ fixed: 0, removed: 0, kept: [`오류: ${(e as Error).message}`] }));
+                const r = await fixJunkTypes(list ?? [], realTypes, accountName ?? email, (d, t) => setMsg(`정리하는 중… ${d.toLocaleString()} / ${t.toLocaleString()}`)).catch((e) => ({ fixed: 0, removed: 0, kept: [`오류: ${(e as Error).message}`] }));
                 setUntyping(false);
                 setMsg(`정리했어요 ✓ 구분 없음으로 ${r.fixed}개 · 겹쳐서 지운 것 ${r.removed}개${r.kept.length ? ` · 영어가 달라서 그대로 둔 것 ${r.kept.length}개: ${r.kept.slice(0, 8).join(', ')}${r.kept.length > 8 ? ' …' : ''}` : ''}`);
               }}

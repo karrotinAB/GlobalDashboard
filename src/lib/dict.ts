@@ -1,6 +1,6 @@
 // 번역 사전 (한글 → 영어): 모두가 같이 쓰고 계속 늘려감. dict/{id}: { ko, en, by, at }
 import { useEffect, useState } from 'react';
-import { collection, deleteDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE } from '../data/store';
 
@@ -71,7 +71,7 @@ export async function setDictTags(e: DictEntry, tags: string[]) {
 
 /** 이상한 구분 정리: 실제 구분(상품 · 제품 …)이 아닌 단어를 '구분 없음' 으로. 같은 한글이 여러 개면 하나로 합침
  *  (구분 없는 단어가 이미 있으면 그걸 두고 겹치는 건 지움 · 영어가 서로 다르면 그대로 두고 kept 로 알려줌) */
-export async function fixJunkTypes(all: DictEntry[], real: Set<string>, by?: string) {
+export async function fixJunkTypes(all: DictEntry[], real: Set<string>, by?: string, onProgress?: (done: number, total: number) => void) {
   const byKo = new Map<string, DictEntry[]>();
   for (const e of all) byKo.set(e.ko.trim(), [...(byKo.get(e.ko.trim()) ?? []), e]);
   let fixed = 0;
@@ -112,11 +112,29 @@ export async function fixJunkTypes(all: DictEntry[], real: Set<string>, by?: str
     writeLocal([...map.values()]);
     return { fixed, removed, kept };
   }
-  for (const e of put) {
-    const { id, ...rest } = e;
-    await setDoc(doc(db, 'dict', id), JSON.parse(JSON.stringify(rest)));
+  // 만들기 + 지우기를 한 단어씩 같은 묶음에 (400개씩) — 빠르고, 도는 동안 이상한 단어 수가 같이 줄어듦
+  const order: ({ set: DictEntry } | { del: string })[] = [];
+  const putBy = new Map(put.map((e) => [e.ko.trim(), e]));
+  const delBy = new Map<string, string[]>();
+  for (const e of all) if (del.includes(e.id)) delBy.set(e.ko.trim(), [...(delBy.get(e.ko.trim()) ?? []), e.id]);
+  for (const ko of new Set([...putBy.keys(), ...delBy.keys()])) {
+    const pe = putBy.get(ko);
+    if (pe) order.push({ set: pe });
+    for (const id of delBy.get(ko) ?? []) order.push({ del: id });
   }
-  for (const id of del) await deleteDoc(doc(db, 'dict', id));
+  let done = 0;
+  for (let k = 0; k < order.length; k += 400) {
+    const b = writeBatch(db);
+    for (const o of order.slice(k, k + 400)) {
+      if ('set' in o) {
+        const { id, ...rest } = o.set;
+        b.set(doc(db, 'dict', id), JSON.parse(JSON.stringify(rest)));
+      } else b.delete(doc(db, 'dict', o.del));
+    }
+    await b.commit();
+    done = Math.min(order.length, k + 400);
+    onProgress?.(done, order.length);
+  }
   return { fixed, removed, kept };
 }
 
