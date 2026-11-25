@@ -9387,3 +9387,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .mcal-d.today { background: var(--primary); color: #fff; font-weight: 700; }
 @media (max-width: 560px) { .mcal-months { flex-direction: column; gap: 8px; } }
 @media print { .mcal-btn, .mcal-pop, .mcal-bg { display: none !important; } }
+.tr-auto-col { margin-left: auto; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.tr-auto-col .tr-sug-all { margin-left: 0; }

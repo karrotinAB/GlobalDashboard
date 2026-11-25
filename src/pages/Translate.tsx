@@ -561,19 +561,22 @@ function TranslateTab() {
             </select>
             <span className="muted small">{shown.length}줄</span>
             {rowF === 'left' && (
-              <button className="link small" onClick={() => (setRefilter((n) => n + 1), setPage(0))} title="방금 채운 줄을 빼고 다시 거르기">
+              <button className="link small" onClick={() => (setRefilter((n) => n + 1), setPage(0))} title="채우는 동안엔 줄이 갑자기 사라지지 않게 그대로 둬요 — 누르면 방금 다 채운 줄을 목록에서 빼요">
                 ↻ 다시 거르기
               </button>
             )}
-            {catCols.length > 0 && !!cats?.length && (
-              <button className="tr-sug-all" onClick={applyAllSuggestions} title="지금 화면에 보이는 줄(검색 결과 · 이 페이지)에만 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
-                ✨ 이 페이지 추천 분류 넣기
-              </button>
-            )}
             {catCols.length > 0 && (
-              <button className="tr-reset" onClick={resetAuto} title="지금 보고 있는 페이지(검색 결과 · 이 페이지) 줄의 분류만 비우고, 그 제품명들의 고른 기록도 지워요. 다른 페이지는 그대로예요.">
-                ↺ 이 페이지 초기화
-              </button>
+              // 오른쪽: 추천 넣기 · 그 아래 초기화
+              <span className="tr-auto-col">
+                {!!cats?.length && (
+                  <button className="tr-sug-all" onClick={applyAllSuggestions} title="지금 화면에 보이는 줄(검색 결과 · 이 페이지)에만 추천 분류를 한꺼번에 넣어요 (고른 기록에도 남음)">
+                    ✨ 이 페이지 추천 분류 넣기
+                  </button>
+                )}
+                <button className="tr-reset" onClick={resetAuto} title="지금 보고 있는 페이지(검색 결과 · 이 페이지) 줄의 분류만 비우고, 그 제품명들의 고른 기록도 지워요. 다른 페이지는 그대로예요.">
+                  ↺ 이 페이지 초기화
+                </button>
+              </span>
             )}
             {catCols.length > 0 && !cats?.length && <span className="warn small">분류 탭에서 분류표 엑셀을 먼저 올려 주세요</span>}
           </div>
