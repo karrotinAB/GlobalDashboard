@@ -7,14 +7,14 @@ import { db } from '../firebase';
 import { DATA_MODE, useSpaceData } from '../data/store';
 import { physName, TEAMS } from '../lib/team';
 import { ShipBoard } from './Shipping';
-import type { Company, Order } from '../types';
+import type { Claim, Company, Order } from '../types';
 
 type Tagged = Order & { team?: string };
 
 export default function TradeShipping() {
-  const t1 = useSpaceData('1', ['orders', 'companies']);
-  const t2 = useSpaceData('2', ['orders', 'companies']);
-  const t3 = useSpaceData('3', ['orders', 'companies']);
+  const t1 = useSpaceData('1', ['orders', 'companies', 'claims']);
+  const t2 = useSpaceData('2', ['orders', 'companies', 'claims']);
+  const t3 = useSpaceData('3', ['orders', 'companies', 'claims']);
   const spaces = { '1': t1, '2': t2, '3': t3 } as const;
   // 저장하자마자 바로 보이게 (서버에서 다시 오면 그걸로)
   const [patched, setPatched] = useState<Record<string, Tagged>>({});
@@ -32,6 +32,11 @@ export default function TradeShipping() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t1.data.companies, t2.data.companies, t3.data.companies]);
 
+  const claims = useMemo(
+    () => TEAMS.flatMap((t) => ((spaces[t].data.claims as Claim[] | undefined) ?? []).map((c) => ({ ...c, team: t }) as Claim)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t1.data.claims, t2.data.claims, t3.data.claims],
+  );
   const saveOrders = async (os: Order[]) => {
     const list = os as Tagged[];
     setPatched((p) => ({ ...p, ...Object.fromEntries(list.map((o) => [`${o.team}|${o.id}`, o])) }));
@@ -66,7 +71,7 @@ export default function TradeShipping() {
   return (
     <>
       {err && <p className="warn small page">주문을 못 불러왔어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat): {err}</p>}
-      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" orders={orders} companies={companies} saveOrders={saveOrders} />}
+      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
     </>
   );
 }

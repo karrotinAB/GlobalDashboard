@@ -10,7 +10,7 @@ import { DateCell } from '../components/OrderCells';
 import { Modal } from '../components/ui';
 import { fmtCur, useOrderUsd } from '../lib/sales';
 import { deleteRequestFile, uploadShipFile } from '../lib/trade';
-import type { Company, Order, RequestFile, ShipInfo } from '../types';
+import type { Claim, Company, Order, RequestFile, ShipInfo } from '../types';
 
 type FileStep = 'fx' | 'license' | 'truck' | 'out' | 'closeOut' | 'papers';
 const FILE_STEP_LABEL: Record<FileStep, string> = { fx: '외화정리', license: '수출면장', truck: '배차', out: '관리부출고', closeOut: '출고마감', papers: '결재서류' };
@@ -42,11 +42,11 @@ const num = (s: string) => {
 export default function Shipping() {
   const { data, saveMany } = useStore();
   const { companies } = useLookups();
-  return <ShipBoard mode="team" orders={data.orders} companies={companies} saveOrders={(os) => saveMany('orders', os)} />;
+  return <ShipBoard mode="team" orders={data.orders} claims={data.claims} companies={companies} saveOrders={(os) => saveMany('orders', os)} />;
 }
 
 /** 출고 관리 화면 (조 · 무역사무 같이 씀) */
-export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode; orders: Order[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void }) {
+export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void }) {
   const trade = mode === 'trade';
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const fxc = useOrderUsd(companies, orders);
@@ -248,6 +248,18 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
   const curOf = (g: Group) => fxc.curOf(g.orders[0]);
   // 패킹 승인 금액: 그 업체 수출 통화로 — 원화로 거래하는 업체(수출 통화 KRW)는 원화 금액, 아니면 외화 금액
   const packing = (g: Group) => g.approved.reduce((a, o) => a + ((curOf(g) === 'KRW' ? o.amountKRW : o.amountForeign) ?? 0), 0);
+  // 클레임 연결: 이 출고에서 빼고 받을 클레임 금액 → 입금 받아야 하는 금액 = 패킹 승인 − 클레임 (같은 통화만 뺌)
+  const claimTeam = (c: Claim) => (c as Claim & { team?: string }).team;
+  const claimCur = (c: Claim) => (c.currency === 'FOREIGN' ? companyById.get(c.companyId ?? '')?.exportCurrency || 'USD' : c.currency || 'KRW');
+  const linkedClaims = (g: Group) => (g.ship.claimIds ?? []).map((id) => claims.find((c) => c.id === id && claimTeam(c) === g.team)).filter((c): c is Claim => !!c);
+  const expected = (g: Group) => {
+    const ls = linkedClaims(g);
+    if (!ls.length) return null;
+    const cur = curOf(g);
+    const same = ls.filter((c) => claimCur(c) === cur).reduce((a, c) => a + (c.claimAmount ?? 0), 0);
+    const other = ls.filter((c) => claimCur(c) !== cur);
+    return { amount: Math.round((packing(g) - same) * 100) / 100, claimSum: same, other };
+  };
   const fileGroup = files ? groups.find((g) => g.key === files.key) : undefined;
 
   return (
@@ -400,7 +412,17 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                             </div>
                           )}
                         </td>
-                        <td className="r sh-amt">{fmtCur(cur, packing(g)) || '-'}</td>
+                        <td className="r sh-amt">
+                          {fmtCur(cur, packing(g)) || '-'}
+                          {(() => {
+                            const ex = expected(g);
+                            return ex ? (
+                              <div className="sh-expect" title={`클레임 ${fmtCur(cur, ex.claimSum)} 뺀 금액`}>
+                                받을 {fmtCur(cur, ex.amount)}
+                              </div>
+                            ) : null;
+                          })()}
+                        </td>
                         <td className="sh-recv">
                           {trade ? (
                             <>
@@ -468,12 +490,31 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
             </span>
           );
           return (
-            <Modal title={`🚚 ${g.team ? `${g.team}조 · ` : ''}${g.name}`} onClose={() => setCalPick(null)} wide>
+            <Modal
+              title={`🚚 ${g.team ? `${g.team}조 · ` : ''}${g.name}`}
+              onClose={() => setCalPick(null)}
+              wide
+              headExtra={
+                <label className="sh-cal-name small" title="달력에 쓰는 이름 · 비우면 묶음 이름 앞 5글자 · 이 묶음 날짜 모두에 같이 바뀌어요">
+                  <span>📅 달력 이름</span>
+                  <TextInput value={g.ship.calLabel} placeholder={g.name.slice(0, 5)} onSave={(v) => saveShip(g, { calLabel: v || undefined })} />
+                </label>
+              }
+            >
               <div className="sh-pop">
                 <p className="muted small" style={{ marginTop: 0 }}>
                   {companyById.get(g.companyId ?? '')?.name ?? ''} · 주문 {g.orders.length}개 · 패킹 승인 <b>{fmtCur(cur, packing(g)) || '-'}</b>
                   {g.ship.received !== undefined && <> · 실제 입금 <b>{fmtCur(cur, g.ship.received)}</b></>}
                   {g.ship.receivedMemo && ` (${g.ship.receivedMemo})`}
+                  {(() => {
+                    const ex = expected(g);
+                    return ex ? (
+                      <span className="sh-expect-line">
+                        입금 받아야 하는 금액 <b>{fmtCur(cur, ex.amount)}</b> <span className="muted">(패킹 승인 − 클레임 {fmtCur(cur, ex.claimSum)})</span>
+                        {ex.other.length > 0 && <span className="warn"> · 통화가 다른 클레임 {ex.other.map((c) => fmtCur(claimCur(c), c.claimAmount ?? 0)).join(', ')} 은 안 뺐어요</span>}
+                      </span>
+                    ) : null;
+                  })()}
                 </p>
                 <div className="sh-pills">
                   {stepTxt('fx', '외화정리')}
@@ -485,11 +526,40 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                   {stepTxt('papers', '결재서류')}
                 </div>
                 {detailBody(g)}
-                <label className="sh-cal-name small">
-                  <span>달력에 쓰는 이름</span>
-                  <TextInput value={g.ship.calLabel} placeholder={g.name.slice(0, 5)} onSave={(v) => saveShip(g, { calLabel: v || undefined })} />
-                  <span className="muted">비우면 묶음 이름 앞 5글자 · 이 묶음 날짜 모두에 같이 바뀌어요</span>
-                </label>
+                {/* 🧾 클레임 연결: 이 출고에서 뺄 클레임 → 위 '입금 받아야 하는 금액' */}
+                <div className="sh-claims">
+                  <b className="small">🧾 클레임 연결</b>
+                  {linkedClaims(g).map((c) => (
+                    <span key={c.id} className="rq-order-chip">
+                      {c.title} · {fmtCur(claimCur(c), c.claimAmount ?? 0) || '금액 없음'}
+                      <button className="link" onClick={() => saveShip(g, { claimIds: (g.ship.claimIds ?? []).filter((x) => x !== c.id) })}>
+                        끊기
+                      </button>
+                    </span>
+                  ))}
+                  {(() => {
+                    const pool = claims.filter((c) => claimTeam(c) === g.team && !(g.ship.claimIds ?? []).includes(c.id));
+                    const same = pool.filter((c) => c.companyId === g.companyId);
+                    const list = (same.length ? same : pool).sort((a, b) => String(b.shipDate ?? b.createdAt ?? '').localeCompare(String(a.shipDate ?? a.createdAt ?? '')));
+                    return list.length ? (
+                      <select
+                        value=""
+                        onChange={(e) => e.target.value && saveShip(g, { claimIds: [...(g.ship.claimIds ?? []), e.target.value] })}
+                        title="이 출고에서 뺄 클레임"
+                      >
+                        <option value="">+ 클레임 연결하기</option>
+                        {list.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.title} · {fmtCur(claimCur(c), c.claimAmount ?? 0) || '금액 없음'}
+                            {c.companyId !== g.companyId ? ` (${companyById.get(c.companyId ?? '')?.name ?? '다른 업체'})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      !linkedClaims(g).length && <span className="muted small">연결할 클레임이 없어요 (클레임 탭에서 먼저 기록)</span>
+                    );
+                  })()}
+                </div>
               </div>
             </Modal>
           );
