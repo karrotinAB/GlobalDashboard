@@ -11,7 +11,7 @@ import type { Claim, Company, Order } from '../types';
 
 type Tagged = Order & { team?: string };
 
-export default function TradeShipping() {
+export default function TradeShipping({ readOnly = false }: { readOnly?: boolean } = {}) {
   const t1 = useSpaceData('1', ['orders', 'companies', 'claims']);
   const t2 = useSpaceData('2', ['orders', 'companies', 'claims']);
   const t3 = useSpaceData('3', ['orders', 'companies', 'claims']);
@@ -38,6 +38,7 @@ export default function TradeShipping() {
     [t1.data.claims, t2.data.claims, t3.data.claims],
   );
   const saveOrders = async (os: Order[]) => {
+    if (readOnly) return; // 팀장님 · 이사님: 보기만
     const list = os as Tagged[];
     setPatched((p) => ({ ...p, ...Object.fromEntries(list.map((o) => [`${o.team}|${o.id}`, o])) }));
     const clean = <T,>(v: T) => (v === undefined ? deleteField() : JSON.parse(JSON.stringify(v)));
@@ -71,7 +72,7 @@ export default function TradeShipping() {
   return (
     <>
       {err && <p className="warn small page">주문을 못 불러왔어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat): {err}</p>}
-      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
+      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" readOnly={readOnly} orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
     </>
   );
 }

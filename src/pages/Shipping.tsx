@@ -11,6 +11,9 @@ import { Modal } from '../components/ui';
 import { fmtCur, useOrderUsd } from '../lib/sales';
 import { deleteRequestFile, uploadShipFile } from '../lib/trade';
 import type { Claim, Company, Order, RequestFile, ShipInfo } from '../types';
+import { useAccess } from '../components/AuthGate';
+import { isPersonal } from '../lib/team';
+import TradeShipping from './TradeShipping';
 
 type FileStep = 'fx' | 'license' | 'truck' | 'out' | 'closeOut' | 'papers';
 const FILE_STEP_LABEL: Record<FileStep, string> = { fx: '외화정리', license: '수출면장', truck: '배차', out: '관리부출고', closeOut: '출고마감', papers: '결재서류' };
@@ -42,12 +45,15 @@ const num = (s: string) => {
 export default function Shipping() {
   const { data, saveMany } = useStore();
   const { companies } = useLookups();
+  // 팀장님 · 이사님 (개인 공간): 무역사무처럼 1~3조 전부 · 보기만
+  if (isPersonal(useAccess().viewTeam)) return <TradeShipping readOnly />;
   return <ShipBoard mode="team" orders={data.orders} claims={data.claims} companies={companies} saveOrders={(os) => saveMany('orders', os)} />;
 }
 
 /** 출고 관리 화면 (조 · 무역사무 같이 씀) */
-export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void }) {
+export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, readOnly = false }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void; readOnly?: boolean }) {
   const trade = mode === 'trade';
+  // readOnly: 팀장님 · 이사님 — 무역사무 화면 그대로, 아무것도 못 고침
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const fxc = useOrderUsd(companies, orders);
   // 외화 금액 칸의 통화: 업체 수출 통화 (원화 업체면 ERP 외화는 USD)
@@ -112,6 +118,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
 
   // 저장: 묶음이면 묶음 안 주문 모두에, 아니면 그 주문에
   const saveShip = (g: Group, patch: Partial<ShipInfo>, shipDate?: string | null) => {
+    if (readOnly) return;
     const ship = JSON.parse(JSON.stringify({ ...g.ship, ...patch })) as ShipInfo;
     const sd = shipDate !== undefined ? { shipDate: shipDate || undefined } : {};
     void saveOrders(g.bundleId ? g.orders.map((o) => ({ ...o, bundle: { ...o.bundle!, ship, ...sd } })) : [{ ...g.orders[0], ship, ...sd }]);
@@ -128,7 +135,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
         </span>
       );
     // 조원: 모든 체크 · 무역사무: 무역사무 단계 (ON BOARD 는 조원만)
-    const can = !trade || TRADE_STEPS.includes(k);
+    const can = !readOnly && (!trade || TRADE_STEPS.includes(k));
     return can ? (
       <button className={`sh-step ${on ? 'on' : ''}`} title={`${label} ${on ? '완료 (누르면 취소)' : '— 누르면 완료'}`} onClick={() => saveShip(g, { [k]: !on })}>
         {on ? '●' : '○'}
@@ -142,10 +149,10 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
   // 단계별 링크 · 사진 · 파일 (무역사무가 올리고 조원도 봄)
   const clip = (g: Group, k: FileStep) => {
     const n = g.ship.files?.[k]?.length ?? 0;
-    if (!trade && !n) return null;
+    if ((!trade || readOnly) && !n) return null;
     if (isPurchase(g) && NO_PURCHASE.includes(k) && !n) return null;
     return (
-      <button className={`sh-clip ${n ? 'has' : ''}`} onClick={() => setFiles({ key: g.key, step: k })} title={trade ? '링크 · 사진 · 파일 올리기 / 보기' : '올린 링크 · 사진 · 파일 보기'}>
+      <button className={`sh-clip ${n ? 'has' : ''}`} onClick={() => setFiles({ key: g.key, step: k })} title={trade && !readOnly ? '링크 · 사진 · 파일 올리기 / 보기' : '올린 링크 · 사진 · 파일 보기'}>
         📎{n ? n : '+'}
       </button>
     );
@@ -283,7 +290,9 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
       <div className="page-head">
         <h1>출고 관리</h1>
         <p className="muted">
-          {trade
+          {readOnly
+            ? '1~3조에서 출고 승인된 주문을 묶음별로 모아 봐요 (보기만 · 고치는 건 각 조와 무역사무에서).'
+            : trade
             ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 외화정리 · 수출면장 · 배차 · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
             : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 붉은 칸(실제 입금 · ON BOARD)은 조원이 쓰는 칸이에요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
         </p>
@@ -471,7 +480,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
                           <span className={`sh-step ${g.shipDate ? 'on' : ''}`} aria-hidden="true">
                             {g.shipDate ? '●' : '○'}
                           </span>
-                          <DateCell value={g.shipDate} onSave={(v) => saveShip(g, {}, v ?? null)} />
+                          {readOnly ? <div className="cell-view">{g.shipDate ? g.shipDate.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.shipDate} onSave={(v) => saveShip(g, {}, v ?? null)} />}
                           {clip(g, 'out')}
                         </td>
                         <td className="sh-c">
@@ -514,7 +523,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
               headExtra={
                 <label className="sh-cal-name small" title="달력에 쓰는 이름 · 비우면 묶음 이름 앞 5글자 · 이 묶음 날짜 모두에 같이 바뀌어요">
                   <span>📅 달력 이름</span>
-                  <TextInput value={g.ship.calLabel} placeholder={g.name.slice(0, 5)} onSave={(v) => saveShip(g, { calLabel: v || undefined })} />
+                  {readOnly ? <b>{g.ship.calLabel || g.name.slice(0, 5)}</b> : <TextInput value={g.ship.calLabel} placeholder={g.name.slice(0, 5)} onSave={(v) => saveShip(g, { calLabel: v || undefined })} />}
                 </label>
               }
             >
@@ -549,15 +558,18 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
                   {linkedClaims(g).map((c) => (
                     <span key={c.id} className="rq-order-chip">
                       {c.title} · {fmtCur(claimCur(c), c.claimAmount ?? 0) || '금액 없음'}
-                      <button className="link" onClick={() => saveShip(g, { claimIds: (g.ship.claimIds ?? []).filter((x) => x !== c.id) })}>
-                        끊기
-                      </button>
+                      {!readOnly && (
+                        <button className="link" onClick={() => saveShip(g, { claimIds: (g.ship.claimIds ?? []).filter((x) => x !== c.id) })}>
+                          끊기
+                        </button>
+                      )}
                     </span>
                   ))}
                   {(() => {
                     const pool = claims.filter((c) => claimTeam(c) === g.team && !(g.ship.claimIds ?? []).includes(c.id));
                     const same = pool.filter((c) => c.companyId === g.companyId);
                     const list = (same.length ? same : pool).sort((a, b) => String(b.shipDate ?? b.createdAt ?? '').localeCompare(String(a.shipDate ?? a.createdAt ?? '')));
+                    if (readOnly) return !linkedClaims(g).length && <span className="muted small">연결한 클레임 없음</span>;
                     return list.length ? (
                       <select
                         value=""
@@ -585,7 +597,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
         <ShipFiles
           title={`${fileGroup.team ? `${fileGroup.team}조 · ` : ''}${fileGroup.name} · ${FILE_STEP_LABEL[files.step]}`}
           list={fileGroup.ship.files?.[files.step] ?? []}
-          canEdit={trade}
+          canEdit={trade && !readOnly}
           folder={`${fileGroup.team ?? 'x'}-${fileGroup.key.replace(/[^\w-]/g, '_')}`}
           onChange={(next) => saveShip(fileGroup, { files: { ...(fileGroup.ship.files ?? {}), [files.step]: next.length ? next : undefined } })}
           onClose={() => setFiles(null)}
