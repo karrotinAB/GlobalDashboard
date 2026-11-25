@@ -247,30 +247,49 @@ export function translate(name: string, dict: Map<string, string>, keys: string[
       pieces.push({ text: '용', en: 'for' });
       tk = tk.slice(0, -1);
     }
-    // 앞에서부터 가장 긴 사전 단어로 자르기 (한글이 아닌 글자는 그대로)
-    let i = 0;
+    // 사전 단어로 자르기: 모르는 글자가 가장 적게 남는 쪽으로 (앞에서부터 욕심내서 자르면 '기타이어폰' → 기 · 타이 · 어폰 처럼 틀림)
+    //   점수 = 모르는 글자 100 + 모르는 덩어리 하나 10 + 사전 단어 하나 1 (작을수록 좋음 · 같으면 앞에서 긴 단어)
+    const n = tk.length;
+    const first = byFirst(keys);
+    type Step = { c: number; next: number; kind: 'w' | 'x' | 'u'; w?: string };
+    const best: Step[][] = Array.from({ length: n + 1 }, () => []);
+    best[n][0] = best[n][1] = { c: 0, next: n, kind: 'x' };
+    for (let p = n - 1; p >= 0; p--) {
+      for (const u of [0, 1]) {
+        let b: Step = { c: Infinity, next: p + 1, kind: 'u' };
+        if (!HANGUL.test(tk[p])) {
+          let q = p;
+          while (q < n && !HANGUL.test(tk[q])) q++;
+          b = { c: best[q][0].c, next: q, kind: 'x' };
+        } else {
+          for (const key of first.get(tk[p]) ?? []) {
+            if (!tk.startsWith(key, p)) continue;
+            const c = 1 + best[p + key.length][0].c;
+            if (c < b.c) b = { c, next: p + key.length, kind: 'w', w: key };
+          }
+          const cu = 100 + (u ? 0 : 10) + best[p + 1][1].c;
+          if (cu < b.c) b = { c: cu, next: p + 1, kind: 'u' };
+        }
+        best[p][u] = b;
+      }
+    }
     let unk = '';
     const flush = () => {
       if (unk) pieces.push({ text: unk, unknown: true });
       unk = '';
     };
-    while (i < tk.length) {
-      const rest = tk.slice(i);
-      const k = (byFirst(keys).get(rest[0]) ?? []).find((key) => rest.startsWith(key));
-      if (k) {
-        flush();
-        pieces.push({ text: k, en: dict.get(k) });
-        i += k.length;
-      } else if (!HANGUL.test(tk[i])) {
-        flush();
-        let j = i;
-        while (j < tk.length && !HANGUL.test(tk[j])) j++;
-        pieces.push({ text: tk.slice(i, j), en: tk.slice(i, j) });
-        i = j;
+    for (let p = 0, u = 0; p < n; ) {
+      const b = best[p][u];
+      if (b.kind === 'u') {
+        unk += tk[p];
+        u = 1;
       } else {
-        unk += tk[i];
-        i++;
+        flush();
+        const t = tk.slice(p, b.next);
+        pieces.push(b.kind === 'w' ? { text: t, en: dict.get(b.w!) } : { text: t, en: t });
+        u = 0;
       }
+      p = b.next;
     }
     flush();
   }
