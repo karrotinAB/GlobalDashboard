@@ -37,7 +37,7 @@ import { useAccess } from '../components/AuthGate';
 import { today } from '../lib/date';
 import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing, type MissingMeta } from '../lib/skuMissing';
 import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
-import { deleteDict, untypeDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry } from '../lib/dict';
+import { deleteDict, untypeDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry, type Piece } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
@@ -110,6 +110,26 @@ export default function Translate() {
   );
 }
 
+/** 자동 번역 → 고친 영문: 바뀐 부분(앞뒤 같은 단어 빼고)과 그 자리의 한글 단어를 찾아 사전 저장 제안 */
+function guessDictEdit(auto: string, edited: string, pieces: Piece[]): { ko: string; en: string } | null {
+  const a = auto.trim().split(/\s+/);
+  const b = edited.trim().split(/\s+/);
+  if (!edited.trim() || a.join(' ') === b.join(' ')) return null;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  let j = 0;
+  while (j < a.length - i && j < b.length - i && a[a.length - 1 - j] === b[b.length - 1 - j]) j++;
+  const oldMid = a.slice(i, a.length - j).join(' ');
+  const newMid = b.slice(i, b.length - j).join(' ').replace(/^[([]+|[)\],.]+$/g, '');
+  if (!newMid) return null;
+  // 바뀐 자리에 있던 한글 단어 (사전 단어 · [모르는 단어])
+  const ko = pieces
+    .filter((p) => /[가-힣]/.test(p.text) && oldMid.includes(p.unknown ? `[${p.text}]` : p.en ?? '\u0000'))
+    .map((p) => p.text)
+    .join('');
+  return { ko, en: newMid };
+}
+
 function useDictMap() {
   const list = useDict();
   return useMemo(() => {
@@ -139,6 +159,9 @@ function TranslateTab() {
   // 제품코드 · 제품명에 마우스 올리면 제품 이미지 · 팀 · 분류 (getproductinfo_bulk)
   const { bind: skuHover, card: skuCard } = useSkuHover();
   const { list, map, keys, forType } = useDictMap();
+  const charKo = useMemo(() => new Set((list ?? []).filter((e) => (e.tags ?? []).includes('캐릭터')).map((e) => e.ko.trim())), [list]);
+  // 영문 제품명을 고치면: 바뀐 부분을 사전에도 저장할지 물어봄
+  const [ask, setAsk] = useState<{ r: number; ko: string; en: string; typeOnly: boolean } | null>(null);
   // 빈 제품 목록 (서버가 회사 API 에서 찾아 둔 것 · 모두가 같이 봄) → 표 한 장처럼
   const { list: missing, meta: mMeta } = useSkuMissing();
   const skuTotal = useSkuMeta()?.count ?? 0; // 회사 전체 제품 수 (제품 정보 받기에서)
@@ -196,10 +219,12 @@ function TranslateTab() {
       const tr = { ...tr0, en, unknown: tr0.unknown.filter((u) => !hiddenSet.has(u)), skipped };
       // 시즌: 제품 정보(getproductinfo_bulk)의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품 (엑셀 시즌품구분은 안 씀)
       const season = seasonOfCode(seasonSet, cell(row, 'code'));
-      return { row, empty, ko, tr, cut, parens, season };
+      // 캐릭터: 제품명에 사전의 🧸 캐릭터 단어가 들어 있으면
+      const chars = [...new Set(tr0.pieces.filter((p) => p.en && charKo.has(p.text)).map((p) => p.text))];
+      return { row, empty, ko, tr, cut, parens, season, chars };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheet, map, keys, forType, keepParen, hiddenSet, seasonSet]);
+  }, [sheet, map, keys, forType, keepParen, hiddenSet, seasonSet, charKo]);
   // 괄호 살리기/다시 빼기 (그 줄에 직접 고친 영문은 지우고 새로 번역)
   const toggleParen = (r: number, part: string) => {
     setKeepParen((x) => {
@@ -581,6 +606,11 @@ function TranslateTab() {
                       )}
                       <td className="tr-ko-name" {...skuHover(cell(v.row, 'code'))}>
                         {typeOf(v.row) && <span className="tag small tr-type" title="구분 (sku_type_name) — 사전에 이 구분 단어가 있으면 그걸로 번역">{typeOf(v.row)}</span>}
+                        {v.chars.length > 0 && (
+                          <span className="tr-char-row" title={`사전의 캐릭터 단어: ${v.chars.join(', ')}`}>
+                            🧸 캐릭터
+                          </span>
+                        )}
                         {v.season === 'S' && (
                           <span className="tr-season" title="시즌 (제품 정보의 팀 · 대/중/소분류에 '시즌')">
                             🎄 시즌
@@ -605,7 +635,44 @@ function TranslateTab() {
                       </td>
                       <td className={`tr-en ${enEmpty ? (left ? 'part' : 'auto') : ''}`}>
                         {enEmpty ? (
-                          <input value={en} onChange={(e) => setEdits((x) => ({ ...x, [v.row.r]: e.target.value }))} title={left ? '[ ] 안의 단어가 사전에 없어요' : '사전으로 자동 번역'} />
+                          <>
+                            <input
+                              value={en}
+                              onChange={(e) => setEdits((x) => ({ ...x, [v.row.r]: e.target.value }))}
+                              onBlur={() => {
+                                const g = guessDictEdit(v.tr.en, en, v.tr.pieces);
+                                if (g && !(map.get(g.ko) === g.en)) setAsk({ r: v.row.r, ...g, typeOnly: false });
+                              }}
+                              title={left ? '[ ] 안의 단어가 사전에 없어요' : '사전으로 자동 번역'}
+                            />
+                            {ask?.r === v.row.r && (
+                              <div className="tr-ask small">
+                                <span>📖 사전에도 저장할까요?</span>
+                                <input value={ask.ko} placeholder="한글" onChange={(e) => setAsk({ ...ask, ko: e.target.value })} />
+                                →
+                                <input value={ask.en} placeholder="영어" onChange={(e) => setAsk({ ...ask, en: e.target.value })} />
+                                {typeOf(v.row) && (
+                                  <label title="이 구분 제품에만 이 영어로 (예: 오토 → 상품이면 auto)">
+                                    <input type="checkbox" checked={ask.typeOnly} onChange={(e) => setAsk({ ...ask, typeOnly: e.target.checked })} /> {typeOf(v.row)}에만
+                                  </label>
+                                )}
+                                <button
+                                  className="primary small"
+                                  disabled={!/[가-힣]/.test(ask.ko) || !ask.en.trim()}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    void saveDict([{ ko: ask.ko, en: ask.en, ...(ask.typeOnly ? { type: typeOf(v.row) } : {}) }], accountName ?? email);
+                                    setAsk(null);
+                                  }}
+                                >
+                                  저장
+                                </button>
+                                <button className="link" onClick={() => setAsk(null)}>
+                                  아니요
+                                </button>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           cell(v.row, 'enName')
                         )}

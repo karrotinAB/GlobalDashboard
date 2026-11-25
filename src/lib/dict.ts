@@ -51,9 +51,10 @@ export function useDict() {
   return list;
 }
 
-export async function saveDict(entries: { ko: string; en: string; type?: string }[], by?: string) {
+export async function saveDict(entries: { ko: string; en: string; type?: string; tags?: string[] }[], by?: string) {
   const at = new Date().toISOString();
-  const clean = entries.map((e) => ({ ko: e.ko.trim(), en: e.en.trim(), ...(e.type?.trim() ? { type: e.type.trim() } : {}) })).filter((e) => e.ko && e.en);
+  // 태그(캐릭터 등)도 같이 저장 (예전엔 빠졌음)
+  const clean = entries.map((e) => ({ ko: e.ko.trim(), en: e.en.trim(), ...(e.type?.trim() ? { type: e.type.trim() } : {}), ...(e.tags?.length ? { tags: e.tags } : {}) })).filter((e) => e.ko && e.en);
   if (DATA_MODE === 'local') {
     const map = new Map(readLocal().map((e) => [e.id, e]));
     for (const e of clean) map.set(dictId(e.ko, e.type), { ...map.get(dictId(e.ko, e.type)), id: dictId(e.ko, e.type), ...e, by, at });
