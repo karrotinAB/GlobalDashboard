@@ -128,6 +128,7 @@ export interface ShipInfo {
   license?: boolean; // 수출면장
   truck?: boolean; // 배차
   onBoard?: boolean; // ON BOARD
+  onBoardDate?: string; // ON BOARD 날짜 (쓰면 ON BOARD 완료)
   closeOut?: boolean; // 출고마감
   papers?: boolean; // 결재서류
   log?: ShipLog[]; // 누가 뭘 바꿨는지 (최근 200개) — 상세 창 '📜 기록'

@@ -9359,3 +9359,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sh-log summary { cursor: pointer; font-weight: 600; }
 .sh-log ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }
 .sh-log li { margin: 2px 0; }
+.sh-from-etd .cell-view { color: var(--muted); font-style: italic; }

@@ -33,7 +33,7 @@ type Group = {
 type StepKey = 'fx' | 'license' | 'truck' | 'onBoard' | 'closeOut' | 'papers';
 /** 무역사무도 체크하는 단계 (조원은 ON BOARD 까지 모두) */
 const STEP_NAME: Record<StepKey, string> = { fx: '외화정리', license: '수출면장', truck: '배차', onBoard: 'ON BOARD', closeOut: '출고마감', papers: '결재서류' };
-const FIELD_NAME: Record<string, string> = { docCls: 'DOC CLS', cargoCls: 'CARGO CLS', docClsTime: 'DOC CLS 시간', cargoClsTime: 'CARGO CLS 시간', etd: 'ETD', eta: 'ETA', etdPort: 'ETD 항구', etaPort: 'ETA 항구', calLabel: '달력 이름' };
+const FIELD_NAME: Record<string, string> = { docCls: 'DOC CLS', cargoCls: 'CARGO CLS', docClsTime: 'DOC CLS 시간', cargoClsTime: 'CARGO CLS 시간', etd: 'ETD', eta: 'ETA', etdPort: 'ETD 항구', etaPort: 'ETA 항구', calLabel: '달력 이름', onBoardDate: 'ON BOARD 날짜' };
 const TRADE_STEPS: StepKey[] = ['fx', 'license', 'truck', 'onBoard', 'closeOut', 'papers']; // 무역사무도 ON BOARD (조원 칸) 누를 수 있음
 type Mode = 'team' | 'trade';
 
@@ -522,8 +522,23 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                           {readOnly ? <div className="cell-view">{g.shipDate ? g.shipDate.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.shipDate} onSave={(v) => saveShip(g, {}, v ?? null)} />}
                           {clip(g, 'out')}
                         </td>
-                        <td className="sh-c">
+                        <td className="sh-c sh-out">
                           {step(g, 'onBoard', 'ON BOARD')}
+                          {/* ON BOARD 날짜: 기본은 ETD 날짜 (흐리게) · 눌러서 바꾸면 그 날짜 + ON BOARD 완료 · 지우면 다시 ETD (구매확인서 업체는 없음) */}
+                          {!isPurchase(g) &&
+                            (() => {
+                              const d = g.ship.onBoardDate ?? g.ship.etd;
+                              const fromEtd = !g.ship.onBoardDate && !!g.ship.etd;
+                              return (
+                                <div className={fromEtd ? 'sh-from-etd' : ''} title={fromEtd ? 'ETD 날짜를 그대로 보여주는 중 — 눌러서 바꿀 수 있어요' : 'ON BOARD 날짜'}>
+                                  {readOnly ? (
+                                    d && <div className="cell-view">{d.replace(/-/g, '.')}</div>
+                                  ) : (
+                                    <DateCell value={d} onSave={(v) => saveShip(g, v ? { onBoardDate: v, onBoard: true } : { onBoardDate: undefined })} />
+                                  )}
+                                </div>
+                              );
+                            })()}
                         </td>
                         <td className="sh-c">
                           {step(g, 'closeOut', '출고마감')}
