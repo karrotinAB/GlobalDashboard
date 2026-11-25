@@ -9354,3 +9354,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 
 .sh-step.na { color: var(--muted); opacity: .45; cursor: default; border: none; background: none; }
 .tag.blue { background: #e3eefb; color: #2b5d9c; }
+
+.sh-log { margin-top: 10px; }
+.sh-log summary { cursor: pointer; font-weight: 600; }
+.sh-log ul { margin: 6px 0 0; padding-left: 18px; max-height: 220px; overflow: auto; }
+.sh-log li { margin: 2px 0; }

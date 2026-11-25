@@ -32,6 +32,8 @@ type Group = {
 };
 type StepKey = 'fx' | 'license' | 'truck' | 'onBoard' | 'closeOut' | 'papers';
 /** 무역사무도 체크하는 단계 (조원은 ON BOARD 까지 모두) */
+const STEP_NAME: Record<StepKey, string> = { fx: '외화정리', license: '수출면장', truck: '배차', onBoard: 'ON BOARD', closeOut: '출고마감', papers: '결재서류' };
+const FIELD_NAME: Record<string, string> = { docCls: 'DOC CLS', cargoCls: 'CARGO CLS', docClsTime: 'DOC CLS 시간', cargoClsTime: 'CARGO CLS 시간', etd: 'ETD', eta: 'ETA', etdPort: 'ETD 항구', etaPort: 'ETA 항구', calLabel: '달력 이름' };
 const TRADE_STEPS: StepKey[] = ['fx', 'license', 'truck', 'onBoard', 'closeOut', 'papers']; // 무역사무도 ON BOARD (조원 칸) 누를 수 있음
 type Mode = 'team' | 'trade';
 
@@ -53,6 +55,9 @@ export default function Shipping() {
 /** 출고 관리 화면 (조 · 무역사무 같이 씀) */
 export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, readOnly = false }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void; readOnly?: boolean }) {
   const trade = mode === 'trade';
+  const acc = useAccess();
+  const me = acc.accountName || acc.email.split('@')[0] || '알 수 없음';
+  const myRole = acc.role === 'trade' ? '무역사무' : acc.role === 'admin' ? '관리자' : '조원';
   // readOnly: 팀장님 · 이사님 — 무역사무 화면 그대로, 아무것도 못 고침
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const fxc = useOrderUsd(companies, orders);
@@ -119,9 +124,43 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
   // 저장: 묶음이면 묶음 안 주문 모두에, 아니면 그 주문에
   const saveShip = (g: Group, patch: Partial<ShipInfo>, shipDate?: string | null) => {
     if (readOnly) return;
-    const ship = JSON.parse(JSON.stringify({ ...g.ship, ...patch })) as ShipInfo;
+    // 📜 기록: 바뀐 칸마다 한 줄 (누가 · 언제 · 뭘)
+    const whats = describe(g, patch, shipDate);
+    const at = new Date().toISOString();
+    const log = whats.length ? [...(g.ship.log ?? []), ...whats.map((what) => ({ at, by: me, role: myRole, what }))].slice(-200) : g.ship.log;
+    const ship = JSON.parse(JSON.stringify({ ...g.ship, ...patch, log })) as ShipInfo;
     const sd = shipDate !== undefined ? { shipDate: shipDate || undefined } : {};
     void saveOrders(g.bundleId ? g.orders.map((o) => ({ ...o, bundle: { ...o.bundle!, ship, ...sd } })) : [{ ...g.orders[0], ship, ...sd }]);
+  };
+  // 기록 문장 만들기
+  const dotD = (d?: string | null) => (d ? d.replace(/-/g, '.') : '');
+  const describe = (g: Group, patch: Partial<ShipInfo>, shipDate?: string | null): string[] => {
+    const out: string[] = [];
+    const cur = curOf(g);
+    const old = g.ship as Record<string, unknown>;
+    for (const [k, v] of Object.entries(patch) as [keyof ShipInfo, unknown][]) {
+      if (k === 'log' || JSON.stringify(old[k] ?? null) === JSON.stringify(v ?? null)) continue;
+      if (k in STEP_NAME) out.push(`${STEP_NAME[k as StepKey]} ${v ? '✓' : '체크 해제'}`);
+      else if (k === 'received') out.push(v === undefined ? '실제 입금 지움' : `실제 입금 ${fmtCur(cur, v as number)}`);
+      else if (k === 'receivedMemo') out.push(v ? `입금 메모 "${v}"` : '입금 메모 지움');
+      else if (k === 'files') {
+        const o = (old.files ?? {}) as Record<string, RequestFile[]>;
+        const n = (v ?? {}) as Record<string, RequestFile[]>;
+        for (const st of new Set([...Object.keys(o), ...Object.keys(n)])) {
+          const a = o[st]?.length ?? 0;
+          const b = n[st]?.length ?? 0;
+          if (a !== b) out.push(`📎 ${FILE_STEP_LABEL[st as FileStep] ?? st} 파일 ${b > a ? `추가 (${(n[st] ?? []).at(-1)?.name ?? ''})` : '삭제'}`);
+        }
+      } else if (k === 'claimIds') {
+        const a = (old.claimIds as string[] | undefined) ?? [];
+        const b = (v as string[] | undefined) ?? [];
+        const name = (id: string) => claims.find((c) => c.id === id)?.title ?? '클레임';
+        b.filter((x) => !a.includes(x)).forEach((x) => out.push(`🧾 클레임 연결 "${name(x)}"`));
+        a.filter((x) => !b.includes(x)).forEach((x) => out.push(`🧾 클레임 끊음 "${name(x)}"`));
+      } else out.push(`${FIELD_NAME[k] ?? k} ${v === undefined || v === '' ? '지움' : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? dotD(String(v)) : String(v)}`);
+    }
+    if (shipDate !== undefined && (shipDate || '') !== (g.shipDate ?? '')) out.push(shipDate ? `관리부출고 ${dotD(shipDate)}` : '관리부출고 날짜 지움');
+    return out;
   };
   // 구매확인서 업체 (국내 수출 형태): 외화정리 · 수출면장 · ON BOARD 는 없는 단계 → 못 누름
   const isPurchase = (g: Group) => companyById.get(g.companyId ?? '')?.exportForm === '구매확인서';
@@ -293,7 +332,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
           {readOnly
             ? '1~3조에서 출고 승인된 주문을 묶음별로 모아 봐요 (보기만 · 고치는 건 각 조와 무역사무에서).'
             : trade
-            ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 외화정리 · 수출면장 · 배차 · ON BOARD · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
+            ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 실제 입금을 쓰고 외화정리 · 수출면장 · 배차 · ON BOARD · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
             : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 붉은 칸(실제 입금 · ON BOARD)은 조원이 쓰는 칸이에요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
         </p>
       </div>
@@ -449,7 +488,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                           })()}
                         </td>
                         <td className="sh-recv">
-                          {trade ? (
+                          {readOnly ? (
                             <>
                               <div className="sh-amt">{g.ship.received !== undefined ? fmtCur(cur, g.ship.received) : <span className="muted">-</span>}</div>
                               {g.ship.receivedMemo && <div className="muted small">{g.ship.receivedMemo}</div>}
@@ -552,6 +591,22 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                   {stepTxt('papers', '결재서류')}
                 </div>
                 {detailBody(g)}
+                {/* 📜 기록: 누가 뭘 눌렀는지 (최근 것부터) */}
+                <details className="sh-log">
+                  <summary className="small">📜 기록 {g.ship.log?.length ? `(${g.ship.log.length})` : ''}</summary>
+                  {g.ship.log?.length ? (
+                    <ul className="small">
+                      {[...g.ship.log].reverse().map((l, i) => (
+                        <li key={i}>
+                          <span className="muted">{new Date(l.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> <b>{l.by}</b>
+                          {l.role && <span className="muted"> ({l.role})</span>} · {l.what}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted small">아직 기록이 없어요 (이제부터 바꾸는 것마다 남아요).</p>
+                  )}
+                </details>
                 {/* 🧾 클레임 연결: 이 출고에서 뺄 클레임 → 위 '입금 받아야 하는 금액' */}
                 <div className="sh-claims">
                   <b className="small">🧾 클레임 연결</b>

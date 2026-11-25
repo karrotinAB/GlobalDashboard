@@ -130,6 +130,13 @@ export interface ShipInfo {
   onBoard?: boolean; // ON BOARD
   closeOut?: boolean; // 출고마감
   papers?: boolean; // 결재서류
+  log?: ShipLog[]; // 누가 뭘 바꿨는지 (최근 200개) — 상세 창 '📜 기록'
+}
+export interface ShipLog {
+  at: string; // ISO
+  by: string; // 이름 (없으면 이메일 앞부분)
+  role?: string; // 조원 · 무역사무 …
+  what: string; // 'ON BOARD ✓' · '실제 입금 $1,000' …
 }
 
 /** 주문 완료 기준: 출고(마지막 단계)에 체크, 또는 수동으로 완료 처리 */
