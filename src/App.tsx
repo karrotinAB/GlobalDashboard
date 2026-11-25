@@ -1,3 +1,4 @@
+import MiniCal from './components/MiniCal';
 import { Suspense, useEffect, useState, useTransition } from 'react';
 import { lazyPage, PageErrorBoundary } from './lib/lazyPage';
 // 가끔 쓰는 무거운 페이지는 처음 열 때만 따로 받음 (앱 처음 켜는 속도)
@@ -401,6 +402,7 @@ export default function App() {
           </PageErrorBoundary>
         </main>
         <footer className="site-footer">© 2026 Karrot in AB</footer>
+        <MiniCal />
       </div>
     </div>
   );

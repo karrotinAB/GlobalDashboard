@@ -9368,3 +9368,22 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .tr-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; padding: 6px 8px; background: #f3eefc; border-radius: 8px; }
 .tr-ask input:not([type=checkbox]) { width: 110px; height: 26px; font-size: 12px; }
 .tr-ask label { display: inline-flex; align-items: center; gap: 3px; }
+
+/* 구석 📅 작은 달력 */
+.mcal-btn { position: fixed; right: 16px; bottom: 16px; z-index: 150; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-h, 0 4px 14px rgba(0,0,0,.15)); font-size: 19px; line-height: 1; cursor: pointer; padding: 0; opacity: 0.85; }
+.mcal-btn:hover, .mcal-btn.on { opacity: 1; }
+.mcal-bg { position: fixed; inset: 0; z-index: 150; }
+.mcal-pop { position: fixed; right: 16px; bottom: 64px; z-index: 151; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(40, 20, 20, 0.2); padding: 8px 12px 12px; }
+.mcal-nav { display: flex; justify-content: space-between; align-items: center; }
+.mcal-nav .link { font-size: 18px; padding: 0 6px; }
+.mcal-nav .link.small { font-size: 12px; }
+.mcal-months { display: flex; gap: 16px; }
+.mcal-title { text-align: center; font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.mcal-grid { display: grid; grid-template-columns: repeat(7, 24px); gap: 1px; text-align: center; font-size: 12px; }
+.mcal-h { color: var(--muted); font-weight: 600; font-size: 11px; }
+.mcal-d { height: 22px; line-height: 22px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.mcal-d.sat, .mcal-h.sat { color: #2f6fb3; }
+.mcal-d.sun, .mcal-h.sun { color: #c0392b; }
+.mcal-d.today { background: var(--primary); color: #fff; font-weight: 700; }
+@media (max-width: 560px) { .mcal-months { flex-direction: column; gap: 8px; } }
+@media print { .mcal-btn, .mcal-pop, .mcal-bg { display: none !important; } }

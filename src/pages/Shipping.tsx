@@ -620,22 +620,6 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                   {stepTxt('papers', '결재서류')}
                 </div>
                 {detailBody(g)}
-                {/* 📜 기록: 누가 뭘 눌렀는지 (최근 것부터) */}
-                <details className="sh-log">
-                  <summary className="small">📜 기록 {g.ship.log?.length ? `(${g.ship.log.length})` : ''}</summary>
-                  {g.ship.log?.length ? (
-                    <ul className="small">
-                      {[...g.ship.log].reverse().map((l, i) => (
-                        <li key={i}>
-                          <span className="muted">{new Date(l.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> <b>{l.by}</b>
-                          {l.role && <span className="muted"> ({l.role})</span>} · {l.what}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="muted small">아직 기록이 없어요 (이제부터 바꾸는 것마다 남아요).</p>
-                  )}
-                </details>
                 {/* 🧾 클레임 연결: 이 출고에서 뺄 클레임 → 위 '입금 받아야 하는 금액' */}
                 <div className="sh-claims">
                   <b className="small">🧾 클레임 연결</b>
@@ -673,6 +657,22 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                     );
                   })()}
                 </div>
+                {/* 📜 기록: 누가 뭘 눌렀는지 (최근 것부터) */}
+                <details className="sh-log">
+                  <summary className="small">📜 기록 {g.ship.log?.length ? `(${g.ship.log.length})` : ''}</summary>
+                  {g.ship.log?.length ? (
+                    <ul className="small">
+                      {[...g.ship.log].reverse().map((l, i) => (
+                        <li key={i}>
+                          <span className="muted">{new Date(l.at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> <b>{l.by}</b>
+                          {l.role && <span className="muted"> ({l.role})</span>} · {l.what}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted small">아직 기록이 없어요 (이제부터 바꾸는 것마다 남아요).</p>
+                  )}
+                </details>
               </div>
             </Modal>
           );
