@@ -81,7 +81,6 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
     const singles: Order[] = [];
     const tagOf = (o: Order) => (o as Order & { team?: string }).team;
     for (const o of orders) {
-      if (o.erpArchive) continue; // ERP 지난 데이터 채우기로 넣은 예전 주문 (다 출고 끝남) — 출고 관리엔 안 넣음
       if (o.bundle) {
         const k = `${tagOf(o) ?? ''}|${o.bundle.id}`;
         byBundle.set(k, [...(byBundle.get(k) ?? []), o]);
