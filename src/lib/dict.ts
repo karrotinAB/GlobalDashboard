@@ -164,6 +164,20 @@ type Pat = { re: RegExp; en: string; len: number };
 const patCache = new WeakMap<string[], Pat[]>();
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const isPattern = (ko: string) => /\d/.test(ko) && /[가-힣]/.test(ko);
+type Phrase = { re: RegExp; en: string; ko: string };
+const phraseCache = new WeakMap<string[], Phrase[]>();
+/** 띄어쓰기가 들어간 사전 단어 (틀 아닌 것) — 긴 것부터 */
+const phrasesOf = (keys: string[], dict: Map<string, string>) => {
+  let l = phraseCache.get(keys);
+  if (!l) {
+    l = keys
+      .filter((k) => /\s/.test(k.trim()) && !isPattern(k))
+      .map((ko) => ({ ko, en: dict.get(ko) ?? '', re: new RegExp(ko.trim().split(/\s+/).map((w) => [...w].map(esc).join('')).join('\\s*'), 'g') }))
+      .sort((a, b) => b.ko.length - a.ko.length);
+    phraseCache.set(keys, l);
+  }
+  return l;
+};
 const patternsOf = (keys: string[], dict: Map<string, string>) => {
   let l = patCache.get(keys);
   if (!l) {
@@ -189,16 +203,32 @@ export function translate(name: string, dict: Map<string, string>, keys: string[
   const pieces: Piece[] = [];
   // 먼저 틀(숫자 들어간 단어)을 통째로 바꿔 둠 — 3호5합 이 [호] [합] 으로 따로 나뉘지 않게
   const filled: string[] = [];
+  const origin: string[] = []; // 바꿔 둔 자리의 원래 한글 (캐릭터 태그 · 사전 저장 제안에 씀)
+  // 띄어쓰기가 들어간 사전 단어 (예: 귀멸의 칼날) — 띄어쓰기로 나누기 전에 통째로 (붙여 써도 맞음)
+  for (const ph of phrasesOf(keys, dict)) {
+    name = name.replace(ph.re, (m0) => {
+      filled.push(ph.en);
+      origin.push(ph.ko);
+      void m0;
+      return ` \uE000${filled.length - 1}\uE001 `;
+    });
+  }
   for (const pt of patternsOf(keys, dict)) {
     name = name.replace(pt.re, (...m) => {
       const nums = (m.slice(1).filter((x) => typeof x === 'string' && /^\d/.test(x)) as string[]);
       let i = 0;
       filled.push(pt.en.replace(/\d+(?:\.\d+)?/g, () => nums[i++] ?? ''));
+      origin.push(String(m[0]).trim());
       return ` \uE000${filled.length - 1}\uE001 `;
     });
   }
   const tokens = name.split(/(\s+|[()[\]{}/,+·_\-|]+)/).filter((t) => t !== '');
   for (const tok of tokens) {
+    const ph = tok.match(/^\uE000(\d+)\uE001$/);
+    if (ph) {
+      pieces.push({ text: origin[Number(ph[1])] ?? tok, en: filled[Number(ph[1])] ?? '' });
+      continue;
+    }
     if (!HANGUL.test(tok)) {
       pieces.push({ text: tok, en: tok });
       continue;

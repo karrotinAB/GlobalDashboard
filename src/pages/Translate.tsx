@@ -330,7 +330,6 @@ function TranslateTab() {
   // '아직 덜 채운 줄만': 영문 제품명이 비었거나 [모르는 단어] 가 남은 줄 · 수출 분류를 아직 안 고른 줄
   //   고치는 중에 줄이 사라지지 않게, 체크하거나 거르기를 바꿀 때만 다시 거름
   const isLeft = (v: (typeof view)[number]) => (v.empty.includes('enName') && (!enOf(v) || /\[[^\]]+\]/.test(enOf(v)))) || (needCat(v) && !chosen(v));
-  const [refilter, setRefilter] = useState(0);
   const shown = useMemo(
     () =>
       rowF === 'left'
@@ -343,7 +342,7 @@ function TranslateTab() {
               ? shownAll.filter(needCat) // 수출 분류가 빈 줄
               : shownAll,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rowF, shownAll, refilter],
+    [rowF, shownAll],
   );
   const page = Math.min(page0, Math.max(0, Math.ceil(shown.length / PAGE) - 1));
   const pickCat = (v: (typeof view)[number], key: string) => {
@@ -560,11 +559,6 @@ function TranslateTab() {
               <option value="N">비시즌품만 ({view.filter((v) => v.season === 'N').length})</option>
             </select>
             <span className="muted small">{shown.length}줄</span>
-            {rowF === 'left' && (
-              <button className="link small" onClick={() => (setRefilter((n) => n + 1), setPage(0))} title="채우는 동안엔 줄이 갑자기 사라지지 않게 그대로 둬요 — 누르면 방금 다 채운 줄을 목록에서 빼요">
-                ↻ 다시 거르기
-              </button>
-            )}
             {catCols.length > 0 && (
               // 오른쪽: 추천 넣기 · 그 아래 초기화
               <span className="tr-auto-col">
