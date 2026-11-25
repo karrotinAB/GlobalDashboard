@@ -199,6 +199,8 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
       {access.role === 'trade' ? (
         <>
           {access.email && <PushSection email={access.email} />}
+          {/* 내 달력 (구글 캘린더) — 달력 페이지에서 나에게만 보임 */}
+          {showGen && access.email && DATA_MODE !== 'local' && <MyCalendars email={access.email} />}
           {access.email && <ChangePassword />}
         </>
       ) : (
