@@ -9300,3 +9300,11 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sh-memo-view:hover { text-decoration: underline; }
 .sh-step.on { color: var(--primary); }
 .sh-cos .cchip.on { color: var(--ink) !important; }
+
+.sh-pop { display: flex; flex-direction: column; gap: 10px; }
+.sh-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--mut); }
+.sh-pill.on { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, #fff); background: color-mix(in srgb, var(--primary) 6%, #fff); }
+.sh-cal-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sh-cal-name input { width: 160px; height: 30px; }
+.sh-pop .cell-ph { opacity: 1; visibility: visible; color: #c9b8b4; }

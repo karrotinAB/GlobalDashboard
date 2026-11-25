@@ -54,6 +54,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
   const [co, setCo] = useState('');
   const [teamF, setTeamF] = useState('');
   const [q, setQ] = useState('');
+  const [calPick, setCalPick] = useState<string | null>(null); // 달력에서 누른 묶음 (상세 창)
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [files, setFiles] = useState<{ key: string; step: FileStep } | null>(null);
   const viewKey = trade ? 'gd:shipView:trade' : 'gd:shipView';
@@ -134,6 +135,65 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
       </button>
     );
   };
+  // 묶음 상세 (목록에서 펼침 · 달력에서 누르면 창): 출고 일정 + 안의 주문
+  const detailBody = (g: Group) => (
+    <>
+                            <div className="sh-detail-h small">{trade ? '출고 일정 (조에서 써요)' : '출고 일정 — 눌러서 날짜 · 항구를 써요'}</div>
+                          <div className="sh-dates">
+                            {(
+                              [
+                                ['docCls', 'DOC CLS'],
+                                ['cargoCls', 'CARGO CLS'],
+                                ['etd', 'ETD'],
+                                ['eta', 'ETA'],
+                              ] as const
+                            ).map(([k, l]) => (
+                              <label key={k} className={g.ship[k] ? 'set' : ''}>
+                                <span>{l}</span>
+                                {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
+                                {(k === 'etd' || k === 'eta') && trade ? (
+                                  (k === 'etd' ? g.ship.etdPort : g.ship.etaPort) && <span className="sh-port-ro">{k === 'etd' ? g.ship.etdPort : g.ship.etaPort}</span>
+                                ) : (k === 'etd' || k === 'eta') && (
+                                  <TextInput
+                                    className="sh-port"
+                                    placeholder="항구"
+                                    value={k === 'etd' ? g.ship.etdPort : g.ship.etaPort}
+                                    onSave={(v) => saveShip(g, k === 'etd' ? { etdPort: v || undefined } : { etaPort: v || undefined })}
+                                  />
+                                )}
+                              </label>
+                            ))}
+                          </div>
+                            <table className="mini-table">
+                              <thead>
+                                <tr>
+                                  <th>주문</th>
+                                  <th>매장코드</th>
+                                  <th>주문일</th>
+                                  <th>출고 승인</th>
+                                  <th className="r">원화</th>
+                                  <th className="r">외화</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {g.orders.map((o) => (
+                                  <tr key={o.id}>
+                                    <td>
+                                      <a href={`#/orders?c=${o.companyId ?? ''}&o=${o.id}`} title="주문 관리에서 보기">
+                                        {o.name}
+                                      </a>
+                                    </td>
+                                    <td>{o.storeCode ?? ''}</td>
+                                    <td>{dot(o.orderDate)}</td>
+                                    <td>{o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : '대기'}</td>
+                                    <td className="r">{o.amountKRW !== undefined ? `₩${Math.round(o.amountKRW).toLocaleString()}` : '-'}</td>
+                                    <td className="r">{o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+    </>
+  );
   const curOf = (g: Group) => fxc.curOf(g.orders[0]);
   const packing = (g: Group) => g.approved.reduce((a, o) => a + (o.amountForeign ?? 0), 0);
   const fileGroup = files ? groups.find((g) => g.key === files.key) : undefined;
@@ -214,11 +274,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
           groups={base}
           coName={(id) => (companyById.get(id ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')}
           onLabel={(g, label) => saveShip(g, { calLabel: label || undefined })}
-          onOpen={(g) => {
-            pickView('list');
-            setTab('all');
-            setOpenKey(g.key);
-          }}
+          onOpen={(g) => setCalPick(g.key)}
         />
       ) : (
       <div className="card sh-card">
@@ -310,60 +366,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                       {open && (
                         <tr className="sh-detail">
                           <td colSpan={10}>
-                            <div className="sh-detail-h small">{trade ? '출고 일정 (조에서 써요)' : '출고 일정 — 눌러서 날짜 · 항구를 써요'}</div>
-                          <div className="sh-dates">
-                            {(
-                              [
-                                ['docCls', 'DOC CLS'],
-                                ['cargoCls', 'CARGO CLS'],
-                                ['etd', 'ETD'],
-                                ['eta', 'ETA'],
-                              ] as const
-                            ).map(([k, l]) => (
-                              <label key={k} className={g.ship[k] ? 'set' : ''}>
-                                <span>{l}</span>
-                                {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
-                                {(k === 'etd' || k === 'eta') && trade ? (
-                                  (k === 'etd' ? g.ship.etdPort : g.ship.etaPort) && <span className="sh-port-ro">{k === 'etd' ? g.ship.etdPort : g.ship.etaPort}</span>
-                                ) : (k === 'etd' || k === 'eta') && (
-                                  <TextInput
-                                    className="sh-port"
-                                    placeholder="항구"
-                                    value={k === 'etd' ? g.ship.etdPort : g.ship.etaPort}
-                                    onSave={(v) => saveShip(g, k === 'etd' ? { etdPort: v || undefined } : { etaPort: v || undefined })}
-                                  />
-                                )}
-                              </label>
-                            ))}
-                          </div>
-                            <table className="mini-table">
-                              <thead>
-                                <tr>
-                                  <th>주문</th>
-                                  <th>매장코드</th>
-                                  <th>주문일</th>
-                                  <th>출고 승인</th>
-                                  <th className="r">원화</th>
-                                  <th className="r">외화</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {g.orders.map((o) => (
-                                  <tr key={o.id}>
-                                    <td>
-                                      <a href={`#/orders?c=${o.companyId ?? ''}&o=${o.id}`} title="주문 관리에서 보기">
-                                        {o.name}
-                                      </a>
-                                    </td>
-                                    <td>{o.storeCode ?? ''}</td>
-                                    <td>{dot(o.orderDate)}</td>
-                                    <td>{o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : '대기'}</td>
-                                    <td className="r">{o.amountKRW !== undefined ? `₩${Math.round(o.amountKRW).toLocaleString()}` : '-'}</td>
-                                    <td className="r">{o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                            {detailBody(g)}
                           </td>
                         </tr>
                       )}
@@ -376,6 +379,55 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
         )}
       </div>
       )}
+      {calPick &&
+        (() => {
+          const g = groups.find((x) => x.key === calPick);
+          if (!g) return null;
+          const cur = curOf(g);
+          const stepTxt = (k: StepKey, l: string) => (
+            <span key={k} className={`sh-pill ${g.ship[k] ? 'on' : ''}`}>
+              {g.ship[k] ? '●' : '○'} {l}
+            </span>
+          );
+          return (
+            <Modal title={`🚚 ${g.team ? `${g.team}조 · ` : ''}${g.name}`} onClose={() => setCalPick(null)}>
+              <div className="sh-pop">
+                <p className="muted small" style={{ marginTop: 0 }}>
+                  {companyById.get(g.companyId ?? '')?.name ?? ''} · 주문 {g.orders.length}개 · 패킹 승인 <b>{fmtCur(cur, packing(g)) || '-'}</b>
+                  {g.ship.received !== undefined && <> · 실제 입금 <b>{fmtCur(cur, g.ship.received)}</b></>}
+                  {g.ship.receivedMemo && ` (${g.ship.receivedMemo})`}
+                </p>
+                <div className="sh-pills">
+                  {stepTxt('fx', '외화정리')}
+                  {stepTxt('license', '수출면장')}
+                  {stepTxt('truck', '배차')}
+                  <span className={`sh-pill ${g.shipDate ? 'on' : ''}`}>{g.shipDate ? '●' : '○'} 관리부출고{g.shipDate ? ` ${dot(g.shipDate)}` : ''}</span>
+                  {stepTxt('onBoard', 'ON BOARD')}
+                  {stepTxt('closeOut', '출고마감')}
+                  {stepTxt('papers', '결재서류')}
+                </div>
+                {detailBody(g)}
+                <label className="sh-cal-name small">
+                  <span>달력에 쓰는 이름</span>
+                  <TextInput value={g.ship.calLabel} placeholder={g.name.slice(0, 5)} onSave={(v) => saveShip(g, { calLabel: v || undefined })} />
+                  <span className="muted">비우면 묶음 이름 앞 5글자 · 이 묶음 날짜 모두에 같이 바뀌어요</span>
+                </label>
+                <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => {
+                      setCalPick(null);
+                      pickView('list');
+                      setTab('all');
+                      setOpenKey(g.key);
+                    }}
+                  >
+                    목록에서 보기
+                  </button>
+                </div>
+              </div>
+            </Modal>
+          );
+        })()}
       {files && fileGroup && (
         <ShipFiles
           title={`${fileGroup.team ? `${fileGroup.team}조 · ` : ''}${fileGroup.name} · ${FILE_STEP_LABEL[files.step]}`}
@@ -569,12 +621,8 @@ function ShipCalendar({ groups, coName, onLabel, onOpen }: { groups: Group[]; co
                   <button
                     key={key}
                     className={`sh-ev k-${e.kind}`}
-                    title={`${e.text}\n누르면 이름 고치기 · 두 번 누르면 목록에서 열기`}
-                    onClick={() => setEdit({ key, v: labelOf(e.g) })}
-                    onDoubleClick={() => {
-                      setEdit(null);
-                      onOpen(e.g);
-                    }}
+                    title={`${e.text}\n누르면 주문 상세`}
+                    onClick={() => onOpen(e.g)}
                   >
                     {e.text}
                   </button>
@@ -585,7 +633,7 @@ function ShipCalendar({ groups, coName, onLabel, onOpen }: { groups: Group[]; co
         })}
       </div>
       <p className="muted small" style={{ margin: '8px 0 0' }}>
-        이름을 누르면 달력에 쓰는 묶음 이름을 고칠 수 있어요 (그 묶음의 날짜 모두에 같이 바뀌어요) · 두 번 누르면 목록에서 그 묶음을 열어요 · 날짜는 목록에서 써요
+        일정을 누르면 그 묶음의 주문 상세가 열려요 (달력에 쓰는 이름도 거기서 고쳐요)
       </p>
     </div>
   );
