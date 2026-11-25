@@ -9362,3 +9362,4 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sh-from-etd .cell-view { color: var(--muted); font-style: italic; }
 .sh-delay { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .sh-delay.late { color: #b3261e; font-weight: 600; }
+.ct-where { color: #8c2f3c; font-weight: 600; margin-bottom: 2px; }

@@ -32,7 +32,18 @@ export interface Article {
   head: string; // 조항 제목 줄 (예: Article 5. Security Deposit)
   body: string[]; // 문단들
   section?: boolean; // Section · Chapter · Part · 제N장 (여러 조항을 묶는 큰 구간 제목)
+  page?: number; // 이 조항이 시작하는 쪽 (OCR 원문에 '===== 3쪽 =====' · 'Page 3' 같은 쪽 표시가 있을 때)
+  pageEnd?: number; // 끝나는 쪽
+  bodyPage?: number[]; // 문단마다 쪽
+  chapter?: string; // 이 조항이 들어 있는 장 (제2장 … · Chapter 2 …)
 }
+/** 문단의 항 번호: '1.' · '①' · '(1)' · '(a)' · 'a)' 로 시작하면 그 번호 */
+export const paraNo = (p: string) => {
+  const m = p.match(/^\s*(?:([①-⑳])|\(?(\d{1,2}|[a-z]|[ivx]{1,4})[.)])\s/i);
+  if (!m) return '';
+  if (m[1]) return String(m[1].charCodeAt(0) - 0x2460 + 1);
+  return m[2];
+};
 /** 큰 구간 제목 (Section 1: General Provisions · Chapter 2 · 제1장) */
 export const isSection = (line: string) => /^\s*(section|chapter|part)\s+[\dIVXLC]+\b/i.test(line) || /^\s*제\s*\d+\s*(장|편|절)/.test(line);
 
@@ -122,6 +133,7 @@ export const isHead = (line: string) => HEAD_RE.some((r) => r.test(line)) || isN
  * OCR 원문 → 조항: 제목 줄에서 나누고, 문단 안에서 OCR 로 끊긴 줄은 이어 붙임
  *   (빈 줄 · 목록 기호 (a) 1) • - 로 시작하는 줄은 새 문단)
  */
+const PG = '\u0001PAGE:';
 export function parseArticles(text: string): { intro: string[]; articles: Article[] } {
   // 페이지 표시 줄: 'Page 3' · 'PDF Page 5' · 'Page 3 of 20' · '- 3 -' 아닌 '9쪽' · '페이지 2' · '=====' 만 있는 줄
   const isPage = (l: string) => /^[=\-_~*#\s]*(pdf\s*)?(page|pg\.?|페이지)\s*\d+(\s*(of|\/)\s*\d+)?[=\-_~*#\s]*$/i.test(l) || /^[=\-_~*#\s]*\d+\s*쪽[=\-_~*#\s]*$/.test(l) || /^[=\-_~*#]{4,}$/.test(l);
@@ -129,27 +141,49 @@ export function parseArticles(text: string): { intro: string[]; articles: Articl
     .replace(/\r/g, '')
     // 페이지 표시 지우기: '===== 9쪽 =====' · '===== Page 3 =====' (줄 중간에 붙어 있어도)
     //   '===== PDF Page 5 =====' 처럼 앞에 다른 말이 붙어도
-    .replace(/[=\-_~]{2,}[^=\-_~\n]{0,20}?(\d+\s*쪽|page\s*\d+(\s*(of|\/)\s*\d+)?|p\.?\s*\d+|페이지\s*\d+)\s*[=\-_~]{2,}/gi, '\n')
+    .replace(/[=\-_~]{2,}[^=\-_~\n]{0,20}?(\d+\s*쪽|page\s*\d+(\s*(of|\/)\s*\d+)?|p\.?\s*\d+|페이지\s*\d+)\s*[=\-_~]{2,}/gi, (_m, g1: string) => `\n${PG}${g1.match(/\d+/)?.[0] ?? ''}\n`)
     // ① ② ③ … 항목은 줄마다
     .replace(/\s+([①-⑳])/g, '\n$1')
     .split('\n')
     .map((l) => l.trim())
-    .map((l) => (isPage(l) ? '' : l));
+    // 쪽 표시 줄은 빈 줄로 바꾸고, 그 아래부터 몇 쪽인지 기억 (쪽 표시는 그 쪽 맨 위에 있다고 봄)
+    .map((l) => (l.startsWith(PG) ? l : isPage(l) ? `${PG}${l.match(/\d+/)?.[0] ?? ''}` : l));
+  const pageAt: (number | undefined)[] = [];
+  let pg: number | undefined;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith(PG)) {
+      const n = Number(lines[i].slice(PG.length));
+      if (n > 0) pg = n;
+      lines[i] = '';
+    }
+    pageAt.push(pg);
+  }
   const intro: string[] = [];
   const articles: Article[] = [];
   let cur: Article | null = null;
   let para = '';
-  const push = (p: string) => (cur ? cur.body : intro).push(p);
+  let paraPage: number | undefined;
+  let chapter: string | undefined;
+  const push = (p: string, page?: number) => {
+    if (!cur) return intro.push(p);
+    cur.body.push(p);
+    if (page !== undefined) {
+      (cur.bodyPage ??= []).push(page);
+      cur.pageEnd = Math.max(cur.pageEnd ?? page, page);
+    } else (cur.bodyPage ??= []).push(cur.page as number);
+  };
   const flush = () => {
     const p = para.replace(/\s+/g, ' ').trim();
-    if (p) push(p);
+    if (p) push(p, paraPage);
     para = '';
   };
   lines.forEach((line, i) => {
     if (!line) return flush();
     if (isHead(line)) {
       flush();
-      cur = { no: articles.length + 1, head: line.replace(/\s+/g, ' '), body: [], ...(isSection(line) ? { section: true } : {}) };
+      const head = line.replace(/\s+/g, ' ');
+      if (isSection(line)) chapter = head;
+      cur = { no: articles.length + 1, head, body: [], ...(isSection(line) ? { section: true } : chapter ? { chapter } : {}), ...(pageAt[i] ? { page: pageAt[i], pageEnd: pageAt[i] } : {}) };
       articles.push(cur);
       return;
     }
@@ -160,12 +194,13 @@ export function parseArticles(text: string): { intro: string[]; articles: Articl
     const startsUpper = /^[A-Z가-힣"“(]/.test(line);
     if ((line.length <= 50 && /:$/.test(line) && startsUpper && (prevBlank || !para)) || (line.length <= 70 && prevBlank && nextBlank && startsUpper && !/[.;,]$/.test(line) && !isField(line))) {
       flush();
-      push(SUB + line.replace(/\s+/g, ' '));
+      push(SUB + line.replace(/\s+/g, ' '), pageAt[i]);
       return;
     }
     // 'Store Name: ARTBOX' 같은 항목 줄 · 목록 항목은 새 문단
     if (isField(line) || /^(\(?[a-z0-9ivx]{1,3}[.)]|[•·\-–*])\s+/i.test(line) || /^[①-⑳]/.test(line)) flush();
     // 하이픈으로 끊긴 단어는 붙이고, 아니면 띄어서 이어 붙임
+    if (!para) paraPage = pageAt[i];
     para = para ? (para.endsWith('-') ? para.slice(0, -1) + line : `${para} ${line}`) : line;
   });
   flush();

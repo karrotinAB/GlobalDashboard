@@ -10,7 +10,7 @@ import { useFullName } from '../lib/fullName';
 import { Modal } from '../components/ui';
 import { useLookups, useSpaceData } from '../data/store';
 import { today, uid } from '../lib/date';
-import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type ClipFolder, type Contract, type ContractFile, canSeeFolder, canSetFolderVis, FOLDER_VIS } from '../lib/contracts';
+import { deleteClip, deleteClipFolder, saveClip, saveClipFolder, useClipFolders, useClips, deleteContract, expandQuery, paraNo, FIELD_RE, isField, langOf, parseArticles, SUB, TITLE, saveContract, uploadContractFile, useContracts, type ClipFolder, type Contract, type ContractFile, canSeeFolder, canSetFolderVis, FOLDER_VIS } from '../lib/contracts';
 
 const dots = (iso?: string) => (iso ? iso.replace(/-/g, '.') : '');
 
@@ -230,7 +230,7 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
   const groups = useMemo(() => expandQuery(q), [q]);
   const companies = [...new Set(list.filter(keep).map((c) => c.company))];
   // 업체 → [계약서, 맞는 조항들] — 보여주는 건 원문, 번역본은 같은 순서의 조항 (번역 버튼)
-  type Part = { head: string; body: string[]; section?: boolean };
+  type Part = { head: string; body: string[]; section?: boolean; page?: number; pageEnd?: number; bodyPage?: number[]; chapter?: string };
   const results = useMemo(() => {
     if (!groups.length) return [];
     const out: { c: Contract; orig: Part[]; trans: (Part | undefined)[] }[] = [];
@@ -299,7 +299,21 @@ function Search({ list, onOpen }: { list: Contract[]; onOpen: (id: string) => vo
 }
 
 /** 검색 결과 한 업체: 원문 조항 · 코너 '번역' 누르면 같은 조항의 번역본 */
-function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: string; body: string[]; section?: boolean }[]; trans: ({ head: string; body: string[]; section?: boolean } | undefined)[] }; groups: string[][]; onOpen: (id: string) => void }) {
+type SPart = { head: string; body: string[]; section?: boolean; page?: number; pageEnd?: number; bodyPage?: number[]; chapter?: string };
+/** 검색 결과 위치: 몇 쪽 · 몇 장 · 몇 조 몇 항 (찾은 말이 들어간 문단 기준) */
+function whereOf(a: SPart, groups: string[][]) {
+  const hitIdx = a.body.map((p, j) => (groups.some((g) => has(p, g)) ? j : -1)).filter((j) => j >= 0);
+  const hang = [...new Set(hitIdx.map((j) => paraNo(a.body[j])).filter(Boolean))];
+  const pages = [...new Set((hitIdx.length ? hitIdx.map((j) => a.bodyPage?.[j]) : [a.page]).filter((x): x is number => !!x))].sort((x, y) => x - y);
+  const art = a.head.match(/^\s*(제\s*\d+\s*조|(article|art\.|section|clause)\s*[\dIVXLC]+|\d{1,2}\s*\.)/i)?.[0]?.replace(/\s+/g, ' ').replace(/\.$/, '');
+  const parts: string[] = [];
+  if (pages.length) parts.push(pages.length > 2 ? `${pages[0]}~${pages.at(-1)}쪽` : `${pages.join(' · ')}쪽`);
+  if (a.chapter) parts.push(a.chapter.length > 24 ? `${a.chapter.slice(0, 24)}…` : a.chapter);
+  if (art) parts.push(/^\d/.test(art) ? `${art}조` : art);
+  if (hang.length) parts.push(`${hang.join(' · ')}항`);
+  return parts.join(' · ');
+}
+function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: SPart[]; trans: (SPart | undefined)[] }; groups: string[][]; onOpen: (id: string) => void }) {
   const [tr, setTr] = useState(false);
   const { c } = r;
   const show = tr ? r.trans : r.orig;
@@ -326,6 +340,7 @@ function SearchCard({ r, groups, onOpen }: { r: { c: Contract; orig: { head: str
       {show.map((a, i) =>
         a ? (
           <div key={i} className={a.section ? 'ct-art ct-section' : 'ct-art'} data-head={a.head}>
+            {!a.section && whereOf(a, groups) && <div className="ct-where small">📍 {whereOf(a, groups)}</div>}
             <div className="ct-art-head">{hl(a.head, groups)}</div>
             {a.body.map((p, j) => (
               <Para key={j} p={p} groups={groups} />
