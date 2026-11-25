@@ -71,6 +71,12 @@ const pick = (f, re) => {
   const k = Object.keys(f).find((x) => re.test(x));
   return k ? str(f[k]) : '';
 };
+/** 수출 칸: 칸이 있으면 (비어 있어도) 그 값 · 수출 칸이 아예 없는 응답만 예전 이름으로 */
+const pickExport = (f, re, legacy) => {
+  const k = Object.keys(f).find((x) => re.test(x));
+  if (k) return str(f[k]);
+  return Object.keys(f).some((x) => /^export/.test(x)) ? '' : pick(f, legacy);
+};
 /** 한 줄 → { code, nick, type, lrg, midd, eng, reg } (snake_case · camelCase · 안쪽 묶음 다 됨) */
 export function rowOf(raw) {
   const f = flat(raw);
@@ -80,8 +86,9 @@ export function rowOf(raw) {
     kor: pick(f, /^sku(name)?kor$|^skunamekor$/),
     type: pick(f, /^skutype(name|nm)$/),
     // 수출 대/중분류: export_ 로 시작하는 칸을 먼저 (일반 category_lrg_code 와 헷갈리지 않게)
-    lrg: pick(f, /^export(info)?(export)?categor(y)?(lrg|large)(code|cd)$/) || pick(f, /^(export(info)?)?(export)?categor(y)?(lrg|large)(code|cd)$/),
-    midd: pick(f, /^export(info)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/) || pick(f, /^(export(info)?)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/),
+    //   수출 칸이 있으면 비어 있어도 그 값 (예전엔 비어 있으면 일반 대/중분류 category_lrg_code 를 잘못 가져왔음)
+    lrg: pickExport(f, /^export(info)?(export)?categor(y)?(lrg|large)(code|cd)$/, /^categor(y)?(lrg|large)(code|cd)$/),
+    midd: pickExport(f, /^export(info)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/, /^categor(y)?(midd|middle|mid)(code|cd)$/),
     eng: pick(f, /^sku(name)?eng$|^skunameeng$/),
     reg: pick(f, /^(sku)?regdate$|^regdt$|regdate$/),
     qty: pick(f, /^physicalqty$|physicalqty$/), // 실재고
@@ -116,7 +123,8 @@ export const isExcluded = (r) => {
 /** 목록에 둘 제품 = 비어 있고 + 거를 것이 아님 */
 const wanted = (r) => isMissing(r) && !isExcluded(r);
 // 거르는 기준이 바뀌면 숫자를 올림 → 다음 불러오기 때 처음부터 다시 훑으며 이미 있는 것도 다시 거름
-const FILTER_VER = 4; // 2: 재고 100 이하 · 수출제한 글자 / 3: 수출구분 코드 01 도 / 4: 제품 정보(팀 · 분류)도 bulk 에서 같이 받음 → 한 번 전부 훑기
+const FILTER_VER = 5; // 5: 수출 대/중분류가 비면 일반 대/중분류를 가져오던 것 고침 → 다시 전부 훑기
+const _FV4 = 4; // 2: 재고 100 이하 · 수출제한 글자 / 3: 수출구분 코드 01 도 / 4: 제품 정보(팀 · 분류)도 bulk 에서 같이 받음 → 한 번 전부 훑기
 /** 등록일 비교용 (2026-11-20 · 20261120 · 2026-11-20 13:01:02 → 20261120130102) */
 const regKey = (s) => str(s).replace(/[^\d]/g, '').padEnd(14, '0').slice(0, 14);
 
