@@ -153,6 +153,9 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
   // 묶음 상세 (목록에서 펼침 · 달력에서 누르면 창): 출고 일정 + 안의 주문
   const detailBody = (g: Group) => (
     <>
+                            {/* 구매확인서 업체는 DOC · CARGO · ETD · ETA 없음 */}
+                            {!isPurchase(g) && (
+                            <>
                             <div className="sh-detail-h small">{trade ? '출고 일정 (조에서 써요)' : '출고 일정 — 눌러서 날짜 · 항구를 써요'}</div>
                           <div className="sh-dates">
                             {(
@@ -204,6 +207,8 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
                               </div>
                             ))}
                           </div>
+                            </>
+                            )}
                             {/* 안의 주문: 클레임 '주문 상세' 와 같은 표 */}
                             <div className="detail-table-wrap">
                               <table className="detail-table">
