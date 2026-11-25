@@ -4,14 +4,20 @@
 //   외화정리 · 수출면장 · 배차 · 관리부출고 ○ → ● (관리부출고는 날짜 = 주문 관리 '출고일')
 //   ON BOARD ☐ · 출고마감 · 결재서류 ○
 //   저장: 묶음이면 묶음 안 주문마다 bundle.ship 에 같이, 묶음 아니면 order.ship (주문 관리 묶음과 같은 방식)
-import { Fragment, useMemo, useState, type CSSProperties } from 'react';
+import { Fragment, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { DateCell } from '../components/OrderCells';
+import { Modal } from '../components/ui';
 import { fmtCur, useOrderUsd } from '../lib/sales';
-import type { Order, ShipInfo } from '../types';
+import { deleteRequestFile, uploadShipFile } from '../lib/trade';
+import type { Company, Order, RequestFile, ShipInfo } from '../types';
+
+type FileStep = 'fx' | 'license' | 'truck' | 'out';
+const FILE_STEP_LABEL: Record<FileStep, string> = { fx: '외화정리', license: '수출면장', truck: '배차', out: '관리부출고' };
 
 type Group = {
   key: string;
+  team?: string; // 무역사무 화면: 어느 조 주문인지
   name: string;
   color?: string;
   bundleId?: string;
@@ -22,6 +28,9 @@ type Group = {
   companyId: string | null;
 };
 type StepKey = 'fx' | 'license' | 'truck' | 'onBoard' | 'closeOut' | 'papers';
+/** 무역사무가 체크하는 단계 (조원 화면에서는 보기만) */
+const TRADE_STEPS: StepKey[] = ['fx', 'license', 'truck', 'closeOut', 'papers'];
+type Mode = 'team' | 'trade';
 
 const dot = (iso?: string) => (iso ? iso.slice(2).replace(/-/g, '.') : '');
 const num = (s: string) => {
@@ -29,75 +38,118 @@ const num = (s: string) => {
   return s.trim() === '' || !Number.isFinite(n) ? undefined : n;
 };
 
+/** 조 화면: 우리 조 주문 */
 export default function Shipping() {
-  const { data, save, saveMany } = useStore();
-  const { companies, companyById } = useLookups();
-  const fxc = useOrderUsd(companies, data.orders);
+  const { data, saveMany } = useStore();
+  const { companies } = useLookups();
+  return <ShipBoard mode="team" orders={data.orders} companies={companies} saveOrders={(os) => saveMany('orders', os)} />;
+}
+
+/** 출고 관리 화면 (조 · 무역사무 같이 씀) */
+export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode; orders: Order[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void }) {
+  const trade = mode === 'trade';
+  const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
+  const fxc = useOrderUsd(companies, orders);
   const [tab, setTab] = useState<'open' | 'done' | 'all'>('open');
   const [co, setCo] = useState('');
+  const [teamF, setTeamF] = useState('');
+  const [q, setQ] = useState('');
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const [view, setView] = useState<'list' | 'cal'>(() => (localStorage.getItem('gd:shipView') === 'cal' ? 'cal' : 'list'));
+  const [files, setFiles] = useState<{ key: string; step: FileStep } | null>(null);
+  const viewKey = trade ? 'gd:shipView:trade' : 'gd:shipView';
+  const [view, setView] = useState<'list' | 'cal'>(() => {
+    try {
+      return localStorage.getItem(viewKey) === 'cal' ? 'cal' : 'list';
+    } catch {
+      return 'list';
+    }
+  });
   const pickView = (v: 'list' | 'cal') => {
     setView(v);
     try {
-      localStorage.setItem('gd:shipView', v);
+      localStorage.setItem(viewKey, v);
     } catch {
       /* 무시 */
     }
   };
 
-  // 출고 승인된 주문이 있는 묶음 · 주문
+  // 출고 승인된 주문이 있는 묶음 · 주문 (조마다 따로)
   const groups = useMemo(() => {
     const byBundle = new Map<string, Order[]>();
     const singles: Order[] = [];
-    for (const o of data.orders) {
-      if (o.bundle) byBundle.set(o.bundle.id, [...(byBundle.get(o.bundle.id) ?? []), o]);
-      else if (o.outStatus === 'approved') singles.push(o);
+    const tagOf = (o: Order) => (o as Order & { team?: string }).team;
+    for (const o of orders) {
+      if (o.bundle) {
+        const k = `${tagOf(o) ?? ''}|${o.bundle.id}`;
+        byBundle.set(k, [...(byBundle.get(k) ?? []), o]);
+      } else if (o.outStatus === 'approved') singles.push(o);
     }
     const out: Group[] = [];
-    for (const [id, os] of byBundle) {
+    for (const [k, os] of byBundle) {
       const approved = os.filter((o) => o.outStatus === 'approved');
       if (!approved.length) continue;
       const b = os[0].bundle!;
-      out.push({ key: `b:${id}`, name: b.name || '묶음', color: b.color, bundleId: id, orders: os, approved, ship: b.ship ?? {}, shipDate: b.shipDate, companyId: os[0].companyId });
+      out.push({ key: `b:${k}`, team: tagOf(os[0]), name: b.name || '묶음', color: b.color, bundleId: b.id, orders: os, approved, ship: b.ship ?? {}, shipDate: b.shipDate, companyId: os[0].companyId });
     }
-    for (const o of singles) out.push({ key: `o:${o.id}`, name: o.name, orders: [o], approved: [o], ship: o.ship ?? {}, shipDate: o.shipDate, companyId: o.companyId });
+    for (const o of singles) out.push({ key: `o:${tagOf(o) ?? ''}|${o.id}`, team: tagOf(o), name: o.name, orders: [o], approved: [o], ship: o.ship ?? {}, shipDate: o.shipDate, companyId: o.companyId });
     // 최근 출고(ETD · 관리부출고 · 승인일) 먼저
     const when = (g: Group) => g.ship.etd || g.shipDate || g.approved.map((o) => o.outDate ?? o.orderDate ?? '').sort().at(-1) || '';
     return out.sort((a, b) => when(b).localeCompare(when(a)));
-  }, [data.orders]);
+  }, [orders]);
 
-  const shown = groups.filter((g) => (!co || g.companyId === co) && (tab === 'all' ? true : tab === 'done' ? !!g.ship.closeOut : !g.ship.closeOut));
-  const coIds = [...new Set(groups.map((g) => g.companyId).filter((x): x is string => !!x))];
+  const query = q.trim().toLowerCase();
+  const hit = (g: Group) =>
+    !query || `${g.name} ${companyById.get(g.companyId ?? '')?.name ?? ''} ${g.orders.map((o) => `${o.name} ${o.storeCode ?? ''} ${o.expNo ?? ''}`).join(' ')}`.toLowerCase().includes(query);
+  const base = groups.filter((g) => (!co || g.companyId === co) && (!teamF || g.team === teamF) && hit(g));
+  const shown = base.filter((g) => (tab === 'all' ? true : tab === 'done' ? !!g.ship.closeOut : !g.ship.closeOut));
+  const coIds = [...new Set(groups.filter((g) => !teamF || g.team === teamF).map((g) => g.companyId).filter((x): x is string => !!x))];
+  const teams = [...new Set(groups.map((g) => g.team).filter((x): x is string => !!x))].sort();
 
   // 저장: 묶음이면 묶음 안 주문 모두에, 아니면 그 주문에
   const saveShip = (g: Group, patch: Partial<ShipInfo>, shipDate?: string | null) => {
     const ship = JSON.parse(JSON.stringify({ ...g.ship, ...patch })) as ShipInfo;
-    if (g.bundleId)
-      void saveMany(
-        'orders',
-        g.orders.map((o) => ({ ...o, bundle: { ...o.bundle!, ship, ...(shipDate !== undefined ? { shipDate: shipDate || undefined } : {}) } })),
-      );
-    else save('orders', { ...g.orders[0], ship, ...(shipDate !== undefined ? { shipDate: shipDate || undefined } : {}) });
+    const sd = shipDate !== undefined ? { shipDate: shipDate || undefined } : {};
+    void saveOrders(g.bundleId ? g.orders.map((o) => ({ ...o, bundle: { ...o.bundle!, ship, ...sd } })) : [{ ...g.orders[0], ship, ...sd }]);
   };
   const step = (g: Group, k: StepKey, label: string) => {
     const on = !!g.ship[k];
-    return (
+    const can = trade && TRADE_STEPS.includes(k);
+    return can ? (
       <button className={`sh-step ${on ? 'on' : ''}`} title={`${label} ${on ? '완료 (누르면 취소)' : '— 누르면 완료'}`} onClick={() => saveShip(g, { [k]: !on })}>
         {on ? '●' : '○'}
+      </button>
+    ) : (
+      <span className={`sh-step ro ${on ? 'on' : ''}`} title={`${label} ${on ? '완료' : '아직'} (무역사무가 체크)`}>
+        {on ? '●' : '○'}
+      </span>
+    );
+  };
+  // 단계별 링크 · 사진 · 파일 (무역사무가 올리고 조원도 봄)
+  const clip = (g: Group, k: FileStep) => {
+    const n = g.ship.files?.[k]?.length ?? 0;
+    if (!trade && !n) return null;
+    return (
+      <button className={`sh-clip ${n ? 'has' : ''}`} onClick={() => setFiles({ key: g.key, step: k })} title={trade ? '링크 · 사진 · 파일 올리기 / 보기' : '올린 링크 · 사진 · 파일 보기'}>
+        📎{n ? n : '+'}
       </button>
     );
   };
   const curOf = (g: Group) => fxc.curOf(g.orders[0]);
   const packing = (g: Group) => g.approved.reduce((a, o) => a + (o.amountForeign ?? 0), 0);
+  const fileGroup = files ? groups.find((g) => g.key === files.key) : undefined;
 
   return (
     <div className="page">
       <div className="page-head">
         <h1>출고 관리</h1>
-        <p className="muted">주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.</p>
+        <p className="muted">
+          {trade
+            ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 외화정리 · 수출면장 · 배차 · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
+            : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 외화정리 · 수출면장 · 배차 · 출고마감 · 결재서류는 무역사무가 체크해요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
+        </p>
       </div>
-      <div className="card toolbar sh-toolbar">
+      {/* 맨 위: 목록 · 달력 */}
+      <div className="sh-viewbar">
         <span className="seg">
           <button className={view === 'list' ? 'on' : ''} onClick={() => pickView('list')}>
             📋 목록
@@ -106,34 +158,60 @@ export default function Shipping() {
             📅 달력
           </button>
         </span>
-        {view === 'list' && (
-        <span className="seg">
-          {(
-            [
-              ['open', '진행중'],
-              ['done', '출고마감'],
-              ['all', '전체'],
-            ] as const
-          ).map(([k, l]) => (
-            <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
-              {l} {k === 'open' ? groups.filter((g) => !g.ship.closeOut).length : k === 'done' ? groups.filter((g) => g.ship.closeOut).length : groups.length}
-            </button>
-          ))}
-        </span>
-        )}
-        <select value={co} onChange={(e) => setCo(e.target.value)}>
-          <option value="">업체 전체</option>
-          {coIds.map((id) => (
-            <option key={id} value={id}>
-              {companyById.get(id)?.name ?? id}
-            </option>
-          ))}
-        </select>
+      </div>
+      {/* 그 아래: 거르기 · 검색 · 업체 고르기 */}
+      <div className="card toolbar sh-toolbar">
+        <div className="sh-filter-row">
+          {view === 'list' && (
+            <span className="seg">
+              {(
+                [
+                  ['open', '진행중'],
+                  ['done', '출고마감'],
+                  ['all', '전체'],
+                ] as const
+              ).map(([k, l]) => (
+                <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+                  {l} {k === 'open' ? base.filter((g) => !g.ship.closeOut).length : k === 'done' ? base.filter((g) => g.ship.closeOut).length : base.length}
+                </button>
+              ))}
+            </span>
+          )}
+          {trade && (
+            <select value={teamF} onChange={(e) => (setTeamF(e.target.value), setCo(''))}>
+              <option value="">조 전체</option>
+              {teams.map((t) => (
+                <option key={t} value={t}>
+                  {t}조
+                </option>
+              ))}
+            </select>
+          )}
+          <input className="search sh-search" placeholder="🔍 묶음 · 주문 · 매장코드 · 업체" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        {/* 업체 고르기: 주문 관리처럼 칩 (전체도 볼 수 있음) */}
+        <div className="company-chips sh-cos">
+          <button className={`cchip ${!co ? 'on' : ''}`} onClick={() => setCo('')}>
+            업체 전체 <span className="cchip-n">{groups.filter((g) => (!teamF || g.team === teamF) && !g.ship.closeOut).length}</span>
+          </button>
+          {coIds.map((id) => {
+            const c = companyById.get(id);
+            const n = groups.filter((g) => g.companyId === id && (!teamF || g.team === teamF) && !g.ship.closeOut).length;
+            return (
+              <button key={id} className={`cchip ${co === id ? 'on' : ''}`} style={{ '--c': c?.color ?? '#999' } as CSSProperties} onClick={() => setCo(co === id ? '' : id)} title={co === id ? '다시 누르면 업체 전체' : '이 업체만'}>
+                <span className="dot" style={{ background: c?.color }} />
+                {c?.name ?? id}
+                <span className="cchip-n">{n}</span>
+                {co === id && <span className="cchip-x">✕</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {view === 'cal' ? (
         <ShipCalendar
-          groups={groups.filter((g) => !co || g.companyId === co)}
+          groups={base}
           coName={(id) => (companyById.get(id ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')}
           onLabel={(g, label) => saveShip(g, { calLabel: label || undefined })}
           onOpen={(g) => {
@@ -173,11 +251,66 @@ export default function Shipping() {
                         <td className="sh-name">
                           <button className="sh-title" onClick={() => setOpenKey(open ? null : g.key)} title="안의 주문 보기">
                             <span className="sh-dot" />
+                            {g.team && <span className="sh-team">{g.team}조</span>}
                             <b>{g.name}</b>
                             <span className="muted small">
                               {companyById.get(g.companyId ?? '')?.name ?? ''} · 주문 {g.orders.length}개{g.approved.length < g.orders.length ? ` (승인 ${g.approved.length})` : ''} {open ? '▴' : '▾'}
                             </span>
                           </button>
+                          {/* 출고 일정은 묶음을 눌러 상세에서 써요 — 여기엔 적힌 것만 짧게 */}
+                          {(g.ship.docCls || g.ship.cargoCls || g.ship.etd || g.ship.eta) && (
+                            <div className="sh-dates-sum small">
+                              {g.ship.docCls && <span className="k-doc">DOC {dot(g.ship.docCls)}</span>}
+                              {g.ship.cargoCls && <span className="k-cargo">CARGO {dot(g.ship.cargoCls)}</span>}
+                              {g.ship.etd && <span className="k-etd">ETD {dot(g.ship.etd)}{g.ship.etdPort ? ` ${g.ship.etdPort}` : ''}</span>}
+                              {g.ship.eta && <span className="k-eta">ETA {dot(g.ship.eta)}{g.ship.etaPort ? ` ${g.ship.etaPort}` : ''}</span>}
+                            </div>
+                          )}
+                        </td>
+                        <td className="r sh-amt">{fmtCur(cur, packing(g)) || '-'}</td>
+                        <td className="sh-recv">
+                          {trade ? (
+                            <>
+                              <div className="sh-amt">{g.ship.received !== undefined ? fmtCur(cur, g.ship.received) : <span className="muted">-</span>}</div>
+                              {g.ship.receivedMemo && <div className="muted small">{g.ship.receivedMemo}</div>}
+                            </>
+                          ) : (
+                            <>
+                              <MoneyInput cur={cur} value={g.ship.received} onSave={(v) => saveShip(g, { received: v })} />
+                              <MemoInput value={g.ship.receivedMemo} onSave={(v) => saveShip(g, { receivedMemo: v || undefined })} />
+                            </>
+                          )}
+                        </td>
+                        <td className="sh-c">
+                          {step(g, 'fx', '외화정리')}
+                          {clip(g, 'fx')}
+                        </td>
+                        <td className="sh-c">
+                          {step(g, 'license', '수출면장')}
+                          {clip(g, 'license')}
+                        </td>
+                        <td className="sh-c">
+                          {step(g, 'truck', '배차')}
+                          {clip(g, 'truck')}
+                        </td>
+                        <td className="sh-c sh-out">
+                          {/* 관리부출고: 날짜를 쓰면 완료 · 그 날짜가 주문 관리 출고일 */}
+                          <span className={`sh-step ${g.shipDate ? 'on' : ''}`} aria-hidden="true">
+                            {g.shipDate ? '●' : '○'}
+                          </span>
+                          <DateCell value={g.shipDate} onSave={(v) => saveShip(g, {}, v ?? null)} />
+                          {clip(g, 'out')}
+                        </td>
+                        <td className="sh-c">
+                          <input type="checkbox" checked={!!g.ship.onBoard} disabled={trade} onChange={(e) => saveShip(g, { onBoard: e.target.checked })} title={trade ? 'ON BOARD (조에서 체크)' : 'ON BOARD'} />
+                        </td>
+                        <td className="sh-c">{step(g, 'closeOut', '출고마감')}</td>
+                        <td className="sh-c">{step(g, 'papers', '결재서류')}</td>
+                      </tr>
+                      {open && (
+                        <tr className="sh-detail">
+                          <td colSpan={10}>
+                            <div className="sh-detail-h small">{trade ? '출고 일정 (조에서 써요)' : '출고 일정 — 눌러서 날짜 · 항구를 써요'}</div>
                           <div className="sh-dates">
                             {(
                               [
@@ -189,8 +322,10 @@ export default function Shipping() {
                             ).map(([k, l]) => (
                               <label key={k} className={g.ship[k] ? 'set' : ''}>
                                 <span>{l}</span>
-                                <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />
-                                {(k === 'etd' || k === 'eta') && (
+                                {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
+                                {(k === 'etd' || k === 'eta') && trade ? (
+                                  (k === 'etd' ? g.ship.etdPort : g.ship.etaPort) && <span className="sh-port-ro">{k === 'etd' ? g.ship.etdPort : g.ship.etaPort}</span>
+                                ) : (k === 'etd' || k === 'eta') && (
                                   <TextInput
                                     className="sh-port"
                                     placeholder="항구"
@@ -201,31 +336,6 @@ export default function Shipping() {
                               </label>
                             ))}
                           </div>
-                        </td>
-                        <td className="r sh-amt">{fmtCur(cur, packing(g)) || '-'}</td>
-                        <td className="sh-recv">
-                          <MoneyInput cur={cur} value={g.ship.received} onSave={(v) => saveShip(g, { received: v })} />
-                          <MemoInput value={g.ship.receivedMemo} onSave={(v) => saveShip(g, { receivedMemo: v || undefined })} />
-                        </td>
-                        <td className="sh-c">{step(g, 'fx', '외화정리')}</td>
-                        <td className="sh-c">{step(g, 'license', '수출면장')}</td>
-                        <td className="sh-c">{step(g, 'truck', '배차')}</td>
-                        <td className="sh-c sh-out">
-                          {/* 관리부출고: 날짜를 쓰면 완료 · 그 날짜가 주문 관리 출고일 */}
-                          <span className={`sh-step ${g.shipDate ? 'on' : ''}`} aria-hidden="true">
-                            {g.shipDate ? '●' : '○'}
-                          </span>
-                          <DateCell value={g.shipDate} onSave={(v) => saveShip(g, {}, v ?? null)} />
-                        </td>
-                        <td className="sh-c">
-                          <input type="checkbox" checked={!!g.ship.onBoard} onChange={(e) => saveShip(g, { onBoard: e.target.checked })} title="ON BOARD" />
-                        </td>
-                        <td className="sh-c">{step(g, 'closeOut', '출고마감')}</td>
-                        <td className="sh-c">{step(g, 'papers', '결재서류')}</td>
-                      </tr>
-                      {open && (
-                        <tr className="sh-detail">
-                          <td colSpan={10}>
                             <table className="mini-table">
                               <thead>
                                 <tr>
@@ -266,7 +376,94 @@ export default function Shipping() {
         )}
       </div>
       )}
+      {files && fileGroup && (
+        <ShipFiles
+          title={`${fileGroup.team ? `${fileGroup.team}조 · ` : ''}${fileGroup.name} · ${FILE_STEP_LABEL[files.step]}`}
+          list={fileGroup.ship.files?.[files.step] ?? []}
+          canEdit={trade}
+          folder={`${fileGroup.team ?? 'x'}-${fileGroup.key.replace(/[^\w-]/g, '_')}`}
+          onChange={(next) => saveShip(fileGroup, { files: { ...(fileGroup.ship.files ?? {}), [files.step]: next.length ? next : undefined } })}
+          onClose={() => setFiles(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** 단계별 링크 · 사진 · 파일: 무역사무는 올리고 지우기 · 조원은 보기 */
+function ShipFiles({ title, list, canEdit, folder, onChange, onClose }: { title: string; list: RequestFile[]; canEdit: boolean; folder: string; onChange: (next: RequestFile[]) => void; onClose: () => void }) {
+  const [link, setLink] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const isImg = (f: RequestFile) => /\.(png|jpe?g|gif|webp|heic)$/i.test(f.name) || f.url.startsWith('data:image');
+  const addLink = () => {
+    const u = link.trim();
+    if (!u) return;
+    const url = /^https?:\/\//i.test(u) ? u : `https://${u}`;
+    onChange([...list, { name: u.replace(/^https?:\/\//i, '').slice(0, 60), url }]);
+    setLink('');
+  };
+  const upload = async (fs: FileList | null) => {
+    if (!fs?.length) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const added: RequestFile[] = [];
+      for (const f of Array.from(fs)) {
+        if (f.size > 20 * 1024 * 1024) throw new Error(`${f.name}: 20MB 넘는 파일은 못 올려요`);
+        added.push(await uploadShipFile(folder, f));
+      }
+      onChange([...list, ...added]);
+    } catch (e) {
+      setErr(`올리지 못했어요: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+  return (
+    <Modal title={`📎 ${title}`} onClose={onClose}>
+      {list.length === 0 ? (
+        <p className="muted small">아직 올린 게 없어요.</p>
+      ) : (
+        <ul className="sh-files">
+          {list.map((f, i) => (
+            <li key={`${f.url}-${i}`}>
+              <a href={f.url} target="_blank" rel="noreferrer">
+                {isImg(f) ? <img src={f.url} alt="" /> : <span>{f.path ? '📄' : '🔗'}</span>}
+                <span className="sh-file-name">{f.name}</span>
+              </a>
+              {canEdit && (
+                <button
+                  className="link small danger-text"
+                  onClick={() => {
+                    if (!confirm(`'${f.name}' 을(를) 뺄까요?`)) return;
+                    void deleteRequestFile(f);
+                    onChange(list.filter((_, j) => j !== i));
+                  }}
+                >
+                  빼기
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canEdit && (
+        <div className="sh-file-add">
+          <input placeholder="링크 붙여넣기 (https://…)" value={link} onChange={(e) => setLink(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addLink()} />
+          <button onClick={addLink} disabled={!link.trim()}>
+            링크 넣기
+          </button>
+          <button className="primary" disabled={busy} onClick={() => fileRef.current?.click()}>
+            {busy ? '올리는 중…' : '📷 사진 · 파일'}
+          </button>
+          <input ref={fileRef} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
+        </div>
+      )}
+      {err && <p className="warn small">{err}</p>}
+    </Modal>
   );
 }
 
@@ -442,23 +639,36 @@ function MoneyInput({ cur, value, onSave }: { cur: string; value?: number; onSav
     </span>
   );
 }
-/** 짧은 메모 */
+/** 짧은 메모: 평소엔 '+ 메모' 만 · 누르면 칸 · 적은 건 글자로 (누르면 고침) */
 function MemoInput({ value, onSave }: { value?: string; onSave: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
   const [v, setV] = useState(value ?? '');
-  const [last, setLast] = useState(value);
-  if (last !== value) {
-    setLast(value);
-    setV(value ?? '');
-  }
+  if (!open)
+    return value ? (
+      <button className="sh-memo-view" onClick={() => (setV(value), setOpen(true))} title="눌러서 메모 고치기">
+        📝 {value}
+      </button>
+    ) : (
+      <button className="link small sh-memo-add" onClick={() => (setV(''), setOpen(true))}>
+        + 메모
+      </button>
+    );
   return (
     <input
       className="sh-memo"
+      autoFocus
       placeholder="메모"
       maxLength={80}
       value={v}
       onChange={(e) => setV(e.target.value)}
-      onBlur={() => v.trim() !== (value ?? '') && onSave(v.trim())}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      onBlur={() => {
+        if (v.trim() !== (value ?? '')) onSave(v.trim());
+        setOpen(false);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        if (e.key === 'Escape') setOpen(false);
+      }}
     />
   );
 }

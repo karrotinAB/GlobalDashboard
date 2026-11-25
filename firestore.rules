@@ -40,6 +40,14 @@ service cloud.firestore {
     function isTeam() { return signedIn() && (role() in ['admin', 'member'] || isAuditor()); }
     function isAdmin() { return signedIn() && (role() == 'admin' || isAuditor()); }
     function isTrade() { return signedIn() && role() == 'trade'; }
+    // 무역사무 › 출고 관리: 각 조 주문에서 출고 관리 칸(ship · shipDate · 묶음의 ship · shipDate)만 고침
+    function tradeShipOnly() {
+      let ks = request.resource.data.diff(resource.data).affectedKeys();
+      return ks.hasOnly(['ship', 'shipDate', 'bundle'])
+        && (!ks.hasAny(['bundle'])
+            || (resource.data.get('bundle', null) is map && request.resource.data.get('bundle', null) is map
+                && request.resource.data.bundle.diff(resource.data.bundle).affectedKeys().hasOnly(['ship', 'shipDate'])));
+    }
     function isAny() { return signedIn() && (role() in ['admin', 'member', 'trade', 'lead', 'director'] || isAuditor()); }
 
     // 컬렉션 이름 → 조 / 원래 이름
@@ -325,6 +333,9 @@ service cloud.firestore {
 
       allow create, delete: if teamCol(col) && baseOf(col) != 'config'
         && (inTeam(col) || (isTrade() && col == 'attendance'));
+
+      // 무역사무: 1~3조 주문의 출고 관리 칸만 (출고 관리 페이지)
+      allow update: if teamCol(col) && baseOf(col) == 'orders' && teamTag(col).matches('t[0-9]+') && isTrade() && tradeShipOnly();
 
       // 담당자 카드: 말풍선(status)·시계(clocks)는 카드 주인(email)만, 캐릭터는 주인 또는 관리자
       // 카드 주인 이메일: 관리자는 언제나, 본인은 '주인 없는 카드'를 자기 이메일로 연결할 때만 ("이 카드가 나예요")

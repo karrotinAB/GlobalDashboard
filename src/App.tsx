@@ -7,6 +7,7 @@ const Trip = lazyPage(() => import('./pages/Trip'));
 const Contracts = lazyPage(() => import('./pages/Contracts'));
 const Calendar = lazyPage(() => import('./pages/Calendar'));
 const Shipping = lazyPage(() => import('./pages/Shipping'));
+const TradeShipping = lazyPage(() => import('./pages/TradeShipping'));
 const Import = lazyPage(() => import('./pages/Import'));
 const Reports = lazyPage(() => import('./pages/Reports'));
 const Settings = lazyPage(() => import('./pages/Settings'));
@@ -52,6 +53,7 @@ const PAGES = [
   { key: 'thome', label: '홈', icon: 'jelly' },
   { key: 'twork', label: '업무', icon: '📋' },
   { key: 'tmemo', label: '업체 메모', icon: '📝' },
+  { key: 'tship', label: '출고 관리', icon: '🚚' },
   { key: 'texport', label: '수출매출', icon: '🚢' },
   { key: 'treports', label: '보고방', icon: '📑' },
   { key: 'translate', label: '제품번역', icon: '🌐' },
@@ -65,7 +67,7 @@ type PageKey = (typeof PAGES)[number]['key'] | 'import';
 const GOP_URL = 'https://karrotinab.github.io/Global-Opening-Prep/';
 // 달력은 탭이 아니라 홈 제목 줄 오른쪽 버튼으로 (#/calendar)
 const TEAM_TABS: PageKey[] = ['home', 'todos', 'orders', 'shipping', 'claims'];
-const TRADE_TABS: PageKey[] = ['thome', 'twork', 'tmemo'];
+const TRADE_TABS: PageKey[] = ['thome', 'twork', 'tmemo', 'tship'];
 const isTradePage = (p: PageKey) => TRADE_TABS.includes(p) || p === 'texport' || p === 'treports';
 
 function readHash(): PageKey {
@@ -374,6 +376,8 @@ export default function App() {
             <TradeHome />
           ) : page === 'twork' ? (
             <RequestBoard key="trade" side="trade" />
+          ) : page === 'tship' ? (
+            <TradeShipping />
           ) : page === 'tmemo' ? (
             <TradeMemo />
           ) : page === 'texport' ? (

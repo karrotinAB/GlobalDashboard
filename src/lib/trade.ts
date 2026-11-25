@@ -149,6 +149,16 @@ export async function uploadRequestFile(reqId: string, file: File): Promise<Requ
   return { name, url: await getDownloadURL(r), path };
 }
 
+/** 출고 관리 단계별 파일 (ship/{묶음}/…) */
+export async function uploadShipFile(folder: string, file: File): Promise<RequestFile> {
+  if (DATA_MODE === 'local') return uploadRequestFile(`ship-${folder}`, file);
+  const name = file.name || `사진-${uid()}.png`;
+  const path = `ship/${folder}/${Date.now()}-${name.replace(/[^\w.\-가-힣]/g, '_')}`;
+  const r = storageRef(storage, path);
+  await uploadBytes(r, file);
+  return { name, url: await getDownloadURL(r), path };
+}
+
 export async function deleteRequestFile(f: RequestFile) {
   if (f.path) await deleteObject(storageRef(storage, f.path)).catch(() => {});
 }

@@ -20,6 +20,12 @@ service firebase.storage {
       allow delete: if isAny() && notAuditor();
       allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
     }
+    // 출고 관리 단계별 파일 (무역사무가 올리고 조원도 봄)
+    match /ship/{folder}/{file} {
+      allow read: if isAny();
+      allow delete: if isAny() && notAuditor();
+      allow create: if isAny() && request.resource.size < 20 * 1024 * 1024;
+    }
     // 보고방 사진·파일 (조원 · 팀장님 · 이사님 · 관리자)
     match /reports/{reportId}/{file} {
       allow read: if isAny();
