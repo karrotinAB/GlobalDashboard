@@ -68,6 +68,24 @@ export async function setDictTags(e: DictEntry, tags: string[]) {
   await setDoc(doc(db, 'dict', e.id), { tags }, { merge: true });
 }
 
+/** 구분 칸 지우기: 구분 없는 단어로 옮김 (같은 한글 단어가 이미 있으면 건드리지 않음 → false) */
+export async function untypeDict(e: DictEntry, all: DictEntry[]): Promise<boolean> {
+  if (!e.type) return true;
+  if (all.some((x) => x.id !== e.id && x.ko.trim() === e.ko.trim() && (!x.type || x.type !== e.type))) return false;
+  const id = dictId(e.ko);
+  const { type: _t, id: _old, ...rest } = e;
+  void _t;
+  void _old;
+  const at = new Date().toISOString();
+  if (DATA_MODE === 'local') {
+    writeLocal([...readLocal().filter((x) => x.id !== e.id && x.id !== id), { ...rest, id, at }]);
+    return true;
+  }
+  await setDoc(doc(db, 'dict', id), { ...JSON.parse(JSON.stringify(rest)), at });
+  await deleteDoc(doc(db, 'dict', e.id));
+  return true;
+}
+
 export async function deleteDict(id: string) {
   if (DATA_MODE === 'local') return writeLocal(readLocal().filter((e) => e.id !== id));
   await deleteDoc(doc(db, 'dict', id));

@@ -37,7 +37,7 @@ import { useAccess } from '../components/AuthGate';
 import { today } from '../lib/date';
 import { loadMissingNow, recheckMissingNow, rowKeyOf, useSkuMissing, type MissingMeta } from '../lib/skuMissing';
 import { seasonOfCode, syncSkuNow, useSku, useSkuMeta, useSkuPaths, useSkuSeason, type SkuMeta } from '../lib/sku';
-import { deleteDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry } from '../lib/dict';
+import { deleteDict, untypeDict, isPattern, saveDict, setDictTags, translate, useDict, type DictEntry } from '../lib/dict';
 import { catKey, catLabel, gramsOf, makeRecommender, NO_CAT, saveCategories, savePicks, deletePicks, useCatPicks, useCategories, type Cat, type CatPick } from '../lib/categories';
 
 type Tab = 'translate' | 'dict' | 'cats';
@@ -704,12 +704,15 @@ function DictTab() {
     setKo('');
     setEn('');
   };
+  const [untyping, setUntyping] = useState(false);
   // 엑셀로 한꺼번에: 첫 칸 한글 · 둘째 칸 영어
   const bulk = async (f: File) => {
     const XLSX = await import('xlsx');
     const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
     const aoa = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
-    const rows = aoa.map((r) => ({ ko: String(r[0] ?? '').trim(), en: String(r[1] ?? '').trim(), type: String(r[2] ?? '').trim() })).filter((r) => /[가-힣]/.test(r.ko) && r.en);
+    // 셋째 칸은 구분(상품 · 제품 같은 짧은 말)일 때만 — 메모 같은 긴 글은 구분으로 안 넣음
+    const typeOk = (t: string) => t.length <= 8 && !/\s/.test(t);
+    const rows = aoa.map((r) => ({ ko: String(r[0] ?? '').trim(), en: String(r[1] ?? '').trim(), type: typeOk(String(r[2] ?? '').trim()) ? String(r[2] ?? '').trim() : '' })).filter((r) => /[가-힣]/.test(r.ko) && r.en);
     if (!rows.length) return setMsg('넣을 단어를 못 찾았어요 (첫 칸 한글, 둘째 칸 영어, 셋째 칸 구분은 선택)');
     await saveDict(rows, accountName ?? email);
     setMsg(`${rows.length}개 단어를 사전에 넣었어요 ✓`);
@@ -728,6 +731,37 @@ function DictTab() {
         </button>
       </div>
       {msg && <p className="small">{msg}</p>}
+      {(() => {
+        const typed = (list ?? []).filter((e) => e.type);
+        if (!typed.length) return null;
+        return (
+          <p className="small tr-untype">
+            구분이 들어간 단어 {typed.length}개{' '}
+            <button
+              className="link"
+              disabled={untyping}
+              onClick={async () => {
+                if (!confirm(`구분이 들어간 단어 ${typed.length}개의 구분 칸을 모두 지울까요?\n(지우면 모든 제품에 그 영어로 번역돼요. 같은 한글 단어가 이미 있는 건 그대로 둬요)`)) return;
+                setUntyping(true);
+                const kept: string[] = [];
+                let n = 0;
+                for (const e of typed) {
+                  try {
+                    if (await untypeDict(e, list ?? [])) n++;
+                    else kept.push(`${e.ko}(${e.type})`);
+                  } catch {
+                    kept.push(`${e.ko}(${e.type})`);
+                  }
+                }
+                setUntyping(false);
+                setMsg(`구분 칸 ${n}개 지웠어요 ✓${kept.length ? ` · 같은 한글 단어가 따로 있어서 그대로 둔 것 ${kept.length}개: ${kept.slice(0, 10).join(', ')}${kept.length > 10 ? ' …' : ''}` : ''}`);
+              }}
+            >
+              {untyping ? '지우는 중…' : '구분 칸 모두 지우기'}
+            </button>
+          </p>
+        );
+      })()}
       <p className="muted small" style={{ marginTop: 0 }}>
         <b>구분</b>을 고르면 그 구분 제품에만 써요. 예: <code>오토</code> → 상품이면 <code>auto</code>, 제품이면 <code>Otto</code> (구분 없는 단어는 모두에게) ·{' '}
         숫자가 들어간 단어는 <b>틀</b>로 번역해요. 예: <code>0호0합</code> → <code>No.0 0-Ply</code> 로 넣으면 3호5합 → No.3 5-Ply, 12호 2합 → No.12 2-Ply (숫자는 차례대로 옮겨져요)
