@@ -257,6 +257,9 @@ function TranslateTab() {
   // 수출 분류: 분류표 · 고른 기록 · 이 파일에서 이미 채워진 줄로 추천
   const picks = useCatPicks();
   const catByKey = useMemo(() => new Map((cats ?? []).map((c) => [catKey(c), c])), [cats]);
+  // 코드 모양이 달라도 (01 · 1 · 001) 같은 분류로
+  const catByNum = useMemo(() => new Map((cats ?? []).map((c) => [`${Number(c.mainCode)}-${Number(c.subCode)}`, c])), [cats]);
+  const catOfCodes = (m: string, sub: string) => (m && sub ? catByKey.get(`${m}-${sub}`) ?? catByNum.get(`${Number(m)}-${Number(sub)}`) : undefined);
   const catGroups = useMemo(() => {
     const g = new Map<string, Cat[]>();
     for (const c of cats ?? []) g.set(`${c.mainCode} ${c.mainName}`, [...(g.get(`${c.mainCode} ${c.mainName}`) ?? []), c]);
@@ -272,12 +275,16 @@ function TranslateTab() {
   const skuPaths = useSkuPaths();
   const pathOf = (code?: string) => (code && skuPaths ? skuPaths.get(code.trim()) : undefined);
   const recommend = useMemo(() => {
+    // 이 파일에서 분류 칸이 다 채워진 줄만 예시로 (코드만 있고 이름이 빈 줄은 자기 자신을 추천해서 빼요) · 분류표에 있는 분류만
     const inFile = view
-      .filter((v) => v.ko && cell(v.row, 'mainCode') && cell(v.row, 'subCode'))
-      .map((v) => ({ ko: v.ko, cat: `${cell(v.row, 'mainCode')}-${cell(v.row, 'subCode')}`, season: v.season, pre: preOf(v), path: pathOf(cell(v.row, 'code')) }));
-    return makeRecommender([...inFile, ...picks.map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre, path: pathOf(p.code) }))]);
+      .filter((v) => v.ko && !catCols.some((t) => v.empty.includes(t.key)))
+      .map((v) => ({ v, c: catOfCodes(cell(v.row, 'mainCode'), cell(v.row, 'subCode')) }))
+      .filter((x) => x.c)
+      .map(({ v, c }) => ({ ko: v.ko, cat: catKey(c!), season: v.season, pre: preOf(v), path: pathOf(cell(v.row, 'code')) }));
+    const known = (k: string) => k === NO_CAT || catByKey.has(k);
+    return makeRecommender([...inFile, ...picks.filter((p) => known(p.cat)).map((p) => ({ ko: p.ko, cat: p.cat, season: seasonOfCode(seasonSet, p.code), pre: p.pre, path: pathOf(p.code) }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, picks, seasonSet, skuPaths]);
+  }, [view, picks, seasonSet, skuPaths, catByKey]);
   const [catSel, setCatSel] = useKept<Record<number, string>>('catSel', {}); // 줄 → 고른 분류
   const needCat = (v: (typeof view)[number]) => catCols.some((t) => v.empty.includes(t.key));
   const sugCache = useMemo(() => new Map<number, ReturnType<typeof recommend>>(), [recommend]);
@@ -289,6 +296,9 @@ function TranslateTab() {
   // 같은 제품명으로 고른 적 있으면 바로 그 분류
   const chosen = (v: (typeof view)[number]) => {
     if (catSel[v.row.r] !== undefined) return catSel[v.row.r];
+    // 수출 대/중분류 코드는 있고 이름만 빈 줄: 분류표에서 그 코드 그대로 (이름 · 영문명만 채움)
+    const byCode = catOfCodes(cell(v.row, 'mainCode'), cell(v.row, 'subCode'));
+    if (byCode) return catKey(byCode);
     const sg = sugOf(v);
     return sg?.exact && (catByKey.has(sg.cat) || sg.cat === NO_CAT) ? sg.cat : '';
   };
@@ -610,6 +620,11 @@ function TranslateTab() {
                               return (
                                 <>
                                   <CatPicker value={val} cur={catByKey.get(val)} groups={catGroups} disabled={!cats?.length} onPick={(k) => pickCat(v, k)} />
+                                  {!val && cell(v.row, 'mainCode') && cell(v.row, 'subCode') && (
+                                    <div className="warn small" title="이 줄의 수출 대/중분류 코드가 분류 탭의 분류표에 없어요">
+                                      코드 {cell(v.row, 'mainCode')}-{cell(v.row, 'subCode')} 이 분류표에 없어요
+                                    </div>
+                                  )}
                                   {sc && (
                                     <button className="tr-sug" onClick={() => pickCat(v, sg!.cat)} title={`비슷한 제품: ${sg!.like}`}>
                                       추천: {catLabel(sc)} <span className="muted">· 비슷: {sg!.like.length > 18 ? `${sg!.like.slice(0, 18)}…` : sg!.like}</span>
