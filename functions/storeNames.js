@@ -1,6 +1,6 @@
 // 매장명: 회사 API getpartnerinfo.asp?STORE_ID= 의 STORE_NAME → storeNames/{STORE_ID} = { name, at }
 //   주문 관리에서 '주문 이름을 매장명으로' 를 켠 업체의 주문 이름에 씀. 한 번 찾은 매장은 다시 안 물음
-//   회사 API 제한 (1분 30번) → 부를 때마다 2.1초 이상 쉼 · 한 번에 최대 25곳
+//   회사 API 제한 (1분 30번) → 부를 때마다 2.1초 이상 쉼 · 4자리 점포코드로 한 번에 (하위 매장 전부) · 한 번에 최대 25개 점포코드
 import { call, exCfg, flat, listOf } from './skuMissing.js';
 import { RateLimited } from './sku.js';
 
@@ -34,12 +34,30 @@ export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sle
   let asked = 0;
   let stopped = '';
   const results = [];
-  for (const id of todo.slice(0, MAX)) {
+  // 4자리(점포코드)로 한 번 부르면 하위 매장이 다 옴 (IT실 안내) → 같은 4자리 매장들은 한 번에
+  const groups = new Map();
+  for (const id of todo) {
+    const g = /^\d{6}$/.test(id) ? id.slice(0, 4) : id;
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(id);
+  }
+  const nameIn = (row) => {
+    const f = flat(row);
+    const k = Object.keys(f).find((x) => /storename$|^storenm$/.test(x));
+    return k ? String(f[k] ?? '').trim() : '';
+  };
+  const idIn = (row) => {
+    const f = flat(row);
+    const k = Object.keys(f).find((x) => /^storeid$/.test(x));
+    return k ? String(f[k] ?? '').trim() : '';
+  };
+  let doneIds = 0;
+  for (const [g, ids] of [...groups].slice(0, MAX)) {
     let body;
     try {
       for (;;) {
         try {
-          body = await call(url, cfgs[ki], { STORE_ID: id }, fetchImpl, wait, last);
+          body = await call(url, cfgs[ki], { STORE_ID: g }, fetchImpl, wait, last);
           break;
         } catch (e) {
           // 키가 안 맞으면 다음 키로 (맞는 키를 찾으면 그 뒤 매장도 그 키로)
@@ -52,18 +70,23 @@ export async function lookupStoreNames(db, ids0, { fetchImpl = fetch, wait = sle
       }
     } catch (e) {
       stopped = e instanceof RateLimited ? e.message : `오류: ${e.message}${/API 40[13]/.test(e.message) ? ` — 키 ${cfgs.length}개(${cfgs.length > 1 ? 'ERP · 제품' : '하나'}) 모두 안 맞아요` : ''}`;
-      results.push({ id, name: '', error: stopped });
+      results.push({ id: g, name: '', error: stopped });
       break;
     }
     asked++;
     const rows = listOf(body);
-    const f = flat(rows[0] ?? body);
-    const k = Object.keys(f).find((x) => /storename$|^storenm$/.test(x));
-    const name = k ? String(f[k] ?? '').trim() : '';
-    // 못 찾아도 적어 둠 (빈 이름) → 다시 안 물음
-    await db.doc(`storeNames/${id}`).set({ name, at: new Date().toISOString() });
-    if (name) found++;
-    results.push({ id, name, raw: JSON.stringify(body).slice(0, 300) });
+    const byId = new Map(rows.map((r) => [idIn(r), nameIn(r)]));
+    const at = new Date().toISOString();
+    // 같이 온 하위 매장 이름도 적어 둠 (다음에 그 매장 주문이 들어와도 다시 안 물음)
+    for (const [sid, name] of byId) if (sid && name && !ids.includes(sid)) await db.doc(`storeNames/${sid}`).set({ name, at });
+    for (const id of ids) {
+      const name = byId.get(id) ?? (ids.length === 1 && rows.length === 1 && !idIn(rows[0]) ? nameIn(rows[0]) : '');
+      // 못 찾아도 적어 둠 (빈 이름) → 다시 안 물음
+      await db.doc(`storeNames/${id}`).set({ name, at });
+      if (name) found++;
+      results.push({ id, name, raw: JSON.stringify(body).slice(0, 300) });
+      doneIds++;
+    }
   }
-  return { asked, found, left: todo.length - asked, stopped, results };
+  return { asked, found, left: todo.length - doneIds, stopped, results };
 }

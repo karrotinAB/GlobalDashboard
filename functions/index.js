@@ -327,7 +327,7 @@ async function branchesFor(code) {
   const hit = await ref.get();
   if (hit.exists && Object.keys(hit.get('branches') ?? {}).length && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) return hit.get('branches');
   const forms = {};
-  const branches = await branchesOf(code, await apiKey(), { known: Object.keys(hit.get('branches') ?? {}), forms });
+  const branches = await branchesOf(code, await apiKey(), { forms });
   await ref.set({ code, branches, forms, at: new Date().toISOString() });
   return branches;
 }
@@ -552,7 +552,7 @@ export const storeBranches = onCall({ region: REGION, timeoutSeconds: 300 }, asy
       continue;
     }
     const forms = {};
-    const branches = await branchesOf(code, key, { known: Object.keys(hit.get('branches') ?? {}), forms });
+    const branches = await branchesOf(code, key, { forms });
     await ref.set({ code, branches, forms, at: new Date().toISOString() });
     out[code] = branches;
   }
