@@ -1375,8 +1375,8 @@ function useSkuHover() {
   return { bind, card };
 }
 
-/** 제품 이미지 주소: bulk image_dir 이 경로만 오면 (예: /upload/...) 회사 사이트 주소를 앞에 붙임 */
-const imgUrl = (p: string) => (/^https?:\/\//i.test(p) ? p : p.startsWith('//') ? `https:${p}` : `https://artbox.kr${p.startsWith('/') ? '' : '/'}${p}`);
+/** 제품 이미지 주소: bulk image_dir 이 경로만 오면 (예: /upload/...) img.artbox.kr 을 앞에 붙임 (보통은 https://img.artbox.kr/goods/... 전체 주소로 옴) */
+const imgUrl = (p: string) => (/^https?:\/\//i.test(p) ? p : p.startsWith('//') ? `https:${p}` : `https://img.artbox.kr${p.startsWith('/') ? '' : '/'}${p}`);
 
 /** 관리자: 제품 정보 (이미지 · 팀 · 분류) 새로 받기 (그 뒤 새 제품은 엑셀의 빈 제품코드만 자동으로 찾아와요) */
 function SkuSyncBtn() {

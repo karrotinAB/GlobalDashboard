@@ -32,7 +32,7 @@ type Group = {
 };
 type StepKey = 'fx' | 'license' | 'truck' | 'onBoard' | 'closeOut' | 'papers';
 /** 무역사무도 체크하는 단계 (조원은 ON BOARD 까지 모두) */
-const TRADE_STEPS: StepKey[] = ['fx', 'license', 'truck', 'closeOut', 'papers'];
+const TRADE_STEPS: StepKey[] = ['fx', 'license', 'truck', 'onBoard', 'closeOut', 'papers']; // 무역사무도 ON BOARD (조원 칸) 누를 수 있음
 type Mode = 'team' | 'trade';
 
 const dot = (iso?: string) => (iso ? iso.slice(2).replace(/-/g, '.') : '');
@@ -134,7 +134,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
           –
         </span>
       );
-    // 조원: 모든 체크 · 무역사무: 무역사무 단계 (ON BOARD 는 조원만)
+    // 조원 · 무역사무: 모든 단계 체크 (팀장님 · 이사님은 보기만)
     const can = !readOnly && (!trade || TRADE_STEPS.includes(k));
     return can ? (
       <button className={`sh-step ${on ? 'on' : ''}`} title={`${label} ${on ? '완료 (누르면 취소)' : '— 누르면 완료'}`} onClick={() => saveShip(g, { [k]: !on })}>
@@ -293,7 +293,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
           {readOnly
             ? '1~3조에서 출고 승인된 주문을 묶음별로 모아 봐요 (보기만 · 고치는 건 각 조와 무역사무에서).'
             : trade
-            ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 외화정리 · 수출면장 · 배차 · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
+            ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 외화정리 · 수출면장 · 배차 · ON BOARD · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
             : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 붉은 칸(실제 입금 · ON BOARD)은 조원이 쓰는 칸이에요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
         </p>
       </div>
