@@ -7,6 +7,8 @@ import { call } from './sync.js';
 // 지점 약자(LDC 등)가 판매 API 의 BRANCH_ABBR 로 쓰임 → 약자 칸이 따로 있으면 그걸 먼저
 const nameOf = (r) => String(r?.BRANCH_ABBR ?? r?.BRANCH_NAME ?? r?.STORE_NAME ?? r?.STORE_NM ?? '').trim();
 const idOf = (r) => String(r?.STORE_ID ?? '').trim();
+// 수출 형태: EXPORT_FORM_GUBN = '직수출' / '구매확인서'
+const formOf = (r) => String(r?.EXPORT_FORM_GUBN ?? '').trim();
 
 async function safeCall(params, key, fetchImpl) {
   try {
@@ -17,12 +19,16 @@ async function safeCall(params, key, fetchImpl) {
 }
 
 /** 매장코드 4자리 → { STORE_ID: 이름 } */
-export async function branchesOf(code, key, { fetchImpl = fetch, known = [] } = {}) {
+// forms 를 넘기면 { STORE_ID: 수출 형태 } 도 같이 채움
+export async function branchesOf(code, key, { fetchImpl = fetch, known = [], forms } = {}) {
   const out = {};
   const add = (rows, fallbackId) => {
     for (const r of rows) {
       const id = idOf(r) || fallbackId;
-      if (id && id.startsWith(code)) out[id] = nameOf(r) || out[id] || '';
+      if (id && id.startsWith(code)) {
+        out[id] = nameOf(r) || out[id] || '';
+        if (forms && formOf(r)) forms[id] = formOf(r);
+      }
     }
   };
   // 4자리로 부르면 그 매장들이 다 오는 경우

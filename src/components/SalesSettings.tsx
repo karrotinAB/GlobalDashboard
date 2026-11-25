@@ -5,7 +5,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
-import { guessCurrency, SALES_CURRENCIES, useSales, useSalesStatus, useStoreBranches } from '../lib/sales';
+import { companyExportForm, guessCurrency, SALES_CURRENCIES, useSales, useSalesStatus, useStoreBranches, useStoreForms } from '../lib/sales';
 import type { Company } from '../types';
 import { Modal } from './ui';
 
@@ -20,6 +20,18 @@ export function StoreAreaSection() {
   const { months } = useSales(allCodes);
   // 지점 목록·이름: ERP 거래처 정보(BRANCH_NAME). 서버가 7일 보관하니 들어올 때마다 불러도 괜찮음
   const branchNames = useStoreBranches(allCodes);
+  // 수출 형태 (직수출 / 구매확인서): 거래처 정보에서 같이 불러옴 → 업체에 적어 둠. 구매확인서로 처음 잡히면 수출 통화 KRW
+  const forms = useStoreForms(allCodes);
+  const { save: saveCo } = useStore();
+  const formsSig = JSON.stringify(forms);
+  useEffect(() => {
+    for (const c of own) {
+      const f = companyExportForm(c.storeCodes, forms);
+      if (!f || f === c.exportForm) continue;
+      saveCo('companies', { ...c, exportForm: f, ...(f === '구매확인서' ? { exportCurrency: 'KRW' } : c.exportCurrency === 'KRW' && c.exportForm === '구매확인서' ? { exportCurrency: undefined } : {}) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formsSig]);
   const [loading, setLoading] = useState<'' | 'busy' | string>('');
   const codesSig = [...new Set(allCodes)].sort().join(',');
   const loadBranches = (refresh = false) => {
@@ -43,7 +55,7 @@ export function StoreAreaSection() {
       <h2>🏬 매장 설정</h2>
       <p className="muted small">
         <b>판매데이터</b>를 켠 업체만 판매 데이터를 가져오고 홈에 보여요. 지점별 평수를 넣으면 홈 &gt; 업체별 판매 데이터에서 <b>주차별 평당 금액</b>이 회색 선으로 같이 보여요. 지점은 판매 데이터가 들어오면 자동으로 나타나요
-        지점 목록과 이름은 ERP 거래처 정보에서 매장코드 4자리로 시작하는 지점을 자동으로 불러와요 (없으면 지점 코드로 직접 추가).
+        지점 목록과 이름은 ERP 거래처 정보에서 매장코드 4자리로 시작하는 지점을 자동으로 불러와요 (없으면 지점 코드로 직접 추가). 수출 형태(직수출 / 구매확인서)도 같이 불러오고, <b>구매확인서</b> 업체는 수출 통화를 KRW 로 맞춰요 (업체 설정에서 바꿀 수 있어요).
         {DATA_MODE !== 'local' && (
           <>
             {' '}
@@ -70,14 +82,14 @@ export function StoreAreaSection() {
           const seen = new Map<string, string>();
           for (const [sid, name] of Object.entries(branchNames)) if ((c.storeCodes ?? []).some((code) => sid.startsWith(code))) seen.set(sid, name);
           for (const m of months) if ((c.storeCodes ?? []).includes(m.code)) for (const [sid, b] of Object.entries(m.branches)) seen.set(sid, seen.get(sid) || b.name || '');
-          return <CompanyAreas key={c.id} c={c} seen={seen} />;
+          return <CompanyAreas key={c.id} c={c} seen={seen} forms={forms} />;
         })}
       </div>
     </section>
   );
 }
 
-function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
+function CompanyAreas({ c, seen, forms }: { c: Company; seen: Map<string, string>; forms: Record<string, string> }) {
   const { save } = useStore();
   const [adding, setAdding] = useState<string | null>(null); // 지점 직접 추가 (누르면 입력칸)
   const [addArea, setAddArea] = useState('');
@@ -120,6 +132,11 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
             ⚙
           </button>
         </span>
+        {c.exportForm && (
+          <span className={`tag small ${c.exportForm === '구매확인서' ? 'blue' : 'gray'}`} title={`거래처 정보의 수출 형태 · 수출 통화 ${c.exportCurrency || 'USD'}`}>
+            {c.exportForm} · {c.exportCurrency || 'USD'}
+          </span>
+        )}
         <span className="muted small area-codes">
           매장코드 {c.storeCodes!.join(', ')}
           {c.royalty && c.royaltyFrom && ` · 로열티 ${c.royaltyFrom.replace('-', '.')}부터`}
@@ -133,6 +150,7 @@ function CompanyAreas({ c, seen }: { c: Company; seen: Map<string, string> }) {
           <span>
             {/* 판매 데이터를 불러올 때 쓰는 약자: 직접 넣은 게 있으면 그것 (자동 이름은 작게) */}
             <b>{seen.get(sid) || c.storeAbbr?.[sid] || '지점'}</b> <span className="muted small">{sid}</span>
+            {forms[sid] && forms[sid] !== c.exportForm && <span className="tag small gray"> {forms[sid]}</span>}
             {c.storeAbbr?.[sid] && seen.get(sid) && seen.get(sid) !== c.storeAbbr[sid] && <span className="muted small"> (원래 {c.storeAbbr[sid]})</span>}
           </span>
           {c.storeAbbr?.[sid] || editAbbr === sid ? (

@@ -37,6 +37,7 @@ export interface Company {
   memo?: string; // 업체 메모 (주간 할일 화면 업체 이름 옆, 첫 줄만 보임)
   memoUpdatedAt?: string;
   memoUpdatedBy?: string;
+  exportForm?: string; // 수출 형태 (거래처 정보 EXPORT_FORM_GUBN: 직수출 / 구매확인서) — 매장 설정에서 자동. 구매확인서면 수출 통화 기본 KRW
   exportCurrency?: string; // 수출 외화 통화 (없으면 USD). USD 가 아니면 화면에는 USD 로 바꿔서 보여주고 원래 외화는 아래 작게
 }
 

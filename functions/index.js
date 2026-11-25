@@ -326,8 +326,9 @@ async function branchesFor(code) {
   const ref = db.doc(`storeBranches/${code}`);
   const hit = await ref.get();
   if (hit.exists && Object.keys(hit.get('branches') ?? {}).length && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) return hit.get('branches');
-  const branches = await branchesOf(code, await apiKey(), { known: Object.keys(hit.get('branches') ?? {}) });
-  await ref.set({ code, branches, at: new Date().toISOString() });
+  const forms = {};
+  const branches = await branchesOf(code, await apiKey(), { known: Object.keys(hit.get('branches') ?? {}), forms });
+  await ref.set({ code, branches, forms, at: new Date().toISOString() });
   return branches;
 }
 // 설정 › 매장 평수에서 직접 넣은 지점 약자 (STORE_ID → 약자) — 자동으로 불러온 이름보다 먼저
@@ -545,12 +546,14 @@ export const storeBranches = onCall({ region: REGION, timeoutSeconds: 300 }, asy
   for (const code of [...new Set(codes)]) {
     const ref = db.doc(`storeBranches/${code}`);
     const hit = await ref.get();
-    if (!refresh && hit.exists && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) {
+    // forms(수출 형태 직수출/구매확인서)가 없는 예전 보관본은 한 번 다시 불러옴
+    if (!refresh && hit.exists && hit.get('forms') && Date.now() - Date.parse(hit.get('at')) < 7 * 86400000) {
       out[code] = hit.get('branches') ?? {};
       continue;
     }
-    const branches = await branchesOf(code, key, { known: Object.keys(hit.get('branches') ?? {}) });
-    await ref.set({ code, branches, at: new Date().toISOString() });
+    const forms = {};
+    const branches = await branchesOf(code, key, { known: Object.keys(hit.get('branches') ?? {}), forms });
+    await ref.set({ code, branches, forms, at: new Date().toISOString() });
     out[code] = branches;
   }
   return out;

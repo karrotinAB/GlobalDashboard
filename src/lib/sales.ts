@@ -165,6 +165,39 @@ export function useStoreBranches(codes: string[]) {
   return map;
 }
 
+/** 지점별 수출 형태 (거래처 정보 EXPORT_FORM_GUBN: 직수출 / 구매확인서) — storeBranches/{코드}.forms */
+export function useStoreForms(codes: string[]) {
+  const sig = [...new Set(codes)].sort().join(',');
+  const [map, setMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const list = sig ? sig.split(',') : [];
+    if (!list.length || DATA_MODE === 'local') {
+      setMap({});
+      return;
+    }
+    const parts = new Map<string, Record<string, string>>();
+    const unsubs = list.map((code) =>
+      onSnapshot(
+        doc(db, 'storeBranches', code),
+        (d) => {
+          parts.set(code, (d.get('forms') as Record<string, string>) ?? {});
+          setMap(Object.assign({}, ...parts.values()));
+        },
+        () => {},
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [sig]);
+  return map;
+}
+
+/** 업체의 수출 형태: 지점들 중 가장 많은 것 (구매확인서면 수출 통화 기본 KRW) */
+export function companyExportForm(storeCodes: string[] | undefined, forms: Record<string, string>) {
+  const n = new Map<string, number>();
+  for (const [sid, f] of Object.entries(forms)) if (f && (storeCodes ?? []).some((c) => sid.startsWith(c))) n.set(f, (n.get(f) ?? 0) + 1);
+  return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
 /** 대미달러환율 키 (ECOS 731Y002, 현지 통화 / 1달러, 예: MNTPERUSD = 3599): fxRates/{통화}PERUSD_{YYYY-MM} */
 export const perUsdKey = (cur: string) => `${cur}PERUSD`;
 /** ECOS 일별 환율 (원 / 현지통화 1단위): fxRates/{통화}_{YYYY-MM} */

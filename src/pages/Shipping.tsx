@@ -105,8 +105,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
   const hit = (g: Group) =>
     !query || `${g.name} ${companyById.get(g.companyId ?? '')?.name ?? ''} ${g.orders.map((o) => `${o.name} ${o.storeCode ?? ''} ${o.expNo ?? ''}`).join(' ')}`.toLowerCase().includes(query);
   const base = groups.filter((g) => (!co || g.companyId === co) && (!teamF || g.team === teamF) && hit(g));
-  // 완료 = 출고마감 + 결재서류 둘 다 체크 → '완료' 탭으로 넘어감
-  const isDone = (g: Group) => !!g.ship.closeOut && !!g.ship.papers;
+  const isDone = (g: Group) => !!g.ship.papers; // 완료 = 결재서류 체크 → '완료' 탭으로
   const shown = base.filter((g) => (tab === 'all' ? true : tab === 'done' ? isDone(g) : !isDone(g)));
   const coIds = [...new Set(groups.filter((g) => !teamF || g.team === teamF).map((g) => g.companyId).filter((x): x is string => !!x))];
   const teams = [...new Set(groups.map((g) => g.team).filter((x): x is string => !!x))].sort();
@@ -117,8 +116,17 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
     const sd = shipDate !== undefined ? { shipDate: shipDate || undefined } : {};
     void saveOrders(g.bundleId ? g.orders.map((o) => ({ ...o, bundle: { ...o.bundle!, ship, ...sd } })) : [{ ...g.orders[0], ship, ...sd }]);
   };
+  // 구매확인서 업체 (국내 수출 형태): 외화정리 · 수출면장 · ON BOARD 는 없는 단계 → 못 누름
+  const isPurchase = (g: Group) => companyById.get(g.companyId ?? '')?.exportForm === '구매확인서';
+  const NO_PURCHASE: string[] = ['fx', 'license', 'onBoard'];
   const step = (g: Group, k: StepKey, label: string) => {
     const on = !!g.ship[k];
+    if (isPurchase(g) && NO_PURCHASE.includes(k))
+      return (
+        <span className="sh-step na" title={`구매확인서 업체라 ${label}은 없어요`}>
+          –
+        </span>
+      );
     // 조원: 모든 체크 · 무역사무: 무역사무 단계 (ON BOARD 는 조원만)
     const can = !trade || TRADE_STEPS.includes(k);
     return can ? (
@@ -135,6 +143,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
   const clip = (g: Group, k: FileStep) => {
     const n = g.ship.files?.[k]?.length ?? 0;
     if (!trade && !n) return null;
+    if (isPurchase(g) && NO_PURCHASE.includes(k) && !n) return null;
     return (
       <button className={`sh-clip ${n ? 'has' : ''}`} onClick={() => setFiles({ key: g.key, step: k })} title={trade ? '링크 · 사진 · 파일 올리기 / 보기' : '올린 링크 · 사진 · 파일 보기'}>
         📎{n ? n : '+'}
@@ -486,7 +495,8 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders }: 
           const g = groups.find((x) => x.key === calPick);
           if (!g) return null;
           const cur = curOf(g);
-          const stepTxt = (k: StepKey, l: string) => (
+          const stepTxt = (k: StepKey, l: string) =>
+            isPurchase(g) && NO_PURCHASE.includes(k) ? null : (
             <span key={k} className={`sh-pill ${g.ship[k] ? 'on' : ''}`}>
               {g.ship[k] ? '●' : '○'} {l}
             </span>
