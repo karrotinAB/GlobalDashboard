@@ -9213,3 +9213,33 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .auditor-banner { position: sticky; top: 0; z-index: 200; padding: 6px 14px; background: #2f6db5; color: #fff; font-size: 12.5px; text-align: center; line-height: 1.4; }
 .auditor-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 300; padding: 10px 16px; border-radius: 12px; background: #3b2f2f; color: #fff; font-size: 13px; box-shadow: var(--shadow); }
 .plain-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+/* 🚚 출고 관리 */
+.sh-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sh-card { padding: 8px 12px; }
+.sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sh-table th { font-size: 11.5px; color: var(--mut); font-weight: 600; text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sh-table td { padding: 10px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.sh-table .r { text-align: right; }
+.sh-table .sh-c { text-align: center; width: 64px; }
+.sh-row td:first-child { box-shadow: inset 4px 0 0 var(--c); }
+.sh-row.done td { opacity: 0.6; }
+.sh-name { min-width: 300px; }
+.sh-title { all: unset; cursor: pointer; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.sh-title:hover b { color: var(--primary); text-decoration: underline; }
+.sh-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); align-self: center; }
+.sh-dates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-top: 6px; }
+.sh-dates label { display: flex; flex-direction: column; gap: 1px; font-size: 10.5px; color: var(--mut); }
+.sh-dates label.set { color: var(--ink-2); }
+.sh-dates .cell-view { font-size: 12px; color: var(--ink); padding: 2px 4px; border-radius: 6px; background: #faf6f4; }
+.sh-amt { font-weight: 700; white-space: nowrap; }
+.sh-recv { min-width: 170px; }
+.sh-money { display: flex; align-items: center; gap: 4px; }
+.sh-money input { width: 120px; text-align: right; height: 30px; }
+.sh-memo { margin-top: 4px; width: 100%; height: 28px; font-size: 12px; }
+.sh-step { border: 0; background: none; font-size: 18px; line-height: 1; color: #c9b8b4; cursor: pointer; padding: 2px 4px; }
+.sh-step.on { color: #2e7d4f; }
+.sh-out { min-width: 96px; }
+.sh-out .cell-view { font-size: 11.5px; margin-top: 2px; }
+.sh-detail td { background: #fbf6f4; padding: 8px 12px 12px 24px; }
+.sh-table .cell-ph { opacity: 1; visibility: visible; color: #c9b8b4; }

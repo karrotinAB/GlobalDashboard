@@ -95,6 +95,7 @@ export interface Order {
   planKRW?: number; // API 1 예정 금액 (확인용)
   planForeign?: number;
   bundle?: OrderBundle; // 같이 출고되는 묶음
+  ship?: ShipInfo; // 출고 관리 (묶음 아닌 주문)
   sort?: number; // 직접 옮긴 순서 (클수록 위). 없으면 주문일자 순
   createdAt: string;
 }
@@ -104,6 +105,23 @@ export interface OrderBundle {
   color: string;
   name?: string; // 예: 4번째 컨테이너
   shipDate?: string; // 묶음 출고일 (YYYY-MM-DD) — 묶음 머리줄에서 씀
+  ship?: ShipInfo; // 출고 관리 (묶음 안 주문 모두에 같이 저장)
+}
+
+/** 출고 관리: 묶음(또는 묶음 아닌 주문) 하나의 출고 진행 — 관리부출고 날짜는 주문 관리 '출고일'(shipDate) */
+export interface ShipInfo {
+  docCls?: string; // DOC CLS (YYYY-MM-DD)
+  cargoCls?: string; // CARGO CLS
+  etd?: string;
+  eta?: string;
+  received?: number; // 실제 입금 받은 금액 (그 업체 수출 통화)
+  receivedMemo?: string;
+  fx?: boolean; // 외화정리
+  license?: boolean; // 수출면장
+  truck?: boolean; // 배차
+  onBoard?: boolean; // ON BOARD
+  closeOut?: boolean; // 출고마감
+  papers?: boolean; // 결재서류
 }
 
 /** 주문 완료 기준: 출고(마지막 단계)에 체크, 또는 수동으로 완료 처리 */
