@@ -54,8 +54,9 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
   const [co, setCo] = useState('');
   const [teamF, setTeamF] = useState('');
   const [q, setQ] = useState('');
-  const [calPick, setCalPick] = useState<string | null>(null); // 달력에서 누른 묶음 (상세 창)
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [coOpen, setCoOpen] = useState(false); // 업체 칩은 '업체 선택' 을 눌렀을 때만
+  const [kinds, setKinds] = useState<CalKind[]>([]); // 달력: DOC · CARGO · ETD · ETA 골라 보기 (비면 모두)
+  const [calPick, setCalPick] = useState<string | null>(null); // 누른 묶음 (상세 창 — 목록 · 달력 같이)
   const [files, setFiles] = useState<{ key: string; step: FileStep } | null>(null);
   const viewKey = trade ? 'gd:shipView:trade' : 'gd:shipView';
   const [view, setView] = useState<'list' | 'cal'>(() => {
@@ -80,6 +81,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
     const singles: Order[] = [];
     const tagOf = (o: Order) => (o as Order & { team?: string }).team;
     for (const o of orders) {
+      if (o.erpArchive) continue; // ERP 지난 데이터 채우기로 넣은 예전 주문 (다 출고 끝남) — 출고 관리엔 안 넣음
       if (o.bundle) {
         const k = `${tagOf(o) ?? ''}|${o.bundle.id}`;
         byBundle.set(k, [...(byBundle.get(k) ?? []), o]);
@@ -149,7 +151,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                                 ['eta', 'ETA'],
                               ] as const
                             ).map(([k, l]) => (
-                              <label key={k} className={g.ship[k] ? 'set' : ''}>
+                              <div key={k} className={`sh-dl ${g.ship[k] ? 'set' : ''}`}>
                                 {/* ETD · ETA: 이름 바로 옆에 항구 */}
                                 <span className="sh-dl-h">
                                   {l}
@@ -166,7 +168,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                                     ))}
                                 </span>
                                 {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
-                              </label>
+                              </div>
                             ))}
                           </div>
                             <table className="mini-table">
@@ -252,18 +254,42 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
               ))}
             </select>
           )}
-          <input className="search sh-search" placeholder="🔍 묶음 · 주문 · 매장코드 · 업체" value={q} onChange={(e) => setQ(e.target.value)} />
+          {view === 'list' ? (
+            <input className="search sh-search" placeholder="🔍 묶음 · 주문 · 매장코드 · 업체" value={q} onChange={(e) => setQ(e.target.value)} />
+          ) : (
+            <span className="seg sh-kinds" title="달력에 볼 일정 (여러 개 고를 수 있어요)">
+              <button className={!kinds.length ? 'on' : ''} onClick={() => setKinds([])}>
+                전체
+              </button>
+              {(['doc', 'cargo', 'etd', 'eta'] as CalKind[]).map((k) => (
+                <button key={k} className={`k-btn-${k} ${kinds.includes(k) ? 'on' : ''}`} onClick={() => setKinds((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]))}>
+                  {KIND_LABEL[k].replace(' CLS', '')}
+                </button>
+              ))}
+            </span>
+          )}
+          <button className={`sh-co-toggle ${co ? 'set' : ''}`} onClick={() => setCoOpen((v) => !v)}>
+            {co ? (
+              <>
+                <span className="dot" style={{ background: companyById.get(co)?.color }} /> {companyById.get(co)?.name ?? co}
+              </>
+            ) : (
+              '업체 선택'
+            )}{' '}
+            {coOpen ? '▴' : '▾'}
+          </button>
         </div>
         {/* 업체 고르기: 주문 관리처럼 칩 (전체도 볼 수 있음) */}
+        {coOpen && (
         <div className="company-chips sh-cos">
-          <button className={`cchip ${!co ? 'on' : ''}`} onClick={() => setCo('')}>
+          <button className={`cchip ${!co ? 'on' : ''}`} onClick={() => (setCo(''), setCoOpen(false))}>
             업체 전체 <span className="cchip-n">{groups.filter((g) => (!teamF || g.team === teamF) && !g.ship.closeOut).length}</span>
           </button>
           {coIds.map((id) => {
             const c = companyById.get(id);
             const n = groups.filter((g) => g.companyId === id && (!teamF || g.team === teamF) && !g.ship.closeOut).length;
             return (
-              <button key={id} className={`cchip ${co === id ? 'on' : ''}`} style={{ '--c': c?.color ?? '#999' } as CSSProperties} onClick={() => setCo(co === id ? '' : id)} title={co === id ? '다시 누르면 업체 전체' : '이 업체만'}>
+              <button key={id} className={`cchip ${co === id ? 'on' : ''}`} style={{ '--c': c?.color ?? '#999' } as CSSProperties} onClick={() => (setCo(co === id ? '' : id), setCoOpen(false))} title={co === id ? '다시 누르면 업체 전체' : '이 업체만'}>
                 <span className="dot" style={{ background: c?.color }} />
                 {c?.name ?? id}
                 <span className="cchip-n">{n}</span>
@@ -272,6 +298,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
             );
           })}
         </div>
+        )}
       </div>
 
       {view === 'cal' ? (
@@ -280,6 +307,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
           coName={(id) => (companyById.get(id ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')}
           onLabel={(g, label) => saveShip(g, { calLabel: label || undefined })}
           onOpen={(g) => setCalPick(g.key)}
+          kinds={kinds}
         />
       ) : (
       <div className="card sh-card">
@@ -304,18 +332,17 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
               </thead>
               <tbody>
                 {shown.map((g) => {
-                  const open = openKey === g.key;
                   const cur = curOf(g);
                   return (
                     <Fragment key={g.key}>
                       <tr className={`sh-row ${g.ship.closeOut ? 'done' : ''}`} style={{ '--c': g.color ?? companyById.get(g.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties}>
                         <td className="sh-name">
-                          <button className="sh-title" onClick={() => setOpenKey(open ? null : g.key)} title="안의 주문 보기">
+                          <button className="sh-title" onClick={() => setCalPick(g.key)} title="눌러서 상세 (출고 일정 · 안의 주문)">
                             <span className="sh-dot" />
                             {g.team && <span className="sh-team">{g.team}조</span>}
                             <b>{g.name}</b>
                             <span className="muted small">
-                              {companyById.get(g.companyId ?? '')?.name ?? ''} · 주문 {g.orders.length}개{g.approved.length < g.orders.length ? ` (승인 ${g.approved.length})` : ''} {open ? '▴' : '▾'}
+                              {companyById.get(g.companyId ?? '')?.name ?? ''} · 주문 {g.orders.length}개{g.approved.length < g.orders.length ? ` (승인 ${g.approved.length})` : ''} ›
                             </span>
                           </button>
                           {/* 출고 일정은 묶음을 눌러 상세에서 써요 — 여기엔 적힌 것만 짧게 */}
@@ -376,13 +403,6 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                           {clip(g, 'papers')}
                         </td>
                       </tr>
-                      {open && (
-                        <tr className="sh-detail">
-                          <td colSpan={10}>
-                            {detailBody(g)}
-                          </td>
-                        </tr>
-                      )}
                     </Fragment>
                   );
                 })}
@@ -425,18 +445,6 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                   <TextInput value={g.ship.calLabel} placeholder={g.name.slice(0, 5)} onSave={(v) => saveShip(g, { calLabel: v || undefined })} />
                   <span className="muted">비우면 묶음 이름 앞 5글자 · 이 묶음 날짜 모두에 같이 바뀌어요</span>
                 </label>
-                <div className="btn-row" style={{ justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => {
-                      setCalPick(null);
-                      pickView('list');
-                      setTab('all');
-                      setOpenKey(g.key);
-                    }}
-                  >
-                    목록에서 보기
-                  </button>
-                </div>
               </div>
             </Modal>
           );
@@ -533,11 +541,12 @@ function ShipFiles({ title, list, canEdit, folder, onChange, onClose }: { title:
 }
 
 // ───────── 달력: DOC CLS (연두) · CARGO CLS (보라) · ETD / ETA (흰) · 출고 (빨강)
-type CalEv = { date: string; kind: 'doc' | 'cargo' | 'etd' | 'eta' | 'out'; text: string; g: Group };
+type CalKind = 'doc' | 'cargo' | 'etd' | 'eta' | 'out';
+type CalEv = { date: string; kind: CalKind; text: string; g: Group };
 const KIND_LABEL: Record<CalEv['kind'], string> = { doc: 'DOC CLS', cargo: 'CARGO CLS', etd: 'ETD', eta: 'ETA', out: '출고' };
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-function ShipCalendar({ groups, coName, onLabel, onOpen }: { groups: Group[]; coName: (id: string | null) => string; onLabel: (g: Group, label: string) => void; onOpen: (g: Group) => void }) {
+function ShipCalendar({ groups, coName, onLabel, onOpen, kinds }: { groups: Group[]; coName: (id: string | null) => string; onLabel: (g: Group, label: string) => void; onOpen: (g: Group) => void; kinds: CalKind[] }) {
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -548,7 +557,7 @@ function ShipCalendar({ groups, coName, onLabel, onOpen }: { groups: Group[]; co
     const out: CalEv[] = [];
     for (const g of groups) {
       const head = `${coName(g.companyId)}) ${labelOf(g)}`;
-      const add = (date: string | undefined, kind: CalEv['kind'], extra = '') => date && out.push({ date, kind, text: `${head} ${KIND_LABEL[kind]}${extra ? ` ${extra}` : ''}`, g });
+      const add = (date: string | undefined, kind: CalEv['kind'], extra = '') => date && (!kinds.length || kinds.includes(kind)) && out.push({ date, kind, text: `${head} ${KIND_LABEL[kind]}${extra ? ` ${extra}` : ''}`, g });
       add(g.ship.docCls, 'doc');
       add(g.ship.cargoCls, 'cargo');
       add(g.ship.etd, 'etd', g.ship.etdPort);
@@ -558,7 +567,7 @@ function ShipCalendar({ groups, coName, onLabel, onOpen }: { groups: Group[]; co
     const order: CalEv['kind'][] = ['out', 'doc', 'cargo', 'etd', 'eta'];
     return out.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups]);
+  }, [groups, kinds]);
   const byDate = new Map<string, CalEv[]>();
   for (const e of events) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   // 이 달 달력: 일요일부터 6주
@@ -646,7 +655,7 @@ function ShipCalendar({ groups, coName, onLabel, onOpen }: { groups: Group[]; co
         })}
       </div>
       <p className="muted small" style={{ margin: '8px 0 0' }}>
-        일정을 누르면 그 묶음의 주문 상세가 열려요 (달력에 쓰는 이름도 거기서 고쳐요)
+        일정을 누르면 그 묶음의 상세 창이 열려요 (출고 일정 · 안의 주문 · 달력에 쓰는 이름)
       </p>
     </div>
   );
