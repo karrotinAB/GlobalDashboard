@@ -114,6 +114,9 @@ export interface ShipInfo {
   cargoCls?: string; // CARGO CLS
   etd?: string;
   eta?: string;
+  etdPort?: string; // ETD [항구] — 예: Busan
+  etaPort?: string; // ETA [항구] — 예: Xingang
+  calLabel?: string; // 달력에 쓰는 묶음 이름 (없으면 묶음 이름 앞 5글자) — 달력에서 고침
   received?: number; // 실제 입금 받은 금액 (그 업체 수출 통화)
   receivedMemo?: string;
   fx?: boolean; // 외화정리

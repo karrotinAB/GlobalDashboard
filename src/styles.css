@@ -9243,3 +9243,30 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sh-out .cell-view { font-size: 11.5px; margin-top: 2px; }
 .sh-detail td { background: #fbf6f4; padding: 8px 12px 12px 24px; }
 .sh-table .cell-ph { opacity: 1; visibility: visible; color: #c9b8b4; }
+
+.sh-port { margin-top: 3px; height: 24px; font-size: 11.5px; padding: 0 6px; width: 100%; }
+/* 출고 관리 › 달력 */
+.sh-cal { padding: 12px 14px; }
+.sh-cal-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.sh-cal-head b { font-size: 15px; }
+.sh-cal-legend { display: inline-flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; color: var(--ink-2); }
+.sh-cal-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); vertical-align: middle; }
+.sh-cal-nav { margin-left: auto; display: inline-flex; gap: 4px; }
+.sh-cal-nav button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.sh-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.sh-cal-w { text-align: center; font-size: 11.5px; color: var(--mut); padding: 4px 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #faf6f4; }
+.sh-cal-day { min-height: 92px; padding: 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sh-cal-day.weekend { background: #fbf8f6; }
+.sh-cal-day.other { background: #f6f1ef; }
+.sh-cal-day.other .sh-cal-num { color: #c9b8b4; }
+.sh-cal-day.today .sh-cal-num { background: var(--primary); color: #fff; border-radius: 999px; padding: 0 6px; }
+.sh-cal-num { align-self: flex-end; font-size: 11.5px; color: var(--ink-2); }
+.sh-ev { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 100%; font-size: 11.5px; font-weight: 600; line-height: 1.3; padding: 3px 6px; border-radius: 6px; border: 1px solid transparent; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3b2f2f; }
+.sh-ev:hover { filter: brightness(0.96); }
+.k-doc { background: #e3f4d7 !important; border-color: #c4e3ab !important; }
+.k-cargo { background: #ece3f8 !important; border-color: #d3c2ee !important; }
+.k-etd, .k-eta { background: #fff !important; border-color: var(--line) !important; }
+.k-out { background: #fde2e1 !important; border-color: #f4bcb9 !important; }
+.sh-ev-edit { width: 100%; height: 24px; font-size: 11.5px; padding: 0 6px; }
+@media (max-width: 700px) { .sh-cal-day { min-height: 64px; } .sh-ev { font-size: 10px; padding: 2px 4px; } }
+.sh-ev { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
