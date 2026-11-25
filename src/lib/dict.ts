@@ -87,18 +87,16 @@ export async function fixJunkTypes(all: DictEntry[], real: Set<string>, by?: str
     const ens = new Set(junk.map((e) => e.en.trim()));
     const tags = [...new Set([...(plain?.tags ?? []), ...junk.flatMap((e) => e.tags ?? [])])];
     if (plain) {
-      // 구분 없는 단어가 이미 있음: 영어가 같은 건 지우고 (태그는 합침), 다른 건 그대로
-      const same = junk.filter((e) => e.en.trim() === plain.en.trim());
-      same.forEach((e) => del.push(e.id));
-      removed += same.length;
+      // 구분 없는 단어가 이미 있음: 그걸 두고 이상한 구분 단어는 다 지움 (태그는 합침)
+      junk.forEach((e) => del.push(e.id));
+      removed += junk.length;
       if (tags.length !== (plain.tags ?? []).length) put.push({ ...plain, tags });
-      junk.filter((e) => e.en.trim() !== plain.en.trim()).forEach((e) => kept.push(`${ko}(${e.type}: ${e.en})`));
+      junk.filter((e) => e.en.trim() !== plain.en.trim()).forEach((e) => kept.push(`${ko}: ${e.en} → ${plain.en}`));
       continue;
     }
-    if (ens.size > 1) {
-      junk.forEach((e) => kept.push(`${ko}(${e.type}: ${e.en})`));
-      continue;
-    }
+    // 영어가 서로 다르면 가장 최근에 넣은 영어로 하나만 남김
+    junk.sort((x, y) => String(y.at ?? '').localeCompare(String(x.at ?? '')));
+    if (ens.size > 1) junk.slice(1).filter((e) => e.en.trim() !== junk[0].en.trim()).forEach((e) => kept.push(`${ko}: ${e.en} → ${junk[0].en}`));
     const base = junk[0];
     put.push({ id: dictId(ko), ko, en: base.en.trim(), ...(tags.length ? { tags } : {}), ...(base.by ?? by ? { by: base.by ?? by } : {}), at } as DictEntry);
     junk.forEach((e) => del.push(e.id));
