@@ -124,6 +124,8 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
   // 저장: 묶음이면 묶음 안 주문 모두에, 아니면 그 주문에
   const saveShip = (g: Group, patch: Partial<ShipInfo>, shipDate?: string | null) => {
     if (readOnly) return;
+    // ETD 를 바꾸면 ON BOARD 도 같이 (따로 쓴 ON BOARD 날짜는 지우고 새 ETD 를 따라감)
+    if ('etd' in patch && patch.etd !== g.ship.etd && g.ship.onBoardDate) patch = { ...patch, onBoardDate: undefined };
     // 📜 기록: 바뀐 칸마다 한 줄 (누가 · 언제 · 뭘)
     const whats = describe(g, patch, shipDate);
     const at = new Date().toISOString();
@@ -140,6 +142,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
     const old = g.ship as Record<string, unknown>;
     for (const [k, v] of Object.entries(patch) as [keyof ShipInfo, unknown][]) {
       if (k === 'log' || JSON.stringify(old[k] ?? null) === JSON.stringify(v ?? null)) continue;
+      if (k === 'onBoardDate' && 'etd' in patch) continue; // ETD 를 따라 바뀐 건 ETD 줄에 같이 ("ON BOARD 도 같이")
       if (k in STEP_NAME) out.push(`${STEP_NAME[k as StepKey]} ${v ? '✓' : '체크 해제'}`);
       else if (k === 'received') out.push(v === undefined ? '실제 입금 지움' : `실제 입금 ${fmtCur(cur, v as number)}`);
       else if (k === 'receivedMemo') out.push(v ? `입금 메모 "${v}"` : '입금 메모 지움');
@@ -157,7 +160,8 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
         const name = (id: string) => claims.find((c) => c.id === id)?.title ?? '클레임';
         b.filter((x) => !a.includes(x)).forEach((x) => out.push(`🧾 클레임 연결 "${name(x)}"`));
         a.filter((x) => !b.includes(x)).forEach((x) => out.push(`🧾 클레임 끊음 "${name(x)}"`));
-      } else out.push(`${FIELD_NAME[k] ?? k} ${v === undefined || v === '' ? '지움' : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? dotD(String(v)) : String(v)}`);
+      } else if (k === 'etd' && g.ship.onBoardDate) out.push(`ETD ${v ? dotD(String(v)) : '지움'} (ON BOARD 도 같이)`);
+      else out.push(`${FIELD_NAME[k] ?? k} ${v === undefined || v === '' ? '지움' : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? dotD(String(v)) : String(v)}`);
     }
     if (shipDate !== undefined && (shipDate || '') !== (g.shipDate ?? '')) out.push(shipDate ? `관리부출고 ${dotD(shipDate)}` : '관리부출고 날짜 지움');
     return out;
@@ -536,6 +540,16 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                                   ) : (
                                     <DateCell value={d} onSave={(v) => saveShip(g, v ? { onBoardDate: v, onBoard: true } : { onBoardDate: undefined })} />
                                   )}
+                                  {/* 딜레이: ON BOARD − ETD (ETD 는 안 바뀜 · ETD 가 바뀌면 ETD 칸에서) */}
+                                  {d && g.ship.etd && (() => {
+                                    const n = Math.round((Date.parse(d) - Date.parse(g.ship.etd)) / 86400000);
+                                    return (
+                                      <div className={`sh-delay ${n > 0 ? 'late' : ''}`} title="ON BOARD − ETD (ETD 가 바뀐 거면 ETD 칸에서 바꿔 주세요 — ON BOARD 도 같이 바뀌어요)">
+                                        (딜레이 {n >= 0 ? '+' : ''}
+                                        {n}일)
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })()}
