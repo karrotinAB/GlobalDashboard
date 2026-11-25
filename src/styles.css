@@ -9317,3 +9317,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .sh-memo-btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 14px; opacity: 0.45; padding: 0; }
 .sh-memo-btn:hover, .sh-memo-btn.has { opacity: 1; }
 .sh-memo-btn.has { border-color: color-mix(in srgb, var(--primary) 40%, #fff); background: color-mix(in srgb, var(--primary) 6%, #fff); }
+
+/* 출고 관리: 조원이 쓰는 칸 머리 (실제 입금 · ON BOARD) */
+.sh-table th.sh-th-team { background: #fbe4e2; color: #8c2f3c; border-radius: 6px 6px 0 0; }

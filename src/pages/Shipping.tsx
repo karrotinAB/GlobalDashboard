@@ -12,8 +12,8 @@ import { fmtCur, useOrderUsd } from '../lib/sales';
 import { deleteRequestFile, uploadShipFile } from '../lib/trade';
 import type { Company, Order, RequestFile, ShipInfo } from '../types';
 
-type FileStep = 'fx' | 'license' | 'truck' | 'out';
-const FILE_STEP_LABEL: Record<FileStep, string> = { fx: '외화정리', license: '수출면장', truck: '배차', out: '관리부출고' };
+type FileStep = 'fx' | 'license' | 'truck' | 'out' | 'closeOut' | 'papers';
+const FILE_STEP_LABEL: Record<FileStep, string> = { fx: '외화정리', license: '수출면장', truck: '배차', out: '관리부출고', closeOut: '출고마감', papers: '결재서류' };
 
 type Group = {
   key: string;
@@ -28,7 +28,7 @@ type Group = {
   companyId: string | null;
 };
 type StepKey = 'fx' | 'license' | 'truck' | 'onBoard' | 'closeOut' | 'papers';
-/** 무역사무가 체크하는 단계 (조원 화면에서는 보기만) */
+/** 무역사무도 체크하는 단계 (조원은 ON BOARD 까지 모두) */
 const TRADE_STEPS: StepKey[] = ['fx', 'license', 'truck', 'closeOut', 'papers'];
 type Mode = 'team' | 'trade';
 
@@ -114,13 +114,14 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
   };
   const step = (g: Group, k: StepKey, label: string) => {
     const on = !!g.ship[k];
-    const can = trade && TRADE_STEPS.includes(k);
+    // 조원: 모든 체크 · 무역사무: 무역사무 단계 (ON BOARD 는 조원만)
+    const can = !trade || TRADE_STEPS.includes(k);
     return can ? (
       <button className={`sh-step ${on ? 'on' : ''}`} title={`${label} ${on ? '완료 (누르면 취소)' : '— 누르면 완료'}`} onClick={() => saveShip(g, { [k]: !on })}>
         {on ? '●' : '○'}
       </button>
     ) : (
-      <span className={`sh-step ro ${on ? 'on' : ''}`} title={`${label} ${on ? '완료' : '아직'} (무역사무가 체크)`}>
+      <span className={`sh-step ro ${on ? 'on' : ''}`} title={`${label} ${on ? '완료' : '아직'} (조에서 체크)`}>
         {on ? '●' : '○'}
       </span>
     );
@@ -209,7 +210,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
         <p className="muted">
           {trade
             ? '각 조에서 출고 승인된 주문이 묶음별로 들어와요. 외화정리 · 수출면장 · 배차 · 출고마감 · 결재서류를 체크하고, 관리부출고는 날짜를 써요 (그 조 주문 관리 출고일에 같이). 📎 로 단계마다 링크 · 사진 · 파일을 올리면 조원도 봐요.'
-            : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 외화정리 · 수출면장 · 배차 · 출고마감 · 결재서류는 무역사무가 체크해요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
+            : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 붉은 칸(실제 입금 · ON BOARD)은 조원이 쓰는 칸이에요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
         </p>
       </div>
       {/* 맨 위: 목록 · 달력 */}
@@ -291,12 +292,12 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                 <tr>
                   <th className="sh-name-h">묶음 · 출고 일정</th>
                   <th className="r">패킹 승인 금액</th>
-                  <th>실제 입금</th>
+                  <th className="sh-th-team" title="조원이 쓰는 칸">실제 입금</th>
                   <th className="sh-c">외화정리</th>
                   <th className="sh-c">수출면장</th>
                   <th className="sh-c">배차</th>
                   <th className="sh-c">관리부출고</th>
-                  <th className="sh-c">ON BOARD</th>
+                  <th className="sh-c sh-th-team" title="조원이 체크하는 칸">ON BOARD</th>
                   <th className="sh-c">출고마감</th>
                   <th className="sh-c">결재서류</th>
                 </tr>
@@ -364,10 +365,16 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                           {clip(g, 'out')}
                         </td>
                         <td className="sh-c">
-                          <input type="checkbox" checked={!!g.ship.onBoard} disabled={trade} onChange={(e) => saveShip(g, { onBoard: e.target.checked })} title={trade ? 'ON BOARD (조에서 체크)' : 'ON BOARD'} />
+                          {step(g, 'onBoard', 'ON BOARD')}
                         </td>
-                        <td className="sh-c">{step(g, 'closeOut', '출고마감')}</td>
-                        <td className="sh-c">{step(g, 'papers', '결재서류')}</td>
+                        <td className="sh-c">
+                          {step(g, 'closeOut', '출고마감')}
+                          {clip(g, 'closeOut')}
+                        </td>
+                        <td className="sh-c">
+                          {step(g, 'papers', '결재서류')}
+                          {clip(g, 'papers')}
+                        </td>
                       </tr>
                       {open && (
                         <tr className="sh-detail">
