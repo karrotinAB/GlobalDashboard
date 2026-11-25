@@ -423,19 +423,23 @@ function TranslateTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [view, edits, catSel, catByKey],
   );
-  const loadNow = async () => {
+  const loadNow = async (mode?: 'all' | 'default') => {
     setBusy('load');
     // 거르는 기준(서버 skuMissing.js FILTER_VER)이 바뀐 뒤 처음이면 서버가 처음부터 다시 훑음
     const reScan = (mMeta.filterVer ?? 1) < FILTER_VER_CLIENT;
     setMsg(
-      reScan
-        ? '새 기준(재고 100 이하 · 수출제한 01 빼기)으로 처음부터 다시 훑는 중… (몇 분 걸려요)'
+      mode === 'all' && mMeta.mode !== 'all'
+        ? '빈 제품 전체받기: 재고 · 수출 상관없이 처음부터 다시 훑는 중… (몇 분 걸려요 · 다 못 끝나면 다시 누르거나 아침 7시에 이어서)'
+        : mode === 'default'
+          ? '기본으로 돌아가는 중 (재고 100 이하 · 수출 불가는 목록에서 빼요)…'
+          : reScan
+        ? '새 기준으로 처음부터 다시 훑는 중… (몇 분 걸려요)'
         : mMeta.phase === 'inc'
           ? '지난번 등록일 이후 새 제품을 찾는 중…'
           : '전체 제품을 이어서 훑는 중이에요 (회사 API 제한 때문에 몇 분 걸려요)…',
     );
     try {
-      const r = await loadMissingNow();
+      const r = await loadMissingNow(mode);
       setMsg(
         r.busy
           ? '다른 사람이 지금 불러오는 중이에요 — 조금 뒤에 다시 눌러 주세요'
@@ -479,10 +483,46 @@ function TranslateTab() {
               ⬇ 채운 엑셀 받기
             </button>
           )}
+          {(() => {
+            // 빈 제품 전체받기 (재고 · 수출 상관없이 · 일반 대분류 없는 건 빼고) ↔ 기본으로
+            const allBtn =
+              mMeta.mode === 'all' ? (
+                <button disabled={!!busy} onClick={() => confirm('기본으로 돌아갈까요? (재고 100 이하 · 수출 불가 제품은 목록에서 빠져요)') && void loadNow('default')} title="재고 100 이하 · 수출 불가 제품은 다시 빼요">
+                  ↩ 기본으로 (재고 · 수출 거르기)
+                </button>
+              ) : (
+                <button
+                  disabled={!!busy}
+                  onClick={() => confirm('빈 제품을 전부 받을까요?\n재고 · 수출 가능/불가 상관없이 다 들고 와요 (일반 대분류가 없는 제품은 빼요).\n처음부터 다시 훑어서 몇 분 걸리고, 다 못 끝나면 다시 누르거나 아침 7시에 이어서 해요.') && void loadNow('all')}
+                  title="재고 · 수출 가능/불가 상관없이 빈 제품 전부 (일반 대분류 없는 제품만 빼고)"
+                >
+                  📦 빈 제품 전체받기
+                </button>
+              );
+            return isAdmin ? null : (
+              <details className="tr-admin">
+                <summary>옵션 ▾</summary>
+                <div className="tr-admin-pop">{allBtn}</div>
+              </details>
+            );
+          })()}
           {isAdmin && (
             <details className="tr-admin">
               <summary>관리자 ▾</summary>
               <div className="tr-admin-pop">
+                {mMeta.mode === 'all' ? (
+                  <button disabled={!!busy} onClick={() => confirm('기본으로 돌아갈까요? (재고 100 이하 · 수출 불가 제품은 목록에서 빠져요)') && void loadNow('default')} title="재고 100 이하 · 수출 불가 제품은 다시 빼요">
+                    ↩ 기본으로 (재고 · 수출 거르기)
+                  </button>
+                ) : (
+                  <button
+                    disabled={!!busy}
+                    onClick={() => confirm('빈 제품을 전부 받을까요?\n재고 · 수출 가능/불가 상관없이 다 들고 와요 (일반 대분류가 없는 제품은 빼요).\n처음부터 다시 훑어서 몇 분 걸리고, 다 못 끝나면 다시 누르거나 아침 7시에 이어서 해요.') && void loadNow('all')}
+                    title="재고 · 수출 가능/불가 상관없이 빈 제품 전부 (일반 대분류 없는 제품만 빼고)"
+                  >
+                    📦 빈 제품 전체받기
+                  </button>
+                )}
                 <SkuSyncBtn />
                 <ApiCheck meta={mMeta} />
                 {sheet && sheet.rows.length > 0 && (
@@ -497,7 +537,7 @@ function TranslateTab() {
         {/* 2줄: 지금 상태 (조용히) */}
         {sheet ? (
           <div className="tr-up-status muted small">
-            빈 제품 <b>{sheet.rows.length.toLocaleString()}개</b> · 영문 제품명 빈 것 {needEn.length.toLocaleString()}
+            {mMeta.mode === 'all' && <span className="tag small">전체받기 중</span>} 빈 제품 <b>{sheet.rows.length.toLocaleString()}개</b> · 영문 제품명 빈 것 {needEn.length.toLocaleString()}
             {mMeta.at && ` · 마지막 불러오기 ${fmtAt(mMeta.at)}`}
             {mMeta.nightAt && ` · 아침 자동 ${fmtAt(mMeta.nightAt)}`}
             {mMeta.lastReg && ` · 등록일 ${mMeta.lastReg.slice(0, 10)}까지 봄`}
@@ -1720,7 +1760,7 @@ function skuStatus(m: SkuMeta) {
 
 /** 없는거 불러오기 진행 상황: 도는 중 / 멈춤(몇 %, 언제 이어지는지) / 다 훑음 */
 /** 서버 functions/skuMissing.js 의 FILTER_VER 와 같게 (기준이 바뀌면 둘 다 올림) */
-const FILTER_VER_CLIENT = 3;
+const FILTER_VER_CLIENT = 6;
 
 function ScanProgress({ meta, total, busy }: { meta: MissingMeta; total: number; busy: boolean }) {
   const [, tick] = useState(0);

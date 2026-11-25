@@ -745,7 +745,9 @@ const dashRole = async (req) => {
 export const skuMissingLoad = onCall({ ...skuOpts }, async (req) => {
   await dashRole(req);
   try {
-    return await loadMissing(db);
+    // mode: 'all' = 빈 제품 전체받기 (재고 · 수출 상관없이) · 'default' = 기본으로 · 없으면 지난번 그대로
+    const mode = req.data?.mode === 'all' || req.data?.mode === 'default' ? req.data.mode : undefined;
+    return await loadMissing(db, { mode });
   } catch (e) {
     throw new HttpsError('failed-precondition', e.message);
   }

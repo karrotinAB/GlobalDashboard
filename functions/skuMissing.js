@@ -93,6 +93,11 @@ export function rowOf(raw) {
     reg: pick(f, /^(sku)?regdate$|^regdt$|regdate$/),
     qty: pick(f, /^physicalqty$|physicalqty$/), // 실재고
     exp: pick(f, /^exportyn$|exportyn$|^export(gb|gubun|div|type)(cd|code)?$/), // 수출 가능 여부 · 수출구분
+    // 일반 대분류 (category_lrg_code): 비어 있으면 바코드도 없는 제품 → 목록에 안 넣음. 칸이 아예 없으면 '-'
+    gen: (() => {
+      const k = Object.keys(f).find((x) => /^categor(y)?(lrg|large)(code|cd)$/.test(x));
+      return k ? str(f[k]) : '-';
+    })(),
   };
 }
 /** 제품 정보 (번역 화면 마우스 올리면 · 시즌 구분): category_team_name · category_lrg_name · category_midd_name (+ 소분류 · 이미지 칸이 있으면) */
@@ -121,9 +126,13 @@ export const isExcluded = (r) => {
   return /제한|불가|금지/.test(e) || /^n$/i.test(e) || e === '01';
 };
 /** 목록에 둘 제품 = 비어 있고 + 거를 것이 아님 */
-const wanted = (r) => isMissing(r) && !isExcluded(r);
+/** 일반 대분류(category_lrg_code)가 빈 제품 — 바코드 없는 제품이라 안 들고 옴 (전체받기에서도) */
+export const noCategory = (r) => r.gen !== undefined && r.gen !== '-' && !str(r.gen);
+/** 목록에 둘 제품: 비어 있고 + 일반 대분류가 있고 + (기본: 재고 100 초과 · 수출 가능만 / 전체받기: 상관없이) */
+const wanted = (r, mode) => isMissing(r) && !noCategory(r) && (mode === 'all' || !isExcluded(r));
 // 거르는 기준이 바뀌면 숫자를 올림 → 다음 불러오기 때 처음부터 다시 훑으며 이미 있는 것도 다시 거름
-const FILTER_VER = 5; // 5: 수출 대/중분류가 비면 일반 대/중분류를 가져오던 것 고침 → 다시 전부 훑기
+const FILTER_VER = 6; // 6: 일반 대분류 빈 제품(바코드 없음) 빼기
+const _OLD5 = 5; // 5: 수출 대/중분류가 비면 일반 대/중분류를 가져오던 것 고침 → 다시 전부 훑기
 const _FV4 = 4; // 2: 재고 100 이하 · 수출제한 글자 / 3: 수출구분 코드 01 도 / 4: 제품 정보(팀 · 분류)도 bulk 에서 같이 받음 → 한 번 전부 훑기
 /** 등록일 비교용 (2026-11-20 · 20261120 · 2026-11-20 13:01:02 → 20261120130102) */
 const regKey = (s) => str(s).replace(/[^\d]/g, '').padEnd(14, '0').slice(0, 14);
@@ -185,12 +194,13 @@ const isShard = (id) => id !== '_meta';
 const isNewShard = (id) => /^h\d{3}$/.test(id);
 /** 저장해 둔 재고 · 수출구분(7 · 8번째 칸)으로 지금 기준에 걸리는 제품을 목록에서 뺌 — 회사 API 다시 안 부름
  *  (기준만 바뀌었을 때 처음부터 다시 훑지 않아도 되게) */
-async function pruneStored(db) {
+async function pruneStored(db, mode) {
   const all = await readList(db);
   const drop = {};
   for (const [code, a] of Object.entries(all)) {
     if (!Array.isArray(a) || a.length < 8) continue; // 재고 · 수출구분을 아직 안 적어 둔 예전 줄 → 다시 훑을 때 거름
-    if (isExcluded({ qty: a[6], exp: a[7] })) drop[code] = null;
+    if (mode !== 'all' && isExcluded({ qty: a[6], exp: a[7] })) drop[code] = null;
+    if (a.length >= 9 && noCategory({ gen: a[8] })) drop[code] = null;
   }
   if (Object.keys(drop).length) await writeChanged(db, drop);
   return Object.keys(drop).length;
@@ -237,12 +247,13 @@ async function writeChanged(db, changes) {
   }
 }
 // 재고 · 수출구분도 같이 적어 둠 → 다음에 거르는 기준이 바뀌어도 목록 안의 제품은 다시 안 불러오고 바로 거를 수 있게
-const packRow = (r) => [r.nick || r.kor, r.type, r.lrg, r.midd, r.eng, r.reg, r.qty ?? '', r.exp ?? ''];
+const packRow = (r) => [r.nick || r.kor, r.type, r.lrg, r.midd, r.eng, r.reg, r.qty ?? '', r.exp ?? '', r.gen ?? '-'];
 
 /**
  * ⬇ 없는거 불러오기. 한 번에 최대 budgetMs (함수 시간 안에서) — 다 못 하면 다음에 이어서 (page 기억)
  */
-export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetMs = 470000, cfgUrl } = {}) {
+// mode: 'default' (재고 100 초과 · 수출 가능만) / 'all' (빈 제품 전체받기 — 재고 · 수출 상관없이). 안 주면 지난번 그대로
+export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetMs = 470000, cfgUrl, mode: mode0 } = {}) {
   const sec = (await db.doc('secrets/sku').get()).data() ?? {};
   const cfg0 = await exCfg(db, sec);
   const cfg = { ...cfg0, bulk: String(sec.bulkUrl ?? cfgUrl ?? BULK).trim() || BULK };
@@ -253,7 +264,8 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   const lockUntil = new Date(Date.now() + budgetMs + 60000).toISOString();
   await metaRef.set({ lockUntil }, { merge: true });
   await migrateShards(db); // 예전 앞 2자리 묶음 → 고르게 나눈 칸
-  const pruned = await pruneStored(db); // 저장된 값으로 바로 거르기 (수출불가능 등)
+  const mode = mode0 === 'all' || mode0 === 'default' ? mode0 : meta.mode === 'all' ? 'all' : 'default';
+  const pruned = await pruneStored(db, mode); // 저장된 값으로 바로 거르기 (수출불가능 등)
   const t0 = Date.now();
   const last = { at: 0 };
   const changes = {};
@@ -269,6 +281,13 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
     m.rescan = true;
     m.rescanVer = FILTER_VER; // 이 기준으로 다시 훑는 중 (중간에 기준이 또 바뀌면 처음부터)
   }
+  // 전체받기 ↔ 기본 을 바꾸면: 기본 → 전체는 빠졌던 제품을 넣어야 해서 처음부터 다시 훑기 (전체 → 기본은 저장된 값으로 바로 거름)
+  if (mode === 'all' && (meta.mode ?? 'default') !== 'all') {
+    m.phase = 'full';
+    m.page = 1;
+    m.rescan = true;
+  }
+  m.mode = mode;
   const isFull = m.phase !== 'inc';
   const known = new Set(Object.keys(await readList(db))); // 이미 목록에 있는 코드 (새로 더한 수만 셈)
   // 확인용: 이번에 본 제품들의 칸 (회사 API 가 어떤 이름 · 값으로 주는지) · 빈 칸 수 · 대분류 값 분포
@@ -328,7 +347,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
         }
         for (const r of list) {
           if (regKey(r.reg) > regKey(m.maxReg)) m.maxReg = r.reg;
-          if (wanted(r)) {
+          if (wanted(r, mode)) {
             if (!known.has(r.code) && !changes[r.code]) added++;
             changes[r.code] = packRow(r);
           } else if (known.has(r.code) && changes[r.code] !== null) {
@@ -372,7 +391,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           const news = list.filter(fresh);
           for (const r of news) {
             if (regKey(r.reg) > regKey(maxReg)) maxReg = r.reg;
-            if (wanted(r)) {
+            if (wanted(r, mode)) {
               if (!known.has(r.code) && !changes[r.code]) added++;
               changes[r.code] = packRow(r);
             } else if (known.has(r.code) && changes[r.code] !== null) {
@@ -395,7 +414,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           scanned += list.length;
           for (const r of list.filter(fresh)) {
             if (regKey(r.reg) > regKey(maxReg)) maxReg = r.reg;
-            if (wanted(r)) {
+            if (wanted(r, mode)) {
               if (!known.has(r.code) && !changes[r.code]) added++;
               changes[r.code] = packRow(r);
             } else if (known.has(r.code) && changes[r.code] !== null) {
@@ -428,7 +447,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   await metaRef.set({ ...out, asc: m.asc ?? 0, desc: m.desc ?? 0 });
   return { added, dropped, scanned, stopped, info: infoCount, ...publicMeta(out) };
 }
-const publicMeta = (m) => ({ phase: m.phase ?? 'full', count: m.count ?? 0, lastReg: m.lastReg ?? '', order: m.order ?? '', page: m.page ?? 1, rescan: !!m.rescan });
+const publicMeta = (m) => ({ mode: m.mode ?? 'default', phase: m.phase ?? 'full', count: m.count ?? 0, lastReg: m.lastReg ?? '', order: m.order ?? '', page: m.page ?? 1, rescan: !!m.rescan });
 
 /** bulk 에서 제품코드 하나 찾기: SKU_CODE (앞자리 일치 검색) → 그중 코드가 같은 줄 */
 async function bulkOne(cfg, code, fetchImpl, wait, last) {
@@ -443,6 +462,7 @@ export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sle
   const cfg0 = await exCfg(db, sec);
   const cfg = { ...cfg0, bulk: String(sec.bulkUrl ?? BULK).trim() || BULK };
   await migrateShards(db);
+  const mode = ((await db.doc(META).get()).data() ?? {}).mode === 'all' ? 'all' : 'default';
   const list = await readList(db);
   const codes = [...new Set(codes0.map(str))].filter((c) => list[c]);
   const t0 = Date.now();
@@ -466,7 +486,7 @@ export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sle
     checked++;
     if (!hit) continue;
     const r = hit.row;
-    if (!wanted(r)) {
+    if (!wanted(r, mode)) {
       changes[code] = null; // 다 채워졌거나, 재고 100 이하 · 수출제한
       removed++;
     } else changes[code] = packRow({ ...r, code });

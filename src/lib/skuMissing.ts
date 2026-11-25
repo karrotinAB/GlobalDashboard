@@ -37,6 +37,7 @@ export interface MissingMeta {
   lastAdded?: number;
   nightAt?: string; // 아침 7시 자동 (하루 한 번)
   nightError?: string;
+  mode?: 'all' | 'default'; // 'all' = 빈 제품 전체받기 (재고 · 수출 상관없이)
   filterVer?: number; // 지금 목록을 거른 기준 번호 (다 훑으면 올라감)
   rescanVer?: number;
   rescan?: boolean; // 거르는 기준이 바뀌어서 처음부터 다시 훑는 중
@@ -69,6 +70,7 @@ export function useSkuMissing(): { list: MissingItem[] | null; meta: MissingMeta
       (snap) => {
         const out: MissingItem[] = [];
         let m: MissingMeta = {};
+        const allMode = (snap.docs.find((d) => d.id === '_meta')?.get('mode') as string | undefined) === 'all';
         snap.docs.forEach((d) => {
           if (d.id === '_meta') {
             m = d.data() as MissingMeta;
@@ -77,7 +79,8 @@ export function useSkuMissing(): { list: MissingItem[] | null; meta: MissingMeta
           try {
             const v = JSON.parse((d.get('data') as string) ?? '{}') as Record<string, string[]>;
             for (const [code, a] of Object.entries(v)) {
-              if (excludedRow(a)) continue; // 재고 100 이하 · 수출 불가 (서버가 다음 불러오기 때 목록에서도 뺌)
+              if (a.length >= 9 && a[8] !== '-' && !String(a[8] ?? '').trim()) continue; // 일반 대분류 없음 (바코드 없는 제품)
+              if (!allMode && excludedRow(a)) continue; // 재고 100 이하 · 수출 불가 (서버가 다음 불러오기 때 목록에서도 뺌) · 전체받기면 다 보임
               out.push({ code, ko: a[0] ?? '', type: a[1] ?? '', lrg: a[2] ?? '', midd: a[3] ?? '', eng: a[4] ?? '', reg: a[5] ?? '' });
             }
           } catch {
@@ -97,9 +100,10 @@ export function useSkuMissing(): { list: MissingItem[] | null; meta: MissingMeta
 
 export type LoadResult = { added: number; dropped?: number; scanned: number; stopped?: string; busy?: boolean; phase: string; count: number; lastReg: string; order: string; page: number };
 /** ⬇ 없는거 불러오기 (처음엔 전부 훑고, 그 뒤엔 지난번 등록일 이후만) */
-export async function loadMissingNow(): Promise<LoadResult> {
+//   mode: 'all' = 빈 제품 전체받기 (재고 · 수출 상관없이) · 'default' = 기본 (재고 100 초과 · 수출 가능만) · 없으면 지난번 그대로
+export async function loadMissingNow(mode?: 'all' | 'default'): Promise<LoadResult> {
   if (DATA_MODE === 'local') return { added: 0, scanned: 0, phase: 'inc', count: DEMO.length, lastReg: '2026-11-20', order: 'asc', page: 1 };
-  return (await httpsCallable(functions, 'skuMissingLoad', { timeout: 560000 })({})).data as LoadResult;
+  return (await httpsCallable(functions, 'skuMissingLoad', { timeout: 560000 })(mode ? { mode } : {})).data as LoadResult;
 }
 /** 🔄 새로고침: 이 코드들만 다시 확인 → 다 채워졌으면 목록에서 빠짐 */
 export async function recheckMissingNow(codes: string[]): Promise<{ checked: number; removed: number; left: number; stopped?: string; count: number }> {
