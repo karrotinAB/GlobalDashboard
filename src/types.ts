@@ -112,6 +112,8 @@ export interface OrderBundle {
 export interface ShipInfo {
   docCls?: string; // DOC CLS (YYYY-MM-DD)
   cargoCls?: string; // CARGO CLS
+  docClsTime?: string; // DOC CLS 시간 (00~23시)
+  cargoClsTime?: string; // CARGO CLS 시간
   etd?: string;
   eta?: string;
   etdPort?: string; // ETD [항구] — 예: Busan

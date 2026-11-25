@@ -167,7 +167,28 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                                       />
                                     ))}
                                 </span>
-                                {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
+                                <span className="sh-dl-v">
+                                  {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
+                                  {/* DOC · CARGO CLS: 시간 (몇 시) */}
+                                  {(k === 'docCls' || k === 'cargoCls') &&
+                                    (trade ? (
+                                      g.ship[k === 'docCls' ? 'docClsTime' : 'cargoClsTime'] && <span className="sh-hour-ro">{g.ship[k === 'docCls' ? 'docClsTime' : 'cargoClsTime']}시</span>
+                                    ) : (
+                                      <select
+                                        className="sh-hour"
+                                        value={g.ship[k === 'docCls' ? 'docClsTime' : 'cargoClsTime'] ?? ''}
+                                        onChange={(e) => saveShip(g, { [k === 'docCls' ? 'docClsTime' : 'cargoClsTime']: e.target.value || undefined })}
+                                        title="몇 시"
+                                      >
+                                        <option value="">시간</option>
+                                        {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map((h) => (
+                                          <option key={h} value={h}>
+                                            {h}시
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ))}
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -370,8 +391,8 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                           {/* 출고 일정은 묶음을 눌러 상세에서 써요 — 여기엔 적힌 것만 짧게 */}
                           {(g.ship.docCls || g.ship.cargoCls || g.ship.etd || g.ship.eta) && (
                             <div className="sh-dates-sum small">
-                              {g.ship.docCls && <span className="k-doc">DOC {dot(g.ship.docCls)}</span>}
-                              {g.ship.cargoCls && <span className="k-cargo">CARGO {dot(g.ship.cargoCls)}</span>}
+                              {g.ship.docCls && <span className="k-doc">DOC {dot(g.ship.docCls)}{g.ship.docClsTime ? ` ${g.ship.docClsTime}시` : ''}</span>}
+                              {g.ship.cargoCls && <span className="k-cargo">CARGO {dot(g.ship.cargoCls)}{g.ship.cargoClsTime ? ` ${g.ship.cargoClsTime}시` : ''}</span>}
                               {g.ship.etd && <span className="k-etd">ETD {dot(g.ship.etd)}{g.ship.etdPort ? ` ${g.ship.etdPort}` : ''}</span>}
                               {g.ship.eta && <span className="k-eta">ETA {dot(g.ship.eta)}{g.ship.etaPort ? ` ${g.ship.etaPort}` : ''}</span>}
                             </div>
@@ -580,8 +601,8 @@ function ShipCalendar({ groups, coName, onLabel, onOpen, kinds }: { groups: Grou
     for (const g of groups) {
       const head = `${coName(g.companyId)}) ${labelOf(g)}`;
       const add = (date: string | undefined, kind: CalEv['kind'], extra = '') => date && (!kinds.length || kinds.includes(kind)) && out.push({ date, kind, text: `${head} ${KIND_LABEL[kind]}${extra ? ` ${extra}` : ''}`, g });
-      add(g.ship.docCls, 'doc');
-      add(g.ship.cargoCls, 'cargo');
+      add(g.ship.docCls, 'doc', g.ship.docClsTime ? `${g.ship.docClsTime}시` : '');
+      add(g.ship.cargoCls, 'cargo', g.ship.cargoClsTime ? `${g.ship.cargoClsTime}시` : '');
       add(g.ship.etd, 'etd', g.ship.etdPort);
       add(g.ship.eta, 'eta', g.ship.etaPort);
       add(g.shipDate, 'out');

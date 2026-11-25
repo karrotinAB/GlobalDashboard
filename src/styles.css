@@ -9334,3 +9334,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 
 .detail-order-link { color: inherit; text-decoration: none; }
 .detail-order-link:hover b { color: var(--primary); text-decoration: underline; }
+
+.sh-dl-v { display: flex; align-items: center; gap: 4px; }
+.sh-dl-v > .cell-view, .sh-dl-v > div { flex: 1; min-width: 0; }
+.sh-hour { width: 64px; height: 26px; font-size: 11.5px; padding: 0 4px; flex: none; }
+.sh-hour-ro { font-size: 11.5px; color: var(--ink-2); }
