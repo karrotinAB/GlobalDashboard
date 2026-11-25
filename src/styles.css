@@ -9331,3 +9331,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* 날짜 칸 묶음: label 이면 누를 때 첫 입력칸(항구)으로 가버려서 div */
 .sh-dates .sh-dl { display: flex; flex-direction: column; gap: 1px; font-size: 10.5px; color: var(--mut); }
 .sh-dates .sh-dl.set { color: var(--ink-2); }
+
+.detail-order-link { color: inherit; text-decoration: none; }
+.detail-order-link:hover b { color: var(--primary); text-decoration: underline; }

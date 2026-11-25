@@ -171,34 +171,56 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                               </div>
                             ))}
                           </div>
-                            <table className="mini-table">
-                              <thead>
-                                <tr>
-                                  <th>주문</th>
-                                  <th>매장코드</th>
-                                  <th>주문일</th>
-                                  <th>출고 승인</th>
-                                  <th className="r">원화</th>
-                                  <th className="r">외화</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {g.orders.map((o) => (
-                                  <tr key={o.id}>
-                                    <td>
-                                      <a href={`#/orders?c=${o.companyId ?? ''}&o=${o.id}`} title="주문 관리에서 보기">
-                                        {o.name}
-                                      </a>
-                                    </td>
-                                    <td>{o.storeCode ?? ''}</td>
-                                    <td>{dot(o.orderDate)}</td>
-                                    <td>{o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : '대기'}</td>
-                                    <td className="r">{o.amountKRW !== undefined ? `₩${Math.round(o.amountKRW).toLocaleString()}` : '-'}</td>
-                                    <td className="r">{o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}</td>
+                            {/* 안의 주문: 클레임 '주문 상세' 와 같은 표 */}
+                            <div className="detail-table-wrap">
+                              <table className="detail-table">
+                                <thead>
+                                  <tr>
+                                    <th>주문</th>
+                                    <th>주문일자</th>
+                                    <th>매장코드</th>
+                                    <th>출고 장소</th>
+                                    <th>패킹 완료일</th>
+                                    <th className="r">원화 금액</th>
+                                    <th className="r">외화 금액</th>
+                                    <th>출고 승인</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {g.orders.map((o) => (
+                                    <tr key={o.id}>
+                                      <td>
+                                        <a className="detail-order-link" href={`#/orders?c=${o.companyId ?? ''}&o=${o.id}`} title="주문 관리에서 보기">
+                                          <b>{o.name}</b>
+                                        </a>
+                                        {o.note && <div className="detail-note">{o.note}</div>}
+                                      </td>
+                                      <td className="nowrap">{o.orderDate?.replace(/-/g, '.') ?? ''}</td>
+                                      <td>{o.storeCode ?? ''}</td>
+                                      <td>{o.shipFrom ?? ''}</td>
+                                      <td>{o.packing ?? ''}</td>
+                                      <td className="r">{o.amountKRW !== undefined ? `₩${Math.round(o.amountKRW).toLocaleString()}` : '-'}</td>
+                                      <td className="r">{o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}</td>
+                                      <td className="nowrap">
+                                        <span className={`tag ${o.outStatus === 'approved' ? 'green' : 'gray'}`}>
+                                          {o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : '대기'}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                {g.orders.length > 1 && (
+                                  <tfoot>
+                                    <tr>
+                                      <td colSpan={5}>합계</td>
+                                      <td className="r">₩{Math.round(g.orders.reduce((a, o) => a + (o.amountKRW ?? 0), 0)).toLocaleString()}</td>
+                                      <td className="r">{fmtCur(fxc.curOf(g.orders[0]), g.orders.reduce((a, o) => a + (o.amountForeign ?? 0), 0))}</td>
+                                      <td />
+                                    </tr>
+                                  </tfoot>
+                                )}
+                              </table>
+                            </div>
     </>
   );
   const curOf = (g: Group) => fxc.curOf(g.orders[0]);
@@ -423,7 +445,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
             </span>
           );
           return (
-            <Modal title={`🚚 ${g.team ? `${g.team}조 · ` : ''}${g.name}`} onClose={() => setCalPick(null)}>
+            <Modal title={`🚚 ${g.team ? `${g.team}조 · ` : ''}${g.name}`} onClose={() => setCalPick(null)} wide>
               <div className="sh-pop">
                 <p className="muted small" style={{ marginTop: 0 }}>
                   {companyById.get(g.companyId ?? '')?.name ?? ''} · 주문 {g.orders.length}개 · 패킹 승인 <b>{fmtCur(cur, packing(g)) || '-'}</b>
