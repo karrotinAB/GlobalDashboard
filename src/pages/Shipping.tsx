@@ -149,18 +149,22 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                               ] as const
                             ).map(([k, l]) => (
                               <label key={k} className={g.ship[k] ? 'set' : ''}>
-                                <span>{l}</span>
+                                {/* ETD · ETA: 이름 바로 옆에 항구 */}
+                                <span className="sh-dl-h">
+                                  {l}
+                                  {(k === 'etd' || k === 'eta') &&
+                                    (trade ? (
+                                      (k === 'etd' ? g.ship.etdPort : g.ship.etaPort) && <span className="sh-port-ro">{k === 'etd' ? g.ship.etdPort : g.ship.etaPort}</span>
+                                    ) : (
+                                      <TextInput
+                                        className="sh-port"
+                                        placeholder="항구"
+                                        value={k === 'etd' ? g.ship.etdPort : g.ship.etaPort}
+                                        onSave={(v) => saveShip(g, k === 'etd' ? { etdPort: v || undefined } : { etaPort: v || undefined })}
+                                      />
+                                    ))}
+                                </span>
                                 {trade ? <div className="cell-view">{g.ship[k] ? g.ship[k]!.replace(/-/g, '.') : '-'}</div> : <DateCell value={g.ship[k]} onSave={(v) => saveShip(g, { [k]: v || undefined })} />}
-                                {(k === 'etd' || k === 'eta') && trade ? (
-                                  (k === 'etd' ? g.ship.etdPort : g.ship.etaPort) && <span className="sh-port-ro">{k === 'etd' ? g.ship.etdPort : g.ship.etaPort}</span>
-                                ) : (k === 'etd' || k === 'eta') && (
-                                  <TextInput
-                                    className="sh-port"
-                                    placeholder="항구"
-                                    value={k === 'etd' ? g.ship.etdPort : g.ship.etaPort}
-                                    onSave={(v) => saveShip(g, k === 'etd' ? { etdPort: v || undefined } : { etaPort: v || undefined })}
-                                  />
-                                )}
                               </label>
                             ))}
                           </div>
@@ -332,8 +336,10 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                             </>
                           ) : (
                             <>
-                              <MoneyInput cur={cur} value={g.ship.received} onSave={(v) => saveShip(g, { received: v })} />
-                              <MemoInput value={g.ship.receivedMemo} onSave={(v) => saveShip(g, { receivedMemo: v || undefined })} />
+                              <div className="sh-money-row">
+                                <MoneyInput cur={cur} value={g.ship.received} onSave={(v) => saveShip(g, { received: v })} />
+                                <MemoInput value={g.ship.receivedMemo} onSave={(v) => saveShip(g, { receivedMemo: v || undefined })} />
+                              </div>
                             </>
                           )}
                         </td>
@@ -687,36 +693,40 @@ function MoneyInput({ cur, value, onSave }: { cur: string; value?: number; onSav
     </span>
   );
 }
-/** 짧은 메모: 평소엔 '+ 메모' 만 · 누르면 칸 · 적은 건 글자로 (누르면 고침) */
+/** 짧은 메모: 입금액 옆 📝 아이콘 · 누르면 칸 · 적은 메모는 아래 작은 글자 (누르면 고침) */
 function MemoInput({ value, onSave }: { value?: string; onSave: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [v, setV] = useState(value ?? '');
-  if (!open)
-    return value ? (
-      <button className="sh-memo-view" onClick={() => (setV(value), setOpen(true))} title="눌러서 메모 고치기">
-        📝 {value}
-      </button>
-    ) : (
-      <button className="link small sh-memo-add" onClick={() => (setV(''), setOpen(true))}>
-        + 메모
-      </button>
-    );
+  const start = () => (setV(value ?? ''), setOpen(true));
   return (
-    <input
-      className="sh-memo"
-      autoFocus
-      placeholder="메모"
-      maxLength={80}
-      value={v}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => {
-        if (v.trim() !== (value ?? '')) onSave(v.trim());
-        setOpen(false);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-        if (e.key === 'Escape') setOpen(false);
-      }}
-    />
+    <>
+      <button className={`sh-memo-btn ${value ? 'has' : ''}`} onClick={start} title={value ? `메모: ${value} (누르면 고침)` : '메모 쓰기'}>
+        📝
+      </button>
+      {open ? (
+        <input
+          className="sh-memo"
+          autoFocus
+          placeholder="메모"
+          maxLength={80}
+          value={v}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={() => {
+            if (v.trim() !== (value ?? '')) onSave(v.trim());
+            setOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            if (e.key === 'Escape') setOpen(false);
+          }}
+        />
+      ) : (
+        value && (
+          <button className="sh-memo-view" onClick={start} title="눌러서 메모 고치기">
+            {value}
+          </button>
+        )
+      )}
+    </>
   );
 }
