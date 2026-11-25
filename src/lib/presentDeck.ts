@@ -282,7 +282,7 @@ export const PRESENT_DECK: PresentStep[] = [
       ['API', '부르는 곳', '쓰는 페이지'],
       ['회사 ERP 주문 · 출고 (getexorderdata · getoutbounddata)', '서버', '주문 관리 · 클레임 · 수출매출'],
       ['회사 판매 데이터 (POS)', '서버', '홈 판매 데이터 · 수출매출'],
-      ['회사 제품 정보 (getSkuList · getproductinfo)', '서버', '제품번역'],
+      ['회사 제품 정보 (getproductinfo_bulk · 매일 7시 한 번)', '서버', '제품번역'],
       ['회사 거래처 정보 (getpartnerinfo)', '서버', '매장 이름 · 지점'],
       ['mem 근태', '서버 (+ 크롬 확장)', '홈 출퇴근'],
       ['한국은행 ECOS 환율', '서버', '수출매출 · 전도금 · 출장 외화'],

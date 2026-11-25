@@ -136,7 +136,7 @@ function useDictMap() {
 function TranslateTab() {
   const { email, accountName, role } = useAccess();
   const isAdmin = role === 'admin' || role === null; // 관리자 (로컬 모드 포함)
-  // 제품코드 · 제품명에 마우스 올리면 제품 이미지 · 팀 · 분류 (getSkuList)
+  // 제품코드 · 제품명에 마우스 올리면 제품 이미지 · 팀 · 분류 (getproductinfo_bulk)
   const { bind: skuHover, card: skuCard } = useSkuHover();
   const { list, map, keys, forType } = useDictMap();
   // 빈 제품 목록 (서버가 회사 API 에서 찾아 둔 것 · 모두가 같이 봄) → 표 한 장처럼
@@ -194,7 +194,7 @@ function TranslateTab() {
       const skipped = tr0.unknown.filter((u) => hiddenSet.has(u));
       const en = skipped.length ? skipped.reduce((a, w) => a.split(`[${w}]`).join(''), tr0.en).replace(/\s{2,}/g, ' ').replace(/\s+([)\],.])/g, '$1').trim() : tr0.en;
       const tr = { ...tr0, en, unknown: tr0.unknown.filter((u) => !hiddenSet.has(u)), skipped };
-      // 시즌: 제품 정보(getSkuList)의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품 (엑셀 시즌품구분은 안 씀)
+      // 시즌: 제품 정보(getproductinfo_bulk)의 팀 · 대/중/소분류에 '시즌' 이 들어간 제품 (엑셀 시즌품구분은 안 씀)
       const season = seasonOfCode(seasonSet, cell(row, 'code'));
       return { row, empty, ko, tr, cut, parens, season };
     });
@@ -506,7 +506,7 @@ function TranslateTab() {
                 {codePre && !codePres.some(([k]) => k === codePre) && <option value={codePre}>{codePre}… (0줄)</option>}
               </select>
             )}
-            {/* 시즌 구분: 제품 정보(getSkuList)의 팀 · 대/중/소분류에 '시즌' 이 있으면 시즌품 (제품 정보를 받기 전엔 고를 수 없음) */}
+            {/* 시즌 구분: 제품 정보(getproductinfo_bulk)의 팀 · 대/중/소분류에 '시즌' 이 있으면 시즌품 (제품 정보를 받기 전엔 고를 수 없음) */}
             <select
               className={`tr-code-pre ${seasonF ? 'set' : ''}`}
               value={seasonSet ? seasonF : ''}
@@ -1385,7 +1385,7 @@ function SkuSyncBtn() {
     setMsg('');
     try {
       const r = await syncSkuNow(restart);
-      const head = r.done ? `제품 정보 ${r.count.toLocaleString()}개 다 받았어요 ✓` : `1차로 ${r.count.toLocaleString()}개 받았어요 ✓ 나머지(${r.nextPage}쪽부터)는 아침 6시대에 자동으로 받아요${r.stopped && !r.stopped.includes('다 못') ? ` (${r.stopped})` : ''}`;
+      const head = `제품 정보 ${r.count.toLocaleString()}개 받았어요 ✓${r.done ? '' : ' · 나머지는 아침 7시에 이어서 받아요'}${r.stopped ? ` (${r.stopped})` : ''}`;
       setMsg(`${head}${r.noCat ? ` · 분류가 비어서 온 제품 ${r.noCat.toLocaleString()}개 (예: ${(r.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ' · 모든 제품에 분류가 있어요'}`);
     } catch (e) {
       setMsg(`못 받았어요: ${(e as Error).message}`);
@@ -1398,13 +1398,13 @@ function SkuSyncBtn() {
       <button
         className="tr-dl"
         disabled={busy}
-        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (1차는 지금 · 나머지는 아침 6시대에 자동 · 그 뒤 새 제품은 엑셀의 빈 제품코드만 찾아와요)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 이미지 주소 · 팀 · 대/중/소분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
+        title={`제품코드 · 제품명에 마우스를 올리면 보이는 제품 이미지 · 팀 · 분류를 받아요 (getproductinfo_bulk · 매일 아침 7시 자동 · 지금 누르면 바로 한 번)${meta?.at ? `\n마지막: ${new Date(meta.at).toLocaleString('ko-KR')} · ${meta.count?.toLocaleString()}개` : ''}\n저장하는 건: 제품코드별 팀 · 대/중분류 (+ 시즌 여부 · 분류 경로)뿐이에요 — 나머지 칸은 받아서 바로 버려요${meta?.noCat ? `\n분류가 비어서 온 제품 ${meta.noCat.toLocaleString()}개 (예: ${(meta.noCatSamples ?? []).map((x) => `${x.code} category=${x.category}`).join(' / ')})` : ''}`}
         onClick={() => void run(false)}
       >
         {busy ? '받는 중… (몇 분 걸려요)' : '🖼 제품 정보 받기'}
       </button>
       {!busy && (
-        <button className="link small" onClick={() => confirm('제품 정보를 1쪽부터 다시 받을까요? (1차 10쪽은 지금, 나머지는 아침 6시대에)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
+        <button className="link small" onClick={() => confirm('제품 정보를 지금 한 번 받을까요? (못 끝낸 건 아침 7시에 이어서)') && void run(true)} title="1쪽부터 다시 받기 (칸이 바뀌었을 때)">
           제품 정보 처음부터 다시
         </button>
       )}
@@ -1604,7 +1604,7 @@ function skuStatus(m: SkuMeta) {
   const when = (iso?: string) => (iso ? new Date(iso).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
   const err = m.nightError ? ` · ⚠ ${when(m.nightAt)} 받다가 멈춤: ${m.nightError}` : m.nightAt ? ` · 마지막 자동 받기 ${when(m.nightAt)}` : '';
   const all = m.apiTotal?.count ? ` / 전체 ${m.apiTotal.count.toLocaleString()}개` : m.apiTotal?.pages ? ` / 전체 ${m.apiTotal.pages}쪽` : '';
-  if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개${all}까지 받음 · ${m.resumePage}쪽부터 아침 6시대에 이어서 받아요${m.triedAt ? ` (마지막 ${when(m.triedAt)})` : ''}${err}`;
+  if ((m.resumePage ?? 1) > 1) return `⏳ ${(m.partialCount ?? 0).toLocaleString()}개${all}까지 받음 · ${m.resumePage}쪽부터 아침 7시에 이어서 받아요${m.triedAt ? ` (마지막 ${when(m.triedAt)})` : ''}${err}`;
   if (m.at) return `✅ 제품 정보 ${(m.count ?? 0).toLocaleString()}개 다 받음 · ${when(m.at)}${m.noCat ? ` · 분류 빈 제품 ${m.noCat.toLocaleString()}개` : ''}`;
   return '아직 제품 정보를 안 받았어요';
 }

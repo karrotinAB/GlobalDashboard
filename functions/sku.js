@@ -1,4 +1,5 @@
-// 제품 정보 (이미지 · 팀 · 대/중/소분류): artbox getSkuList API → skuInfo/{제품코드 앞 4자리} 에 모아 저장
+// 제품 정보 (팀 · 대/중분류 · 이미지): 예전엔 getSkuList → 이제 getproductinfo_bulk (skuMissing.js) 가 skuInfo/{앞 5자리} 에 저장
+//   (getSkuList 로 받던 syncSku · lookupSkus 는 안 씀 — IT실: bulk 하나로)
 //   인증키: Firestore 콘솔 > secrets 컬렉션 > sku 문서 > apiKey 칸 (사이트에서는 못 읽음)
 //           (선택) header 칸: 키를 보낼 헤더 이름 (없으면 X-API-Key) · url 칸: 주소 (없으면 아래 BASE)
 //   저장: skuInfo/{앞4자리} = { items: { 제품코드: { i: imageUrl, t: teamName, l: largeName, m: middleName, s: smallName } }, at }
@@ -273,7 +274,7 @@ const CODE_PARAMS = ['SKU_CODE', 'skuCode', 'SKU_CD', 'sku_code', 'SKU', 'sku', 
 const LOOKUP_MAX = 300;
 
 /** 제품 정보 묶어서 저장 (skuInfo · skuPath · skuSeason 에 합침) */
-async function storeItems(db, ns) {
+export async function storeItems(db, ns) {
   const at = new Date().toISOString();
   const chunks = new Map();
   const paths = new Map();
@@ -290,27 +291,37 @@ async function storeItems(db, ns) {
     if (!chunks.has(p)) chunks.set(p, {});
     chunks.get(p)[code] = Object.fromEntries(Object.entries(info).filter(([, v]) => v));
   }
-  const batch = db.batch();
+  // 한 번에 500개 넘게 쓰면 안 돼서 400개마다 나눠 씀 (bulk 로 한 쪽 2,000개씩 받으면 묶음이 많음)
+  let batch = db.batch();
+  let ops = 0;
+  const put = async (ref, v) => {
+    batch.set(ref, v);
+    if (++ops >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
+  };
   for (const [p, items] of chunks) {
     const ref = db.doc(`skuInfo/${p}`);
-    batch.set(ref, { data: JSON.stringify({ ...readJson(await ref.get(), 'items'), ...items }), at });
+    await put(ref, { data: JSON.stringify({ ...readJson(await ref.get(), 'items'), ...items }), at });
   }
   for (const [p2, codes] of paths) {
     const ref = db.doc(`skuPath/${p2}`);
     const merged = { ...pathMapOf(await ref.get()), ...codes };
     const list = [...new Set(Object.values(merged))];
     const idx = new Map(list.map((x, i) => [x, i]));
-    batch.set(ref, { data: JSON.stringify({ p: list, c: Object.fromEntries(Object.entries(merged).map(([k, v]) => [k, idx.get(v)])) }), at });
+    await put(ref, { data: JSON.stringify({ p: list, c: Object.fromEntries(Object.entries(merged).map(([k, v]) => [k, idx.get(v)])) }), at });
   }
   if (season.length) {
     const ref = db.doc('skuSeason/main');
-    batch.set(ref, { data: JSON.stringify([...new Set([...readJson(await ref.get(), 'codes', true), ...season])]), at });
+    await put(ref, { data: JSON.stringify([...new Set([...readJson(await ref.get(), 'codes', true), ...season])]), at });
   }
-  await batch.commit();
+  if (ops) await batch.commit();
 }
 
-/** 필요한 정보가 다 있는지: 이미지 · 팀 · 대/중/소분류 */
-const isComplete = (n) => !!(n && n.i && n.t && n.l && n.m && n.s);
+/** 필요한 정보가 다 있는지: 팀 · 대/중분류 (bulk 에는 이미지 · 소분류가 없을 수 있음) */
+export const isComplete = (n) => !!(n && n.t && n.l && n.m);
 
 /** 이 이름으로 code 를 찾으면 그 제품이 (몇 개 안에) 돌아오는지 */
 async function tryCode(cfg, param, code, fetchImpl, wait) {

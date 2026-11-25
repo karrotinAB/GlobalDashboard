@@ -721,34 +721,22 @@ export const importExportOrders = onCall({ region: REGION, timeoutSeconds: 300, 
   return { created, skipped, perTeam, total: all.length };
 });
 
-// ---------- 제품 정보 (이미지 · 팀 · 대/중/소분류): getSkuList → skuInfo ----------
-//   키: secrets/sku 문서 apiKey · 번역 페이지 '제품 정보 받기' (관리자) + 엑셀의 빈 제품코드만 찾아오기 (lookupSku)
-import { lookupSkus, syncSku } from './sku.js';
+// ---------- 제품 정보 (팀 · 대/중분류): getproductinfo_bulk 하나로 (getSkuList · getproductinfo 개별은 안 씀 — IT실 안내) ----------
+//   매일 아침 7시 skuMissingNightly 가 bulk 를 훑으며 번역 빈 목록 + skuInfo 를 같이 채움
 const skuOpts = { region: REGION, timeoutSeconds: 540, memory: '512MiB' };
-//   매일 아침 6시대 (6:05 · 6:35): 다 못 받은 게 있으면 이어서 (천천히 · 3초 간격) — 제품 API 는 6~7시에만
-export const syncSkuWeekly = onSchedule({ ...skuOpts, schedule: '5,35 6 * * *', timeZone: 'Asia/Seoul' }, async () => {
-  const meta = (await db.doc('skuMeta/main').get()).data() ?? {};
-  // (월요일마다 처음부터 새로 받던 건 없앰 — 새 제품은 번역 페이지에서 엑셀의 빈 제품코드만 찾아옴)
-  if (!(Number(meta.resumePage) > 1)) return;
-  // 새벽에 돈 기록 (화면에서 확인용): 마지막 시각 · 에러
-  const ranAt = new Date().toISOString();
-  const r = await syncSku(db, { gapMs: 3000 }).catch((e) => ({ error: e.message }));
-  await db.doc('skuMeta/main').set({ nightAt: ranAt, nightError: r.error ?? '' }, { merge: true });
-  logger.info('sku sync', r);
-});
-// 버튼: 지금은 1차로 10쪽(약 5,000개)만 받고, 나머지는 오늘 새벽에
+// 버튼 (관리자 · 번역 페이지 '제품 정보 받기'): bulk 불러오기를 지금 한 번
 export const syncSkuNow = onCall(skuOpts, async (req) => {
   if ((await roleOf(req)) !== 'admin') throw new HttpsError('permission-denied', '관리자만 할 수 있어요');
   try {
-    return await syncSku(db, { maxPages: 10, restart: !!req.data?.restart });
+    const r = await loadMissing(db);
+    return { count: r.info ?? 0, pages: 0, done: r.phase === 'inc' && !r.stopped, nextPage: null, stopped: r.busy ? '다른 불러오기가 도는 중이에요' : r.stopped ?? '', keys: [] };
   } catch (e) {
-    await db.doc('skuMeta/main').set({ nightError: `버튼: ${e.message}`, nightAt: new Date().toISOString() }, { merge: true }).catch(() => {});
     throw new HttpsError('failed-precondition', e.message);
   }
 });
 
 // 번역: 수출 분류 · 영문명이 빈 제품 목록 (모두가 같이 봄) — ⬇ 없는거 불러오기 · 🔄 새로고침
-import { loadMissing, recheckMissing } from './skuMissing.js';
+import { loadMissing, recheckMissing, lookupInfo } from './skuMissing.js';
 const dashRole = async (req) => {
   const role = await roleOf(req);
   if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
@@ -762,8 +750,8 @@ export const skuMissingLoad = onCall({ ...skuOpts }, async (req) => {
     throw new HttpsError('failed-precondition', e.message);
   }
 });
-// 매일 아침 6시대 (6:00 · 6:15 · 6:30 · 6:45, 한 번에 8분 남짓): 전부 훑기가 안 끝났으면 이어서 · 다 끝났으면 그날 한 번만 새 제품(등록일 이후) 확인 — 제품 API 는 6~7시에만
-export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '0,15,30,45 6 * * *', timeZone: 'Asia/Seoul' }, async () => {
+// 매일 아침 7시 한 번 (IT실 안내). 7:15 · 7:30 · 7:45 는 처음 전부 훑기가 7시에 안 끝났을 때만 이어서 — 끝났으면 그날은 안 부름
+export const skuMissingNightly = onSchedule({ ...skuOpts, schedule: '0,15,30,45 7 * * *', timeZone: 'Asia/Seoul' }, async () => {
   const meta = (await db.doc('skuMissing/_meta').get()).data() ?? {};
   const kstDay = (iso) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
   const today = kstDay(new Date().toISOString());
@@ -794,13 +782,13 @@ export const skuMissingRecheck = onCall({ ...skuOpts, timeoutSeconds: 300 }, asy
   }
 });
 
-// 번역 페이지: 엑셀에서 정보가 없는 제품코드만 찾아오기 (한 번에 300개까지 · 1초씩 쉬며 · 한 번 찾아본 건 다시 안 물음)
+// 번역 페이지: 엑셀에서 정보가 없는 제품코드만 bulk (SKU_CODE) 로 찾아오기 (한 번에 300개까지 · 그날 찾아본 건 다시 안 물음)
 export const lookupSku = onCall({ ...skuOpts, timeoutSeconds: 300 }, async (req) => {
   const role = await roleOf(req);
   if (!['admin', 'member', 'trade', 'lead', 'director'].includes(role)) throw new HttpsError('permission-denied', '대시보드 사용자만 할 수 있어요');
   const codes = Array.isArray(req.data?.codes) ? req.data.codes.slice(0, 2000) : [];
   try {
-    return await lookupSkus(db, codes);
+    return await lookupInfo(db, codes);
   } catch (e) {
     throw new HttpsError('failed-precondition', e.message);
   }

@@ -1,7 +1,6 @@
 // 지점 이름 (getpartnerinfo.asp → BRANCH_NAME) + 매장코드 4자리로 시작하는 지점 목록
 // 결과는 storeBranches/{매장코드 4자리} 에 저장: { code, branches: { [STORE_ID]: 이름 }, at }
-// 1) STORE_ID 없이 / 4자리로 불렀을 때 목록이 오면 그걸 씀
-// 2) 안 오면 4자리 + 01~99 를 하나씩 확인 (한 번 해 두면 7일 보관)
+// 4자리(점포코드)로 한 번 부르면 하위 매장 전체가 옴 (6자리 = 그 매장 하나) — 7일 보관
 import { call } from './sync.js';
 
 // 지점 약자(LDC 등)가 판매 API 의 BRANCH_ABBR 로 쓰임 → 약자 칸이 따로 있으면 그걸 먼저
@@ -20,7 +19,7 @@ async function safeCall(params, key, fetchImpl) {
 
 /** 매장코드 4자리 → { STORE_ID: 이름 } */
 // forms 를 넘기면 { STORE_ID: 수출 형태 } 도 같이 채움
-export async function branchesOf(code, key, { fetchImpl = fetch, known = [], forms } = {}) {
+export async function branchesOf(code, key, { fetchImpl = fetch, forms } = {}) {
   const out = {};
   const add = (rows, fallbackId) => {
     for (const r of rows) {
@@ -31,16 +30,7 @@ export async function branchesOf(code, key, { fetchImpl = fetch, known = [], for
       }
     }
   };
-  // 4자리로 부르면 그 매장들이 다 오는 경우
+  // 4자리로 부르면 하위 매장이 다 옴 (IT실 안내) — 01~99 하나씩 물어보던 건 없앰
   add(await safeCall({ STORE_ID: code }, key, fetchImpl));
-  if (Object.keys(out).length <= 1) {
-    // 하나씩: code+01 … code+99 (10개씩 동시에)
-    const ids = [...new Set([...Array.from({ length: 99 }, (_, i) => `${code}${String(i + 1).padStart(2, '0')}`), ...known.filter((k) => k.startsWith(code))])];
-    for (let i = 0; i < ids.length; i += 10) {
-      const part = ids.slice(i, i + 10);
-      const res = await Promise.all(part.map((id) => safeCall({ STORE_ID: id }, key, fetchImpl)));
-      res.forEach((rows, j) => add(rows.slice(0, 1).filter((r) => !idOf(r) || idOf(r) === part[j]), part[j]));
-    }
-  }
   return out;
 }

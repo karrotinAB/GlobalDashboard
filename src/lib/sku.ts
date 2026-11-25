@@ -1,4 +1,4 @@
-// 제품 정보 (이미지 · 팀 · 대/중/소분류): 서버가 getSkuList 로 받아 skuInfo/{제품코드 앞 4자리} 에 저장해 둔 것
+// 제품 정보 (이미지 · 팀 · 대/중/소분류): 서버가 getproductinfo_bulk 로 받아 skuInfo/{제품코드 앞 5자리} 에 저장해 둔 것
 //   마우스를 올린 제품의 묶음 문서만 읽음 (한 번 읽은 건 기억)
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot } from 'firebase/firestore';

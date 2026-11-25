@@ -2,14 +2,14 @@
 //   ⬇ 없는거 불러오기 (bulk: getproductinfo_bulk.asp?page=&page_size=)
 //     처음 한 번: 전부 훑으며 빈 것만 저장 · 등록일(reg_date) 순서도 확인
 //     그 뒤: 지난번 가장 늦은 등록일 이후 제품만 (등록일 순서대로 앞쪽 / 뒤쪽 몇 쪽만)
-//   🔄 새로고침 (개별: getproductinfo.asp?SKU_CODE=): 채우고 있는 코드만 다시 보고, 다 채워졌으면 목록에서 뺌
+//   🔄 새로고침 (bulk ?SKU_CODE= 앞자리 검색): 채우고 있는 코드만 다시 보고, 다 채워졌으면 목록에서 뺌
+//   제품 정보 (팀 · 대/중분류)도 여기서 같이 skuInfo 에 저장 (getSkuList · getproductinfo 개별은 안 씀 — IT실 안내)
 //   회사 API 제한: 1분에 30번 (API마다) · 한 쪽 최대 2,000개 → 부를 때마다 2.1초 이상 쉼
 //   저장: skuMissing/h000~h255 (제품코드를 고르게 나눈 칸) = {  (예전 앞 2자리 문서는 다음 실행 때 옮김) data: '{"코드":[닉네임, 구분, 대분류, 중분류, 영문명, 등록일]}' }
 //         skuMissing/_meta = { phase, page, order, lastReg, lastPage, count, at, ... }
-import { skuCfg, RateLimited } from './sku.js';
+import { skuCfg, RateLimited, storeItems, isComplete } from './sku.js';
 
 const BULK = 'https://ex.artbox.kr/api/getproductinfo_bulk.asp';
-const ONE = 'https://ex.artbox.kr/api/getproductinfo.asp';
 const SIZE = 2000;
 const GAP = 2100; // 1분 30번 아래로
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -79,12 +79,25 @@ export function rowOf(raw) {
     nick: pick(f, /^sku(nick|nickname)(name)?kor$|nicknamekor$/),
     kor: pick(f, /^sku(name)?kor$|^skunamekor$/),
     type: pick(f, /^skutype(name|nm)$/),
-    lrg: pick(f, /^(export(info)?)?(export)?categor(y)?(lrg|large)(code|cd)$/),
-    midd: pick(f, /^(export(info)?)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/),
+    // 수출 대/중분류: export_ 로 시작하는 칸을 먼저 (일반 category_lrg_code 와 헷갈리지 않게)
+    lrg: pick(f, /^export(info)?(export)?categor(y)?(lrg|large)(code|cd)$/) || pick(f, /^(export(info)?)?(export)?categor(y)?(lrg|large)(code|cd)$/),
+    midd: pick(f, /^export(info)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/) || pick(f, /^(export(info)?)?(export)?categor(y)?(midd|middle|mid)(code|cd)$/),
     eng: pick(f, /^sku(name)?eng$|^skunameeng$/),
     reg: pick(f, /^(sku)?regdate$|^regdt$|regdate$/),
     qty: pick(f, /^physicalqty$|physicalqty$/), // 실재고
     exp: pick(f, /^exportyn$|exportyn$|^export(gb|gubun|div|type)(cd|code)?$/), // 수출 가능 여부 · 수출구분
+  };
+}
+/** 제품 정보 (번역 화면 마우스 올리면 · 시즌 구분): category_team_name · category_lrg_name · category_midd_name (+ 소분류 · 이미지 칸이 있으면) */
+export function infoOf(raw) {
+  const f = flat(raw);
+  return {
+    code: pick(f, /^(sku)?(code|cd)$|^skucode$/),
+    t: pick(f, /^categor(y)?team(name|nm)$/) || pick(f, /^team(name|nm)$/),
+    l: pick(f, /^categor(y)?(lrg|large)(name|nm)$/),
+    m: pick(f, /^categor(y)?(midd|middle|mid)(name|nm)$/),
+    s: pick(f, /^categor(y)?(sml|small|sm)(name|nm)$/),
+    i: pick(f, /^(sku)?(imageurl|imgurl|image|img|thumbnail|thumburl|mainimg(url)?)$/),
   };
 }
 /** 비었다 = 수출 대분류 · 중분류 · 영문명 중 하나라도 비어 있음 */
@@ -102,7 +115,7 @@ export const isExcluded = (r) => {
 /** 목록에 둘 제품 = 비어 있고 + 거를 것이 아님 */
 const wanted = (r) => isMissing(r) && !isExcluded(r);
 // 거르는 기준이 바뀌면 숫자를 올림 → 다음 불러오기 때 처음부터 다시 훑으며 이미 있는 것도 다시 거름
-const FILTER_VER = 3; // 2: 재고 100 이하 · 수출제한 글자 / 3: 수출구분 코드 01 도
+const FILTER_VER = 4; // 2: 재고 100 이하 · 수출제한 글자 / 3: 수출구분 코드 01 도 / 4: 제품 정보(팀 · 분류)도 bulk 에서 같이 받음 → 한 번 전부 훑기
 /** 등록일 비교용 (2026-11-20 · 20261120 · 2026-11-20 13:01:02 → 20261120130102) */
 const regKey = (s) => str(s).replace(/[^\d]/g, '').padEnd(14, '0').slice(0, 14);
 
@@ -252,8 +265,19 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
   // 확인용: 이번에 본 제품들의 칸 (회사 API 가 어떤 이름 · 값으로 주는지) · 빈 칸 수 · 대분류 값 분포
   const st = { seen: 0, lrgEmpty: 0, middEmpty: 0, engEmpty: 0, lrgVals: {} };
   let sample = null;
+  // 제품 정보 (팀 · 대/중분류): 본 제품 전부 → skuInfo (예전 getSkuList 대신)
+  let infos = [];
+  let infoCount = 0;
+  const flushInfo = async () => {
+    if (!infos.length) return;
+    await storeItems(db, infos);
+    infoCount += infos.length;
+    infos = [];
+  };
   const see = (raws) => {
     for (const raw of raws) {
+      const n = infoOf(raw);
+      if (n.code && (n.t || n.l || n.m || n.s || n.i)) infos.push(n);
       const r = rowOf(raw);
       if (!r.code) continue;
       st.seen++;
@@ -307,6 +331,7 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
           await writeChanged(db, changes);
           for (const k of Object.keys(changes)) delete changes[k];
         }
+        if (infos.length >= 4000) await flushInfo();
         if (list.length < SIZE) {
           // 끝까지 다 봄
           m.phase = 'inc';
@@ -385,20 +410,29 @@ export async function loadMissing(db, { fetchImpl = fetch, wait = sleep, budgetM
     }
   }
   if (Object.keys(changes).length) await writeChanged(db, changes);
+  await flushInfo().catch((e) => (stopped = stopped || `제품 정보 저장 오류: ${e.message}`));
+  if (infoCount) await db.doc('skuMeta/main').set({ at: new Date().toISOString(), lastInfo: infoCount, source: 'bulk' }, { merge: true });
   const count = Object.keys(await readList(db)).length;
   const out = { ...m, count, at: new Date().toISOString(), lockUntil: null, error: stopped && /오류/.test(stopped) ? stopped : '', stopped, lastAdded: added, lastDropped: dropped, lastScanned: scanned, lastStats: st, lastSample: sample };
   delete out.asc;
   delete out.desc;
   await metaRef.set({ ...out, asc: m.asc ?? 0, desc: m.desc ?? 0 });
-  return { added, dropped, scanned, stopped, ...publicMeta(out) };
+  return { added, dropped, scanned, stopped, info: infoCount, ...publicMeta(out) };
 }
 const publicMeta = (m) => ({ phase: m.phase ?? 'full', count: m.count ?? 0, lastReg: m.lastReg ?? '', order: m.order ?? '', page: m.page ?? 1, rescan: !!m.rescan });
 
-/** 🔄 새로고침: 이 코드들만 개별 API 로 다시 보고, 다 채워졌으면 목록에서 뺌 (한 번에 최대 budgetMs) */
+/** bulk 에서 제품코드 하나 찾기: SKU_CODE (앞자리 일치 검색) → 그중 코드가 같은 줄 */
+async function bulkOne(cfg, code, fetchImpl, wait, last) {
+  const raws = listOf(await call(cfg.bulk, cfg, { SKU_CODE: code, page: 1, page_size: 50 }, fetchImpl, wait, last));
+  const raw = raws.find((x) => rowOf(x).code === code);
+  return raw ? { row: rowOf(raw), info: infoOf(raw) } : null;
+}
+
+/** 🔄 새로고침: 이 코드들만 bulk (SKU_CODE) 로 다시 보고, 다 채워졌으면 목록에서 뺌 (한 번에 최대 budgetMs) */
 export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sleep, budgetMs = 230000 } = {}) {
   const sec = (await db.doc('secrets/sku').get()).data() ?? {};
   const cfg0 = await exCfg(db, sec);
-  const cfg = { ...cfg0, one: String(sec.oneUrl ?? ONE).trim() || ONE };
+  const cfg = { ...cfg0, bulk: String(sec.bulkUrl ?? BULK).trim() || BULK };
   await migrateShards(db);
   const list = await readList(db);
   const codes = [...new Set(codes0.map(str))].filter((c) => list[c]);
@@ -413,16 +447,16 @@ export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sle
       stopped = '시간이 다 돼서 (다시 누르면 이어서)';
       break;
     }
-    let rows;
+    let hit;
     try {
-      rows = listOf(await call(cfg.one, cfg, { SKU_CODE: code }, fetchImpl, wait, last)).map(rowOf);
+      hit = await bulkOne(cfg, code, fetchImpl, wait, last);
     } catch (e) {
       stopped = e instanceof RateLimited ? e.message : `오류: ${e.message}`;
       break;
     }
     checked++;
-    const r = rows.find((x) => x.code === code) ?? rows[0];
-    if (!r) continue;
+    if (!hit) continue;
+    const r = hit.row;
     if (!wanted(r)) {
       changes[code] = null; // 다 채워졌거나, 재고 100 이하 · 수출제한
       removed++;
@@ -432,4 +466,57 @@ export async function recheckMissing(db, codes0, { fetchImpl = fetch, wait = sle
   const count = Object.keys(await readList(db)).length;
   await db.doc(META).set({ count, recheckAt: new Date().toISOString() }, { merge: true });
   return { checked, removed, left: codes.length - checked, stopped, count };
+}
+
+/** 번역 엑셀에서 제품 정보가 없는 코드만 bulk (SKU_CODE) 로 찾기 — 예전 getSkuList 개별 찾기 대신
+ *  한 번 찾아본 코드는 그날 다시 안 물음 (skuMiss/main) */
+export async function lookupInfo(db, codes0, { fetchImpl = fetch, wait = sleep, budgetMs = 240000, max = 300 } = {}) {
+  const sec = (await db.doc('secrets/sku').get()).data() ?? {};
+  const cfg0 = await exCfg(db, sec);
+  const cfg = { ...cfg0, bulk: String(sec.bulkUrl ?? BULK).trim() || BULK };
+  const all = [...new Set(codes0.map(str).filter((c) => /^\d{2,8}$/.test(c)))];
+  const have = {};
+  for (const p of [...new Set(all.map((c) => c.slice(0, 5)))]) {
+    try {
+      Object.assign(have, JSON.parse((await db.doc(`skuInfo/${p}`).get()).get('data') ?? '{}'));
+    } catch {
+      /* 무시 */
+    }
+  }
+  const missRef = db.doc('skuMiss/main');
+  let miss = {};
+  try {
+    miss = JSON.parse((await missRef.get()).get('data') ?? '{}');
+  } catch {
+    miss = {};
+  }
+  const day = (iso) => new Date(Date.parse(iso) + 9 * 3600000).toISOString().slice(0, 10);
+  const today = day(new Date().toISOString());
+  const want = all.filter((c) => !isComplete(have[c]) && !(miss[c] && day(miss[c]) === today));
+  const t0 = Date.now();
+  const last = { at: 0 };
+  const found = [];
+  let asked = 0;
+  let stopped = '';
+  for (const code of want.slice(0, max)) {
+    if (Date.now() - t0 > budgetMs) {
+      stopped = '시간이 다 돼서';
+      break;
+    }
+    let hit;
+    try {
+      hit = await bulkOne(cfg, code, fetchImpl, wait, last);
+    } catch (e) {
+      stopped = e instanceof RateLimited ? e.message : `오류: ${e.message}`;
+      break;
+    }
+    asked++;
+    const at = new Date().toISOString();
+    if (hit && (hit.info.t || hit.info.l || hit.info.m)) found.push(hit.info);
+    if (hit && isComplete(hit.info)) delete miss[code];
+    else miss[code] = at;
+  }
+  if (found.length) await storeItems(db, found);
+  await missRef.set({ data: JSON.stringify(miss), at: new Date().toISOString() });
+  return { asked, found: found.length, none: asked - found.length, left: want.length - asked, stopped };
 }
