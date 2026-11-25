@@ -433,7 +433,7 @@ function TranslateTab() {
       <div className="card tr-upload">
         {/* 1줄: 하는 일 버튼 · 오른쪽에 받기 · 관리자 */}
         <div className="tr-up-row">
-          <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 아침 6~7시에도 자동으로 불러와요">
+          <button className="primary" disabled={!!busy} onClick={() => void loadNow()} title="회사 API 에서 수출 대분류 · 중분류 · 영문 제품명이 빈 제품을 찾아와요 (처음엔 전부, 그 뒤엔 지난번 등록일 이후 새 제품만) · 매일 아침 7시에도 자동으로 불러와요">
             {busy === 'load' ? '불러오는 중…' : '⬇ 없는거 불러오기'}
           </button>
           <button disabled={!!busy || !filling.length} onClick={() => void recheck()} title="사이트에서 채운 제품을 ERP(회사 API)에서 다시 확인해서, ERP 에 수출 분류 · 영문명이 다 들어가 있으면 목록에서 빼요. 사이트에서만 채운 건 안 빠져요. (ERP 에 채워진 제품은 없는거 불러오기 · 아침 자동에서도 알아서 빠져요)">
@@ -1635,7 +1635,7 @@ function ScanProgress({ meta, total, busy }: { meta: MissingMeta; total: number;
           <span className="small">
             {meta.rescan ? '새 기준(재고 100 이하 · 수출제한 빼기)으로 ' : ''}전체 {total ? `${pct}% (${seen.toLocaleString()} / ${total.toLocaleString()}개)` : `${seen.toLocaleString()}개`} 봤어요
           </span>
-          {!running && <span className="muted small">— ⬇ 없는거 불러오기를 누르면 이어서 해요 · 매일 아침 6~7시에 자동으로도 이어서 해요</span>}
+          {!running && <span className="muted small">— ⬇ 없는거 불러오기를 누르면 이어서 해요 · 매일 아침 7시에 자동으로도 이어서 해요</span>}
         </>
       ) : (
         <span className="muted small">이제는 새로 등록된 제품만 봐요{meta.lastDropped ? ` · 지난번에 ${meta.lastDropped.toLocaleString()}개 뺐어요` : ''}</span>

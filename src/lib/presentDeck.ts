@@ -317,7 +317,7 @@ export const PRESENT_DECK: PresentStep[] = [
     target: { sel: '.tr-upload' },
     kicker: 'API · 어디서 쓰나',
     title: '회사 제품 정보 → 제품번역',
-    body: ['영문명 · 수출 분류가 빈 제품을 회사 API 에서 찾아옴', '· 재고 100 이하 · 수출제한 제품은 빼고 · 아침 6~7시에 자동으로 이어서'],
+    body: ['영문명 · 수출 분류가 빈 제품을 회사 API 에서 찾아옴', '· 재고 100 이하 · 수출제한 제품은 빼고 · 아침 7시에 하루 한 번 자동'],
     note: 'bottom',
   },
   {
