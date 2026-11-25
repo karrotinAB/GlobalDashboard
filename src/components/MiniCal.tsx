@@ -1,12 +1,12 @@
-// 구석 📅: 누르면 이번 달 · 다음 달 작은 달력 (숫자만 · 월요일부터)
+// 구석 📅: 누르면 이번 달 · 다음 달 작은 달력 (숫자만 · 일요일부터)
 import { useEffect, useState } from 'react';
 
 const pad = (n: number) => String(n).padStart(2, '0');
-const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 function Month({ y, m, todayKey }: { y: number; m: number; todayKey: string }) {
   const first = new Date(y, m, 1);
-  const lead = (first.getDay() + 6) % 7; // 월요일 = 0
+  const lead = first.getDay(); // 일요일 = 0
   const days = new Date(y, m + 1, 0).getDate();
   const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
   while (cells.length % 7) cells.push(null);
@@ -17,12 +17,12 @@ function Month({ y, m, todayKey }: { y: number; m: number; todayKey: string }) {
       </div>
       <div className="mcal-grid">
         {DOW.map((d, i) => (
-          <span key={`h${i}`} className={`mcal-h ${i === 5 ? 'sat' : i === 6 ? 'sun' : ''}`}>
+          <span key={`h${i}`} className={`mcal-h ${i === 6 ? 'sat' : i === 0 ? 'sun' : ''}`}>
             {d}
           </span>
         ))}
         {cells.map((d, i) => (
-          <span key={i} className={`mcal-d ${i % 7 === 5 ? 'sat' : i % 7 === 6 ? 'sun' : ''} ${d && `${y}-${pad(m + 1)}-${pad(d)}` === todayKey ? 'today' : ''}`}>
+          <span key={i} className={`mcal-d ${i % 7 === 6 ? 'sat' : i % 7 === 0 ? 'sun' : ''} ${d && `${y}-${pad(m + 1)}-${pad(d)}` === todayKey ? 'today' : ''}`}>
             {d ?? ''}
           </span>
         ))}
