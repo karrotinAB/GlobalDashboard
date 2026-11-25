@@ -154,6 +154,8 @@ const byFirst = (keys: string[]) => {
   return m;
 };
 export type Piece = { text: string; en?: string; unknown?: boolean };
+/** '…용' 으로 끝나도 'for' 가 아닌 낱말 */
+const NOT_FOR = new Set(['사용', '전용', '겸용', '공용', '활용', '실용', '다용', '내용', '비용', '미용', '효용', '적용', '이용', '허용', '수용', '운용', '응용', '혼용', '통용', '신용', '중용', '애용', '작용', '고용', '채용', '착용', '범용', '무용']);
 
 /**
  * 제품명 번역: 띄어쓰기·기호로 나누고, 한글 덩어리는 사전에서 가장 긴 단어부터 맞춰 바꿈.
@@ -238,6 +240,13 @@ export function translate(name: string, dict: Map<string, string>, keys: string[
       pieces.push({ text: tok, en: dict.get(tok) });
       continue;
     }
+    // '00용' (아동용 · 차량용 · 아이폰용): 끝의 '용' 은 Dragon 이 아니라 'for 00'
+    //   덩어리 전체 · '…용' 으로 끝나는 사전 단어(전용 · 휴대용 …)가 있으면 그걸 쓰고, 사용 · 비용 같은 낱말은 빼요
+    let tk = tok;
+    if (tk.length >= 2 && tk.endsWith('용') && !NOT_FOR.has(tk) && ![...NOT_FOR].some((w) => tk.endsWith(w)) && !keys.some((k) => k.length >= 2 && k.endsWith('용') && tk.endsWith(k))) {
+      pieces.push({ text: '용', en: 'for' });
+      tk = tk.slice(0, -1);
+    }
     // 앞에서부터 가장 긴 사전 단어로 자르기 (한글이 아닌 글자는 그대로)
     let i = 0;
     let unk = '';
@@ -245,21 +254,21 @@ export function translate(name: string, dict: Map<string, string>, keys: string[
       if (unk) pieces.push({ text: unk, unknown: true });
       unk = '';
     };
-    while (i < tok.length) {
-      const rest = tok.slice(i);
+    while (i < tk.length) {
+      const rest = tk.slice(i);
       const k = (byFirst(keys).get(rest[0]) ?? []).find((key) => rest.startsWith(key));
       if (k) {
         flush();
         pieces.push({ text: k, en: dict.get(k) });
         i += k.length;
-      } else if (!HANGUL.test(tok[i])) {
+      } else if (!HANGUL.test(tk[i])) {
         flush();
         let j = i;
-        while (j < tok.length && !HANGUL.test(tok[j])) j++;
-        pieces.push({ text: tok.slice(i, j), en: tok.slice(i, j) });
+        while (j < tk.length && !HANGUL.test(tk[j])) j++;
+        pieces.push({ text: tk.slice(i, j), en: tk.slice(i, j) });
         i = j;
       } else {
-        unk += tok[i];
+        unk += tk[i];
         i++;
       }
     }
