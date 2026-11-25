@@ -513,7 +513,8 @@ function LinkedOrders({
   const sumK = list.reduce((a, o) => a + (o.amountKRW ?? 0), 0);
   const doneN = list.filter((o) => isOrderDone(o)).length;
   // 외화 합계: 묶음 안 주문이 모두 같은 수출 통화일 때
-  const fCurs = [...new Set(list.map((o) => fxc.curOf(o)))];
+  const fgnCur = (o: Order) => (fxc.curOf(o) === 'KRW' ? 'USD' : fxc.curOf(o)); // 원화 거래 업체면 ERP 외화는 USD
+  const fCurs = [...new Set(list.map(fgnCur))];
   const fgnSum = fCurs.length === 1 && list.some((o) => o.amountForeign !== undefined && o.amountForeign !== null) ? fmtCur(fCurs[0], list.reduce((a, o) => a + (o.amountForeign ?? 0), 0)) : '';
   const foldBar = (isOpen: boolean) => (
     <button className={`rq-bundle-fold ${isOpen ? 'open' : ''}`} onClick={() => setOpen(!isOpen)} style={{ '--c': bundle?.color ?? '#8c2f3c' } as CSSProperties}>
@@ -581,7 +582,7 @@ function LinkedOrders({
                   <td className="r">{won(o.amountKRW)}</td>
                   <td className="r">
                     {/* 그 업체와 거래하는 수출 통화 그대로 (엔화 업체면 ¥) */}
-                    {o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}
+                    {o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fgnCur(o), o.amountForeign) : '-'}
                   </td>
                 </tr>
               ))}

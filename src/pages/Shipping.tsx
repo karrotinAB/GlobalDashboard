@@ -50,6 +50,8 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
   const trade = mode === 'trade';
   const companyById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
   const fxc = useOrderUsd(companies, orders);
+  // 외화 금액 칸의 통화: 업체 수출 통화 (원화 업체면 ERP 외화는 USD)
+  const fgnCur = (o: Order) => (fxc.curOf(o) === 'KRW' ? 'USD' : fxc.curOf(o));
   const [tab, setTab] = useState<'open' | 'done' | 'all'>('open');
   const [co, setCo] = useState('');
   const [teamF, setTeamF] = useState('');
@@ -220,7 +222,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                                       <td>{o.shipFrom ?? ''}</td>
                                       <td>{o.packing ?? ''}</td>
                                       <td className="r">{o.amountKRW !== undefined ? `₩${Math.round(o.amountKRW).toLocaleString()}` : '-'}</td>
-                                      <td className="r">{o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fxc.curOf(o), o.amountForeign) : '-'}</td>
+                                      <td className="r">{o.amountForeign !== undefined && o.amountForeign !== null ? fmtCur(fgnCur(o), o.amountForeign) : '-'}</td>
                                       <td className="nowrap">
                                         <span className={`tag ${o.outStatus === 'approved' ? 'green' : 'gray'}`}>
                                           {o.outStatus === 'approved' ? `승인${o.outDate ? ` ${dot(o.outDate)}` : ''}` : o.outStatus === 'partial' ? '일부 승인' : '대기'}
@@ -234,7 +236,7 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
                                     <tr>
                                       <td colSpan={5}>합계</td>
                                       <td className="r">₩{Math.round(g.orders.reduce((a, o) => a + (o.amountKRW ?? 0), 0)).toLocaleString()}</td>
-                                      <td className="r">{fmtCur(fxc.curOf(g.orders[0]), g.orders.reduce((a, o) => a + (o.amountForeign ?? 0), 0))}</td>
+                                      <td className="r">{fmtCur(fgnCur(g.orders[0]), g.orders.reduce((a, o) => a + (o.amountForeign ?? 0), 0))}</td>
                                       <td />
                                     </tr>
                                   </tfoot>
@@ -244,7 +246,8 @@ export function ShipBoard({ mode, orders, companies, saveOrders }: { mode: Mode;
     </>
   );
   const curOf = (g: Group) => fxc.curOf(g.orders[0]);
-  const packing = (g: Group) => g.approved.reduce((a, o) => a + (o.amountForeign ?? 0), 0);
+  // 패킹 승인 금액: 그 업체 수출 통화로 — 원화로 거래하는 업체(수출 통화 KRW)는 원화 금액, 아니면 외화 금액
+  const packing = (g: Group) => g.approved.reduce((a, o) => a + ((curOf(g) === 'KRW' ? o.amountKRW : o.amountForeign) ?? 0), 0);
   const fileGroup = files ? groups.find((g) => g.key === files.key) : undefined;
 
   return (
