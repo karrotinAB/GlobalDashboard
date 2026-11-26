@@ -9567,3 +9567,19 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .coop-loadbar { background: #fff8ec; border: 2px solid #e8b04a; border-radius: 14px; padding: 12px 14px; box-shadow: 0 4px 14px rgba(232, 176, 74, 0.18); }
 .coop-loadbar .coop-load-h { font-size: 15px; color: #8a5a00; }
 .coop-loadbar .coop-load-box > input { border-color: #e8b04a; }
+/* 관리부 패킹 카드: 패킹 중 / 완료 / 팔렛트 구분 */
+.pb-head .pk-star { margin-left: 2px; }
+.pb-day::before { display: none; }
+.pb-load { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left; border: 0; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12px; cursor: pointer; background: rgba(140, 47, 60, calc(0.05 + var(--load) * 0.2)); color: var(--ink); }
+.pb-load:hover:not(:disabled) { outline: 1.5px solid rgba(140, 47, 60, 0.35); }
+.pb-load.none { background: rgba(0,0,0,.03); cursor: default; }
+.pb-load-h { font-size: 10.5px; font-weight: 700; color: #8c2f3c; }
+.pb-load b { font-size: 16px; color: #8c2f3c; }
+.pb-done { display: flex; flex-direction: column; gap: 3px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.pb-done .pb-sec-h { color: #2e7d4f; }
+.pb-pal { margin: auto -8px -10px; display: flex; align-items: center; gap: 6px; width: calc(100% + 16px); border: 0; border-top: 1px solid var(--line); background: #f4f0e6; border-radius: 0; padding: 7px 10px; font: inherit; font-size: 11.5px; cursor: pointer; color: #6b5a2e; }
+.pb-pal:hover { background: #ece5d3; }
+.pb-pal-h { font-weight: 700; }
+.pb-pal-dots { display: inline-flex; gap: 2px; }
+.pb-pal-dots i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; box-sizing: border-box; background: #fff; }
+.pb-pal b { margin-left: auto; }

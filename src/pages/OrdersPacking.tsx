@@ -103,6 +103,7 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
     return m;
   }, [bars]);
   const [palPick, setPalPick] = useState<string | null>(null);
+  const [loadPick, setLoadPick] = useState<string | null>(null); // 누른 날짜의 '패킹 중' 목록
 
   const today = iso(new Date());
   const days14 = Array.from({ length: 14 }, (_, i) => addDays(from, i));
@@ -220,19 +221,32 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
                       <div key={d} className={`pb-day ${d === today ? 'today' : ''} ${d < today ? 'past' : ''} ${dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}`} style={{ '--load': load.length / maxLoad } as CSSProperties}>
                         <div className="pb-head">
                           <b>{md(d)}</b> <span>{WEEK[dow]}</span>
+                          {/* ★ 관리부 출고: 날짜 옆 */}
+                          {ships.length > 0 && (
+                            <button className="pk-star" onClick={() => setShipPick(d)} title={`관리부 출고 ${ships.length}건\n${ships.map((x) => `${(companies.get(x.o.companyId ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')} · ${x.name}`).join('\n')}`}>
+                              {ships.slice(0, 4).map((x, k) => (
+                                <i key={k} style={{ color: companies.get(x.o.companyId ?? '')?.color ?? '#c0392b' }}>
+                                  ★
+                                </i>
+                              ))}
+                              {ships.length > 4 && <small>+{ships.length - 4}</small>}
+                            </button>
+                          )}
                         </div>
-                        <div className="pb-load" title={load.map((b) => `${b.o.team}조 ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건${b.guess ? ' (예상)' : ''}`).join('\n')}>
+                        {/* 패킹 중: 누르면 무엇을 패킹하는지 */}
+                        <button className={`pb-load ${load.length ? '' : 'none'}`} disabled={!load.length} onClick={() => setLoadPick(d)} title={load.length ? '눌러서 무엇을 패킹하는지 보기' : ''}>
+                          <span className="pb-load-h">📦 패킹 중</span>
                           {load.length ? (
-                            <>
-                              <b>{load.length}</b>건 패킹 중{krw ? <span> · ₩{won(krw)}</span> : null}
-                            </>
+                            <span>
+                              <b>{load.length}</b>건{krw ? <span className="muted"> · ₩{won(krw)}</span> : null}
+                            </span>
                           ) : (
                             <span className="muted">없음</span>
                           )}
-                        </div>
+                        </button>
                         {ends.length > 0 && (
-                          <div className="pb-sec">
-                            <span className="pb-sec-h">패킹 완료</span>
+                          <div className="pb-done">
+                            <span className="pb-sec-h">✓ 패킹 완료</span>
                             {ends.map((b) => (
                               <button key={b.key} className={`pb-chip ${b.guess ? 'guess' : ''}`} style={{ '--c': b.color } as CSSProperties} onClick={() => setPick(b.key)} title={`${b.o.team}조 · ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건${b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}${b.guess ? '\n패킹완료일 없음 (예상)' : ''}`}>
                                 {b.coName} {b.os.length}건
@@ -240,25 +254,17 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
                             ))}
                           </div>
                         )}
-                        {ships.length > 0 && (
-                          <div className="pb-sec">
-                            <span className="pb-sec-h">★ 관리부 출고</span>
-                            {ships.map((x) => (
-                              <button key={x.key} className="pb-chip ship" style={{ '--c': companies.get(x.o.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties} onClick={() => setShipPick(d)} title={x.os.map((o) => o.name).join(' · ')}>
-                                ★ {(companies.get(x.o.companyId ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')} · {x.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                        {/* ○ 팔렛트 작업 (토요일): 카드 아래 띠 */}
                         {pals.length > 0 && (
-                          <div className="pb-sec">
-                            <span className="pb-sec-h">○ 팔렛트</span>
-                            {pals.map((g) => (
-                              <button key={g[0].key} className="pb-chip pal" style={{ '--c': g[0].color } as CSSProperties} onClick={() => setPalPick(d)}>
-                                ○ {g[0].coName} {g.reduce((a, b) => a + b.os.length, 0)}건
-                              </button>
-                            ))}
-                          </div>
+                          <button className="pb-pal" onClick={() => setPalPick(d)} title={pals.map((g) => `${g[0].coName} ${g.reduce((a, b) => a + b.os.length, 0)}건`).join('\n')}>
+                            <span className="pb-pal-h">팔렛트 작업</span>
+                            <span className="pb-pal-dots">
+                              {pals.slice(0, 6).map((g) => (
+                                <i key={g[0].key} style={{ borderColor: g[0].color }} />
+                              ))}
+                            </span>
+                            <b>{pals.length}곳</b>
+                          </button>
                         )}
                       </div>
                     );
@@ -324,6 +330,32 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
             );
           })()}
         </>
+      )}
+      {loadPick && (
+        <Modal title={`📦 패킹 중 · ${dot(loadPick)} (${WEEK[dowOf(loadPick)]})`} onClose={() => setLoadPick(null)}>
+          <ul className="pk-ships">
+            {loadOf(loadPick)
+              .sort((a, b) => a.end.localeCompare(b.end))
+              .map((b) => (
+                <li key={b.key}>
+                  <span className="pk-pal-dot" style={{ borderColor: b.color, background: b.color }} />
+                  <div>
+                    <button className="link" onClick={() => (setLoadPick(null), setPick(b.key))}>
+                      <b>
+                        {b.o.team}조 · {b.coName} · {md(b.start)} 주문 {b.os.length}건
+                      </b>
+                    </button>
+                    <div className="muted small">
+                      {dot(b.start)} → 패킹 {dot(b.end)}
+                      {b.guess ? ' (예상)' : ''}
+                      {b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}
+                    </div>
+                    <div className="muted small">{b.os.map((o) => o.name).join(' · ')}</div>
+                  </div>
+                </li>
+              ))}
+          </ul>
+        </Modal>
       )}
       {palPick && (
         <Modal title={`○ 팔렛트 작업 · ${dot(palPick)} (토)`} onClose={() => setPalPick(null)}>
