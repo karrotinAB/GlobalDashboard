@@ -489,6 +489,8 @@ export default function Plaza() {
       <div className="pz-field" ref={fieldRef} onClick={() => setPickBox(null)}>
         {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} tall={tall} />}
         {/* 가운데: 게시판 */}
+        {/* 게시판 뒤: 동상 */}
+        <img className="pz-statue" src="./plaza/statue.png" alt="" draggable={false} />
         <div className="pz-board" title="마을 게시판 · 투표 · 공지 (준비 중)">
           <img src="./plaza/board.png" alt="" draggable={false} />
           <div className="pz-board-paper">

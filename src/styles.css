@@ -9838,3 +9838,7 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-note.n3 { left: 48%; top: 60%; width: 40%; height: 36%; background: #d3f0ff; transform: rotate(-3deg); }
 .pz-note.n3 i { background: radial-gradient(circle at 35% 35%, #9be59b, #2f9e44); }
 @media (max-aspect-ratio: 4/5) { .pz-field > .pz-board { width: 30vw; } }
+
+/* 게시판 뒤 동상 */
+.pz-field > .pz-statue { position: absolute; left: 50%; top: 50%; z-index: 0; width: clamp(90px, 12.5vmin, 160px); transform: translate(-50%, -112%); user-select: none; pointer-events: none; transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.38)) saturate(calc(1 - var(--dark) * 0.3)) drop-shadow(0 4px 3px rgba(0, 0, 0, 0.25)); }
+@media (max-aspect-ratio: 4/5) { .pz-field > .pz-statue { top: 45%; width: 22vw; } }
