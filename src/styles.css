@@ -9868,3 +9868,6 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-board > .pz-snowcap { z-index: 1; }
 .pz-field > .pz-statue { display: block; }
 .pz-statue > img:first-child { width: 100%; display: block; }
+/* 게시판 왼쪽 앞 · 동상 오른쪽 뒤 */
+.pz-field > .pz-statue { transform: translate(-22%, -88%); }
+.pz-field > .pz-board { transform: translate(-88%, -26%); }
