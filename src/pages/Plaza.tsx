@@ -145,7 +145,7 @@ export default function Plaza() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t1.data.orders, t2.data.orders, t3.data.orders, t1.data.companies, t2.data.companies, t3.data.companies, todayIso]);
   const maxKrw = Math.max(1, ...boxes.map((b) => b.krw));
-  const boxSize = (krw: number) => Math.round(26 + 46 * Math.sqrt(krw / maxKrw));
+  const boxSize = (krw: number) => Math.round(34 + 52 * Math.sqrt(krw / maxKrw));
   const [truckOpen, setTruckOpen] = useState(false);
 
   return (
@@ -205,36 +205,36 @@ export default function Plaza() {
         </div>
       </section>
 
-      {/* 가운데: 관리부 물류센터 */}
+      {/* 가운데: 관리부 물류센터 — 건물 · 앞마당에 패킹 중 박스 · 트럭 */}
       <section className="pz-wh">
         <div className="pz-wh-building">
-          <div className="pz-wh-roof">
-            <b>관리부</b>
-            <span>물류센터</span>
-          </div>
-          <div className="pz-wh-door">
+          <img src="./plaza/warehouse.png" alt="관리부 물류센터" draggable={false} />
+          <span className="pz-wh-sign">관리부</span>
+        </div>
+        <div className="pz-yard">
+          <div className="pz-yard-boxes">
             {boxes.length === 0 ? (
               <p className="pz-wh-empty">지금 패킹 중인 주문이 없어요</p>
             ) : (
-              boxes.map((b) => (
-                <span
+              boxes.slice(0, 40).map((b) => (
+                <img
                   key={b.id}
                   className="pz-box"
-                  style={{ width: boxSize(b.krw), height: boxSize(b.krw) * 0.8, '--c': b.color } as CSSProperties}
+                  src="./plaza/box.png"
+                  alt=""
+                  draggable={false}
+                  style={{ width: boxSize(b.krw) }}
                   title={`${b.co ? `${b.co} · ` : ''}${b.name}\n${won(b.krw)} · ${teamLabel(b.team)}`}
                 />
               ))
             )}
+            {boxes.length > 40 && <span className="pz-box-more">+{boxes.length - 40}</span>}
           </div>
           <div className="pz-wh-count">📦 패킹 중 {boxes.length}건</div>
         </div>
         <div className={`pz-truck ${truckOpen ? 'open' : ''}`} onMouseEnter={() => setTruckOpen(true)} onMouseLeave={() => setTruckOpen(false)} onClick={() => setTruckOpen((v) => !v)}>
-          <div className="pz-truck-body">
-            <span className="pz-truck-box">출고 {ships.length}</span>
-            <span className="pz-truck-cab" />
-            <i className="pz-wheel a" />
-            <i className="pz-wheel b" />
-          </div>
+          <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
+          <span className="pz-truck-n">출고 예정 {ships.length}</span>
           {truckOpen && (
             <div className="pz-truck-pop" role="tooltip">
               <b>🚚 출고 예정</b>

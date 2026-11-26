@@ -9657,28 +9657,24 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pz-board-face small { font-size: 11px; opacity: 0.7; }
 .pz-board-legs { width: 110px; height: 34px; background: linear-gradient(90deg, transparent 10%, #7d5a32 10%, #7d5a32 18%, transparent 18%, transparent 82%, #7d5a32 82%, #7d5a32 90%, transparent 90%); }
 
-/* 관리부 물류센터 */
-.pz-wh-building { position: relative; width: min(620px, 100%); }
-.pz-wh-roof { height: 56px; background: linear-gradient(#7d8a99, #66737f); clip-path: polygon(6% 100%, 14% 0, 86% 0, 94% 100%); display: flex; align-items: center; justify-content: center; gap: 8px; color: #fff; }
-.pz-wh-roof b { font-size: 20px; letter-spacing: 2px; }
-.pz-wh-roof span { font-size: 13px; opacity: 0.85; }
-.pz-wh-door { margin: 0 4%; min-height: 150px; padding: 14px 16px 10px; background: repeating-linear-gradient(#5b4b3f 0 2px, #3f352d 2px 14px); border: 8px solid #b7bec6; border-bottom: 0; display: flex; flex-wrap: wrap-reverse; align-content: flex-start; align-items: flex-end; justify-content: center; gap: 4px 5px; }
-.pz-box { position: relative; background: color-mix(in srgb, var(--c) 35%, #d8a86a); border: 2px solid #8f6534; border-radius: 3px; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12); cursor: help; transition: transform 0.15s; }
-.pz-box::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 18%; transform: translateX(-50%); background: rgba(255, 240, 200, 0.55); }
-.pz-box:hover { transform: translateY(-4px); }
-.pz-wh-empty { margin: auto; color: #f3e7d8; font-size: 14px; }
-.pz-wh-count { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 12px; font-size: 12.5px; font-weight: 700; color: #4a3b2e; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; }
-.pz-truck { position: relative; flex: none; cursor: pointer; padding-bottom: 4px; }
-.pz-truck-body { position: relative; width: 190px; height: 92px; }
-.pz-truck-box { position: absolute; left: 0; bottom: 18px; width: 128px; height: 70px; background: #f4f1ea; border: 2px solid #9aa1a8; border-radius: 6px; display: grid; place-items: center; font-weight: 800; color: var(--primary); font-size: 15px; }
-.pz-truck-cab { position: absolute; left: 130px; bottom: 18px; width: 56px; height: 52px; background: var(--primary); border-radius: 6px 18px 4px 4px; }
-.pz-truck-cab::after { content: ''; position: absolute; right: 8px; top: 8px; width: 22px; height: 16px; background: #cfe7f7; border-radius: 3px 10px 3px 3px; }
-.pz-wheel { position: absolute; bottom: 4px; width: 26px; height: 26px; border-radius: 50%; background: #333; border: 5px solid #555; }
-.pz-wheel.a { left: 20px; }
-.pz-wheel.b { left: 142px; }
-.pz-truck:hover .pz-truck-body, .pz-truck.open .pz-truck-body { animation: pz-rumble 0.25s linear infinite; }
-@keyframes pz-rumble { 50% { transform: translateY(-1px); } }
-.pz-truck-pop { position: absolute; z-index: 5; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 300px; max-height: 340px; overflow: auto; background: var(--surface); border-radius: 14px; padding: 12px 14px; box-shadow: 0 12px 34px rgba(30, 20, 20, 0.3); cursor: default; }
+/* 관리부 물류센터 (그림: public/plaza/warehouse.png · box.png · truck.png) */
+.pz-wh { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 26px 0 34px; flex-wrap: wrap; }
+.pz-wh-building { position: relative; width: min(440px, 100%); flex: none; }
+.pz-wh-building img { width: 100%; display: block; user-select: none; }
+.pz-wh-sign { position: absolute; left: 22%; top: 41%; transform: rotate(-6deg); background: #fff8e8; border: 3px solid #3b2626; border-radius: 8px; padding: 2px 12px; font-weight: 800; font-size: 18px; color: #3b2626; letter-spacing: 1px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
+.pz-yard { position: relative; width: min(320px, 100%); min-height: 150px; padding-bottom: 26px; display: flex; flex-direction: column; justify-content: flex-end; }
+.pz-yard-boxes { display: flex; flex-wrap: wrap-reverse; align-items: flex-end; align-content: flex-start; justify-content: center; gap: 0 2px; }
+.pz-box { display: block; height: auto; margin-top: -10px; cursor: help; transition: transform 0.15s; filter: drop-shadow(0 2px 1px rgba(60, 40, 20, 0.25)); user-select: none; }
+.pz-box:hover { transform: translateY(-5px) rotate(-3deg); }
+.pz-box-more { align-self: center; font-weight: 800; color: #5a3b22; background: rgba(255, 255, 255, 0.7); border-radius: 999px; padding: 2px 10px; }
+.pz-wh-empty { margin: auto; color: #3d5a2c; font-size: 14px; background: rgba(255, 255, 255, 0.55); border-radius: 12px; padding: 6px 12px; }
+.pz-wh-count { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 12px; font-size: 12.5px; font-weight: 700; color: #4a3b2e; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; }
+.pz-truck { position: relative; flex: none; width: 250px; cursor: pointer; }
+.pz-truck-img { width: 100%; display: block; user-select: none; transition: transform 0.2s; }
+.pz-truck:hover .pz-truck-img, .pz-truck.open .pz-truck-img { animation: pz-rumble 0.22s linear infinite; }
+@keyframes pz-rumble { 50% { transform: translateY(-1.5px); } }
+.pz-truck-n { position: absolute; left: 58%; top: 26%; transform: translateX(-50%) rotate(-8deg); background: #fff; color: var(--primary); font-weight: 800; font-size: 13px; border-radius: 8px; padding: 2px 8px; border: 2px solid #3b2626; white-space: nowrap; pointer-events: none; }
+.pz-truck-pop { position: absolute; z-index: 5; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: 300px; max-height: 340px; overflow: auto; background: var(--surface); border-radius: 14px; padding: 12px 14px; box-shadow: 0 12px 34px rgba(30, 20, 20, 0.3); cursor: default; }
 .pz-truck-pop ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .pz-truck-pop li { display: flex; gap: 10px; font-size: 13px; }
 .pz-ship-d { flex: none; width: 40px; font-weight: 700; color: var(--primary); }
