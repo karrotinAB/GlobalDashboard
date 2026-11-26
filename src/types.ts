@@ -205,6 +205,8 @@ export interface ConfigDoc {
   companyIds?: string[];
   // id = 'reportTasks': 팀장님·이사님 — 할일로 이미 만든 보고 (지운 할일은 다시 안 만듦)
   reportIds?: string[];
+  // id = 'royaltyTasks': 로열티 업체 'N월 로열티 받기' 할일을 이미 만든 것 (업체id_YYYY-MM · 지운 할일은 다시 안 만듦)
+  royaltyKeys?: string[];
   // id = 'holidays': 공휴일 서비스에 없는 나라별 휴일 (관리자가 설정에서 추가)
   holidays?: ExtraHoliday[];
 }

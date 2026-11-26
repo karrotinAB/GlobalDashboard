@@ -1,3 +1,4 @@
+import RoyaltyTaskSync from './components/RoyaltyTaskSync';
 import MiniCal from './components/MiniCal';
 import { Suspense, useEffect, useState, useTransition } from 'react';
 import { lazyPage, PageErrorBoundary } from './lib/lazyPage';
@@ -158,6 +159,7 @@ export default function App() {
     <div className="app">
       <ExtensionBridge />
       <ReportTaskSync />
+      <RoyaltyTaskSync />
       <PresentMode allowed={((realRole ?? role) === 'admin' && !auditor) || role === null} />
       <div className="mobile-bar">
         <button className="mb-menu" onClick={() => setDrawer(true)} aria-label="메뉴 열기">
