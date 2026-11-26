@@ -63,7 +63,8 @@ interface Draft {
   yardAddr?: string;
   refNote?: string; // (예전) 5. 참고사항 한 줄 — 지금은 refLines 첫 줄로
   bookingNo?: string; // 5. 참고사항: 부킹넘버
-  refLines?: string[]; // 5. 참고사항: 그 밑에 더 쓰는 줄
+  refLines?: string[]; // (예전) 줄마다 — 지금은 refText
+  refText?: string; // 5. 참고사항: 부킹넘버 밑에 쓰는 글 (여러 줄)
 }
 const DISPATCH = ['', '포워딩업체에서 컨테이너 배송 예정.', '배차 완료', '광혜원 배차 필요'];
 const FOLLOW1 = '배차정보 및 컨테이너 정보는 확인되는대로 전달드리겠습니다.';
@@ -238,7 +239,7 @@ export default function Coop() {
   const autoOutDate = dot(linked.map((o) => o.bundle?.shipDate || o.shipDate || '').filter(Boolean).sort().at(-1) ?? '');
   const outDate = d.outDate || autoOutDate;
   const works = d.works ?? [];
-  const refLines = d.refLines ?? (d.refNote?.trim() ? [d.refNote] : []);
+  const refText = d.refText ?? [...(d.refNote?.trim() ? [d.refNote] : []), ...(d.refLines ?? [])].filter((x) => x.trim()).join('\n');
   const dispatchText = d.dispatch ? DISPATCH[d.dispatch] : '';
   const followText = d.dispatch && d.dispatch <= 2 ? (d.follow === 1 ? FOLLOW1 : d.follow === 2 ? (d.followText ?? '').trim() : '') : '';
   const autoTitle = d.kind === 'out'
@@ -316,7 +317,7 @@ export default function Coop() {
     '',
     '5. 참고사항:',
     `부킹넘버: ${(d.bookingNo ?? '').trim()}`,
-    ...refLines.filter((x) => x.trim()).map((x) => x.trim()),
+    ...(refText.trim() ? [refText.replace(/\s+$/, '')] : []),
     '',
     `기타 문의사항은 글로벌 사업부 ${personName}${personPhone ? `(${personPhone})` : ''}에게 문의바랍니다.`,
     '끝.',
@@ -568,17 +569,10 @@ export default function Coop() {
               <p className="coop-line">
                 부킹넘버: <Blank value={d.bookingNo ?? ''} ph="부킹넘버" w={14} onChange={(v) => set({ bookingNo: v })} />
               </p>
-              {refLines.map((x, i) => (
-                <p key={i} className="coop-line">
-                  <Blank value={x} ph="내용" w={30} className="wide" onChange={(v) => set({ refLines: refLines.map((y, j) => (j === i ? v : y)), refNote: undefined })} />
-                  <button className="link small" onClick={() => set({ refLines: refLines.filter((_, j) => j !== i), refNote: undefined })} title="이 줄 빼기">
-                    ✕
-                  </button>
-                </p>
-              ))}
-              <button className="link small coop-add" onClick={() => set({ refLines: [...refLines, ''], refNote: undefined })}>
-                + 내용 추가
-              </button>
+              {/* 부킹넘버 밑에 참고사항 (있으면 · 여러 줄 · 비우면 안 들어감) */}
+              <div className="coop-note">
+                <textarea rows={3} value={refText} placeholder="참고사항 (있으면 · Enter 로 줄바꿈)" onChange={(e) => set({ refText: e.target.value, refLines: undefined, refNote: undefined })} />
+              </div>
             </>
           ) : isArr ? (
             <>
