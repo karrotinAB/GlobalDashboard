@@ -206,6 +206,8 @@ function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
           {d.k === 'tuft' && <path d="M-6 4 L-3 -6 L0 3 L3 -8 L5 3 L8 -4 L9 4 Z" fill="#3f9a2a" stroke="#1f3d14" strokeWidth="1.2" strokeLinejoin="round" />}
         </g>
       ))}
+      <rect className="pz-tint dusk" width={w} height={h} />
+      <rect className="pz-tint night" width={w} height={h} />
     </svg>
   );
 }
@@ -247,6 +249,9 @@ export default function Plaza() {
   const wx: { mode: 'rain' | 'snow'; level: 1 | 2 | 3 } | null =
     wxPv === 'clear' ? null : wxPv === 'rain' ? { mode: 'rain', level: 2 } : wxPv === 'snow' ? { mode: 'snow', level: 2 } : realWx && realWx.mode !== 'frost' ? (realWx as { mode: 'rain' | 'snow'; level: 1 | 2 | 3 }) : null;
   const cloudy = !!wx || weather?.sky === 4;
+  // 관리부: 평일 8:30 ~ 18:00 에만 창문 불 (미리보기 '밤' 이면 꺼짐)
+  const weekday = now.getDay() >= 1 && now.getDay() <= 5;
+  const whOn = timePv === 'night' ? false : timePv ? true : weekday && nowMin >= 8 * 60 + 30 && nowMin < 18 * 60;
 
   const nameOf = (email?: string) => {
     const e = (email ?? '').toLowerCase();
@@ -522,6 +527,7 @@ export default function Plaza() {
         <section className="pz-wh">
           <div className="pz-wh-building">
             <img src="./plaza/warehouse.png" alt="관리부 물류센터" draggable={false} />
+            <span className={`pz-wh-glass ${whOn ? 'on' : ''}`} style={maskOf('warehouse-glass')} title={whOn ? '관리부 근무 중' : '관리부 퇴근 (평일 8:30 ~ 18:00 에 불이 켜져요)'} />
             <span className="pz-wh-sign">관리부</span>
           </div>
           <div className="pz-yard">

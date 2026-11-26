@@ -9796,7 +9796,7 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz { --dark: 0; --dusk: 0; }
 .pz-ground { transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.52)) saturate(calc(1 - var(--dark) * 0.35)) sepia(calc(var(--dusk) * 0.45)) hue-rotate(calc(var(--dark) * 12deg)); }
 .pz-cloudy .pz-ground { filter: brightness(calc(0.9 - var(--dark) * 0.48)) saturate(calc(0.8 - var(--dark) * 0.3)) sepia(calc(var(--dusk) * 0.45)); }
-.pz-house.off .pz-art, .pz-field > .pz-wh, .pz-field > .pz-board { transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.38)) saturate(calc(1 - var(--dark) * 0.3)) sepia(calc(var(--dusk) * 0.35)); }
+.pz-house.off .pz-art, .pz-wh-building > img, .pz-yard-boxes, .pz-truck-img, .pz-truck-shadow, .pz-field > .pz-board { transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.38)) saturate(calc(1 - var(--dark) * 0.3)) sepia(calc(var(--dusk) * 0.35)); }
 .pz-house.on .pz-art { filter: drop-shadow(0 0 calc(8px + var(--dark) * 14px) rgba(255, 214, 92, calc(0.5 + var(--dark) * 0.35))); }
 .pz-night .pz-art-char { filter: brightness(0.9) drop-shadow(0 3px 2px rgba(0, 0, 0, 0.25)); }
 .pz-field { z-index: 1; }
@@ -9810,11 +9810,18 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-pv-pop button { padding: 4px 10px; font-size: 12.5px; border-radius: 999px; }
 .pz-pv-pop button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .pz-pv-pop small { font-size: 11.5px; color: var(--mut); }
-/* 노을엔 주황빛 · 밤엔 푸른빛 한 겹 */
-.pz::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: multiply; background: linear-gradient(rgba(255, 150, 70, calc(var(--dusk) * 0.28)), rgba(255, 120, 60, calc(var(--dusk) * 0.18))), rgba(70, 90, 170, calc(var(--dark) * 0.22)); transition: background 2s; }
 .pz-pv-pop { min-width: 380px; }
 .pz-pv-pop > div { flex-wrap: nowrap; }
 @media (max-width: 480px) { .pz-pv-pop { min-width: 0; width: 92vw; } .pz-pv-pop > div { flex-wrap: wrap; } }
 /* 트럭 그림자는 바닥에 가만히 (트럭만 드릉드릉) */
 .pz-truck-shadow { position: absolute; left: 0; top: 0; width: 100%; height: auto; pointer-events: none; user-select: none; }
 .pz-truck-img { position: relative; }
+/* 관리부 창문 불 (평일 8:30 ~ 18:00) */
+.pz-wh-glass { position: absolute; inset: 0; pointer-events: auto; background: #2f3d5c; opacity: 0.55; transition: background 0.6s, opacity 0.6s; }
+.pz-wh-glass.on { background: #ffd65c; opacity: 1; }
+.pz-wh-building:has(.pz-wh-glass.on) > img { filter: brightness(calc(1 - var(--dark) * 0.38)) saturate(calc(1 - var(--dark) * 0.3)) sepia(calc(var(--dusk) * 0.35)) drop-shadow(0 0 calc(4px + var(--dark) * 14px) rgba(255, 214, 92, calc(0.25 + var(--dark) * 0.5))); }
+
+/* 노을 · 밤 색은 바닥 그림에만 (메모 · 말풍선 · 박스 카드는 늘 밝게) */
+.pz-tint { mix-blend-mode: multiply; pointer-events: none; transition: opacity 2s; }
+.pz-tint.dusk { fill: rgb(255, 140, 65); opacity: calc(var(--dusk) * 0.3); }
+.pz-tint.night { fill: rgb(70, 90, 170); opacity: calc(var(--dark) * 0.3); }
