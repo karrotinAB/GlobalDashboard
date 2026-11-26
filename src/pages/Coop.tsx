@@ -1,5 +1,5 @@
-// 도구함 › 4. 업무협조전 (지금은 관리자만): 종류를 고르면 제목 · 양식이 나오고 빈칸만 채움
-//   주문을 연결하면 나라 · 업체 · 매장 · 주문일자 · 패킹완료일이 자동으로 · 제목 / 내용 따로 클립보드 복사
+// 도구함 › 4. 업무협조전 (지금은 관리자만): 종류를 고르면 그 양식이 문서처럼 뜨고, 문서 안 빈칸에 바로 씀 (전도금 신청서처럼)
+//   📥 주문 불러오기 → 나라 · 업체 · 매장 · 주문일자 · 패킹완료일이 빈칸에 자동으로 · 제목 / 내용 따로 클립보드 복사
 //   연락처: 기본 = 나 (주소록 이름 · 회사번호) · 다른 사람으로 바꿀 수 있음
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useAccess } from '../components/AuthGate';
@@ -16,23 +16,39 @@ const coShort = (n: string) => n.replace(/\s*\(.*\)\s*$/, '').trim();
 const KINDS = [{ key: 'packing', label: '주문 등록 후 패킹 요청', icon: '📦', color: '#3f7d5a' }] as const;
 type Kind = (typeof KINDS)[number]['key'];
 
+type Line = { store: string; date: string };
 interface Draft {
   kind: Kind;
   companyId: string;
   country: string;
   coName: string;
   orderIds: string[];
-  extraLines: string[]; // 주문 말고 직접 쓴 주문일자 줄
+  lines: Line[]; // 2. 주문일자 줄 (주문을 불러오면 채워짐 · 직접 고치고 더할 수 있음)
   content: string; // 1. 내용 (비우면 자동)
-  note1: string;
-  note2: string;
-  packDate: string; // 비우면 자동 (연결한 주문 패킹완료일 중 가장 늦은 날)
+  note1: string | null; // 비고 (null = 안 씀)
+  note2: string | null;
+  packDate: string; // 비우면 자동 (불러온 주문 패킹완료일 중 가장 늦은 날)
   personEmail: string;
-  personName: string; // 비우면 주소록 이름
-  personPhone: string; // 비우면 주소록 회사번호
+  personName: string;
+  personPhone: string;
 }
-const EMPTY: Draft = { kind: 'packing', companyId: '', country: '', coName: '', orderIds: [], extraLines: [], content: '', note1: '', note2: '', packDate: '', personEmail: '', personName: '', personPhone: '' };
-const LS = 'gd:coopDraft';
+const EMPTY: Draft = { kind: 'packing', companyId: '', country: '', coName: '', orderIds: [], lines: [], content: '', note1: null, note2: null, packDate: '', personEmail: '', personName: '', personPhone: '' };
+const LS = 'gd:coopDraft2';
+
+/** 문서 안 빈칸: 글자 수만큼 넓어지는 입력칸 */
+function Blank({ value, auto, onChange, ph, w = 6, className = '' }: { value: string; auto?: string; onChange: (v: string) => void; ph: string; w?: number; className?: string }) {
+  const shown = value || auto || '';
+  return (
+    <input
+      className={`coop-blank ${value ? '' : auto ? 'auto' : 'empty'} ${className}`}
+      value={shown}
+      placeholder={ph}
+      size={Math.max(w, [...(shown || ph)].reduce((a, ch) => a + (/[ㄱ-힣]/.test(ch) ? 2 : 1), 0) + 1)}
+      onChange={(e) => onChange(e.target.value)}
+      title={value ? '' : auto ? '자동으로 채운 값 — 고칠 수 있어요' : ph}
+    />
+  );
+}
 
 export default function Coop() {
   const access = useAccess();
@@ -55,12 +71,11 @@ export default function Coop() {
   }, [d]);
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }));
   const co = companyById.get(d.companyId);
-  const coOrders = useMemo(
-    () => data.orders.filter((o) => o.companyId === d.companyId).sort((a, b) => String(b.orderDate ?? b.createdAt).localeCompare(String(a.orderDate ?? a.createdAt))),
-    [data.orders, d.companyId],
-  );
-  // 📥 주문 불러오기: 주문 · 묶음을 찾아 고르면 업체 · 주문 · 내용 · 날짜가 한 번에 (진행중 먼저)
+  const linked = d.orderIds.map((id) => data.orders.find((o) => o.id === id)).filter((o): o is Order => !!o);
+
+  // 📥 주문 불러오기: 주문 · 묶음 (진행중 먼저)
   const [q, setQ] = useState('');
+  const [finding, setFinding] = useState(false);
   const hits = useMemo(() => {
     const nq = q.trim().toLowerCase();
     const groups = new Map<string, Order[]>();
@@ -73,31 +88,43 @@ export default function Coop() {
       .map(([k, os]) => {
         const o = os[0];
         const name = o.bundle ? `📦 ${o.bundle.name || '묶음'} (주문 ${os.length}개)` : o.name;
-        const hay = [name, ...os.map((x) => `${x.name} ${x.storeCode ?? ''} ${x.orderDate ?? ''}`), companyById.get(o.companyId ?? '')?.name ?? ''].join(' ').toLowerCase();
+        const coN = companyById.get(o.companyId ?? '')?.name ?? '';
+        const hay = [name, coN, ...os.map((x) => `${x.name} ${x.storeCode ?? ''} ${x.orderDate ?? ''}`)].join(' ').toLowerCase();
         const done = os.every((x) => x.closed || x.shipped);
         const last = os.map((x) => x.orderDate ?? x.createdAt).sort().at(-1) ?? '';
-        return { k, os, name, hay, done, last, co: companyById.get(o.companyId ?? '')?.name ?? '' };
+        return { k, os, name, hay, done, last, co: coN };
       })
       .filter((h) => (nq ? h.hay.includes(nq) : !h.done))
       .sort((a, b) => Number(a.done) - Number(b.done) || b.last.localeCompare(a.last))
-      .slice(0, 12);
+      .slice(0, 15);
   }, [q, data.orders, companyById]);
-  const loadFrom = (os: Order[]) => {
-    setD((x) => ({ ...x, companyId: os[0].companyId ?? '', orderIds: os.map((o) => o.id), country: '', coName: '', content: '', packDate: '', extraLines: [] }));
+  const loadFrom = (os: Order[], add = false) => {
+    setD((x) => {
+      const ids = add ? [...new Set([...x.orderIds, ...os.map((o) => o.id)])] : os.map((o) => o.id);
+      const all = ids.map((id) => data.orders.find((o) => o.id === id)).filter((o): o is Order => !!o);
+      return {
+        ...x,
+        companyId: os[0].companyId ?? x.companyId,
+        orderIds: ids,
+        lines: all.map((o) => ({ store: String(o.storeCode ?? ''), date: dot(o.orderDate) })),
+        ...(add ? {} : { country: '', coName: '', content: '', packDate: '' }),
+      };
+    });
     setQ('');
+    setFinding(false);
   };
-  const linked = d.orderIds.map((id) => data.orders.find((o) => o.id === id)).filter((o): o is Order => !!o);
-  const stores = [...new Set(linked.map((o) => String(o.storeCode ?? '').trim()).filter(Boolean))];
-  const storeNames = useStoreNames(stores, stores.length > 0);
 
+  const stores = [...new Set(d.lines.map((l) => l.store.trim()).filter(Boolean))];
+  const storeNames = useStoreNames(stores, stores.length > 0);
   // 자동으로 채우는 값
-  const country = d.country || co?.country || '';
-  const coName = d.coName || coShort(co?.name ?? '');
-  const autoContent =
-    stores.length === 1 ? [country, storeNames[stores[0]] || coName, stores[0], '패킹 요청'].filter(Boolean).join(' ') : [country, coName, stores.join(', '), stores.length ? '패킹 요청' : ''].filter(Boolean).join(' ');
+  const autoCountry = co?.country || '';
+  const autoCo = coShort(co?.name ?? '');
+  const country = d.country || autoCountry;
+  const coName = d.coName || autoCo;
+  const autoContent = stores.length === 1 ? [country, storeNames[stores[0]] || coName, stores[0], '패킹 요청'].filter(Boolean).join(' ') : stores.length ? [country, coName, stores.join(', '), '패킹 요청'].filter(Boolean).join(' ') : '';
   const content = d.content || autoContent;
-  const autoPack = linked.map((o) => (o.packing ? parseDate(o.packing) : null)).filter((x): x is string => !!x).sort().at(-1) ?? '';
-  const packDate = d.packDate || dot(autoPack);
+  const autoPack = dot(linked.map((o) => (o.packing ? parseDate(o.packing) : null)).filter((x): x is string => !!x).sort().at(-1) ?? '');
+  const packDate = d.packDate || autoPack;
   // 연락처: 기본 = 나
   const people = useMemo(
     () =>
@@ -109,10 +136,12 @@ export default function Coop() {
   );
   const personEmail = d.personEmail || access.email;
   const person = people.find((p) => p.email === personEmail);
-  const personName = d.personName || person?.name || access.accountName || '';
-  const personPhone = d.personPhone || person?.phone || '';
+  const autoName = person?.name || access.accountName || '';
+  const autoPhone = person?.phone || '';
+  const personName = d.personName || autoName;
+  const personPhone = d.personPhone || autoPhone;
 
-  const orderLines = [...linked.map((o) => `- ${o.storeCode ?? ''} ${dot(o.orderDate)} 주문`.replace(/\s+/g, ' ')), ...d.extraLines.filter((x) => x.trim()).map((x) => (x.trim().startsWith('-') ? x.trim() : `- ${x.trim()}`))];
+  const lineText = (l: Line) => `- ${[l.store.trim(), l.date.trim()].filter(Boolean).join(' ')} 주문`;
   const title = `(업무협조전-글로벌사업부) ${[country, coName].filter(Boolean).join(' ')} 패킹 요청`;
   const body = [
     '상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.',
@@ -120,11 +149,11 @@ export default function Coop() {
     '-------------- 아      래 ---------------',
     '',
     `1. 내 용 :  ${content}`,
-    ...(d.note1.trim() ? [d.note1.trim()] : []),
+    ...(d.note1?.trim() ? [d.note1.trim()] : []),
     '',
     '2. 주문일자',
-    ...orderLines,
-    ...(d.note2.trim() ? [d.note2.trim()] : []),
+    ...d.lines.filter((l) => l.store.trim() || l.date.trim()).map(lineText),
+    ...(d.note2?.trim() ? [d.note2.trim()] : []),
     '',
     `3. 패킹완료일자: ${packDate}`,
     '',
@@ -148,17 +177,19 @@ export default function Coop() {
     setCopied(what);
     setTimeout(() => setCopied(''), 1500);
   };
-  const missing = [!country && '나라', !coName && '업체', !orderLines.length && '주문일자', !packDate && '패킹완료일자', !personName && '연락처 이름'].filter(Boolean) as string[];
+  const missing = [!country && '나라', !coName && '업체명', !content && '내용', !d.lines.some((l) => l.store || l.date) && '주문일자', !packDate && '패킹완료일자', !personName && '연락처'].filter(Boolean) as string[];
+  const setLine = (i: number, p: Partial<Line>) => set({ lines: d.lines.map((l, j) => (j === i ? { ...l, ...p } : l)) });
+  const kind = KINDS.find((k) => k.key === d.kind) ?? KINDS[0];
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <h1>🤝 업무협조전</h1>
-          <p className="muted">종류를 고르고 빈칸만 채우면 돼요. 주문을 연결하면 나라 · 업체 · 매장 · 주문일자 · 패킹완료일이 자동으로 들어가요. 다 되면 제목 / 내용을 따로 복사해요.</p>
+          <p className="muted">종류를 고르면 양식이 떠요. 문서 안 빈칸에 바로 쓰고, 📥 주문을 불러오면 빈칸이 자동으로 채워져요. 다 되면 제목 / 내용을 따로 복사해요.</p>
         </div>
       </div>
-      {/* 종류: 따로 띄운 색 카드 (고른 것만 진하게) */}
+      {/* 종류: 색 카드 */}
       <div className="coop-kinds">
         <span className="coop-kinds-h">어떤 업무협조전?</span>
         {KINDS.map((k, i) => (
@@ -167,32 +198,64 @@ export default function Coop() {
             <span aria-hidden="true">{k.icon}</span> {k.label}
           </button>
         ))}
-        <span className="muted small">종류는 계속 늘어나요</span>
       </div>
-      <div className="coop-grid">
-        <section className="card coop-form">
-          <div className="coop-row coop-load">
-            <span>📥 주문 불러오기</span>
-            <div>
-              <input value={q} placeholder="주문 · 묶음 · 매장코드 · 업체로 찾기 (비우면 진행중 주문)" onChange={(e) => setQ(e.target.value)} />
+
+      {/* 📥 주문 불러오기 */}
+      <div className="coop-loadbar">
+        <span className="coop-load-h">📥 주문 불러오기</span>
+        <div className="coop-load-box">
+          <input value={q} placeholder="주문 · 묶음 · 매장코드 · 업체로 찾기 (누르면 진행중 주문)" onFocus={() => setFinding(true)} onChange={(e) => (setQ(e.target.value), setFinding(true))} />
+          {finding && (
+            <>
+              <div className="coop-load-bg" onClick={() => setFinding(false)} />
               <div className="coop-hits">
                 {hits.map((h) => (
-                  <button key={h.k} className="coop-hit" onClick={() => loadFrom(h.os)} title={h.os.map((o) => `${o.name} · ${o.storeCode ?? ''} · ${dot(o.orderDate)}`).join('\n')}>
-                    <b>{h.name}</b>
-                    <span className="muted small">
-                      {h.co.replace(/\s*\(.*\)\s*$/, '')} · {[...new Set(h.os.map((o) => o.storeCode).filter(Boolean))].join(', ')} · {dot(h.last)}
-                      {h.done ? ' · 완료' : ''}
-                    </span>
-                  </button>
+                  <div key={h.k} className="coop-hit-row">
+                    <button className="coop-hit" onClick={() => loadFrom(h.os)} title="이 주문으로 새로 채우기">
+                      <b>{h.name}</b>
+                      <span className="muted small">
+                        {coShort(h.co)} · {[...new Set(h.os.map((o) => o.storeCode).filter(Boolean))].join(', ')} · {dot(h.last)}
+                        {h.done ? ' · 완료' : ''}
+                      </span>
+                    </button>
+                    {linked.length > 0 && (
+                      <button className="link small" onClick={() => loadFrom(h.os, true)} title="지금 불러온 주문에 더하기">
+                        + 더하기
+                      </button>
+                    )}
+                  </div>
                 ))}
-                {!hits.length && <span className="muted small">맞는 주문이 없어요</span>}
+                {!hits.length && <span className="muted small coop-nohit">맞는 주문이 없어요</span>}
               </div>
-              <span className="muted small">고르면 업체 · 주문 · 1. 내용 · 2. 주문일자 · 3. 패킹완료일자가 한 번에 채워져요 (지금 쓴 내용은 바뀌어요)</span>
-            </div>
-          </div>
-          <label className="coop-row">
-            <span>업체</span>
-            <select value={d.companyId} onChange={(e) => set({ companyId: e.target.value, orderIds: [], country: '', coName: '' })}>
+            </>
+          )}
+        </div>
+        {linked.length > 0 && (
+          <span className="coop-linked muted small">
+            불러온 주문 {linked.length}개
+            <button className="link small" onClick={() => set({ orderIds: [], lines: [] })}>
+              비우기
+            </button>
+          </span>
+        )}
+        <button className="link small coop-reset" onClick={() => confirm('다 비우고 새로 쓸까요?') && setD({ ...EMPTY, kind: d.kind })}>
+          ↺ 새로 쓰기
+        </button>
+      </div>
+
+      {/* 문서: 빈칸에 바로 */}
+      <section className="card coop-doc" style={{ '--k': kind.color } as CSSProperties}>
+        <div className="coop-copy">
+          <b>제목</b>
+          <button className={copied === 'title' ? 'primary' : ''} onClick={() => void copy('title')}>
+            {copied === 'title' ? '✓ 복사됨' : '📋 제목 복사'}
+          </button>
+        </div>
+        <div className="coop-paper coop-title">
+          (업무협조전-글로벌사업부) <Blank value={d.country} auto={autoCountry} ph="나라" onChange={(v) => set({ country: v })} />{' '}
+          <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} />{' '}
+          {!co && (
+            <select className="coop-co-pick" value="" onChange={(e) => set({ companyId: e.target.value })} title="업체를 고르면 나라 · 업체명이 채워져요">
               <option value="">업체 고르기</option>
               {companies.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -200,120 +263,86 @@ export default function Coop() {
                 </option>
               ))}
             </select>
-          </label>
-          <div className="coop-row two">
-            <label>
-              <span>나라</span>
-              <input value={d.country} placeholder={co?.country || '나라'} onChange={(e) => set({ country: e.target.value })} />
-            </label>
-            <label>
-              <span>업체명</span>
-              <input value={d.coName} placeholder={coShort(co?.name ?? '') || '업체명'} onChange={(e) => set({ coName: e.target.value })} />
-            </label>
-          </div>
+          )}{' '}
+          패킹 요청
+        </div>
 
-          <div className="coop-row">
-            <span>주문 연결</span>
-            <div className="coop-orders">
-              {linked.map((o) => (
-                <span key={o.id} className="rq-order-chip">
-                  {o.name} · {o.storeCode} · {dot(o.orderDate)}
-                  <button className="link" onClick={() => set({ orderIds: d.orderIds.filter((x) => x !== o.id) })}>
-                    ✕
-                  </button>
-                </span>
-              ))}
-              <select value="" disabled={!d.companyId} onChange={(e) => e.target.value && set({ orderIds: [...d.orderIds, e.target.value] })}>
-                <option value="">{d.companyId ? '+ 주문 추가하기' : '(업체를 먼저 골라요)'}</option>
-                {coOrders
-                  .filter((o) => !d.orderIds.includes(o.id))
-                  .map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name} · {o.storeCode ?? ''} · {dot(o.orderDate)}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
+        <div className="coop-copy">
+          <b>내용</b>
+          <button className={copied === 'body' ? 'primary' : ''} onClick={() => void copy('body')}>
+            {copied === 'body' ? '✓ 복사됨' : '📋 내용 복사'}
+          </button>
+        </div>
+        <div className="coop-paper">
+          <p>상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.</p>
+          <p className="coop-center">-------------- 아&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;래 ---------------</p>
 
-          <label className="coop-row">
-            <span>1. 내용</span>
-            <input value={d.content} placeholder={autoContent || '예: 몽골 ○○점 826701 에어건 패킹 요청'} onChange={(e) => set({ content: e.target.value })} />
-          </label>
-          <label className="coop-row">
-            <span className="muted">비고 (필요시)</span>
-            <textarea rows={2} value={d.note1} onChange={(e) => set({ note1: e.target.value })} />
-          </label>
-          <div className="coop-row">
-            <span>2. 주문일자</span>
-            <div className="coop-lines">
-              {linked.length === 0 && d.extraLines.length === 0 && <span className="muted small">주문을 연결하면 '- 매장번호 주문일자 주문' 이 자동으로 들어가요</span>}
-              {linked.map((o) => (
-                <div key={o.id} className="muted small">
-                  - {o.storeCode} {dot(o.orderDate)} 주문
-                </div>
-              ))}
-              {d.extraLines.map((x, i) => (
-                <div key={i} className="coop-extra">
-                  <input value={x} placeholder="826701 2026.11.20 주문" onChange={(e) => set({ extraLines: d.extraLines.map((y, j) => (j === i ? e.target.value : y)) })} />
-                  <button className="link" onClick={() => set({ extraLines: d.extraLines.filter((_, j) => j !== i) })}>
-                    ✕
-                  </button>
-                </div>
-              ))}
-              <button className="link small" onClick={() => set({ extraLines: [...d.extraLines, ''] })}>
-                + 줄 직접 추가
+          <p>
+            1. 내 용 :&nbsp; <Blank value={d.content} auto={autoContent} ph="나라 매장명 매장번호 패킹 요청" w={30} className="wide" onChange={(v) => set({ content: v })} />
+          </p>
+          {d.note1 !== null ? (
+            <div className="coop-note">
+              <textarea rows={2} value={d.note1} placeholder="비고" onChange={(e) => set({ note1: e.target.value })} />
+              <button className="link small" onClick={() => set({ note1: null })}>
+                ✕
               </button>
             </div>
-          </div>
-          <label className="coop-row">
-            <span className="muted">비고 (필요시)</span>
-            <textarea rows={2} value={d.note2} onChange={(e) => set({ note2: e.target.value })} />
-          </label>
-          <label className="coop-row">
-            <span>3. 패킹완료일자</span>
-            <input value={d.packDate} placeholder={dot(autoPack) || '2026.12.09'} onChange={(e) => set({ packDate: e.target.value })} />
-          </label>
+          ) : (
+            <button className="link small coop-add" onClick={() => set({ note1: '' })}>
+              + 비고
+            </button>
+          )}
 
-          <div className="coop-row">
-            <span>연락처</span>
-            <div className="coop-person">
-              <select value={personEmail} onChange={(e) => set({ personEmail: e.target.value, personName: '', personPhone: '' })}>
-                {!people.some((p) => p.email === personEmail) && <option value={personEmail}>{personName || '나'}</option>}
-                {people.map((p) => (
-                  <option key={p.email} value={p.email}>
-                    {p.name}
-                    {p.email === access.email ? ' (나)' : ''}
-                  </option>
-                ))}
-              </select>
-              <input value={d.personName} placeholder={person?.name || '이름'} onChange={(e) => set({ personName: e.target.value })} title="이름 (비우면 주소록 이름)" />
-              <input value={d.personPhone} placeholder={person?.phone || '회사번호'} onChange={(e) => set({ personPhone: e.target.value })} title="회사번호 (비우면 주소록 회사번호)" />
-            </div>
-          </div>
-          <button className="link small" onClick={() => confirm('다 비우고 새로 쓸까요?') && setD({ ...EMPTY, kind: d.kind })}>
-            ↺ 새로 쓰기
+          <p className="coop-gap">2. 주문일자</p>
+          {d.lines.map((l, i) => (
+            <p key={i} className="coop-line">
+              - <Blank value={l.store} ph="매장번호" w={8} onChange={(v) => setLine(i, { store: v })} /> <Blank value={l.date} ph="2026.11.20" w={10} onChange={(v) => setLine(i, { date: v })} /> 주문
+              <button className="link small" onClick={() => set({ lines: d.lines.filter((_, j) => j !== i) })} title="이 줄 빼기">
+                ✕
+              </button>
+            </p>
+          ))}
+          <button className="link small coop-add" onClick={() => set({ lines: [...d.lines, { store: d.lines.at(-1)?.store ?? '', date: '' }] })}>
+            + 주문 줄 추가
           </button>
-        </section>
+          {d.note2 !== null ? (
+            <div className="coop-note">
+              <textarea rows={2} value={d.note2} placeholder="비고" onChange={(e) => set({ note2: e.target.value })} />
+              <button className="link small" onClick={() => set({ note2: null })}>
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button className="link small coop-add" onClick={() => set({ note2: '' })}>
+              + 비고
+            </button>
+          )}
 
-        <section className="card coop-preview">
-          <div className="coop-copy">
-            <b>제목</b>
-            <button className={copied === 'title' ? 'primary' : ''} onClick={() => void copy('title')}>
-              {copied === 'title' ? '✓ 복사됨' : '📋 제목 복사'}
-            </button>
-          </div>
-          <pre className="coop-text coop-title">{title}</pre>
-          <div className="coop-copy">
-            <b>내용</b>
-            <button className={copied === 'body' ? 'primary' : ''} onClick={() => void copy('body')}>
-              {copied === 'body' ? '✓ 복사됨' : '📋 내용 복사'}
-            </button>
-          </div>
-          <pre className="coop-text">{body}</pre>
-          {missing.length > 0 && <p className="warn small">아직 빈 칸: {missing.join(' · ')}</p>}
-        </section>
-      </div>
+          <p className="coop-gap">
+            3. 패킹완료일자: <Blank value={d.packDate} auto={autoPack} ph="2026.12.09" w={10} onChange={(v) => set({ packDate: v })} />
+          </p>
+
+          <p className="coop-gap2">
+            해당 업무협조전 관련 사항은 글로벌사업부{' '}
+            <select
+              className="coop-person"
+              value={personEmail}
+              onChange={(e) => set({ personEmail: e.target.value, personName: '', personPhone: '' })}
+              title="연락받을 사람 (기본 = 나)"
+            >
+              {!people.some((p) => p.email === personEmail) && <option value={personEmail}>{autoName || '나'}</option>}
+              {people.map((p) => (
+                <option key={p.email} value={p.email}>
+                  {p.name}
+                  {p.email === access.email ? ' (나)' : ''}
+                </option>
+              ))}
+            </select>{' '}
+            <Blank value={d.personName} auto={autoName} ph="이름" w={6} onChange={(v) => set({ personName: v })} /> <Blank value={d.personPhone} auto={autoPhone} ph="회사번호" w={12} onChange={(v) => set({ personPhone: v })} /> 에게 연락 바랍니다. 끝.
+          </p>
+        </div>
+        {missing.length > 0 && <p className="warn small">아직 빈 칸: {missing.join(' · ')}</p>}
+      </section>
     </div>
   );
 }
