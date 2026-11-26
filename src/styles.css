@@ -9842,3 +9842,10 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 /* 게시판 뒤 동상 */
 .pz-field > .pz-statue { position: absolute; left: 50%; top: 50%; z-index: 0; width: clamp(90px, 12.5vmin, 160px); transform: translate(-50%, -112%); user-select: none; pointer-events: none; transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.38)) saturate(calc(1 - var(--dark) * 0.3)) drop-shadow(0 4px 3px rgba(0, 0, 0, 0.25)); }
 @media (max-aspect-ratio: 4/5) { .pz-field > .pz-statue { top: 45%; width: 22vw; } }
+/* 동상 · 게시판 작게 · 게시판은 동상 앞 오른쪽 아래로 (동상이 다 보이게) */
+.pz-field > .pz-statue { width: clamp(68px, 9.5vmin, 120px); transform: translate(-78%, -88%); }
+.pz-field > .pz-board { width: clamp(100px, 13vmin, 160px); transform: translate(-12%, -26%); }
+@media (max-aspect-ratio: 4/5) {
+  .pz-field > .pz-statue { width: 16vw; }
+  .pz-field > .pz-board { width: 23vw; }
+}
