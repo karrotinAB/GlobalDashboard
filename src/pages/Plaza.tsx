@@ -48,10 +48,10 @@ function backDay(period: string | undefined, todayIso: string) {
 const hourText = (min: number) => `${Math.floor(min / 60)}시${min % 60 ? ` ${min % 60}분` : ''}`;
 
 /** 지금 불이 켜져 있나 + 꺼져 있으면 왜 + 빈집을 누르면 뜨는 말 */
-function lightOf(r: Attendance | undefined, nowMin: number, todayIso = ''): { on: boolean; sign: string; icon: string; msg?: string } {
+function lightOf(r: Attendance | undefined, nowMin: number, todayIso = ''): { on: boolean; sign: string; icon: string; msg?: string; memo?: boolean } {
   if (!r) return { on: false, sign: '', icon: '' };
   const txt = `${r.status} ${r.period ?? ''}`;
-  if (r.status.includes('퇴근')) return { on: false, sign: '퇴근', icon: '🌙' };
+  if (r.status.includes('퇴근')) return { on: false, sign: '퇴근', icon: '🌙', msg: '오늘 영업\n끝났습니다', memo: true };
   if (/출장/.test(txt)) return { on: false, sign: '출장', icon: '✈️', msg: '집에만 없을 뿐.. 여전히 일하는 중 💼' };
   // 대체시차 · 반차 · 외출: 그 시간 안이면 꺼짐
   const tm = r.period?.match(/(\d{1,2}):(\d{2})\s*[~\-–]\s*(\d{1,2}):(\d{2})/);
@@ -250,7 +250,9 @@ export default function Plaza() {
     .map((k) => -90 + (k * 360) / slots);
   const posOf = (deg: number): CSSProperties => {
     const r = (deg * Math.PI) / 180;
-    return { left: `${RX0 + RX * Math.cos(r)}%`, top: `${RY0 + RY * Math.sin(r)}%` };
+    // 세로로 긴 화면(휴대폰)은 양옆 집이 잘리지 않게 원을 조금 좁게
+    const rx = fieldSize && fieldSize.w / fieldSize.h < 0.8 ? 35 : RX;
+    return { left: `${RX0 + rx * Math.cos(r)}%`, top: `${RY0 + RY * Math.sin(r)}%` };
   };
   // 들판 크기 (흙길 · 덤불을 픽셀로 그리려고)
   const fieldRef = useRef<HTMLDivElement>(null);
@@ -280,7 +282,9 @@ export default function Plaza() {
       })
       .map((o) => {
         const c = companies.get(o.companyId ?? '');
-        return { id: `${o.team}|${o.id}`, name: o.name, co: coShort(c), color: c?.color ?? '#b5652b', krw: o.amountKRW ?? 0, team: o.team };
+        const p = o.packing ? parseDate(o.packing) : null;
+        const until = p || addDays((o.orderDate || o.acceptDate || todayIso).slice(0, 10), 14);
+        return { id: `${o.team}|${o.id}`, name: o.name, co: coShort(c), color: c?.color ?? '#b5652b', krw: o.amountKRW ?? 0, team: o.team, until, guess: !p };
       })
       .sort((a, b) => b.krw - a.krw);
     // 출고 예정: 출고일(묶음이면 묶음 출고일)이 오늘 이후 · 아직 출고 안 됨 — 묶음은 하나로
@@ -303,6 +307,7 @@ export default function Plaza() {
   const maxKrw = Math.max(1, ...boxes.map((b) => b.krw));
   const boxSize = (krw: number) => Math.round(34 + 52 * Math.sqrt(krw / maxKrw));
   const [truckOpen, setTruckOpen] = useState(false);
+  const [pickBox, setPickBox] = useState<(typeof boxes)[number] | null>(null);
 
   // 광장은 화면 전체 (위 메뉴 · 탭 없이) — 스크롤 막기
   useEffect(() => {
@@ -330,7 +335,7 @@ export default function Plaza() {
         )}
       </div>
 
-      <div className="pz-field" ref={fieldRef}>
+      <div className="pz-field" ref={fieldRef} onClick={() => setPickBox(null)}>
         {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} />}
         {/* 가운데: 게시판 */}
         <div className="pz-board" title="게시판 · 투표 · 공지 (준비 중)">
@@ -380,18 +385,30 @@ export default function Plaza() {
                 boxes.slice(0, 40).map((b) => (
                   <img
                     key={b.id}
-                    className="pz-box"
+                    className={`pz-box ${pickBox?.id === b.id ? 'on' : ''}`}
                     src="./plaza/box.png"
-                    alt=""
+                    alt={b.name}
                     draggable={false}
-                    style={{ width: boxSize(b.krw) }}
-                    title={`${b.co ? `${b.co} · ` : ''}${b.name}\n${won(b.krw)} · ${teamLabel(b.team)}`}
+                    style={{ width: `calc(${boxSize(b.krw)}px * var(--box-k, 1))` }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPickBox((cur) => (cur?.id === b.id ? null : b));
+                    }}
                   />
                 ))
               )}
               {boxes.length > 40 && <span className="pz-box-more">+{boxes.length - 40}</span>}
             </div>
             <div className="pz-wh-count">📦 패킹 중 {boxes.length}건</div>
+            {pickBox && (
+              <div className="pz-box-pop" onClick={() => setPickBox(null)}>
+                <span className="pz-box-pop-team">{teamLabel(pickBox.team)}</span>
+                {pickBox.co && <b>{pickBox.co}</b>}
+                <span className="pz-box-pop-name">{pickBox.name}</span>
+                <span className="pz-box-pop-amt">{won(pickBox.krw)}</span>
+                {pickBox.until && <small>패킹완료 {pickBox.guess ? '예상 ' : ''}{md(pickBox.until)}</small>}
+              </div>
+            )}
           </div>
           <div className={`pz-truck ${truckOpen ? 'open' : ''}`} onMouseEnter={() => setTruckOpen(true)} onMouseLeave={() => setTruckOpen(false)} onClick={() => setTruckOpen((v) => !v)}>
             <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
@@ -474,7 +491,7 @@ function House({ m, light, mine, unread, onMail, big, flip, sayBelow }: { sayBel
         </span>
       )}
       {say && light.msg && (
-        <div className={`pz-say ${sayBelow ? 'below' : ''}`} onClick={() => setSay(false)}>
+        <div className={`pz-say ${light.memo ? 'memo' : sayBelow ? 'below' : ''}`} onClick={() => setSay(false)}>
           {light.msg}
         </div>
       )}
