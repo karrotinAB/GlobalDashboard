@@ -9768,3 +9768,9 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-box-pop-amt { font-size: 15px; font-weight: 800; color: var(--primary); }
 .pz-box-pop small { font-size: 11px; color: #8a7a6a; }
 .pz-name-ic { margin-left: 3px; }
+@media (max-aspect-ratio: 4/5) {
+  .pz-art-char { width: 50%; right: -26%; }
+}
+@media (max-aspect-ratio: 4/5) {
+  .pz-say.memo { width: 108%; max-width: none; padding: 10px 6px 8px; font-size: 10.5px !important; }
+}

@@ -237,23 +237,6 @@ export default function Plaza() {
   const mineAt = spots.findIndex((x) => !!me && x.email === me);
   const ring = mineAt > 0 ? [spots[mineAt], ...spots.slice(0, mineAt), ...spots.slice(mineAt + 1)] : spots;
   // 칸: 사람 수 + 물류센터 몫 3칸 → 12시부터 시계 방향으로 같은 간격, 6시 쪽 3칸은 건너뜀
-  const SKIP = 3;
-  const slots = ring.length + SKIP;
-  // 6시(가운데 아래)에 가장 가까운 3칸을 빼고 나머지 칸에 차례로
-  const skip = new Set(
-    Array.from({ length: slots }, (_, k) => k)
-      .sort((x, y) => Math.abs(x - slots / 2) - Math.abs(y - slots / 2))
-      .slice(0, SKIP),
-  );
-  const angles = Array.from({ length: slots }, (_, k) => k)
-    .filter((k) => !skip.has(k))
-    .map((k) => -90 + (k * 360) / slots);
-  const posOf = (deg: number): CSSProperties => {
-    const r = (deg * Math.PI) / 180;
-    // 세로로 긴 화면(휴대폰)은 양옆 집이 잘리지 않게 원을 조금 좁게
-    const rx = fieldSize && fieldSize.w / fieldSize.h < 0.8 ? 35 : RX;
-    return { left: `${RX0 + rx * Math.cos(r)}%`, top: `${RY0 + RY * Math.sin(r)}%` };
-  };
   // 들판 크기 (흙길 · 덤불을 픽셀로 그리려고)
   const fieldRef = useRef<HTMLDivElement>(null);
   const [fieldSize, setFieldSize] = useState<{ w: number; h: number } | null>(null);
@@ -266,6 +249,39 @@ export default function Plaza() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  // 세로로 긴 화면(휴대폰)은 양옆 집이 잘리지 않게 원을 조금 좁게
+  const tall = !!fieldSize && fieldSize.w / fieldSize.h < 0.8;
+  const rxPct = tall ? 35 : RX;
+  // 집 자리 = 타원 둘레를 같은 길이로 나눔 (각도로 나누면 길쭉한 화면에서 위 · 아래 집이 겹침)
+  //   12시부터 시계 방향 · 6시 쪽은 물류센터 몫으로 비움 (넓은 화면은 물류센터가 커서 더 넓게)
+  const angles = useMemo(() => {
+    const n = ring.length;
+    const w = fieldSize?.w ?? 1200;
+    const h = fieldSize?.h ?? 800;
+    const rx = (w * rxPct) / 100;
+    const ry = (h * RY) / 100;
+    const cum: number[] = [0];
+    for (let d = 1; d <= 360; d++) {
+      const a0 = ((d - 1 - 90) * Math.PI) / 180;
+      const a1 = ((d - 90) * Math.PI) / 180;
+      cum.push(cum[d - 1] + Math.hypot(rx * (Math.cos(a1) - Math.cos(a0)), ry * (Math.sin(a1) - Math.sin(a0))));
+    }
+    const P = cum[360];
+    const G = P * (tall ? 0.17 : 0.3);
+    const step = (P - G) / Math.max(1, n);
+    return Array.from({ length: n }, (_, k) => {
+      let want = k * step;
+      if (want > (P - G) / 2 + 0.01) want += G;
+      let d = 0;
+      while (d < 359 && cum[d + 1] < want) d++;
+      const f = cum[d + 1] > cum[d] ? (want - cum[d]) / (cum[d + 1] - cum[d]) : 0;
+      return -90 + d + f;
+    });
+  }, [fieldSize, ring.length, rxPct, tall]);
+  const posOf = (deg: number): CSSProperties => {
+    const r = (deg * Math.PI) / 180;
+    return { left: `${RX0 + rxPct * Math.cos(r)}%`, top: `${RY0 + RY * Math.sin(r)}%` };
+  };
 
   // ---------- 관리부: 패킹 중인 주문 · 출고 예정 ----------
   const { boxes, ships } = useMemo(() => {
