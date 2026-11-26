@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { usePeople } from '../components/AddressBook';
 import { parseDate } from '../components/DateInput';
-import { useLookups, useStore } from '../data/store';
+import { useLookups, useSpaceData, useStore } from '../data/store';
 import { useStoreNames } from '../lib/storeNames';
-import type { Order } from '../types';
+import type { Company, Order } from '../types';
 
 const dot = (s?: string | null) => (s ? s.slice(0, 10).replace(/-/g, '.') : '');
 const coShort = (n: string) => n.replace(/\s*\(.*\)\s*$/, '').trim();
@@ -107,8 +107,25 @@ function Blank({ value, auto, onChange, ph, w = 6, className = '' }: { value: st
 
 export default function Coop() {
   const access = useAccess();
-  const { data } = useStore();
-  const { myCompanies: companies, companyById } = useLookups();
+  const { data: own } = useStore();
+  const { myCompanies: ownCos, companyById: ownById } = useLookups();
+  // 무역사무: 자기 공간엔 주문이 없어서 1~3조 주문 · 업체를 불러옴 (읽기만)
+  const tradeView = access.role === 'trade';
+  const sp1 = useSpaceData('1', tradeView ? ['orders', 'companies'] : []);
+  const sp2 = useSpaceData('2', tradeView ? ['orders', 'companies'] : []);
+  const sp3 = useSpaceData('3', tradeView ? ['orders', 'companies'] : []);
+  const data = useMemo(
+    () => (tradeView ? { orders: [sp1, sp2, sp3].flatMap((x) => (x.data.orders as Order[] | undefined) ?? []) } : { orders: own.orders }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tradeView, own.orders, sp1.data.orders, sp2.data.orders, sp3.data.orders],
+  );
+  const companies = useMemo(() => {
+    if (!tradeView) return ownCos;
+    const seen = new Set<string>();
+    return [sp1, sp2, sp3].flatMap((x) => ((x.data.companies as Company[] | undefined) ?? []).filter((c) => !seen.has(c.id) && seen.add(c.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradeView, ownCos, sp1.data.companies, sp2.data.companies, sp3.data.companies]);
+  const companyById = useMemo(() => (tradeView ? new Map(companies.map((c) => [c.id, c])) : ownById), [tradeView, companies, ownById]);
   const { roles, contacts } = usePeople();
   const [d, setD] = useState<Draft>(() => {
     try {

@@ -35,11 +35,11 @@ service firebase.storage {
     // 계약서 원본 (관리자만)
     match /contracts/{id}/{file} {
       allow read: if request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'auditor'];
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'auditor', 'trade'];
       allow delete: if request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level == 'admin';
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'trade'];
       allow create: if request.auth != null && request.auth.token.email != null
-        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level == 'admin'
+        && firestore.get(/databases/(default)/documents/roles/$(request.auth.token.email.lower())).data.level in ['admin', 'trade']
         && request.resource.size < 50 * 1024 * 1024;
     }
     // 전도금 영수증: 올린 사람 폴더에만 올림 (읽기는 대시보드 사용자)

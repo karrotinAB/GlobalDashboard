@@ -67,7 +67,7 @@ const has = (text: string, g: string[]) => {
 
 export default function Contracts() {
   const access = useAccess();
-  const isAdmin = access.role === 'admin' || access.role === null;
+  const isAdmin = access.role === 'admin' || access.role === null || access.role === 'trade'; // 관리자 · 무역사무
   const list = useContracts(isAdmin);
   const [tab, setTab] = useState<'search' | 'list' | 'new' | 'scrap'>('list');
   // 글을 긁으면 '✂️ 스크랩' 버튼 → 폴더 골라 저장
@@ -95,7 +95,7 @@ export default function Contracts() {
         <div className="page-head">
           <h1>계약서</h1>
         </div>
-        <p className="card muted">계약서 보관함은 지금은 관리자만 볼 수 있어요.</p>
+        <p className="card muted">계약서 보관함은 지금은 관리자 · 무역사무만 볼 수 있어요.</p>
       </div>
     );
   const open = list?.find((c) => c.id === openId);
