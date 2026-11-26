@@ -82,7 +82,7 @@ const hourText = (min: number) => `${Math.floor(min / 60)}시${min % 60 ? ` ${mi
 function lightOf(r: Attendance | undefined, nowMin: number, todayIso = ''): { on: boolean; sign: string; icon: string; msg?: string; memo?: boolean } {
   if (!r) return { on: false, sign: '', icon: '' };
   const txt = `${r.status} ${r.period ?? ''}`;
-  if (r.status.includes('퇴근')) return { on: false, sign: '퇴근', icon: '🌙', msg: '오늘 영업\n끝났습니다', memo: true };
+  if (r.status.includes('퇴근')) return { on: false, sign: '퇴근', icon: '🌙', msg: '오늘 영업 끝났습니다 🌙' };
   if (/출장/.test(txt)) return { on: false, sign: '출장', icon: '✈️', msg: '집에만 없을 뿐.. 여전히 일하는 중 💼' };
   // 대체시차 · 반차 · 외출: 그 시간 안이면 꺼짐
   const tm = r.period?.match(/(\d{1,2}):(\d{2})\s*[~\-–]\s*(\d{1,2}):(\d{2})/);
@@ -94,7 +94,7 @@ function lightOf(r: Attendance | undefined, nowMin: number, todayIso = ''): { on
   if (r.status === '근무') {
     // mem 은 정해진 시각에만 받아 와서 '퇴근' 이 늦게 들어옴 → 퇴근 예정 시각이 지났으면 퇴근으로
     const [eh, em] = (r.end ?? '').split(':').map(Number);
-    if (r.end && Number.isFinite(eh) && nowMin >= eh * 60 + (em || 0)) return { on: false, sign: '퇴근', icon: '🌙', msg: '오늘 영업\n끝났습니다', memo: true };
+    if (r.end && Number.isFinite(eh) && nowMin >= eh * 60 + (em || 0)) return { on: false, sign: '퇴근', icon: '🌙', msg: '오늘 영업 끝났습니다 🌙' };
     return { on: true, sign: '', icon: '' };
   }
   if (r.status === '근무전') {
