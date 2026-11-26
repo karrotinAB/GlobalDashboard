@@ -306,9 +306,32 @@ export default function Coop() {
               </button>
             </p>
           ))}
-          <button className="link small coop-add" onClick={() => set({ lines: [...d.lines, { store: d.lines.at(-1)?.store ?? '', date: '' }] })}>
-            + 주문 줄 추가
-          </button>
+          <div className="coop-add-row">
+            <button className="link small" onClick={() => set({ lines: [...d.lines, { store: d.lines.at(-1)?.store ?? '', date: '' }] })}>
+              + 주문 줄 직접 추가
+            </button>
+            {/* 주문 리스트에서 골라 한 줄 더하기 (업체를 골랐으면 그 업체 주문만) */}
+            <select
+              value=""
+              onChange={(e) => {
+                const o = data.orders.find((x) => x.id === e.target.value);
+                if (o) set({ companyId: d.companyId || o.companyId || '', orderIds: [...d.orderIds, o.id], lines: [...d.lines, { store: String(o.storeCode ?? ''), date: dot(o.orderDate) }] });
+              }}
+              title="주문 리스트에서 골라 한 줄 더하기"
+            >
+              <option value="">+ 주문 리스트에서 고르기</option>
+              {data.orders
+                .filter((o) => !o.erpArchive && !d.orderIds.includes(o.id) && (!d.companyId || o.companyId === d.companyId))
+                .sort((a, b) => Number(!!(a.closed || a.shipped)) - Number(!!(b.closed || b.shipped)) || String(b.orderDate ?? b.createdAt).localeCompare(String(a.orderDate ?? a.createdAt)))
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name} · {o.storeCode ?? ''} · {dot(o.orderDate)}
+                    {d.companyId ? '' : ` · ${coShort(companyById.get(o.companyId ?? '')?.name ?? '')}`}
+                    {o.closed || o.shipped ? ' (완료)' : ''}
+                  </option>
+                ))}
+            </select>
+          </div>
           {d.note2 !== null ? (
             <div className="coop-note">
               <textarea rows={2} value={d.note2} placeholder="비고" onChange={(e) => set({ note2: e.target.value })} />

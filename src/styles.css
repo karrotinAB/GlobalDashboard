@@ -9480,3 +9480,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .coop-co-pick, .coop-person { font: inherit; font-size: 13px; height: 28px; padding: 0 6px; }
 .coop-paper .coop-blank { height: 26px; line-height: 24px; padding: 0 6px; font-size: 14px; vertical-align: baseline; box-shadow: none; }
 .coop-loadbar .coop-co-pick { height: 36px; font-size: 14px; max-width: 240px; }
+.coop-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 2px 0 2px 4px; }
+.coop-add-row select { font: inherit; font-size: 13px; height: 28px; padding: 0 6px; max-width: 360px; }
