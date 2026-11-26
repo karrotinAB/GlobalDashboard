@@ -48,6 +48,141 @@ function lightOf(r: Attendance | undefined, nowMin: number): { on: boolean; sign
   return { on: false, sign: r.status, icon: '' };
 }
 
+// 집이 놓이는 타원 (들판 기준 %): 가운데 · 반지름
+const RX0 = 50;
+const RY0 = 50;
+const RX = 41;
+const RY = 37;
+
+/** 고정된 난수 (새로 그려도 덤불 자리가 그대로) */
+function rng(seed: number) {
+  let t = seed;
+  return () => {
+    t = (t * 1664525 + 1013904223) % 4294967296;
+    return t / 4294967296;
+  };
+}
+
+/** 바닥: 잔디 위에 흙길(집을 잇는 둥근 길 + 가운데 광장에서 집마다 갈래길) · 덤불 · 꽃 · 돌 */
+function Ground({ w, h, angles }: { w: number; h: number; angles: number[] }) {
+  const cx = (w * RX0) / 100;
+  const cy = (h * RY0) / 100;
+  const rx = (w * RX) / 100;
+  const ry = (h * RY) / 100;
+  const at = (deg: number, k = 1) => {
+    const r = (deg * Math.PI) / 180;
+    return [cx + rx * k * Math.cos(r), cy + ry * k * Math.sin(r)] as const;
+  };
+  // 둥근 길 (살짝 울퉁불퉁)
+  const ring = Array.from({ length: 73 }, (_, i) => {
+    const d = i * 5;
+    const wob = 1 + 0.018 * Math.sin(i * 1.7) + 0.012 * Math.cos(i * 0.9);
+    const [x, y] = at(d, wob);
+    return `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const plazaR = Math.min(w, h) * 0.16;
+  // 갈래길: 가운데 광장 → 집 · 6시(물류센터)
+  const spokes = [...angles, 90].map((deg) => {
+    const r = (deg * Math.PI) / 180;
+    const x0 = cx + plazaR * 0.9 * Math.cos(r);
+    const y0 = cy + plazaR * 0.75 * Math.sin(r);
+    const [x1, y1] = at(deg, deg === 90 ? 1.25 : 1);
+    const mx = (x0 + x1) / 2 + 14 * Math.sin(r * 3);
+    const my = (y0 + y1) / 2 + 10 * Math.cos(r * 2);
+    return `M${x0.toFixed(1)},${y0.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  });
+  const pathW = Math.max(18, Math.min(w, h) * 0.035);
+  // 꾸미기: 길 · 광장 · 물류센터 · 위 줄을 피해서
+  const deco = useMemo(() => {
+    const rand = rng(Math.round(w) * 7 + Math.round(h));
+    const out: { k: 'bush' | 'flower' | 'rock' | 'tuft'; x: number; y: number; s: number; c: string }[] = [];
+    const flowers = ['#ff5d73', '#ffd23f', '#ffffff', '#b57cff', '#ff9f43'];
+    for (let n = 0; n < 900 && out.length < 90; n++) {
+      const x = rand() * w;
+      const y = rand() * h;
+      const nx = (x - cx) / rx;
+      const ny = (y - cy) / ry;
+      const rr = Math.hypot(nx, ny);
+      if (Math.abs(rr - 1) < 0.16) continue; // 둥근 길 · 집
+      if (rr < 0.52) continue; // 가운데 광장 · 갈래길
+      if (y > h * 0.7 && Math.abs(x - cx) < w * 0.3) continue; // 물류센터
+      if (y < 64) continue; // 위 줄 (돌아가기)
+      const roll = rand();
+      const k = roll < 0.3 ? 'bush' : roll < 0.62 ? 'flower' : roll < 0.75 ? 'rock' : 'tuft';
+      out.push({ k, x, y, s: 0.7 + rand() * 0.7, c: flowers[Math.floor(rand() * flowers.length)] });
+    }
+    return out.sort((a, b) => a.y - b.y);
+  }, [w, h, cx, cy, rx, ry]);
+  return (
+    <svg className="pz-ground" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      <defs>
+        <pattern id="pz-grass" width="54" height="54" patternUnits="userSpaceOnUse">
+          <path d="M8 20 l3 -7 l2 7 M30 44 l3 -8 l3 8 M44 14 l2 -6 l3 6 M18 50 l2 -5 l2 5" stroke="#3f9a2a" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+          <circle cx="24" cy="10" r="1.6" fill="#7fd45a" />
+          <circle cx="48" cy="36" r="1.4" fill="#7fd45a" />
+        </pattern>
+        <radialGradient id="pz-glow" cx="50%" cy="50%" r="65%">
+          <stop offset="0" stopColor="#7ccf4f" />
+          <stop offset="1" stopColor="#4ea532" />
+        </radialGradient>
+      </defs>
+      <rect width={w} height={h} fill="url(#pz-glow)" />
+      <rect width={w} height={h} fill="url(#pz-grass)" />
+      {/* 흙길: 어두운 테두리 → 흙 → 밝은 가운데 */}
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+        {[...spokes, ring].map((d, i) => (
+          <path key={`o${i}`} d={d} stroke="#9b6a3a" strokeWidth={pathW + 6} />
+        ))}
+        {[...spokes, ring].map((d, i) => (
+          <path key={`m${i}`} d={d} stroke="#d9a464" strokeWidth={pathW} />
+        ))}
+        {[...spokes, ring].map((d, i) => (
+          <path key={`l${i}`} d={d} stroke="#e8c08a" strokeWidth={pathW * 0.35} strokeDasharray="2 14" opacity="0.8" />
+        ))}
+      </g>
+      {/* 가운데 광장 (흙 바닥) */}
+      <ellipse cx={cx} cy={cy} rx={plazaR + 4} ry={plazaR * 0.78 + 4} fill="#9b6a3a" />
+      <ellipse cx={cx} cy={cy} rx={plazaR} ry={plazaR * 0.78} fill="#dcaa6c" />
+      <ellipse cx={cx} cy={cy - plazaR * 0.1} rx={plazaR * 0.72} ry={plazaR * 0.48} fill="#e6bd85" opacity="0.6" />
+      {/* 물류센터 마당 */}
+      <ellipse cx={cx} cy={h * 0.93} rx={w * 0.27} ry={h * 0.11} fill="#9b6a3a" />
+      <ellipse cx={cx} cy={h * 0.93} rx={w * 0.27 - 4} ry={h * 0.11 - 4} fill="#d6a668" />
+      {/* 덤불 · 꽃 · 돌 · 풀 */}
+      {deco.map((d, i) => (
+        <g key={i} transform={`translate(${d.x.toFixed(1)},${d.y.toFixed(1)}) scale(${d.s.toFixed(2)})`}>
+          {d.k === 'bush' && (
+            <>
+              <ellipse cx="0" cy="10" rx="20" ry="6" fill="#2f6f1f" opacity="0.35" />
+              <circle cx="-9" cy="2" r="10" fill="#3c8f28" stroke="#1f3d14" strokeWidth="1.6" />
+              <circle cx="9" cy="2" r="10" fill="#3c8f28" stroke="#1f3d14" strokeWidth="1.6" />
+              <circle cx="0" cy="-6" r="11" fill="#4dab33" stroke="#1f3d14" strokeWidth="1.6" />
+              <circle cx="-3" cy="-9" r="3" fill="#7fd45a" />
+              {i % 3 === 0 && <circle cx="6" cy="-2" r="2.6" fill="#ff4b5c" stroke="#7a1d25" strokeWidth="0.8" />}
+              {i % 3 === 0 && <circle cx="-6" cy="3" r="2.6" fill="#ff4b5c" stroke="#7a1d25" strokeWidth="0.8" />}
+            </>
+          )}
+          {d.k === 'flower' && (
+            <>
+              <path d="M0 8 L0 0" stroke="#2f7a1f" strokeWidth="1.6" />
+              {[0, 72, 144, 216, 288].map((a) => (
+                <circle key={a} cx={4 * Math.cos((a * Math.PI) / 180)} cy={-2 + 4 * Math.sin((a * Math.PI) / 180)} r="3" fill={d.c} stroke="#3b2626" strokeWidth="0.7" />
+              ))}
+              <circle cx="0" cy="-2" r="2" fill="#ffcf33" />
+            </>
+          )}
+          {d.k === 'rock' && (
+            <>
+              <ellipse cx="0" cy="0" rx="11" ry="7" fill="#9aa3a8" stroke="#3b4246" strokeWidth="1.6" />
+              <ellipse cx="-3" cy="-2" rx="4" ry="2" fill="#c6cdd1" />
+            </>
+          )}
+          {d.k === 'tuft' && <path d="M-6 4 L-3 -6 L0 3 L3 -8 L5 3 L8 -4 L9 4 Z" fill="#3f9a2a" stroke="#1f3d14" strokeWidth="1.2" strokeLinejoin="round" />}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 type Note = { id: string; to: string; from: string; fromName: string; img: string; at: string; read?: boolean };
 
 export default function Plaza() {
@@ -104,10 +239,43 @@ export default function Plaza() {
       else if (m.email) setDrawTo({ email: m.email.toLowerCase(), name: m.name });
     },
   });
-  const streets = [
-    ...TEAMS.map((t) => ({ key: t, label: `${teamLabel(t)} 마을`, people: [...((spaces[t].data.members as Member[] | undefined) ?? [])].sort((a, b) => a.order - b.order) })),
-    { key: 'trade', label: '무역사무 마을', people: [...data.tradeMembers].sort((a, b) => a.order - b.order) },
+  // 원형 배치: 조 상관없이 한 바퀴 — 내 집 = 12시 · 물류센터 = 6시 (그 자리는 비워 둠)
+  type Spot = { key: string; email: string; leader?: (typeof leaders)[number]; m?: Member };
+  const spots: Spot[] = [
+    ...leaders.map((r) => ({ key: `L|${r.email}`, email: r.email, leader: r })),
+    ...TEAMS.flatMap((t) => [...((spaces[t].data.members as Member[] | undefined) ?? [])].sort((a, b) => a.order - b.order).map((m) => ({ key: `${t}|${m.id}`, email: (m.email ?? '').toLowerCase(), m }))),
+    ...[...data.tradeMembers].sort((a, b) => a.order - b.order).map((m) => ({ key: `trade|${m.id}`, email: (m.email ?? '').toLowerCase(), m })),
   ];
+  const mineAt = spots.findIndex((x) => !!me && x.email === me);
+  const ring = mineAt > 0 ? [spots[mineAt], ...spots.slice(0, mineAt), ...spots.slice(mineAt + 1)] : spots;
+  // 칸: 사람 수 + 물류센터 몫 3칸 → 12시부터 시계 방향으로 같은 간격, 6시 쪽 3칸은 건너뜀
+  const SKIP = 3;
+  const slots = ring.length + SKIP;
+  // 6시(가운데 아래)에 가장 가까운 3칸을 빼고 나머지 칸에 차례로
+  const skip = new Set(
+    Array.from({ length: slots }, (_, k) => k)
+      .sort((x, y) => Math.abs(x - slots / 2) - Math.abs(y - slots / 2))
+      .slice(0, SKIP),
+  );
+  const angles = Array.from({ length: slots }, (_, k) => k)
+    .filter((k) => !skip.has(k))
+    .map((k) => -90 + (k * 360) / slots);
+  const posOf = (deg: number): CSSProperties => {
+    const r = (deg * Math.PI) / 180;
+    return { left: `${RX0 + RX * Math.cos(r)}%`, top: `${RY0 + RY * Math.sin(r)}%` };
+  };
+  // 들판 크기 (흙길 · 덤불을 픽셀로 그리려고)
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const [fieldSize, setFieldSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = fieldRef.current;
+    if (!el) return;
+    const set = () => setFieldSize({ w: el.clientWidth, h: el.clientHeight });
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // ---------- 관리부: 패킹 중인 주문 · 출고 예정 ----------
   const { boxes, ships } = useMemo(() => {
@@ -148,53 +316,35 @@ export default function Plaza() {
   const boxSize = (krw: number) => Math.round(34 + 52 * Math.sqrt(krw / maxKrw));
   const [truckOpen, setTruckOpen] = useState(false);
 
+  // 광장은 화면 전체 (위 메뉴 · 탭 없이) — 스크롤 막기
+  useEffect(() => {
+    document.documentElement.classList.add('pz-open');
+    return () => document.documentElement.classList.remove('pz-open');
+  }, []);
+  const back = () => {
+    if (window.history.length > 1) window.history.back();
+    else window.location.hash = '/home';
+  };
+
   return (
     <div className={`pz pz-${sky}`}>
-      <div className="pz-sky" aria-hidden="true">
-        <span className="pz-sun" />
-        {sky === 'night' && Array.from({ length: 24 }, (_, i) => <i key={i} className="pz-star" style={{ left: `${(i * 37) % 100}%`, top: `${(i * 53) % 70}%`, animationDelay: `${(i % 7) * 0.4}s` }} />)}
-        <span className="pz-cloud a" />
-        <span className="pz-cloud b" />
-      </div>
-      <header className="pz-head">
-        <h1>🪼 광장</h1>
-        <p>
-          불 켜진 집 = 지금 근무 중 · 우편함을 누르면 그림 쪽지를 보낼 수 있어요
-          {unread > 0 && (
-            <button className="pz-mailbtn" onClick={() => setInboxOpen(true)}>
-              📬 받은 쪽지 {unread}
-            </button>
-          )}
-        </p>
-      </header>
-
-      {/* 언덕 위: 이사님 · 팀장님 + 게시판 */}
-      <section className="pz-hill">
-        {leaders.length > 0 ? (
-        <div className="pz-street pz-leaders">
-          <div className="pz-street-sign">이사님 · 팀장님</div>
-          <div className="pz-houses">
-            {leaders.map((r, i) => (
-              <LeaderHouse
-                flip={i % 2 === 1}
-                key={r.email}
-                email={r.email}
-                name={contacts[r.email]?.name || r.name || r.email.split('@')[0]}
-                label={r.role === 'director' ? '이사님' : '팀장님'}
-                space={r.space}
-                todayIso={todayIso}
-                nowMin={nowMin}
-                me={me}
-                unread={unread}
-                onMail={(email, name) => (email === me ? setInboxOpen(true) : setDrawTo({ email, name }))}
-                alt={[nameOf(r.email)]}
-              />
-            ))}
-          </div>
-        </div>
+      <div className="pz-top">
+        <button className="pz-back" onClick={back}>
+          ← 돌아가기
+        </button>
+        <b className="pz-title">🪼 광장</b>
+        {unread > 0 ? (
+          <button className="pz-mailbtn" onClick={() => setInboxOpen(true)}>
+            📬 받은 쪽지 {unread}
+          </button>
         ) : (
-          <span />
+          <span className="pz-hint">불 켜진 집 = 근무 중 · 우편함을 누르면 그림 쪽지</span>
         )}
+      </div>
+
+      <div className="pz-field" ref={fieldRef}>
+        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} angles={angles} />}
+        {/* 가운데: 게시판 */}
         <div className="pz-board" title="게시판 · 투표 · 공지 (준비 중)">
           <div className="pz-board-face">
             <b>📌 게시판</b>
@@ -203,77 +353,84 @@ export default function Plaza() {
           </div>
           <div className="pz-board-legs" />
         </div>
-      </section>
 
-      {/* 가운데: 관리부 물류센터 — 건물 · 앞마당에 패킹 중 박스 · 트럭 */}
-      <section className="pz-wh">
-        <div className="pz-wh-building">
-          <img src="./plaza/warehouse.png" alt="관리부 물류센터" draggable={false} />
-          <span className="pz-wh-sign">관리부</span>
-        </div>
-        <div className="pz-yard">
-          <div className="pz-yard-boxes">
-            {boxes.length === 0 ? (
-              <p className="pz-wh-empty">지금 패킹 중인 주문이 없어요</p>
+        {/* 둥글게: 집 (내 집 = 12시) */}
+        {ring.map((x, i) => (
+          <div key={x.key} className="pz-spot" style={posOf(angles[i] ?? 0)}>
+            {x.leader ? (
+              <LeaderHouse
+                flip={i % 2 === 1}
+                email={x.leader.email}
+                name={contacts[x.leader.email]?.name || x.leader.name || x.leader.email.split('@')[0]}
+                label={x.leader.role === 'director' ? '이사님' : '팀장님'}
+                space={x.leader.space}
+                todayIso={todayIso}
+                nowMin={nowMin}
+                me={me}
+                unread={unread}
+                onMail={(email, name) => (email === me ? setInboxOpen(true) : setDrawTo({ email, name }))}
+                alt={[nameOf(x.leader.email)]}
+              />
             ) : (
-              boxes.slice(0, 40).map((b) => (
-                <img
-                  key={b.id}
-                  className="pz-box"
-                  src="./plaza/box.png"
-                  alt=""
-                  draggable={false}
-                  style={{ width: boxSize(b.krw) }}
-                  title={`${b.co ? `${b.co} · ` : ''}${b.name}\n${won(b.krw)} · ${teamLabel(b.team)}`}
-                />
-              ))
+              <House {...houseProps(x.m!)} flip={i % 2 === 1} light={lightOf(attOf(x.m!, todayIso, data.memAttendance, alt(x.m!)), nowMin)} />
             )}
-            {boxes.length > 40 && <span className="pz-box-more">+{boxes.length - 40}</span>}
           </div>
-          <div className="pz-wh-count">📦 패킹 중 {boxes.length}건</div>
-        </div>
-        <div className={`pz-truck ${truckOpen ? 'open' : ''}`} onMouseEnter={() => setTruckOpen(true)} onMouseLeave={() => setTruckOpen(false)} onClick={() => setTruckOpen((v) => !v)}>
-          <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
-          <span className="pz-truck-n">출고 예정 {ships.length}</span>
-          {truckOpen && (
-            <div className="pz-truck-pop" role="tooltip">
-              <b>🚚 출고 예정</b>
-              {ships.length === 0 ? (
-                <p className="muted small">예정된 출고가 없어요</p>
-              ) : (
-                <ul>
-                  {ships.slice(0, 14).map((s, i) => (
-                    <li key={i}>
-                      <span className="pz-ship-d">{s.date === todayIso ? '오늘' : md(s.date)}</span>
-                      <span className="pz-ship-n">
-                        {s.co && <em>{s.co}</em>} {s.name}
-                        {s.n > 1 && <small> · {s.n}건</small>}
-                      </span>
-                    </li>
-                  ))}
-                  {ships.length > 14 && <li className="muted small">외 {ships.length - 14}건</li>}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
+        ))}
 
-      {/* 아래: 마을 */}
-      <section className="pz-town">
-        {streets
-          .filter((s) => s.people.length)
-          .map((s) => (
-            <div key={s.key} className="pz-street">
-              <div className="pz-street-sign">{s.label}</div>
-              <div className="pz-houses">
-                {s.people.map((m, i) => (
-                  <House key={m.id} {...houseProps(m)} flip={i % 2 === 1} light={lightOf(attOf(m, todayIso, data.memAttendance, alt(m)), nowMin)} />
-                ))}
-              </div>
+        {/* 6시: 관리부 물류센터 — 건물 · 앞마당 박스 · 트럭 */}
+        <section className="pz-wh">
+          <div className="pz-wh-building">
+            <img src="./plaza/warehouse.png" alt="관리부 물류센터" draggable={false} />
+            <span className="pz-wh-sign">관리부</span>
+          </div>
+          <div className="pz-yard">
+            <div className="pz-yard-boxes">
+              {boxes.length === 0 ? (
+                <p className="pz-wh-empty">지금 패킹 중인 주문이 없어요</p>
+              ) : (
+                boxes.slice(0, 40).map((b) => (
+                  <img
+                    key={b.id}
+                    className="pz-box"
+                    src="./plaza/box.png"
+                    alt=""
+                    draggable={false}
+                    style={{ width: boxSize(b.krw) }}
+                    title={`${b.co ? `${b.co} · ` : ''}${b.name}\n${won(b.krw)} · ${teamLabel(b.team)}`}
+                  />
+                ))
+              )}
+              {boxes.length > 40 && <span className="pz-box-more">+{boxes.length - 40}</span>}
             </div>
-          ))}
-      </section>
+            <div className="pz-wh-count">📦 패킹 중 {boxes.length}건</div>
+          </div>
+          <div className={`pz-truck ${truckOpen ? 'open' : ''}`} onMouseEnter={() => setTruckOpen(true)} onMouseLeave={() => setTruckOpen(false)} onClick={() => setTruckOpen((v) => !v)}>
+            <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
+            <span className="pz-truck-n">출고 예정 {ships.length}</span>
+            {truckOpen && (
+              <div className="pz-truck-pop" role="tooltip">
+                <b>🚚 출고 예정</b>
+                {ships.length === 0 ? (
+                  <p className="muted small">예정된 출고가 없어요</p>
+                ) : (
+                  <ul>
+                    {ships.slice(0, 14).map((s, i) => (
+                      <li key={i}>
+                        <span className="pz-ship-d">{s.date === todayIso ? '오늘' : md(s.date)}</span>
+                        <span className="pz-ship-n">
+                          {s.co && <em>{s.co}</em>} {s.name}
+                          {s.n > 1 && <small> · {s.n}건</small>}
+                        </span>
+                      </li>
+                    ))}
+                    {ships.length > 14 && <li className="muted small">외 {ships.length - 14}건</li>}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
 
       {drawTo && <DrawNote to={drawTo} fromEmail={me} fromName={myName} onClose={() => setDrawTo(null)} />}
       {inboxOpen && <Inbox notes={inbox} onClose={() => setInboxOpen(false)} />}

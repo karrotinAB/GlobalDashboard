@@ -9602,7 +9602,22 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .page-icon-link:hover { transform: translateY(-3px); }
 .page-icon-link.floating { animation: jelly-float 0.65s ease-out forwards; }
 @keyframes jelly-float { 0% { transform: translateY(0); } 35% { transform: translateY(4px) scale(1.04, 0.94); } 100% { transform: translateY(-22px) scale(0.97, 1.04); } }
-.pz { --grass: #b5d88a; --grass2: #9ccb6e; --path: #e8dcc2; position: relative; border-radius: 24px; overflow: hidden; padding: 28px 28px 36px; background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.25) 0 2px, transparent 3px) 0 0 / 46px 46px, radial-gradient(circle at 70% 60%, rgba(60, 110, 40, 0.18) 0 2px, transparent 3px) 0 0 / 38px 38px, linear-gradient(var(--grass), var(--grass2)); min-height: 760px; isolation: isolate; }
+.pz { --grass: #b5d88a; --grass2: #9ccb6e; position: fixed; inset: 0; z-index: 95; overflow: hidden; background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.25) 0 2px, transparent 3px) 0 0 / 46px 46px, radial-gradient(circle at 70% 60%, rgba(60, 110, 40, 0.18) 0 2px, transparent 3px) 0 0 / 38px 38px, radial-gradient(ellipse at 50% 47%, #c7e3a0 0, var(--grass) 45%, var(--grass2)); isolation: isolate; }
+html.pz-open, html.pz-open body { overflow: hidden; }
+html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
+.pz-ground { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.pz-name { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); }
+/* 위 줄: 돌아가기 · 제목 · 받은 쪽지 */
+.pz-top { position: absolute; z-index: 3; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px; padding: 12px 18px; }
+.pz-back { border-radius: 999px; padding: 7px 16px; font-weight: 700; background: rgba(255, 255, 255, 0.9); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+.pz-title { font-size: 20px; color: #fff; text-shadow: 0 2px 3px rgba(0, 0, 0, 0.4); }
+.pz-night .pz-title, .pz-night .pz-hint { color: #f2f0ff; }
+.pz-hint { font-size: 13px; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+/* 들판: 집은 원 위에 (가운데 기준) · 게시판 가운데 · 물류센터 6시 */
+.pz-field { position: absolute; inset: 0; }
+.pz-spot { position: absolute; transform: translate(-50%, -55%); z-index: 1; }
+.pz-field > .pz-board { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.pz-field > .pz-wh { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); margin: 0; flex-wrap: nowrap; width: max-content; z-index: 2; }
 .pz-dusk { --grass: #a6c97c; --grass2: #8fb862; }
 .pz-night { --grass: #6f8f5c; --grass2: #5c7a4b; }
 .pz-sky { display: none; }
@@ -9622,8 +9637,8 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pz-houses { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
 
 /* 집 (그림: public/plaza/house.png · 지붕 모양 house-roof.png · 유리 house-glass.png) */
-.pz-house { position: relative; width: 128px; display: flex; flex-direction: column; align-items: center; }
-.pz-house.big { width: 156px; }
+.pz-house { position: relative; width: clamp(80px, 13vmin, 150px); display: flex; flex-direction: column; align-items: center; }
+.pz-house.big { width: clamp(92px, 15vmin, 172px); }
 .pz-art { position: relative; width: 100%; aspect-ratio: 1; isolation: isolate; transition: filter 0.4s; }
 .pz-house.flip .pz-art { transform: scaleX(-1); }
 .pz-art > * { position: absolute; }
@@ -9652,24 +9667,24 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 
 /* 게시판 */
 .pz-board { display: flex; flex-direction: column; align-items: center; flex: none; }
-.pz-board-face { width: 170px; padding: 12px 14px; background: #f4dfb8; border: 4px solid #9a7040; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #5a3b22; box-shadow: 0 4px 0 #7d5a32; }
+.pz-board-face { width: clamp(140px, 18vmin, 200px); padding: 12px 14px; background: #f4dfb8; border: 4px solid #9a7040; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #5a3b22; box-shadow: 0 4px 0 #7d5a32; }
 .pz-board-face span { font-size: 13px; }
 .pz-board-face small { font-size: 11px; opacity: 0.7; }
 .pz-board-legs { width: 110px; height: 34px; background: linear-gradient(90deg, transparent 10%, #7d5a32 10%, #7d5a32 18%, transparent 18%, transparent 82%, #7d5a32 82%, #7d5a32 90%, transparent 90%); }
 
 /* 관리부 물류센터 (그림: public/plaza/warehouse.png · box.png · truck.png) */
 .pz-wh { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 26px 0 34px; flex-wrap: wrap; }
-.pz-wh-building { position: relative; width: min(440px, 100%); flex: none; }
+.pz-wh-building { position: relative; width: clamp(200px, 34vmin, 400px); flex: none; }
 .pz-wh-building img { width: 100%; display: block; user-select: none; }
 .pz-wh-sign { position: absolute; left: 22%; top: 41%; transform: rotate(-6deg); background: #fff8e8; border: 3px solid #3b2626; border-radius: 8px; padding: 2px 12px; font-weight: 800; font-size: 18px; color: #3b2626; letter-spacing: 1px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); }
-.pz-yard { position: relative; width: min(320px, 100%); min-height: 150px; padding-bottom: 26px; display: flex; flex-direction: column; justify-content: flex-end; }
+.pz-yard { position: relative; width: clamp(150px, 24vmin, 300px); min-height: 110px; padding-bottom: 26px; display: flex; flex-direction: column; justify-content: flex-end; }
 .pz-yard-boxes { display: flex; flex-wrap: wrap-reverse; align-items: flex-end; align-content: flex-start; justify-content: center; gap: 0 2px; }
 .pz-box { display: block; height: auto; margin-top: -10px; cursor: help; transition: transform 0.15s; filter: drop-shadow(0 2px 1px rgba(60, 40, 20, 0.25)); user-select: none; }
 .pz-box:hover { transform: translateY(-5px) rotate(-3deg); }
 .pz-box-more { align-self: center; font-weight: 800; color: #5a3b22; background: rgba(255, 255, 255, 0.7); border-radius: 999px; padding: 2px 10px; }
 .pz-wh-empty { margin: auto; color: #3d5a2c; font-size: 14px; background: rgba(255, 255, 255, 0.55); border-radius: 12px; padding: 6px 12px; }
 .pz-wh-count { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 12px; font-size: 12.5px; font-weight: 700; color: #4a3b2e; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; }
-.pz-truck { position: relative; flex: none; width: 250px; cursor: pointer; }
+.pz-truck { position: relative; flex: none; width: clamp(130px, 20vmin, 240px); cursor: pointer; }
 .pz-truck-img { width: 100%; display: block; user-select: none; transition: transform 0.2s; }
 .pz-truck:hover .pz-truck-img, .pz-truck.open .pz-truck-img { animation: pz-rumble 0.22s linear infinite; }
 @keyframes pz-rumble { 50% { transform: translateY(-1.5px); } }
@@ -9706,3 +9721,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
   .pz-wh { flex-direction: column; align-items: center; }
   .pz-town { grid-template-columns: 1fr; }
 }
+.pz-field > .pz-board { z-index: 1; }
+.pz-dusk .pz-ground { filter: sepia(0.25) brightness(0.92); }
+.pz-night .pz-ground { filter: brightness(0.55) saturate(0.75) hue-rotate(10deg); }
