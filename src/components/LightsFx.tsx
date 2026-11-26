@@ -44,7 +44,7 @@ export function writeLights(v: LightsCfg) {
   // 광장 지붕 꾸미기에도 쓰도록 내 프로필에 같이 (profiles/{이메일}.lights · 프로필이 없으면 그냥 넘어감)
   const email = auth.currentUser?.email?.toLowerCase();
   if (email && import.meta.env.VITE_DATA_MODE !== 'local') {
-    void updateDoc(doc(db, 'profiles', email), { lights: { on: v.on, palette: v.palette, blink: v.blink } }).catch(() => {});
+    void updateDoc(doc(db, 'profiles', email), { lights: { on: v.on, palette: v.palette, blink: v.blink, strands: v.strands } }).catch(() => {});
   }
 }
 export function useLightsSetting() {

@@ -13,7 +13,7 @@ export interface Profile {
   status?: string;
   clocks?: ClockPick[];
   memName?: string;
-  lights?: { on: boolean; palette: string; blink: string }; // 헤더 꼬마전구 설정 (광장 크리스마스 지붕)
+  lights?: { on: boolean; palette: string; blink: string; strands?: number }; // 헤더 꼬마전구 설정 (광장 크리스마스 지붕)
   home?: string; // 처음 모은 카드가 있던 곳 (1 · 2 · 3 · trade · p… ) — 확인용
   updatedAt?: string;
 }

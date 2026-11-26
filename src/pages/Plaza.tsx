@@ -238,7 +238,8 @@ export default function Plaza() {
     if (l && l.on === false) return null; // 전구를 끈 사람
     const palette = (l?.palette && l.palette in PALETTES ? l.palette : 'warm') as LightPalette;
     const blink = (l?.blink && l.blink in BLINKS ? l.blink : 'twinkle') as LightBlink;
-    return { palette, blink };
+    const strands = ([1, 2, 3].includes(Number(l?.strands)) ? Number(l?.strands) : 2) as 1 | 2 | 3;
+    return { palette, blink, strands };
   };
   const [drawTo, setDrawTo] = useState<{ email: string; name: string } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -528,37 +529,61 @@ const maskOf = (name: string): CSSProperties => {
 };
 
 /** 크리스마스 지붕 전구: 각자 헤더 꼬마전구에서 고른 색 · 깜빡임 (house.png 지붕 테두리를 따라) */
-type RoofLight = { palette: LightPalette; blink: LightBlink };
-// 지붕 테두리 (그림 기준 %): 왼쪽 처마 → 앞 박공 꼭대기 → 앞 모서리 → 오른쪽 처마 끝
-const ROOF_LINE: [number, number][] = [
-  [12.5, 43],
-  [34.2, 18.6],
-  [54.7, 57],
-  [91.7, 43.6],
+type RoofLight = { palette: LightPalette; blink: LightBlink; strands: 1 | 2 | 3 };
+// 지붕 옆면 (그림 기준 %): 위 = 용마루 (앞 꼭대기 → 굴뚝 쪽), 아래 = 처마 (앞 모서리 → 오른쪽 끝)
+const RIDGE: [[number, number], [number, number]] = [
+  [34.5, 19],
+  [62, 9.5],
 ];
-function RoofLights({ palette, blink }: RoofLight) {
+const EAVE: [[number, number], [number, number]] = [
+  [55, 56],
+  [91, 43],
+];
+const lerp = (a: [number, number], b: [number, number], t: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+// 굴뚝 (여기 걸리는 전구는 안 그림)
+const inChimney = (x: number, y: number) => x > 57 && x < 74 && y < 25;
+/** 지붕 옆면을 가로질러 늘어진 전구 줄 (헤더에서 고른 가닥 수만큼) */
+function RoofLights({ palette, blink, strands }: RoofLight) {
   const colors = PALETTES[palette]?.colors ?? PALETTES.warm.colors;
-  const bulbs: { x: number; y: number }[] = [];
-  let wire = '';
-  for (let i = 0; i < ROOF_LINE.length - 1; i++) {
-    const [x0, y0] = ROOF_LINE[i];
-    const [x1, y1] = ROOF_LINE[i + 1];
-    const len = Math.hypot(x1 - x0, y1 - y0);
-    const n = Math.max(2, Math.round(len / 6.5));
-    const sag = Math.min(3, len * 0.04);
-    const cx = (x0 + x1) / 2;
-    const cy = (y0 + y1) / 2 + sag * 2;
-    wire += `${i ? '' : `M${x0},${y0}`} Q${cx},${cy} ${x1},${y1}`;
-    for (let k = i ? 1 : 0; k <= n; k++) {
-      const t = k / n;
-      bulbs.push({ x: (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1, y: (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1 + 1.6 });
+  const fs = strands === 1 ? [0.5] : strands === 2 ? [0.34, 0.7] : [0.27, 0.53, 0.8];
+  const wires: string[] = [];
+  const bulbs: { x: number; y: number; c: number }[] = [];
+  fs.forEach((f, si) => {
+    // 지붕 양 끝(앞 박공 테두리 ~ 뒤쪽 끝)까지 살짝 넘치게
+    const L0 = lerp(RIDGE[0], EAVE[0], f);
+    const R0 = lerp(RIDGE[1], EAVE[1], f);
+    const L = lerp(L0, R0, -0.04);
+    const R = lerp(L0, R0, 1.06);
+    const SEG = 3; // 한 줄에 늘어진 곡선 3개
+    let d = `M${L[0]},${L[1]}`;
+    for (let k = 0; k < SEG; k++) {
+      const p0 = lerp(L, R, k / SEG);
+      const p1 = lerp(L, R, (k + 1) / SEG);
+      const sag = 2.2;
+      const c: [number, number] = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + sag * 2];
+      d += ` Q${c[0]},${c[1]} ${p1[0]},${p1[1]}`;
+      const n = 3;
+      for (let j = k ? 1 : 0; j <= n; j++) {
+        const t = j / n;
+        const x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * c[0] + t * t * p1[0];
+        const y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * c[1] + t * t * p1[1] + 1.4;
+        if (!inChimney(x, y)) bulbs.push({ x, y, c: si * 2 + bulbs.length });
+      }
     }
-  }
+    wires.push(d);
+  });
   return (
     <svg className={`pz-roof-lights blink-${blink}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      <path d={wire} fill="none" stroke="#1f3b1f" strokeWidth="0.9" />
+      <defs>
+        <clipPath id="pz-no-chimney">
+          <path d="M0,0 H57 V25 H74 V0 H100 V100 H0 Z" />
+        </clipPath>
+      </defs>
+      {wires.map((d, i) => (
+        <path key={i} d={d} fill="none" stroke="#1f3b1f" strokeWidth="0.8" clipPath="url(#pz-no-chimney)" />
+      ))}
       {bulbs.map((b, i) => (
-        <circle key={i} cx={b.x} cy={b.y} r="2.7" fill={colors[i % colors.length]} style={{ color: colors[i % colors.length], animationDelay: `${blink === 'chase' ? (i % 2) * 0.6 : (i * 0.37) % 2.2}s` } as CSSProperties} />
+        <circle key={i} cx={b.x} cy={b.y} r="2.2" fill={colors[b.c % colors.length]} style={{ color: colors[b.c % colors.length], animationDelay: `${blink === 'chase' ? (i % 2) * 0.6 : (i * 0.37) % 2.2}s` } as CSSProperties} />
       ))}
     </svg>
   );
