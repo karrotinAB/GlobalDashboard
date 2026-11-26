@@ -9608,7 +9608,7 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-ground { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .pz-name { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); }
 /* 위 줄: 돌아가기 · 제목 · 받은 쪽지 */
-.pz-top { position: absolute; z-index: 3; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px; padding: 12px 18px; }
+.pz-top { position: absolute; z-index: 6; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 14px; padding: 12px 18px; }
 .pz-back { border-radius: 999px; padding: 7px 16px; font-weight: 700; background: rgba(255, 255, 255, 0.9); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
 .pz-title { font-size: 20px; color: #fff; text-shadow: 0 2px 3px rgba(0, 0, 0, 0.4); }
 .pz-night .pz-title, .pz-night .pz-hint { color: #f2f0ff; }
@@ -9649,7 +9649,6 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-house.on .pz-art-glass { background: #ffd65c; opacity: 1; }
 .pz-house.on .pz-art { filter: drop-shadow(0 0 8px rgba(255, 214, 92, 0.55)); }
 .pz-house.off .pz-art { filter: saturate(0.8) brightness(0.95); }
-.pz-night .pz-house.off .pz-art { filter: saturate(0.6) brightness(0.75); }
 .pz-art-char { right: -34%; bottom: 0; width: 64%; height: auto; z-index: 2; animation: pz-peek 3.6s ease-in-out infinite; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.25)); }
 @keyframes pz-peek { 50% { transform: translateY(-2px); } }
 .pz-house.flip .pz-art-char { transform: scaleX(-1); animation: none; }
@@ -9740,8 +9739,6 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
   .pz-say { max-width: 60vw; font-size: 12px; }
 }
 .pz-field > .pz-board { z-index: 1; }
-.pz-dusk .pz-ground { filter: sepia(0.25) brightness(0.92); }
-.pz-night .pz-ground { filter: brightness(0.55) saturate(0.75) hue-rotate(10deg); }
 /* 빈집을 누르면 뜨는 말풍선 */
 .pz-art.can-say { cursor: pointer; }
 .pz-say { position: absolute; z-index: 5; bottom: 92%; left: 50%; transform: translateX(-50%); width: max-content; max-width: 220px; background: #fff; color: #3b2626; font-size: 13.5px; font-weight: 700; line-height: 1.4; text-align: center; border: 2.5px solid #2b2b2b; border-radius: 16px; padding: 8px 12px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.15); animation: pz-pop 0.25s ease-out; cursor: pointer; }
@@ -9794,3 +9791,27 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-night .pz-roof-lights circle { filter: drop-shadow(0 0 3px currentColor); }
 .pz-xmas-btn { border-radius: 999px; padding: 5px 12px; font-size: 13px; background: rgba(255, 255, 255, 0.85); }
 .pz-xmas-btn.on { background: #c92a2a; border-color: #c92a2a; color: #fff; }
+
+/* 🌙 광장 하늘: --dark (0 낮 ~ 1 밤) · --dusk (노을) — 실제 해 뜨고 지는 시각 따라 서서히 */
+.pz { --dark: 0; --dusk: 0; }
+.pz-ground { transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.52)) saturate(calc(1 - var(--dark) * 0.35)) sepia(calc(var(--dusk) * 0.45)) hue-rotate(calc(var(--dark) * 12deg)); }
+.pz-cloudy .pz-ground { filter: brightness(calc(0.9 - var(--dark) * 0.48)) saturate(calc(0.8 - var(--dark) * 0.3)) sepia(calc(var(--dusk) * 0.45)); }
+.pz-house.off .pz-art, .pz-field > .pz-wh, .pz-field > .pz-board { transition: filter 2s; filter: brightness(calc(1 - var(--dark) * 0.38)) saturate(calc(1 - var(--dark) * 0.3)) sepia(calc(var(--dusk) * 0.35)); }
+.pz-house.on .pz-art { filter: drop-shadow(0 0 calc(8px + var(--dark) * 14px) rgba(255, 214, 92, calc(0.5 + var(--dark) * 0.35))); }
+.pz-night .pz-art-char { filter: brightness(0.9) drop-shadow(0 3px 2px rgba(0, 0, 0, 0.25)); }
+.pz-field { z-index: 1; }
+.pz-wx { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
+.pz-wx-rain { background: rgba(60, 80, 110, 0.12); }
+/* 미리보기 (관리자) */
+.pz-pv { position: relative; }
+.pz-pv-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 10; background: var(--surface); border-radius: 14px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; gap: 8px; min-width: 280px; }
+.pz-pv-pop > div { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.pz-pv-pop span { width: 64px; font-size: 12px; font-weight: 700; color: var(--mut); }
+.pz-pv-pop button { padding: 4px 10px; font-size: 12.5px; border-radius: 999px; }
+.pz-pv-pop button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pz-pv-pop small { font-size: 11.5px; color: var(--mut); }
+/* 노을엔 주황빛 · 밤엔 푸른빛 한 겹 */
+.pz::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: multiply; background: linear-gradient(rgba(255, 150, 70, calc(var(--dusk) * 0.28)), rgba(255, 120, 60, calc(var(--dusk) * 0.18))), rgba(70, 90, 170, calc(var(--dark) * 0.22)); transition: background 2s; }
+.pz-pv-pop { min-width: 380px; }
+.pz-pv-pop > div { flex-wrap: nowrap; }
+@media (max-width: 480px) { .pz-pv-pop { min-width: 0; width: 92vw; } .pz-pv-pop > div { flex-wrap: wrap; } }

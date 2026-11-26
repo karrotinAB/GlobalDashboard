@@ -15,6 +15,7 @@ import { attOf } from '../components/DeptRoster';
 import { characterSrc, charOf, Modal } from '../components/ui';
 import { parseDate } from '../components/DateInput';
 import { useProfiles, withProfile } from '../lib/profiles';
+import { useWeather, weatherFxOf } from '../lib/weather';
 import { BLINKS, isXmas, PALETTES, type LightBlink, type LightPalette } from '../components/LightsFx';
 import { TEAMS, teamLabel } from '../lib/team';
 import type { Attendance, Company, Member, Order } from '../types';
@@ -29,6 +30,34 @@ const addDays = (s: string, n: number) => {
 const md = (s: string) => `${Number(s.slice(5, 7))}.${Number(s.slice(8, 10))}`;
 const won = (n: number) => (n >= 100_000_000 ? `${(n / 100_000_000).toFixed(1)}억` : n >= 10_000 ? `${Math.round(n / 10_000).toLocaleString()}만` : n ? `${n.toLocaleString()}원` : '금액 없음');
 const coShort = (c?: Company) => (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '');
+
+/** 서울 해 뜨는 · 지는 시각 (분, 한국 시간) — NOAA 간단식 */
+function sunOf(d: Date) {
+  const lat = (37.5665 * Math.PI) / 180;
+  const lon = 126.978;
+  const start = new Date(d.getFullYear(), 0, 0);
+  const n = Math.floor((d.getTime() - start.getTime()) / 86400000);
+  const g = ((2 * Math.PI) / 365) * (n - 1);
+  const eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+  const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+  const ha = (Math.acos(Math.cos((90.833 * Math.PI) / 180) / (Math.cos(lat) * Math.cos(decl)) - Math.tan(lat) * Math.tan(decl)) * 180) / Math.PI;
+  return { rise: 720 - 4 * (lon + ha) - eq + 540, set: 720 - 4 * (lon - ha) - eq + 540 };
+}
+/** 어두운 정도 0(낮) ~ 1(밤) · 노을 정도 0 ~ 1 (해 질 녘 · 해 뜰 녘 40분 앞뒤로 서서히) */
+function darkOf(nowMin: number, sun: { rise: number; set: number }) {
+  const R = 40;
+  const ramp = (x: number) => Math.max(0, Math.min(1, x));
+  if (nowMin >= sun.rise + R && nowMin <= sun.set - R) return { dark: 0, dusk: 0 };
+  if (nowMin > sun.set - R && nowMin < sun.set + R) {
+    const t = ramp((nowMin - (sun.set - R)) / (2 * R));
+    return { dark: t, dusk: 1 - Math.abs(t - 0.45) * 1.6 };
+  }
+  if (nowMin > sun.rise - R && nowMin < sun.rise + R) {
+    const t = ramp((nowMin - (sun.rise - R)) / (2 * R));
+    return { dark: 1 - t, dusk: Math.max(0, 0.6 - Math.abs(t - 0.5) * 1.4) };
+  }
+  return { dark: 1, dusk: 0 };
+}
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 /** 휴가 다음 날 (주말이면 그다음 월요일): '26.11.09~26.11.24' 의 끝날 → 없으면 오늘 */
@@ -46,6 +75,7 @@ function backDay(period: string | undefined, todayIso: string) {
   const x = new Date(`${d}T00:00:00`);
   return `${x.getMonth() + 1}월 ${x.getDate()}일(${WEEK[x.getDay()]})`;
 }
+const hm = (min: number) => `${Math.floor(min / 60)}:${pad(Math.round(min % 60))}`;
 const hourText = (min: number) => `${Math.floor(min / 60)}시${min % 60 ? ` ${min % 60}분` : ''}`;
 
 /** 지금 불이 켜져 있나 + 꺼져 있으면 왜 + 빈집을 누르면 뜨는 말 */
@@ -200,7 +230,18 @@ export default function Plaza() {
   }, []);
   const todayIso = isoOf(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const sky = nowMin < 6 * 60 || nowMin >= 19 * 60 ? 'night' : nowMin >= 17 * 60 ? 'dusk' : 'day';
+  // 하늘: 실제 해 뜨고 지는 시각 따라 서서히 어둡게 · 비 · 눈은 기상청 날씨 그대로 (관리자 미리보기로 바꿔 볼 수 있음)
+  const [timePv, setTimePv] = useState<'' | 'day' | 'dusk' | 'night'>('');
+  const [wxPv, setWxPv] = useState<'' | 'clear' | 'rain' | 'snow'>('');
+  const [pvOpen, setPvOpen] = useState(false);
+  const realDark = darkOf(nowMin, sunOf(now));
+  const { dark, dusk } = timePv === 'day' ? { dark: 0, dusk: 0 } : timePv === 'dusk' ? { dark: 0.45, dusk: 1 } : timePv === 'night' ? { dark: 1, dusk: 0 } : realDark;
+  const sky = dark > 0.6 ? 'night' : dusk > 0.3 ? 'dusk' : 'day';
+  const weather = useWeather();
+  const realWx = weatherFxOf(weather);
+  const wx: { mode: 'rain' | 'snow'; level: 1 | 2 | 3 } | null =
+    wxPv === 'clear' ? null : wxPv === 'rain' ? { mode: 'rain', level: 2 } : wxPv === 'snow' ? { mode: 'snow', level: 2 } : realWx && realWx.mode !== 'frost' ? (realWx as { mode: 'rain' | 'snow'; level: 1 | 2 | 3 }) : null;
+  const cloudy = !!wx || weather?.sky === 4;
 
   const nameOf = (email?: string) => {
     const e = (email ?? '').toLowerCase();
@@ -368,17 +409,64 @@ export default function Plaza() {
   };
 
   return (
-    <div className={`pz pz-${sky}`}>
+    <div className={`pz pz-${sky} ${cloudy ? 'pz-cloudy' : ''}`} style={{ '--dark': dark.toFixed(3), '--dusk': Math.max(0, dusk).toFixed(3) } as CSSProperties}>
+      {wx && <PlazaWeather mode={wx.mode} level={wx.level} />}
       <div className="pz-top">
         <button className="pz-back" onClick={back}>
           ← 돌아가기
         </button>
         <b className="pz-title">🪼 광장</b>
-        {!isXmas() && (
-          <button className={`pz-xmas-btn ${xmasPreview ? 'on' : ''}`} onClick={() => setXmasPreview((v) => !v)} title="크리스마스 기간(12/18~12/26)엔 자동으로 켜져요">
-            🎄 {xmasPreview ? '미리보기 끄기' : '크리스마스 미리보기'}
+        <div className="pz-pv">
+          <button className={`pz-xmas-btn ${pvOpen || timePv || wxPv || xmasPreview ? 'on' : ''}`} onClick={() => setPvOpen((v) => !v)} title="시간 · 날씨 · 크리스마스 미리보기">
+            🎛 미리보기
           </button>
-        )}
+          {pvOpen && (
+            <div className="pz-pv-pop">
+              <div>
+                <span>시간</span>
+                {(
+                  [
+                    ['', '지금'],
+                    ['day', '☀️ 낮'],
+                    ['dusk', '🌇 노을'],
+                    ['night', '🌙 밤'],
+                  ] as const
+                ).map(([k, l]) => (
+                  <button key={k} className={timePv === k ? 'on' : ''} onClick={() => setTimePv(k)}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div>
+                <span>날씨</span>
+                {(
+                  [
+                    ['', '실제'],
+                    ['clear', '☀️ 맑음'],
+                    ['rain', '🌧 비'],
+                    ['snow', '❄️ 눈'],
+                  ] as const
+                ).map(([k, l]) => (
+                  <button key={k} className={wxPv === k ? 'on' : ''} onClick={() => setWxPv(k)}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {!isXmas() && (
+                <div>
+                  <span>크리스마스</span>
+                  <button className={xmasPreview ? 'on' : ''} onClick={() => setXmasPreview((v) => !v)}>
+                    🎄 {xmasPreview ? '켜짐' : '꺼짐'}
+                  </button>
+                </div>
+              )}
+              <small>
+                실제: 해 뜸 {hm(sunOf(now).rise)} · 해 짐 {hm(sunOf(now).set)}
+                {weather ? ` · ${weather.now === 'snow' ? '눈' : weather.now ? '비' : weather.sky === 4 ? '흐림' : weather.sky === 3 ? '구름 많음' : '맑음'}${typeof weather.temp === 'number' ? ` ${weather.temp}°` : ''}` : ''}
+              </small>
+            </div>
+          )}
+        </div>
         {unread > 0 ? (
           <button className="pz-mailbtn" onClick={() => setInboxOpen(true)}>
             📬 받은 쪽지 {unread}
@@ -813,4 +901,79 @@ function Inbox({ notes, sent, nameOf, onClose }: { notes: Note[]; sent: Note[]; 
       )}
     </Modal>
   );
+}
+
+/** 광장 비 · 눈: 화면 위에서 떨어지는 빗줄기 · 눈송이 */
+function PlazaWeather({ mode, level }: { mode: 'rain' | 'snow'; level: 1 | 2 | 3 }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cv = ref.current;
+    const ctx = cv?.getContext('2d');
+    if (!cv || !ctx) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let W = 0;
+    let H = 0;
+    const fit = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = cv.clientWidth;
+      H = cv.clientHeight;
+      cv.width = Math.round(W * dpr);
+      cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(cv);
+    const rain = mode === 'rain';
+    const count = Math.round((rain ? 90 : 70) * level * Math.min(1.4, (W * H) / (1400 * 900) + 0.3));
+    const ps = Array.from({ length: count }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      v: rain ? 9 + Math.random() * 7 : 0.6 + Math.random() * 1.2,
+      r: rain ? 10 + Math.random() * 12 : 1.5 + Math.random() * 3,
+      ph: Math.random() * Math.PI * 2,
+    }));
+    let raf = 0;
+    let t = 0;
+    const draw = () => {
+      t += 1;
+      ctx.clearRect(0, 0, W, H);
+      if (rain) {
+        ctx.strokeStyle = 'rgba(210, 225, 255, 0.55)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (const p of ps) {
+          p.y += p.v;
+          p.x -= p.v * 0.18;
+          if (p.y > H) {
+            p.y = -p.r;
+            p.x = Math.random() * (W + 80);
+          }
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + p.r * 0.18, p.y - p.r);
+        }
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+        for (const p of ps) {
+          p.y += p.v;
+          p.x += Math.sin(t / 60 + p.ph) * 0.5;
+          if (p.y > H) {
+            p.y = -5;
+            p.x = Math.random() * W;
+          }
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      if (!reduce) raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [mode, level]);
+  return <canvas ref={ref} className={`pz-wx pz-wx-${mode}`} aria-hidden="true" />;
 }
