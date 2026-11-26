@@ -174,7 +174,12 @@ function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
   );
 }
 
-type Note = { id: string; to: string; from: string; fromName: string; img: string; at: string; read?: boolean };
+type Note = { id: string; to: string; toName?: string; from: string; fromName: string; img: string; at: string; read?: boolean };
+/** 2026-11-26T08:31… → 11.26 17:31 (내 시간) */
+const noteTime = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}.${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 export default function Plaza() {
   const { email: me0 } = useAccess();
@@ -210,6 +215,15 @@ export default function Plaza() {
       query(collection(db, 'plazaNotes'), where('to', '==', me)),
       (snap) => setInbox(snap.docs.map((d) => ({ ...(d.data() as Note), id: d.id })).sort((a, b) => b.at.localeCompare(a.at))),
       () => setInbox([]),
+    );
+  }, [me]);
+  const [sent, setSent] = useState<Note[]>([]);
+  useEffect(() => {
+    if (DATA_MODE === 'local' || !me) return;
+    return onSnapshot(
+      query(collection(db, 'plazaNotes'), where('from', '==', me)),
+      (snap) => setSent(snap.docs.map((d) => ({ ...(d.data() as Note), id: d.id })).sort((a, b) => b.at.localeCompare(a.at))),
+      () => setSent([]),
     );
   }, [me]);
   const unread = inbox.filter((n) => !n.read).length;
@@ -459,7 +473,7 @@ export default function Plaza() {
       </div>
 
       {drawTo && <DrawNote to={drawTo} fromEmail={me} fromName={myName} onClose={() => setDrawTo(null)} />}
-      {inboxOpen && <Inbox notes={inbox} onClose={() => setInboxOpen(false)} />}
+      {inboxOpen && <Inbox notes={inbox} sent={sent} nameOf={(e) => nameOf(e) || e.split('@')[0]} onClose={() => setInboxOpen(false)} />}
     </div>
   );
 }
@@ -598,7 +612,7 @@ function DrawNote({ to, fromEmail, fromName, onClose }: { to: { email: string; n
     setErr('');
     try {
       const img = cv.current!.toDataURL('image/webp', 0.85);
-      await addDoc(collection(db, 'plazaNotes'), { to: to.email, from: fromEmail, fromName, img, at: new Date().toISOString(), read: false });
+      await addDoc(collection(db, 'plazaNotes'), { to: to.email, toName: to.name, from: fromEmail, fromName, img, at: new Date().toISOString(), read: false });
       onClose();
     } catch (e) {
       setErr(`못 보냈어요: ${(e as Error).message} (보안 규칙을 올렸는지 확인 — deploy.bat)`);
@@ -635,32 +649,47 @@ function DrawNote({ to, fromEmail, fromName, onClose }: { to: { email: string; n
   );
 }
 
-function Inbox({ notes, onClose }: { notes: Note[]; onClose: () => void }) {
+function Inbox({ notes, sent, nameOf, onClose }: { notes: Note[]; sent: Note[]; nameOf: (email: string) => string; onClose: () => void }) {
+  const [tab, setTab] = useState<'in' | 'out'>('in');
   const [open, setOpen] = useState<Note | null>(null);
-  // 열면 읽음으로
+  // 받은 편지함을 열면 읽음으로
   useEffect(() => {
+    if (tab !== 'in') return;
     for (const n of notes) if (!n.read) void updateDoc(doc(db, 'plazaNotes', n.id), { read: true }).catch(() => {});
-  }, [notes]);
+  }, [notes, tab]);
+  const list = tab === 'in' ? notes : sent;
+  const who = (n: Note) => (tab === 'in' ? n.fromName : `To. ${n.toName || nameOf(n.to)}`);
   return (
-    <Modal title="📬 받은 쪽지" onClose={onClose} wide>
-      {notes.length === 0 ? (
-        <p className="muted">아직 받은 쪽지가 없어요.</p>
+    <Modal title="📬 내 우편함" onClose={onClose} wide>
+      <div className="pz-mail-tabs">
+        <button className={tab === 'in' ? 'on' : ''} onClick={() => setTab('in')}>
+          받은 편지함 <small>{notes.length}</small>
+        </button>
+        <button className={tab === 'out' ? 'on' : ''} onClick={() => setTab('out')}>
+          보낸 편지함 <small>{sent.length}</small>
+        </button>
+      </div>
+      {list.length === 0 ? (
+        <p className="muted">{tab === 'in' ? '아직 받은 쪽지가 없어요.' : '아직 보낸 쪽지가 없어요. 다른 집 우편함을 눌러 보세요.'}</p>
       ) : (
         <div className="pz-inbox">
-          {notes.map((n) => (
-            <figure key={n.id} className={n.read ? '' : 'new'} onClick={() => setOpen(n)}>
-              <img src={n.img} alt={`${n.fromName}의 그림 쪽지`} />
+          {list.map((n) => (
+            <figure key={n.id} className={tab === 'in' && !n.read ? 'new' : ''} onClick={() => setOpen(n)}>
+              <img src={n.img} alt={`${who(n)} 그림 쪽지`} />
               <figcaption>
-                <b>{n.fromName}</b> · {n.at.slice(5, 10).replace('-', '.')} {n.at.slice(11, 16)}
-                <button
-                  className="link small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm('이 쪽지를 지울까요?')) void deleteDoc(doc(db, 'plazaNotes', n.id));
-                  }}
-                >
-                  지우기
-                </button>
+                <b>{who(n)}</b> · {noteTime(n.at)}
+                {tab === 'out' && <span className={`pz-read ${n.read ? 'on' : ''}`}>{n.read ? '읽음' : '안 읽음'}</span>}
+                {(tab === 'in' || !n.read) && (
+                  <button
+                    className="link small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(tab === 'in' ? '이 쪽지를 지울까요?' : '아직 안 읽었어요. 보내기를 취소할까요? (받는 사람 우편함에서도 없어져요)')) void deleteDoc(doc(db, 'plazaNotes', n.id));
+                    }}
+                  >
+                    {tab === 'in' ? '지우기' : '보내기 취소'}
+                  </button>
+                )}
               </figcaption>
             </figure>
           ))}
@@ -670,7 +699,7 @@ function Inbox({ notes, onClose }: { notes: Note[]; onClose: () => void }) {
         <div className="pz-note-big" onClick={() => setOpen(null)}>
           <img src={open.img} alt="" />
           <span>
-            {open.fromName} · 누르면 닫혀요
+            {who(open)} · {noteTime(open.at)} · 누르면 닫혀요
           </span>
         </div>
       )}

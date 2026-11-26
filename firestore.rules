@@ -231,7 +231,9 @@ service cloud.firestore {
         && request.resource.data.img.size() < 900000;
       allow update: if isAny() && resource.data.to == myEmail()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow delete: if isAny() && (resource.data.to == myEmail() || isAdmin());
+      // 받은 사람 · 관리자 · 아직 안 읽었으면 보낸 사람(보내기 취소)
+      allow delete: if isAny() && (resource.data.to == myEmail() || isAdmin()
+        || (resource.data.from == myEmail() && resource.data.get('read', false) == false));
     }
     match /bdayMsgs/{id} {
       allow read: if isAny();

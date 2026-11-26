@@ -9775,3 +9775,10 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 @media (max-aspect-ratio: 4/5) {
   .pz-say.memo { width: 108%; max-width: none; padding: 10px 6px 8px; font-size: 10.5px !important; }
 }
+/* 내 우편함: 받은 · 보낸 편지함 */
+.pz-mail-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.pz-mail-tabs button { border-radius: 999px; padding: 6px 14px; }
+.pz-mail-tabs button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.pz-mail-tabs small { opacity: 0.75; margin-left: 2px; }
+.pz-read { font-size: 11px; font-weight: 700; color: var(--mut); background: var(--surface-2); border-radius: 999px; padding: 0 7px; }
+.pz-read.on { color: var(--olive); background: var(--olive-soft); }
