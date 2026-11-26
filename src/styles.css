@@ -9491,3 +9491,9 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .coop-paper.coop-title > span { flex: 1; }
 .coop-title-btn { margin-left: auto; flex: none; font-size: 15px; }
 .coop-title-edit { flex: 1; font: inherit; font-weight: 600; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; }
+.coop-fcl { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--k) 8%, #fff); cursor: pointer; }
+.coop-fcl input { width: 14px; height: 14px; margin: 0; }
+.coop-pick-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 2px 4px; }
+.coop-pick-row select { font: inherit; font-size: 13px; height: 30px; padding: 0 6px; max-width: 100%; }
+.coop-erp { margin-left: auto; align-self: center; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; width: 48px; padding: 6px 0 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--primary); text-decoration: none; font-size: 10.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(60,30,30,.08); }
+.coop-erp:hover { background: #fff; box-shadow: 0 4px 12px rgba(60,30,30,.14); }
