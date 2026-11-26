@@ -336,14 +336,6 @@ export default function Coop() {
           <h1>🤝 업무협조전</h1>
           <p className="muted">종류를 고르면 양식이 떠요. 문서 안 빈칸에 바로 쓰고, 📥 주문을 불러오면 빈칸이 자동으로 채워져요. 다 되면 제목 / 내용을 따로 복사해요.</p>
         </div>
-        {/* ERP 업무협조전 쓰기 바로가기 (새 창) */}
-        <a className="coop-erp" href="https://erp.artbox.kr/menu00/menu00_01_write.asp" target="_blank" rel="noreferrer" title="ERP 업무협조전 쓰기 (새 창)" aria-label="ERP 업무협조전 쓰기">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path d="M14 3h7v7M21 3l-9 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>ERP</span>
-        </a>
       </div>
       {/* 종류: 색 카드 */}
       <div className="coop-kinds">
@@ -354,6 +346,14 @@ export default function Coop() {
             <span aria-hidden="true">{k.icon}</span> {k.label}
           </button>
         ))}
+        {/* ERP 업무협조전 쓰기 바로가기 (새 창) */}
+        <a className="coop-erp" href="https://erp.artbox.kr/menu00/menu00_01_write.asp" target="_blank" rel="noreferrer" title="ERP 업무협조전 쓰기 (새 창)" aria-label="ERP 업무협조전 쓰기">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M14 3h7v7M21 3l-9 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>ERP</span>
+        </a>
       </div>
 
       {/* 📥 주문 불러오기 */}

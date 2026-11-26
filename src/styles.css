@@ -9495,5 +9495,10 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .coop-fcl input { width: 14px; height: 14px; margin: 0; }
 .coop-pick-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 2px 4px; }
 .coop-pick-row select { font: inherit; font-size: 13px; height: 30px; padding: 0 6px; max-width: 100%; }
-.coop-erp { margin-left: auto; align-self: center; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; width: 48px; padding: 6px 0 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--primary); text-decoration: none; font-size: 10.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(60,30,30,.08); }
+.coop-erp { margin-left: auto; align-self: center; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; width: 46px; padding: 5px 0 3px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--primary); text-decoration: none; font-size: 10.5px; font-weight: 700; box-shadow: 0 2px 8px rgba(60,30,30,.08); }
 .coop-erp:hover { background: #fff; box-shadow: 0 4px 12px rgba(60,30,30,.14); }
+.pk-pal { display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; padding: 0 2px; cursor: pointer; border-radius: 4px; }
+.pk-pal:hover { background: rgba(0,0,0,.06); }
+.pk-pal i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; box-sizing: border-box; background: #fff; }
+.pk-pal small { font-size: 10px; color: var(--muted); }
+.pk-pal-dot { width: 14px; height: 14px; border-radius: 50%; border: 3px solid; box-sizing: border-box; margin-top: 3px; flex: none; }
