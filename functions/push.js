@@ -52,7 +52,9 @@ export async function reportAudience(db, r) {
     if (r.team === 'trade') return x.level === 'trade';
     return (x.level === 'member' || x.level === 'admin') && String(x.team) === String(r.team);
   });
-  return out.map((x) => x.email).filter((e) => e !== low(r.authorEmail));
+  // 🔗 같이 볼 사람으로 추가된 사람 (다른 조 · 무역사무)
+  const shared = (r.sharePeople ?? []).map(low);
+  return [...new Set([...out.map((x) => x.email), ...shared])].filter((e) => e !== low(r.authorEmail));
 }
 
 const link = (id) => `./#/reports?r=${encodeURIComponent(id)}`;
@@ -66,6 +68,10 @@ export async function onReportCreated(db, id, r) {
 export async function onReportUpdated(db, id, before, after) {
   const was = new Map((before.replies ?? []).map((x) => [x.id, x]));
   const jobs = [];
+  // 고치면서 🔗 같이 볼 사람을 새로 추가 → 그 사람에게
+  const sharedBefore = new Set((before.sharePeople ?? []).map(low));
+  const newly = (after.sharePeople ?? []).map(low).filter((e) => e && !sharedBefore.has(e) && e !== low(after.authorEmail));
+  if (newly.length) jobs.push(sendPush(db, newly, { title: `🔗 ${after.authorName ?? ''}님이 보고를 같이 보자고 했어요`, body: after.title ?? '', link: link(id), tag: `rs-${id}` }));
   for (const rp of after.replies ?? []) {
     const old = was.get(rp.id);
     if (!old) {

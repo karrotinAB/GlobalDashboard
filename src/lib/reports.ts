@@ -90,6 +90,8 @@ export interface Report {
   retask?: CheckRole[]; // 첫 번째 고치기에서 확인자로 (다시) 넣은 분 → 주간 할일에 다시 넣음
   replies?: ReportReply[];
   files?: RequestFile[]; // 사진 · 파일
+  sharePeople?: string[]; // 공유: 같이 보게 추가한 다른 조 · 무역사무 사람 (이메일) — 그 사람에게 알림
+  shareTeams?: string[]; // 공유받은 조 ('1'·'2'·'3'·'trade') — 그 조 보고방에도 보임
 }
 
 export const CHECK_LABEL: Record<CheckRole, string> = { lead: '팀장님', director: '이사님' };
@@ -120,18 +122,42 @@ export function useReports(team: string | null | undefined) {
   useEffect(() => {
     if (team === undefined) return setList([]); // 안 불러옴
     if (DATA_MODE === 'local') {
-      const load = () => setList(readLocal().filter((r) => !team || r.team === team));
+      const load = () => setList(readLocal().filter((r) => !team || r.team === team || (r.shareTeams ?? []).includes(team)));
       load();
       window.addEventListener('gd-reports', load);
       return () => window.removeEventListener('gd-reports', load);
     }
     setList(null);
-    const q = team ? query(collection(db, 'reports'), where('team', '==', team)) : collection(db, 'reports');
-    return onSnapshot(
-      q,
-      (snap) => setList(snap.docs.map((d) => ({ ...(d.data() as Omit<Report, 'id'>), id: d.id }))),
+    if (!team)
+      return onSnapshot(
+        collection(db, 'reports'),
+        (snap) => setList(snap.docs.map((d) => ({ ...(d.data() as Omit<Report, 'id'>), id: d.id }))),
+        () => setList([]),
+      );
+    // 우리 조 보고 + 다른 조가 우리 조에 공유한 보고
+    let own: Report[] | null = null;
+    let shared: Report[] = [];
+    const emit = () => own && setList([...own, ...shared.filter((x) => !own!.some((y) => y.id === x.id))]);
+    const u1 = onSnapshot(
+      query(collection(db, 'reports'), where('team', '==', team)),
+      (snap) => {
+        own = snap.docs.map((d) => ({ ...(d.data() as Omit<Report, 'id'>), id: d.id }));
+        emit();
+      },
       () => setList([]),
     );
+    const u2 = onSnapshot(
+      query(collection(db, 'reports'), where('shareTeams', 'array-contains', team)),
+      (snap) => {
+        shared = snap.docs.map((d) => ({ ...(d.data() as Omit<Report, 'id'>), id: d.id }));
+        emit();
+      },
+      () => {},
+    );
+    return () => {
+      u1();
+      u2();
+    };
   }, [team]);
   return list ? [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : null;
 }

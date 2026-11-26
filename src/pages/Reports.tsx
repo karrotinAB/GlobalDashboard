@@ -6,6 +6,7 @@ import { isPersonal, TEAMS } from '../lib/team';
 import { uid } from '../lib/date';
 import RichEditor from '../components/RichEditor';
 import { usePeople } from '../components/AddressBook';
+import PeoplePicker, { type PersonOpt } from '../components/PeoplePicker';
 import { FileBox, ImageZoom, isImageFile } from '../components/RequestParts';
 import { memoHtml } from '../lib/richtext';
 import type { RequestFile } from '../types';
@@ -127,10 +128,11 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
       {writing && (
         <ReportForm
           id={writing}
+          team={myTeam}
           onCancel={() => setWriting(null)}
-          onSave={(title, body, files, to) => {
+          onSave={(title, body, files, to, share) => {
             const now = new Date().toISOString();
-            void saveReport({ id: writing, team: myTeam, title, body, files, to, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [] });
+            void saveReport({ id: writing, team: myTeam, title, body, files, to, authorEmail: access.email || undefined, authorName: myName, createdAt: now, checks: {}, replies: [], ...(share.people.length ? { sharePeople: share.people, shareTeams: share.teams } : {}) });
             setWriting(null);
           }}
         />
@@ -208,6 +210,9 @@ export default function Reports({ space }: { space?: 'trade' } = {}) {
                           {/* 휴대폰: 제목 옆에 어느 조 보고인지 */}
                           <span className={`rp-src rp-title-team t-${r.team}`}>{teamName(r.team)}</span>
                           {r.title}
+                          {/* 공유: 다른 조에서 받은 것 / 우리가 공유한 것 */}
+                          {!leaderView && r.team !== myTeam && <span className="rp-shared in">🔗 {teamName(r.team)}에서 공유</span>}
+                          {r.team === myTeam && (r.shareTeams ?? []).length > 0 && <span className="rp-shared">🔗 {(r.shareTeams ?? []).map(teamName).join(' · ')}</span>}
                           {(r.replies ?? []).length > 0 && <span className="rp-n">💬 {r.replies!.length}</span>}
                           {unseen && <span className="rp-new">{leaderView ? 'NEW' : '새 답변'}</span>}
                           {fresh && <span className="rp-new blue">확인 전</span>}
@@ -271,19 +276,35 @@ function ReportForm({
   init,
   onSave,
   onCancel,
+  team,
 }: {
   id: string;
-  init?: { title: string; body: string; files?: RequestFile[]; to?: CheckRole[] };
-  onSave: (title: string, body: string, files: RequestFile[], to: CheckRole[]) => void;
+  init?: { title: string; body: string; files?: RequestFile[]; to?: CheckRole[]; share?: string[] };
+  onSave: (title: string, body: string, files: RequestFile[], to: CheckRole[], share: { people: string[]; teams: string[] }) => void;
   onCancel: () => void;
+  team: string;
 }) {
+  // 🔗 공유: 다른 조 · 무역사무 사람을 추가하면 그 조 보고방에도 보이고, 그 사람에게 알림
+  const access = useAccess();
+  const { roles, contacts } = usePeople();
+  const people: PersonOpt[] = (roles ?? [])
+    .filter((x) => x.role !== 'auditor' && x.email !== (access.email ?? '').toLowerCase() && !((x.role === 'member' || x.role === 'admin') && (x.team ?? '2') === team) && !(x.role === 'trade' && team === 'trade'))
+    .map((x) => ({
+      key: x.email,
+      name: contacts[x.email]?.name || x.name || x.email.split('@')[0],
+      group: x.role === 'trade' ? '무역사무' : x.role === 'lead' ? '팀장님' : x.role === 'director' ? '이사님' : `${x.team ?? '2'}조`,
+    }))
+    .sort((a, b) => (a.group ?? '').localeCompare(b.group ?? '', 'ko') || a.name.localeCompare(b.name, 'ko'));
+  const [share, setShare] = useState<string[]>(init?.share ?? []);
+  const teamsOf = (emails: string[]) =>
+    [...new Set(emails.map((e) => roles?.find((x) => x.email === e)).flatMap((x) => (!x ? [] : x.role === 'trade' ? ['trade'] : x.role === 'member' || x.role === 'admin' ? [String(x.team ?? '2')] : [])))].filter((t) => t !== team);
   const [title, setTitle] = useState(init?.title ?? '');
   const [body, setBody] = useState(init?.body ?? '');
   const [files, setFiles] = useState<RequestFile[]>(init?.files ?? []);
   // 확인자: 팀장님 · 이사님 (둘 다 가능). 체크한 분의 주간 할일에만 올라가고, 그분 확인란만 생김
   const [to, setTo] = useState<CheckRole[]>(init?.to ?? ['lead', 'director']);
   const flip = (k: CheckRole) => setTo((x) => (x.includes(k) ? x.filter((y) => y !== k) : [...x, k]));
-  const submit = () => title.trim() && to.length > 0 && onSave(title.trim(), body, files, (['lead', 'director'] as CheckRole[]).filter((k) => to.includes(k)));
+  const submit = () => title.trim() && to.length > 0 && onSave(title.trim(), body, files, (['lead', 'director'] as CheckRole[]).filter((k) => to.includes(k)), { people: share, teams: teamsOf(share) });
   return (
     <div className="card rp-form">
       <div className="rp-form-top">
@@ -297,6 +318,11 @@ function ReportForm({
             </label>
           ))}
         </div>
+      </div>
+      <div className="rp-share" title="다른 조 · 무역사무 사람을 추가하면 그 조 보고방에도 보이고, 추가한 사람에게 알림이 가요">
+        <span className="muted small">🔗 같이 볼 사람</span>
+        <PeoplePicker value={share} people={people} onChange={setShare} emptyLabel="우리 조만" />
+        {share.length > 0 && <span className="muted small">→ {teamsOf(share).map((t) => (t === 'trade' ? '무역사무' : `${t}조`)).join(' · ') || '팀장님 · 이사님'} 보고방에도 보여요</span>}
       </div>
       <RichEditor initial={init?.body} onChange={setBody} placeholder="보고 내용을 자유롭게 적어 주세요 (Ctrl+Enter 로 올리기)" onCtrlEnter={submit} />
       <div className="rp-files-label muted small">사진 · 파일 (캡처한 사진은 아래 칸을 누르고 Ctrl+V 로 붙여넣기)</div>
@@ -327,15 +353,16 @@ function ReportDetail({ r, myName, nameOf, canEdit, canDelete }: { r: Report; my
     return (
       <ReportForm
         id={r.id}
-        init={{ title: r.title, body: r.body, files: r.files, to: r.to }}
+        init={{ title: r.title, body: r.body, files: r.files, to: r.to, share: r.sharePeople }}
+        team={r.team}
         onCancel={() => setEditing(false)}
-        onSave={(title, body, files, to) => {
+        onSave={(title, body, files, to, share) => {
           // 처음 올린 뒤 첫 번째 고치기에서 확인자로 넣은 분만 주간 할일에 다시 넣음 (두 번째 고치기부터는 안 넣음)
           const before = r.to ?? (['lead', 'director'] as CheckRole[]);
           const added = to.filter((k) => !before.includes(k));
           const first = !r.edits;
           const retask = first && added.length ? [...new Set([...(r.retask ?? []), ...added])] : r.retask;
-          void saveReport({ ...r, title, body, files, to, retask, edits: (r.edits ?? 0) + 1, updatedAt: new Date().toISOString() });
+          void saveReport({ ...r, title, body, files, to, retask, sharePeople: share.people.length ? share.people : undefined, shareTeams: share.people.length ? share.teams : undefined, edits: (r.edits ?? 0) + 1, updatedAt: new Date().toISOString() });
           setEditing(false);
         }}
       />

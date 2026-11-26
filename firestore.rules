@@ -71,12 +71,18 @@ service cloud.firestore {
     // 보고방: 그 조 조원 + 팀장님·이사님 + 관리자. 쓰기는 그 조 조원(자기 조 보고), 확인·답변은 팀장님·이사님도
     match /reports/{id} {
       allow read: if isAdmin() || isLeader() || (isTeam() && resource.data.team == myTeam())
-        || (isTrade() && resource.data.team == 'trade');
+        || (isTrade() && resource.data.team == 'trade')
+        // 공유받은 보고 (다른 조가 우리 조 · 무역사무 사람을 '같이 볼 사람'으로 추가)
+        || (isTeam() && myTeam() in resource.data.get('shareTeams', []))
+        || (isTrade() && 'trade' in resource.data.get('shareTeams', []));
       allow create: if isAdmin() || (isTeam() && request.resource.data.team == myTeam())
         || (isTrade() && request.resource.data.team == 'trade');
       allow update: if isAdmin() || isLeader()
         || (isTeam() && resource.data.team == myTeam() && request.resource.data.team == resource.data.team)
-        || (isTrade() && resource.data.team == 'trade' && request.resource.data.team == 'trade');
+        || (isTrade() && resource.data.team == 'trade' && request.resource.data.team == 'trade')
+        // 공유받은 조: 댓글 · 반응만 (replies 칸만)
+        || (((isTeam() && myTeam() in resource.data.get('shareTeams', [])) || (isTrade() && 'trade' in resource.data.get('shareTeams', [])))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replies']));
       allow delete: if isAdmin() || ((isTeam() || isTrade()) && resource.data.get('authorEmail', '') == myEmail());
     }
 
