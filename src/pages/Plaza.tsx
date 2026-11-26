@@ -63,41 +63,19 @@ function rng(seed: number) {
   };
 }
 
-/** 바닥: 잔디 위에 흙길(집을 잇는 둥근 길 + 가운데 광장에서 집마다 갈래길) · 덤불 · 꽃 · 돌 */
-function Ground({ w, h, angles }: { w: number; h: number; angles: number[] }) {
+/** 바닥: 잔디 · 가운데 흙 광장 · 물류센터 마당 · 덤불 · 꽃 · 돌 조금 (길은 아직 안 그림) */
+function Ground({ w, h }: { w: number; h: number }) {
   const cx = (w * RX0) / 100;
   const cy = (h * RY0) / 100;
   const rx = (w * RX) / 100;
   const ry = (h * RY) / 100;
-  const at = (deg: number, k = 1) => {
-    const r = (deg * Math.PI) / 180;
-    return [cx + rx * k * Math.cos(r), cy + ry * k * Math.sin(r)] as const;
-  };
-  // 둥근 길 (살짝 울퉁불퉁)
-  const ring = Array.from({ length: 73 }, (_, i) => {
-    const d = i * 5;
-    const wob = 1 + 0.018 * Math.sin(i * 1.7) + 0.012 * Math.cos(i * 0.9);
-    const [x, y] = at(d, wob);
-    return `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
   const plazaR = Math.min(w, h) * 0.16;
-  // 갈래길: 가운데 광장 → 집 · 6시(물류센터)
-  const spokes = [...angles, 90].map((deg) => {
-    const r = (deg * Math.PI) / 180;
-    const x0 = cx + plazaR * 0.9 * Math.cos(r);
-    const y0 = cy + plazaR * 0.75 * Math.sin(r);
-    const [x1, y1] = at(deg, deg === 90 ? 1.25 : 1);
-    const mx = (x0 + x1) / 2 + 14 * Math.sin(r * 3);
-    const my = (y0 + y1) / 2 + 10 * Math.cos(r * 2);
-    return `M${x0.toFixed(1)},${y0.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`;
-  });
-  const pathW = Math.max(18, Math.min(w, h) * 0.035);
   // 꾸미기: 길 · 광장 · 물류센터 · 위 줄을 피해서
   const deco = useMemo(() => {
     const rand = rng(Math.round(w) * 7 + Math.round(h));
     const out: { k: 'bush' | 'flower' | 'rock' | 'tuft'; x: number; y: number; s: number; c: string }[] = [];
     const flowers = ['#ff5d73', '#ffd23f', '#ffffff', '#b57cff', '#ff9f43'];
-    for (let n = 0; n < 900 && out.length < 90; n++) {
+    for (let n = 0; n < 900 && out.length < 26; n++) {
       const x = rand() * w;
       const y = rand() * h;
       const nx = (x - cx) / rx;
@@ -108,7 +86,7 @@ function Ground({ w, h, angles }: { w: number; h: number; angles: number[] }) {
       if (y > h * 0.7 && Math.abs(x - cx) < w * 0.3) continue; // 물류센터
       if (y < 64) continue; // 위 줄 (돌아가기)
       const roll = rand();
-      const k = roll < 0.3 ? 'bush' : roll < 0.62 ? 'flower' : roll < 0.75 ? 'rock' : 'tuft';
+      const k = roll < 0.5 ? 'bush' : roll < 0.85 ? 'flower' : 'rock';
       out.push({ k, x, y, s: 0.7 + rand() * 0.7, c: flowers[Math.floor(rand() * flowers.length)] });
     }
     return out.sort((a, b) => a.y - b.y);
@@ -127,19 +105,7 @@ function Ground({ w, h, angles }: { w: number; h: number; angles: number[] }) {
         </radialGradient>
       </defs>
       <rect width={w} height={h} fill="url(#pz-glow)" />
-      <rect width={w} height={h} fill="url(#pz-grass)" />
-      {/* 흙길: 어두운 테두리 → 흙 → 밝은 가운데 */}
-      <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-        {[...spokes, ring].map((d, i) => (
-          <path key={`o${i}`} d={d} stroke="#9b6a3a" strokeWidth={pathW + 6} />
-        ))}
-        {[...spokes, ring].map((d, i) => (
-          <path key={`m${i}`} d={d} stroke="#d9a464" strokeWidth={pathW} />
-        ))}
-        {[...spokes, ring].map((d, i) => (
-          <path key={`l${i}`} d={d} stroke="#e8c08a" strokeWidth={pathW * 0.35} strokeDasharray="2 14" opacity="0.8" />
-        ))}
-      </g>
+      <rect width={w} height={h} fill="url(#pz-grass)" opacity="0.35" />
       {/* 가운데 광장 (흙 바닥) */}
       <ellipse cx={cx} cy={cy} rx={plazaR + 4} ry={plazaR * 0.78 + 4} fill="#9b6a3a" />
       <ellipse cx={cx} cy={cy} rx={plazaR} ry={plazaR * 0.78} fill="#dcaa6c" />
@@ -343,7 +309,7 @@ export default function Plaza() {
       </div>
 
       <div className="pz-field" ref={fieldRef}>
-        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} angles={angles} />}
+        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} />}
         {/* 가운데: 게시판 */}
         <div className="pz-board" title="게시판 · 투표 · 공지 (준비 중)">
           <div className="pz-board-face">

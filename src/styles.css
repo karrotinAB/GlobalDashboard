@@ -9637,8 +9637,8 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-houses { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
 
 /* 집 (그림: public/plaza/house.png · 지붕 모양 house-roof.png · 유리 house-glass.png) */
-.pz-house { position: relative; width: clamp(80px, 13vmin, 150px); display: flex; flex-direction: column; align-items: center; }
-.pz-house.big { width: clamp(92px, 15vmin, 172px); }
+.pz-house { position: relative; width: clamp(104px, 18vmin, 200px); display: flex; flex-direction: column; align-items: center; }
+.pz-house.big { width: clamp(116px, 20vmin, 224px); }
 .pz-art { position: relative; width: 100%; aspect-ratio: 1; isolation: isolate; transition: filter 0.4s; }
 .pz-house.flip .pz-art { transform: scaleX(-1); }
 .pz-art > * { position: absolute; }
