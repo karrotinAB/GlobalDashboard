@@ -258,13 +258,11 @@ export default function Coop() {
         </button>
       </div>
 
+      <div className="coop-cols">
       {/* 문서: 빈칸에 바로 */}
       <section className="card coop-doc" style={{ '--k': kind.color } as CSSProperties}>
         <div className="coop-copy">
           <b>제목</b>
-          <button className={copied === 'title' ? 'primary' : ''} onClick={() => void copy('title')}>
-            {copied === 'title' ? '✓ 복사됨' : '📋 제목 복사'}
-          </button>
         </div>
         <div className="coop-paper coop-title">
           (업무협조전-글로벌사업부) <Blank value={d.country} auto={autoCountry} ph="나라" onChange={(v) => set({ country: v })} />{' '}
@@ -274,9 +272,6 @@ export default function Coop() {
 
         <div className="coop-copy">
           <b>내용</b>
-          <button className={copied === 'body' ? 'primary' : ''} onClick={() => void copy('body')}>
-            {copied === 'body' ? '✓ 복사됨' : '📋 내용 복사'}
-          </button>
         </div>
         <div className="coop-paper">
           <p>상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.</p>
@@ -371,6 +366,24 @@ export default function Coop() {
         </div>
         {missing.length > 0 && <p className="warn small">아직 빈 칸: {missing.join(' · ')}</p>}
       </section>
+      {/* 옆: 완성된 글 (그대로 복사) */}
+      <section className="card coop-out">
+        <div className="coop-copy">
+          <b>제목</b>
+          <button className={copied === 'title' ? 'primary' : ''} onClick={() => void copy('title')}>
+            {copied === 'title' ? '✓ 복사됨' : '📋 제목 복사'}
+          </button>
+        </div>
+        <pre className="coop-text coop-out-title">{title}</pre>
+        <div className="coop-copy">
+          <b>내용</b>
+          <button className={copied === 'body' ? 'primary' : ''} onClick={() => void copy('body')}>
+            {copied === 'body' ? '✓ 복사됨' : '📋 내용 복사'}
+          </button>
+        </div>
+        <pre className="coop-text">{body}</pre>
+      </section>
+      </div>
     </div>
   );
 }
