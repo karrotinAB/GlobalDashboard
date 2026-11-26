@@ -61,7 +61,9 @@ interface Draft {
   yardCode?: string; // 4. 입고지
   yardPerson?: string;
   yardAddr?: string;
-  refNote?: string; // 5. 참고사항
+  refNote?: string; // (예전) 5. 참고사항 한 줄 — 지금은 refLines 첫 줄로
+  bookingNo?: string; // 5. 참고사항: 부킹넘버
+  refLines?: string[]; // 5. 참고사항: 그 밑에 더 쓰는 줄
 }
 const DISPATCH = ['', '포워딩업체에서 컨테이너 배송 예정.', '배차 완료', '광혜원 배차 필요'];
 const FOLLOW1 = '배차정보 및 컨테이너 정보는 확인되는대로 전달드리겠습니다.';
@@ -236,6 +238,7 @@ export default function Coop() {
   const autoOutDate = dot(linked.map((o) => o.bundle?.shipDate || o.shipDate || '').filter(Boolean).sort().at(-1) ?? '');
   const outDate = d.outDate || autoOutDate;
   const works = d.works ?? [];
+  const refLines = d.refLines ?? (d.refNote?.trim() ? [d.refNote] : []);
   const dispatchText = d.dispatch ? DISPATCH[d.dispatch] : '';
   const followText = d.dispatch && d.dispatch <= 2 ? (d.follow === 1 ? FOLLOW1 : d.follow === 2 ? (d.followText ?? '').trim() : '') : '';
   const autoTitle = d.kind === 'out'
@@ -311,7 +314,9 @@ export default function Coop() {
     `담당자: ${(d.yardPerson ?? '').trim()}`,
     `주소 : ${(d.yardAddr ?? '').trim()}`,
     '',
-    `5. 참고사항: ${(d.refNote ?? '').trim()}`,
+    '5. 참고사항:',
+    `부킹넘버: ${(d.bookingNo ?? '').trim()}`,
+    ...refLines.filter((x) => x.trim()).map((x) => x.trim()),
     '',
     `기타 문의사항은 글로벌 사업부 ${personName}${personPhone ? `(${personPhone})` : ''}에게 문의바랍니다.`,
     '끝.',
@@ -559,9 +564,21 @@ export default function Coop() {
               <p className="coop-line">
                 주소 : <Blank value={d.yardAddr ?? ''} ph="주소" w={30} className="wide" onChange={(v) => set({ yardAddr: v })} />
               </p>
-              <p className="coop-gap">
-                5. 참고사항: <Blank value={d.refNote ?? ''} ph="(없으면 비워 둬요)" w={24} className="wide" onChange={(v) => set({ refNote: v })} />
+              <p className="coop-gap">5. 참고사항:</p>
+              <p className="coop-line">
+                부킹넘버: <Blank value={d.bookingNo ?? ''} ph="부킹넘버" w={14} onChange={(v) => set({ bookingNo: v })} />
               </p>
+              {refLines.map((x, i) => (
+                <p key={i} className="coop-line">
+                  <Blank value={x} ph="내용" w={30} className="wide" onChange={(v) => set({ refLines: refLines.map((y, j) => (j === i ? v : y)), refNote: undefined })} />
+                  <button className="link small" onClick={() => set({ refLines: refLines.filter((_, j) => j !== i), refNote: undefined })} title="이 줄 빼기">
+                    ✕
+                  </button>
+                </p>
+              ))}
+              <button className="link small coop-add" onClick={() => set({ refLines: [...refLines, ''], refNote: undefined })}>
+                + 내용 추가
+              </button>
             </>
           ) : isArr ? (
             <>
