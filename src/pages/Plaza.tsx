@@ -112,7 +112,7 @@ const RY0 = 50;
 const RX = 41;
 const RY = 37;
 /** 세로로 긴 화면(휴대폰): 원은 위쪽에 (물류센터는 원 밖 맨 아래) */
-const geo = (tall: boolean) => (tall ? { x0: RX0, y0: 45, rx: 35, ry: 32 } : { x0: RX0, y0: RY0, rx: RX, ry: RY });
+const geo = (tall: boolean, short = false) => (tall ? { x0: RX0, y0: 45, rx: 35, ry: 32 } : short ? { x0: RX0, y0: 55, rx: RX, ry: 32 } : { x0: RX0, y0: RY0, rx: RX, ry: RY });
 
 /** 고정된 난수 (새로 그려도 덤불 자리가 그대로) */
 function rng(seed: number) {
@@ -124,8 +124,8 @@ function rng(seed: number) {
 }
 
 /** 바닥: 잔디 · 가운데 흙 광장 · 물류센터 마당 · 덤불 · 꽃 · 돌 조금 (길은 아직 안 그림) */
-function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
-  const g = geo(tall);
+function Ground({ w, h, tall, short }: { w: number; h: number; tall: boolean; short: boolean }) {
+  const g = geo(tall, short);
   const cx = (w * g.x0) / 100;
   const cy = (h * g.y0) / 100;
   const rx = (w * g.rx) / 100;
@@ -344,7 +344,8 @@ export default function Plaza() {
   }, []);
   // 세로로 긴 화면(휴대폰)은 양옆 집이 잘리지 않게 원을 조금 좁게
   const tall = !!fieldSize && fieldSize.w / fieldSize.h < 0.8;
-  const g = geo(tall);
+  const short = !!fieldSize && !tall && fieldSize.h < 560; // 낮은 화면 (휴대폰 가로): 원을 조금 아래로 · 납작하게
+  const g = geo(tall, short);
   // 집 자리 = 타원 둘레를 같은 길이로 나눔 (각도로 나누면 길쭉한 화면에서 위 · 아래 집이 겹침)
   //   12시부터 시계 방향 · 6시 쪽은 물류센터 몫으로 비움 (넓은 화면은 물류센터가 커서 더 넓게)
   const angles = useMemo(() => {
@@ -371,7 +372,7 @@ export default function Plaza() {
       return -90 + d + f;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fieldSize, ring.length, tall]);
+  }, [fieldSize, ring.length, tall, short]);
   const posOf = (deg: number): CSSProperties => {
     const r = (deg * Math.PI) / 180;
     return { left: `${g.x0 + g.rx * Math.cos(r)}%`, top: `${g.y0 + g.ry * Math.sin(r)}%` };
@@ -415,6 +416,13 @@ export default function Plaza() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t1.data.orders, t2.data.orders, t3.data.orders, t1.data.companies, t2.data.companies, t3.data.companies, todayIso]);
   const maxKrw = Math.max(1, ...boxes.map((b) => b.krw));
+  // 박스 크기: 화면이 작으면 같이 작게 (낮고 넓은 화면에서 위로 높이 쌓여 동상 · 게시판을 덮지 않게)
+  const boxK = (() => {
+    if (!fieldSize) return 1;
+    if (fieldSize.w / fieldSize.h < 0.8) return 0.42; // 세로 휴대폰
+    const k = Math.min(fieldSize.w / 1440, fieldSize.h / 900);
+    return Math.max(0.35, Math.min(1, k)).toFixed(3);
+  })();
   const boxSize = (krw: number) => Math.round(34 + 52 * Math.sqrt(krw / maxKrw));
   const [truckOpen, setTruckOpen] = useState(false);
   const [pickBox, setPickBox] = useState<(typeof boxes)[number] | null>(null);
@@ -497,8 +505,8 @@ export default function Plaza() {
         )}
       </div>
 
-      <div className="pz-field" ref={fieldRef} onClick={() => setPickBox(null)}>
-        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} tall={tall} />}
+      <div className="pz-field" ref={fieldRef} style={{ '--box-k': boxK } as CSSProperties} onClick={() => setPickBox(null)}>
+        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} tall={tall} short={short} />}
         {/* 가운데: 게시판 */}
         {/* 게시판 뒤: 동상 */}
         <img className="pz-statue" src="./plaza/statue.png" alt="" draggable={false} />
@@ -760,6 +768,7 @@ function House({ m, light, mine, unread, onMail, big, flip, sayBelow, roof }: { 
       <div className={`pz-art ${light.msg ? 'can-say' : ''}`} onClick={(e) => !(e.target as HTMLElement).closest('.pz-mailbox') && light.msg && setSay((v) => !v)}>
         <img className="pz-art-base" src="./plaza/house.png" alt="" draggable={false} />
         <span className="pz-art-roof" style={maskOf('house-roof')} />
+        <span className="pz-art-roof" style={maskOf('house-mailbox')} />
         <span className="pz-art-glass" style={maskOf('house-glass')} />
         {roof && <RoofLights {...roof} />}
         {light.on && <img className="pz-art-char" src={characterSrc(charOf(m))} alt="" draggable={false} />}

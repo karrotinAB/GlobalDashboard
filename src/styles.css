@@ -9732,7 +9732,6 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
   .pz-truck-n { font-size: 10px; padding: 1px 5px; }
   .pz-wh-count { font-size: 10.5px; padding: 1px 8px; }
   .pz-wh-empty { font-size: 11px; padding: 4px 8px; }
-  .pz { --box-k: 0.42; }
   .pz-box { margin-top: -5px; }
   .pz-truck-pop { left: auto; right: 0; transform: none; width: min(300px, 86vw); }
   .pz-board-face { width: 34vw; padding: 8px; }
@@ -9857,3 +9856,5 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-snowy .pz-snow-cover { opacity: 0.95; }
 .pz-snowy .pz-ground, .pz-snowy.pz-cloudy .pz-ground { filter: brightness(calc(1.04 - var(--dark) * 0.45)) saturate(calc(0.95 - var(--dark) * 0.3)) hue-rotate(calc(var(--dark) * 12deg)); }
 .pz-snowy:not(.pz-night) .pz-title, .pz-snowy:not(.pz-night) .pz-hint { color: #2e3a4a; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8); }
+
+@media (max-height: 560px) and (min-aspect-ratio: 4/5) { .pz-hint { display: none; } .pz-field > .pz-board, .pz-field > .pz-statue { top: 55%; } }
