@@ -160,6 +160,12 @@ function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
           <circle cx="24" cy="10" r="1.6" fill="#7fd45a" />
           <circle cx="48" cy="36" r="1.4" fill="#7fd45a" />
         </pattern>
+        <pattern id="pz-snow-tex" width="120" height="90" patternUnits="userSpaceOnUse">
+          <ellipse cx="30" cy="22" rx="26" ry="7" fill="#ffffff" />
+          <ellipse cx="88" cy="64" rx="30" ry="8" fill="#ffffff" />
+          <ellipse cx="70" cy="18" rx="10" ry="3" fill="#dce7f3" />
+          <ellipse cx="20" cy="70" rx="14" ry="4" fill="#dce7f3" />
+        </pattern>
         <radialGradient id="pz-glow" cx="50%" cy="50%" r="65%">
           <stop offset="0" stopColor="#7ccf4f" />
           <stop offset="1" stopColor="#4ea532" />
@@ -174,6 +180,11 @@ function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
       {/* 물류센터 마당 */}
       <ellipse cx={cx} cy={h * (tall ? 0.95 : 0.93)} rx={w * (tall ? 0.56 : 0.27)} ry={h * (tall ? 0.07 : 0.11)} fill="#9b6a3a" />
       <ellipse cx={cx} cy={h * (tall ? 0.95 : 0.93)} rx={w * (tall ? 0.56 : 0.27) - 4} ry={h * (tall ? 0.07 : 0.11) - 4} fill="#d6a668" />
+      {/* 눈 쌓임 (많이 올 때 · .pz-snowy) */}
+      <g className="pz-snow-cover">
+        <rect width={w} height={h} fill="#eef4fb" />
+        <rect width={w} height={h} fill="url(#pz-snow-tex)" opacity="0.45" />
+      </g>
       {/* 덤불 · 꽃 · 돌 · 풀 */}
       {deco.map((d, i) => (
         <g key={i} transform={`translate(${d.x.toFixed(1)},${d.y.toFixed(1)}) scale(${d.s.toFixed(2)})`}>
@@ -419,7 +430,7 @@ export default function Plaza() {
   };
 
   return (
-    <div className={`pz pz-${sky} ${cloudy ? 'pz-cloudy' : ''}`} style={{ '--dark': dark.toFixed(3), '--dusk': Math.max(0, dusk).toFixed(3) } as CSSProperties}>
+    <div className={`pz pz-${sky} ${cloudy ? 'pz-cloudy' : ''} ${wx?.mode === 'snow' && wx.level >= 2 ? 'pz-snowy' : ''}`} style={{ '--dark': dark.toFixed(3), '--dusk': Math.max(0, dusk).toFixed(3) } as CSSProperties}>
       {wx && <PlazaWeather mode={wx.mode} level={wx.level} />}
       <div className="pz-top">
         <button className="pz-back" onClick={back}>

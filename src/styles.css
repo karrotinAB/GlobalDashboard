@@ -9849,3 +9849,11 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
   .pz-field > .pz-statue { width: 16vw; }
   .pz-field > .pz-board { width: 23vw; }
 }
+
+/* ❄️ 눈이 많이 오면 (보통 이상) 바닥이 하얗게 */
+.pz-snow-cover { opacity: 0; transition: opacity 3s; }
+.pz-snowy .pz-snow-cover { opacity: 0.92; }
+.pz-snowy .pz-art-base, .pz-snowy .pz-wh-building > img, .pz-snowy .pz-board img { filter: brightness(1.02); }
+.pz-snowy .pz-snow-cover { opacity: 0.95; }
+.pz-snowy .pz-ground, .pz-snowy.pz-cloudy .pz-ground { filter: brightness(calc(1.04 - var(--dark) * 0.45)) saturate(calc(0.95 - var(--dark) * 0.3)) hue-rotate(calc(var(--dark) * 12deg)); }
+.pz-snowy:not(.pz-night) .pz-title, .pz-snowy:not(.pz-night) .pz-hint { color: #2e3a4a; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8); }
