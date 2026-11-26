@@ -489,13 +489,13 @@ export default function Plaza() {
       <div className="pz-field" ref={fieldRef} onClick={() => setPickBox(null)}>
         {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} tall={tall} />}
         {/* 가운데: 게시판 */}
-        <div className="pz-board" title="게시판 · 투표 · 공지 (준비 중)">
-          <div className="pz-board-face">
-            <b>📌 게시판</b>
+        <div className="pz-board" title="마을 게시판 · 투표 · 공지 (준비 중)">
+          <img src="./plaza/board.png" alt="" draggable={false} />
+          <div className="pz-board-paper">
+            <b>📌 마을 게시판</b>
             <span>투표 · 공지</span>
             <small>곧 열려요</small>
           </div>
-          <div className="pz-board-legs" />
         </div>
 
         {/* 둥글게: 집 (내 집 = 12시) */}
