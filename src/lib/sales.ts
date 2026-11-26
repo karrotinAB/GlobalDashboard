@@ -307,17 +307,25 @@ export function useOrderUsd(companies: { id: string; exportCurrency?: string }[]
   const months = curs.length ? [...new Set([nowMonth(), prevMon(nowMonth()), ...foreign.map((o) => monthOf(o.orderDate || o.createdAt)).filter(Boolean)])] : [];
   const table = useFxRates(curs.length ? [...curs, 'USD'] : [], months);
   const curOf = (o: { companyId?: string | null }) => curById.get(o.companyId ?? '') ?? 'USD';
+  // KRW 업체(구매확인서 등)라도 ERP 외화 금액은 보통 USD 로 옴 (₩22,284,130 · 16,828.7 처럼 원화보다 훨씬 작으면 USD) → 바꾸지 않음
+  //   외화 칸에 원화가 그대로 들어온 주문(외화 ≈ 원화)만 원화 → 달러로 바꿈
+  type O = { companyId?: string | null; orderDate?: string; createdAt?: string; amountKRW?: number; amountForeign?: number };
+  const usdAlready = (o: O) => {
+    const k = o.amountKRW;
+    const f = o.amountForeign;
+    return !k || f === undefined || f === null || f < k * 0.2;
+  };
   return {
     curOf,
-    usd: (o: { companyId?: string | null; orderDate?: string; createdAt?: string }, n?: number | null, date?: string | null): number | undefined => {
+    usd: (o: O, n?: number | null, date?: string | null): number | undefined => {
       if (n === undefined || n === null) return undefined;
       const cur = curOf(o);
-      if (cur === 'USD') return n;
+      if (cur === 'USD' || (cur === 'KRW' && usdAlready(o))) return n;
       return toUsd(table, cur, n, date ?? o.orderDate ?? o.createdAt) ?? n;
     },
-    orig: (o: { companyId?: string | null }, n?: number | null) => {
+    orig: (o: O, n?: number | null) => {
       const cur = curOf(o);
-      return cur === 'USD' || n === undefined || n === null ? '' : fmtCur(cur, n);
+      return cur === 'USD' || (cur === 'KRW' && usdAlready(o)) || n === undefined || n === null ? '' : fmtCur(cur, n);
     },
     table,
   };
