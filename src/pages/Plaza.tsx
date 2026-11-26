@@ -130,7 +130,7 @@ function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
   const cy = (h * g.y0) / 100;
   const rx = (w * g.rx) / 100;
   const ry = (h * g.ry) / 100;
-  const plazaR = Math.min(w, h) * 0.16;
+  const plazaR = Math.min(w, h) * 0.12;
   // 꾸미기: 길 · 광장 · 물류센터 · 위 줄을 피해서
   const deco = useMemo(() => {
     const rand = rng(Math.round(w) * 7 + Math.round(h));
@@ -492,9 +492,22 @@ export default function Plaza() {
         <div className="pz-board" title="마을 게시판 · 투표 · 공지 (준비 중)">
           <img src="./plaza/board.png" alt="" draggable={false} />
           <div className="pz-board-paper">
-            <b>📌 마을 게시판</b>
-            <span>투표 · 공지</span>
-            <small>곧 열려요</small>
+            <span className="pz-note n1">
+              <i />
+              마을
+              <br />
+              게시판
+            </span>
+            <span className="pz-note n2">
+              <i />
+              🗳 투표
+              <br />
+              곧 열려요
+            </span>
+            <span className="pz-note n3">
+              <i />
+              📢 공지
+            </span>
           </div>
         </div>
 
