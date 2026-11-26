@@ -9423,3 +9423,5 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pk-dl dt { font-weight: 600; font-size: 13px; color: var(--muted); }
 .pk-dl dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pk-dl dd .cell-view { min-width: 110px; }
+.tools-menu a.tools-gray { color: #a8958f; }
+.tools-menu a.tools-gray .tag { margin-left: auto; }

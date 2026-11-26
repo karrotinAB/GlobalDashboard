@@ -17,7 +17,8 @@ import { BirthdayBubbles, BirthdayWishPopup } from './components/BirthdayWish';
 import { rectOf } from './lib/zoom';
 import AddressBook from './components/AddressBook';
 import TradeMemo from './pages/TradeMemo';
-import ToolsMenu, { TOOLS } from './components/ToolsMenu';
+import ToolsMenu, { isToolAdmin, TOOLS } from './components/ToolsMenu';
+const Coop = lazyPage(() => import('./pages/Coop'));
 import ProfileMenu from './components/ProfileMenu';
 import PresentMode from './components/PresentMode';
 import ReportTaskSync from './components/ReportTaskSync';
@@ -60,6 +61,7 @@ const PAGES = [
   { key: 'translate', label: '제품번역', icon: '🌐' },
   { key: 'trip', label: '출장신청서', icon: '✈️' },
   { key: 'contract', label: '계약서', icon: '📄' },
+  { key: 'coop', label: '업무협조전', icon: '🤝' },
   { key: 'petty', label: '전도금', icon: '💰' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
@@ -95,7 +97,9 @@ export default function App() {
       : 'thome'
     : isTradePage(hashPage) && !canTrade
       ? 'home'
-      : hashPage;
+      : hashPage === 'coop' && !isToolAdmin({ role, realRole, auditor })
+        ? 'home' // 업무협조전: 준비 중 · 관리자만
+        : hashPage;
   // 설정 화면에서는 직전에 보던 쪽(2조/무역사무) 탭을 그대로
   const [side, setSide] = useState<'team' | 'trade'>(tradeOnly || isTradePage(page) ? 'trade' : 'team');
   useEffect(() => {
@@ -238,9 +242,10 @@ export default function App() {
                 🧰 도구함 <span className="drawer-tools-caret">{toolsOpen ? '▴' : '▾'}</span>
               </button>
               {toolsOpen && TOOLS.map((t) =>
-                t.ready ? (
-                  <a key={t.key} href={t.href} className={`drawer-tool ${page === t.key ? 'active' : ''}`} onClick={closeDrawer}>
+                t.ready || (t.adminOnly && isToolAdmin({ role, realRole, auditor })) ? (
+                  <a key={t.key} href={t.href} className={`drawer-tool ${page === t.key ? 'active' : ''} ${t.ready ? '' : 'soon'}`} onClick={closeDrawer}>
                     {t.icon} {t.label}
+                    {!t.ready && <span className="tag gray small">관리자만</span>}
                   </a>
                 ) : (
                   <span key={t.key} className="drawer-tool soon">
@@ -393,6 +398,8 @@ export default function App() {
             <Trip />
           ) : page === 'contract' ? (
             <Contracts />
+          ) : page === 'coop' ? (
+            <Coop />
           ) : page === 'treports' ? (
             <Reports key="trade" space="trade" />
           ) : (
