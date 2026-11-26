@@ -9815,3 +9815,6 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-pv-pop { min-width: 380px; }
 .pz-pv-pop > div { flex-wrap: nowrap; }
 @media (max-width: 480px) { .pz-pv-pop { min-width: 0; width: 92vw; } .pz-pv-pop > div { flex-wrap: wrap; } }
+/* 트럭 그림자는 바닥에 가만히 (트럭만 드릉드릉) */
+.pz-truck-shadow { position: absolute; left: 0; top: 0; width: 100%; height: auto; pointer-events: none; user-select: none; }
+.pz-truck-img { position: relative; }

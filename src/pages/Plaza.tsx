@@ -91,7 +91,12 @@ function lightOf(r: Attendance | undefined, nowMin: number, todayIso = ''): { on
     const b = Number(tm[3]) * 60 + Number(tm[4]);
     if (nowMin >= a && nowMin < b) return { on: false, sign: /시차/.test(txt) ? '대체시차' : /반차/.test(txt) ? '반차' : '외출', icon: '⏱', msg: `곧 갑니다! ${hourText(b)}에 봐요 🏃` };
   }
-  if (r.status === '근무') return { on: true, sign: '', icon: '' };
+  if (r.status === '근무') {
+    // mem 은 정해진 시각에만 받아 와서 '퇴근' 이 늦게 들어옴 → 퇴근 예정 시각이 지났으면 퇴근으로
+    const [eh, em] = (r.end ?? '').split(':').map(Number);
+    if (r.end && Number.isFinite(eh) && nowMin >= eh * 60 + (em || 0)) return { on: false, sign: '퇴근', icon: '🌙', msg: '오늘 영업\n끝났습니다', memo: true };
+    return { on: true, sign: '', icon: '' };
+  }
   if (r.status === '근무전') {
     // 아침 시차로 늦게 오는 날: 시차가 끝나는 시각
     if (tm && /시차|반차|외출/.test(txt) && Number(tm[1]) < 12) return { on: false, sign: '곧 출근', icon: '⏱', msg: `곧 갑니다! ${hourText(Number(tm[3]) * 60 + Number(tm[4]))}에 봐요 🏃` };
@@ -553,6 +558,7 @@ export default function Plaza() {
             )}
           </div>
           <div className={`pz-truck ${truckOpen ? 'open' : ''}`} onMouseEnter={() => setTruckOpen(true)} onMouseLeave={() => setTruckOpen(false)} onClick={() => setTruckOpen((v) => !v)}>
+            <img className="pz-truck-shadow" src="./plaza/truck-shadow.png" alt="" draggable={false} />
             <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
             <span className="pz-truck-n">출고 예정 {ships.length}</span>
             {truckOpen && (
