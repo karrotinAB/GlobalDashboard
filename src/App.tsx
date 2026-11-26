@@ -301,7 +301,22 @@ export default function App() {
       <div className="shell">
         {page === 'home' && isToolAdmin({ role, realRole, auditor }) ? (
           // 관리자: 홈 해파리를 누르면 광장으로
-          <a className="page-icon page-icon-link" href="#/plaza" title="🪼 광장으로">
+          <a
+            className="page-icon page-icon-link"
+            href="#/plaza"
+            title="🪼 광장으로"
+            onClick={(e) => {
+              // 누르면 해파리가 살짝 두둥실 떠오른 뒤 광장으로
+              e.preventDefault();
+              const el = e.currentTarget;
+              if (el.classList.contains('floating')) return;
+              el.classList.add('floating');
+              window.setTimeout(() => {
+                el.classList.remove('floating');
+                window.location.hash = '/plaza';
+              }, 650);
+            }}
+          >
             <PageIcon icon={current.icon} />
           </a>
         ) : (

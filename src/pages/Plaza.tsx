@@ -174,8 +174,9 @@ export default function Plaza() {
         <div className="pz-street pz-leaders">
           <div className="pz-street-sign">이사님 · 팀장님</div>
           <div className="pz-houses">
-            {leaders.map((r) => (
+            {leaders.map((r, i) => (
               <LeaderHouse
+                flip={i % 2 === 1}
                 key={r.email}
                 email={r.email}
                 name={contacts[r.email]?.name || r.name || r.email.split('@')[0]}
@@ -266,8 +267,8 @@ export default function Plaza() {
             <div key={s.key} className="pz-street">
               <div className="pz-street-sign">{s.label}</div>
               <div className="pz-houses">
-                {s.people.map((m) => (
-                  <House key={m.id} {...houseProps(m)} light={lightOf(attOf(m, todayIso, data.memAttendance, alt(m)), nowMin)} />
+                {s.people.map((m, i) => (
+                  <House key={m.id} {...houseProps(m)} flip={i % 2 === 1} light={lightOf(attOf(m, todayIso, data.memAttendance, alt(m)), nowMin)} />
                 ))}
               </div>
             </div>
@@ -280,7 +281,7 @@ export default function Plaza() {
   );
 }
 
-function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, onMail, alt }: { email: string; name: string; label: string; space?: string; todayIso: string; nowMin: number; me: string; unread: number; onMail: (email: string, name: string) => void; alt: string[] }) {
+function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, onMail, alt, flip }: { flip?: boolean; email: string; name: string; label: string; space?: string; todayIso: string; nowMin: number; me: string; unread: number; onMail: (email: string, name: string) => void; alt: string[] }) {
   const { data } = useStore();
   const sp = useSpaceData(space ?? '', space ? ['members'] : []);
   const { profiles } = useProfiles();
@@ -295,30 +296,38 @@ function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, 
       mine={email === me}
       unread={unread}
       big
+      flip={flip}
       onMail={() => onMail(email, `${short} ${label}`)}
       light={lightOf(attOf(card, todayIso, data.memAttendance, [...alt, name]), nowMin)}
     />
   );
 }
 
-function House({ m, light, mine, unread, onMail, big }: { m: Member; light: ReturnType<typeof lightOf>; mine: boolean; unread: number; onMail: () => void; big?: boolean }) {
+/** 모양 그림(흰 = 칠할 곳)으로 칠하기 — 주소는 페이지 기준 (CSS 안 url 은 빌드 때 경로가 바뀌어서) */
+const maskOf = (name: string): CSSProperties => {
+  const u = `url(./plaza/${name}.png)`;
+  return { WebkitMaskImage: u, maskImage: u, WebkitMaskSize: '100% 100%', maskSize: '100% 100%' } as CSSProperties;
+};
+
+/** 집 그림 (public/plaza/house.png) — 지붕은 담당자 색 (house-roof.png 모양으로 칠함) · flip 이면 좌우 반대 */
+function House({ m, light, mine, unread, onMail, big, flip }: { m: Member; light: ReturnType<typeof lightOf>; mine: boolean; unread: number; onMail: () => void; big?: boolean; flip?: boolean }) {
   const canMail = mine || !!m.email;
   return (
-    <div className={`pz-house ${light.on ? 'on' : 'off'} ${big ? 'big' : ''} ${mine ? 'mine' : ''}`} style={{ '--c': m.color || '#8c2f3c' } as CSSProperties}>
+    <div className={`pz-house ${light.on ? 'on' : 'off'} ${big ? 'big' : ''} ${mine ? 'mine' : ''} ${flip ? 'flip' : ''}`} style={{ '--c': m.color || '#8c2f3c' } as CSSProperties}>
       {light.sign && (
         <span className="pz-sign" title={light.sign}>
           {light.icon} {light.sign}
         </span>
       )}
-      <div className="pz-roof" />
-      <div className="pz-wall">
-        <div className="pz-window">{light.on && <img src={characterSrc(charOf(m))} alt="" />}</div>
-        <div className="pz-door" />
+      <div className="pz-art">
+        <img className="pz-art-base" src="./plaza/house.png" alt="" draggable={false} />
+        <span className="pz-art-roof" style={maskOf('house-roof')} />
+        <span className="pz-art-glass" style={maskOf('house-glass')} />
+        {light.on && <img className="pz-art-char" src={characterSrc(charOf(m))} alt="" draggable={false} />}
+        <button className={`pz-mailbox ${mine && unread ? 'has' : ''}`} disabled={!canMail || DATA_MODE === 'local'} onClick={onMail} title={mine ? '받은 쪽지' : canMail ? `${m.name}에게 그림 쪽지` : '로그인 이메일이 없어서 쪽지를 못 보내요'} aria-label={mine ? '받은 쪽지' : `${m.name}에게 그림 쪽지`}>
+          {mine && unread > 0 && <i>{unread}</i>}
+        </button>
       </div>
-      <button className={`pz-mailbox ${mine && unread ? 'has' : ''}`} disabled={!canMail || DATA_MODE === 'local'} onClick={onMail} title={mine ? '받은 쪽지' : canMail ? `${m.name}에게 그림 쪽지` : '로그인 이메일이 없어서 쪽지를 못 보내요'}>
-        {mine ? (unread ? '📬' : '📭') : '✉️'}
-        {mine && unread > 0 && <i>{unread}</i>}
-      </button>
       <span className="pz-name">
         {m.name}
         {mine && <small> (나)</small>}

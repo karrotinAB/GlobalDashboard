@@ -9599,7 +9599,9 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 
 /* ---------- 🪼 광장 (pages/Plaza.tsx) ---------- */
 .page-icon-link { display: inline-block; cursor: pointer; transition: transform 0.2s; }
-.page-icon-link:hover { transform: translateY(-4px) rotate(-4deg); }
+.page-icon-link:hover { transform: translateY(-3px); }
+.page-icon-link.floating { animation: jelly-float 0.65s ease-out forwards; }
+@keyframes jelly-float { 0% { transform: translateY(0); } 35% { transform: translateY(4px) scale(1.04, 0.94); } 100% { transform: translateY(-22px) scale(0.97, 1.04); } }
 .pz { --grass: #b5d88a; --grass2: #9ccb6e; --path: #e8dcc2; position: relative; border-radius: 24px; overflow: hidden; padding: 28px 28px 36px; background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.25) 0 2px, transparent 3px) 0 0 / 46px 46px, radial-gradient(circle at 70% 60%, rgba(60, 110, 40, 0.18) 0 2px, transparent 3px) 0 0 / 38px 38px, linear-gradient(var(--grass), var(--grass2)); min-height: 760px; isolation: isolate; }
 .pz-dusk { --grass: #a6c97c; --grass2: #8fb862; }
 .pz-night { --grass: #6f8f5c; --grass2: #5c7a4b; }
@@ -9619,30 +9621,34 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pz-street-sign { display: inline-block; font-size: 13px; font-weight: 700; color: #5a3b22; background: #f4dfb8; border: 2px solid #b98a52; border-radius: 6px; padding: 2px 10px; margin-bottom: 10px; box-shadow: 0 2px 0 #9a7040; }
 .pz-houses { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
 
-/* 집 */
-.pz-house { position: relative; width: 112px; display: flex; flex-direction: column; align-items: center; }
-.pz-house.big { width: 136px; }
-.pz-roof { width: 100%; height: 40px; background: var(--c); clip-path: polygon(50% 0, 100% 100%, 0 100%); filter: saturate(0.85); }
-.pz-house.big .pz-roof { height: 44px; }
-.pz-wall { position: relative; width: 82%; height: 74px; background: #fbf3e6; border: 2px solid #d9c6ad; border-top: 0; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 8px 0 7px; }
-.pz-house.big .pz-wall { height: 86px; }
-.pz-window { position: absolute; left: 8px; top: 9px; width: 46px; height: 42px; border-radius: 5px; border: 3px solid #a98a6a; background: #4b5a7a; overflow: hidden; transition: background 0.4s, box-shadow 0.4s; }
-.pz-house.big .pz-window { width: 56px; height: 50px; }
-.pz-window img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; animation: pz-peek 3.6s ease-in-out infinite; }
-@keyframes pz-peek { 50% { transform: translateY(2px); } }
-.pz-house.on .pz-window { background: radial-gradient(#fff6c8, #ffd66b); box-shadow: 0 0 18px 6px rgba(255, 214, 107, 0.55); }
-.pz-night .pz-house.on .pz-window { box-shadow: 0 0 26px 10px rgba(255, 214, 107, 0.7); }
-.pz-house.off { filter: saturate(0.7); }
-.pz-night .pz-house.off .pz-wall { background: #cfc6ba; }
-.pz-door { position: absolute; right: 9px; bottom: 0; width: 18px; height: 28px; background: #a5734a; border-radius: 9px 9px 0 0; }
-.pz-name { margin-top: 4px; font-size: 12.5px; font-weight: 700; color: #2e2a3a; background: rgba(255, 255, 255, 0.75); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
-.pz-house.mine .pz-name { background: var(--primary); color: #fff; }
-.pz-sign { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); z-index: 2; font-size: 11px; font-weight: 700; white-space: nowrap; background: #fff; color: #5b4a5e; border-radius: 999px; padding: 1px 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
-.pz-mailbox { position: absolute; right: -8px; bottom: 22px; width: 28px; height: 28px; padding: 0; border-radius: 8px; font-size: 15px; background: #fff; border: 1.5px solid #d9c6ad; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12); }
-.pz-mailbox:hover:not(:disabled) { transform: translateY(-2px) rotate(-6deg); }
-.pz-mailbox:disabled { opacity: 0.45; cursor: default; }
-.pz-mailbox i { position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-style: normal; font-weight: 700; display: grid; place-items: center; }
+/* 집 (그림: public/plaza/house.png · 지붕 모양 house-roof.png · 유리 house-glass.png) */
+.pz-house { position: relative; width: 128px; display: flex; flex-direction: column; align-items: center; }
+.pz-house.big { width: 156px; }
+.pz-art { position: relative; width: 100%; aspect-ratio: 1; isolation: isolate; transition: filter 0.4s; }
+.pz-house.flip .pz-art { transform: scaleX(-1); }
+.pz-art > * { position: absolute; }
+.pz-art-base { inset: 0; width: 100%; height: 100%; user-select: none; }
+.pz-art-roof, .pz-art-glass { inset: 0; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; pointer-events: none; }
+.pz-art-roof { background: var(--c); mix-blend-mode: multiply; }
+.pz-art-glass { background: #3c4a6b; opacity: 0.55; transition: background 0.4s, opacity 0.4s; }
+.pz-house.on .pz-art-glass { background: #ffd65c; opacity: 1; }
+.pz-house.on .pz-art { filter: drop-shadow(0 0 8px rgba(255, 214, 92, 0.55)); }
+.pz-house.off .pz-art { filter: saturate(0.8) brightness(0.95); }
+.pz-night .pz-house.off .pz-art { filter: saturate(0.6) brightness(0.75); }
+.pz-art-char { right: 2%; bottom: 4%; width: 30%; height: auto; animation: pz-peek 3.6s ease-in-out infinite; }
+@keyframes pz-peek { 50% { transform: translateY(-2px); } }
+.pz-house.flip .pz-art-char { transform: scaleX(-1); animation: none; }
+/* 그림 속 우편함 (왼쪽 아래) */
+.pz-mailbox { left: 0; top: 54%; width: 17%; height: 28%; padding: 0; border: 0; background: transparent; border-radius: 8px; transform-origin: 50% 100%; }
+.pz-mailbox:hover:not(:disabled) { background: rgba(255, 255, 255, 0.35); animation: pz-wiggle 0.5s ease-in-out; }
+.pz-mailbox:disabled { cursor: default; }
+@keyframes pz-wiggle { 25% { transform: rotate(-8deg); } 75% { transform: rotate(6deg); } }
+.pz-mailbox i { position: absolute; top: -8px; right: -10px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-style: normal; font-weight: 700; display: grid; place-items: center; }
+.pz-house.flip .pz-mailbox i { transform: scaleX(-1); }
 .pz-mailbox.has { animation: pz-bounce 1.2s ease-in-out infinite; }
+.pz-name { margin-top: -4px; font-size: 12.5px; font-weight: 700; color: #2e2a3a; background: rgba(255, 255, 255, 0.8); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.pz-house.mine .pz-name { background: var(--primary); color: #fff; }
+.pz-sign { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); z-index: 2; font-size: 11px; font-weight: 700; white-space: nowrap; background: #fff; color: #5b4a5e; border-radius: 999px; padding: 1px 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
 
 /* 게시판 */
 .pz-board { display: flex; flex-direction: column; align-items: center; flex: none; }
