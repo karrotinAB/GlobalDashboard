@@ -684,15 +684,21 @@ function TranslateTab() {
                             />
                             {ask?.r === v.row.r && (
                               <div className="tr-ask small">
-                                <span>📖 사전에도 저장할까요?</span>
-                                <input value={ask.ko} placeholder="한글" onChange={(e) => setAsk({ ...ask, ko: e.target.value })} />
-                                →
-                                <input value={ask.en} placeholder="영어" onChange={(e) => setAsk({ ...ask, en: e.target.value })} />
+                                <div className="tr-ask-q">📖 이 단어를 사전에도 저장할까요?</div>
+                                <div className="tr-ask-pair">
+                                  <input value={ask.ko} placeholder="한글" onChange={(e) => setAsk({ ...ask, ko: e.target.value })} />
+                                  <span className="muted">→</span>
+                                  <input value={ask.en} placeholder="영어" onChange={(e) => setAsk({ ...ask, en: e.target.value })} />
+                                </div>
                                 {typeOf(v.row) && (
-                                  <label title="이 구분 제품에만 이 영어로 (예: 오토 → 상품이면 auto)">
-                                    <input type="checkbox" checked={ask.typeOnly} onChange={(e) => setAsk({ ...ask, typeOnly: e.target.checked })} /> {typeOf(v.row)}에만
+                                  <label className="tr-ask-type" title="체크하면 이 구분 제품을 번역할 때만 이 영어를 써요 (예: 오토 → 상품이면 auto, 제품이면 Otto)">
+                                    <input type="checkbox" checked={ask.typeOnly} onChange={(e) => setAsk({ ...ask, typeOnly: e.target.checked })} />
+                                    <span>
+                                      <b>{typeOf(v.row)}</b>에만 적용 <span className="muted">(안 고르면 모든 제품에)</span>
+                                    </span>
                                   </label>
                                 )}
+                                <div className="tr-ask-btns">
                                 <button
                                   className="primary small"
                                   disabled={!/[가-힣]/.test(ask.ko) || !ask.en.trim()}
@@ -707,6 +713,7 @@ function TranslateTab() {
                                 <button className="link" onClick={() => setAsk(null)}>
                                   아니요
                                 </button>
+                                </div>
                               </div>
                             )}
                           </>
