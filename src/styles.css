@@ -9590,3 +9590,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pb-chip.ok { box-shadow: inset 0 0 0 1.5px #2e7d4f; }
 .pb-pal-dots i.fill { box-shadow: inset 0 0 0 1.5px #fff; }
 .pg-delay { align-self: center; height: 16px; border-radius: 0 999px 999px 0; background: repeating-linear-gradient(135deg, #e5554b 0 6px, #f08a82 6px 12px); color: #fff; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: flex-end; padding: 0 6px; pointer-events: none; }
+/* 판매 달력: ETA (제품 도착) 날 연두색 */
+.sales-week td.eta { background: #dff3c8 !important; box-shadow: inset 0 0 0 2px #8bc34a; }
+.legend-chip.eta { background: #dff3c8; border: 1px solid #8bc34a; }

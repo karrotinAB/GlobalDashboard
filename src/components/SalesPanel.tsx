@@ -35,7 +35,7 @@ function makeConv(fx: FxTable, money: string | undefined, target: 'KRW' | 'USD')
 }
 const fmtConv = (n: number, t: 'KRW' | 'USD') => (t === 'USD' ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : fullAmt(n));
 const shortConv = (n: number, t: 'KRW' | 'USD') => (t === 'USD' ? (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(0)) : shortAmt(n));
-import type { Company } from '../types';
+import type { Company, Order } from '../types';
 import ExportPanel from './ExportPanel';
 import { useIsMobile } from '../lib/useMobile';
 import { CoSelect, LIST, MobileCoList } from './MobilePick';
@@ -537,6 +537,8 @@ function SalesView({ companies, mobile }: { companies: Company[]; mobile?: boole
               convDay={convDay}
               target={target}
               holidayCode={countryCode(co.country || co.name, co.timezone)}
+              coId={co.id}
+              coTeam={co.team}
               branches={branchIds.flatMap((sid, bi) => {
                 const data = byMonth.get(cur.month)?.[sid];
                 return data ? [{ sid, name: nameOf(sid) || sid, color: BR_COLORS[bi % BR_COLORS.length], area: areaOf(sid), data } as Br] : [];
@@ -570,6 +572,8 @@ function MonthDetail({
   convDay,
   target,
   holidayCode,
+  coId,
+  coTeam,
 }: {
   month: string;
   color: string;
@@ -579,9 +583,28 @@ function MonthDetail({
   convDay: Conv;
   target: 'KRW' | 'USD';
   holidayCode?: string;
+  coId?: string;
+  coTeam?: string;
 }) {
   const tSym = target === 'USD' ? '$' : '₩';
   const { data: storeData } = useStore();
+  // ETA (제품 도착): 이 업체 주문의 출고 관리 ETA (묶음이면 묶음 ETA) → 그날 칸을 연두색 — 도착 뒤 판매가 늘었는지 보기
+  const otherOrders = useSpaceData(coTeam ?? '', coTeam ? ['orders'] : []).data.orders;
+  const etaOn = useMemo(() => {
+    const m = new Map<string, string[]>();
+    const list = (coTeam ? (otherOrders as Order[] | undefined) : storeData.orders) ?? [];
+    const seen = new Set<string>();
+    for (const o of list) {
+      if (o.companyId !== coId) continue;
+      const eta = (o.bundle?.ship?.eta || o.ship?.eta || '').slice(0, 10);
+      if (!eta.startsWith(month)) continue;
+      const k = o.bundle ? `b:${o.bundle.id}` : o.id;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      m.set(eta, [...(m.get(eta) ?? []), o.bundle ? o.bundle.name || '묶음' : o.name]);
+    }
+    return (d: number) => m.get(`${month}-${pad(d)}`);
+  }, [coTeam, otherOrders, storeData.orders, coId, month]);
   const holiday = useWorldHolidays(holidayCode ? [holidayCode] : [], Number(month.slice(0, 4)), storeData.config.find((c) => c.id === 'holidays')?.holidays ?? []);
   const holidayOn = (d: number) => (holidayCode ? holiday(holidayCode, `${month}-${pad(d)}`) : undefined);
   const sym = money ? curSym(money) : '';
@@ -660,6 +683,7 @@ function MonthDetail({
           weeks={weeks}
           branches={only ? branches.filter((b) => b.sid === only) : branches}
           holidayOn={holidayOn}
+          etaOn={etaOn}
           sym={sym}
           conv={needKrw ? (d: number, amt: number) => convDay(`${month}-${pad(d)}`, amt) : undefined}
           tSym={tSym}
@@ -955,6 +979,7 @@ function MonthCalendar({
   weeks,
   branches,
   holidayOn,
+  etaOn,
   sym,
   conv,
   tSym,
@@ -966,6 +991,7 @@ function MonthCalendar({
   weeks: { i: number; days: number[] }[];
   branches: Br[];
   holidayOn: (d: number) => string | undefined;
+  etaOn?: (d: number) => string[] | undefined;
   sym: string;
   conv?: (d: number, amt: number) => number | null;
   tSym: string;
@@ -1016,11 +1042,12 @@ function MonthCalendar({
                 </th>
                 {w.map((d, i) => {
                   const hol = d !== null ? holidayOn(d) : undefined;
+                  const eta = d !== null ? etaOn?.(d) : undefined;
                   return (
                     <td
                       key={i}
-                      className={`${i >= 5 ? 'we' : ''} ${hol ? 'hol' : ''} ${d === null ? 'out' : ''}`}
-                      title={d !== null && has(d) ? `${mo}/${d}${hol ? ` ${hol}` : ''} ${sym}${fullAmt(val(d))}` : hol}
+                      className={`${i >= 5 ? 'we' : ''} ${hol ? 'hol' : ''} ${eta ? 'eta' : ''} ${d === null ? 'out' : ''}`}
+                      title={[d !== null && has(d) ? `${mo}/${d}${hol ? ` ${hol}` : ''} ${sym}${fullAmt(val(d))}` : hol, eta ? `🚢 ETA (도착): ${eta.join(', ')}` : ''].filter(Boolean).join('\n') || undefined}
                     >
                       {d !== null && (
                         <>
@@ -1058,7 +1085,7 @@ function MonthCalendar({
         {wdAvg > 0 && offAvg > 0 && <span className="muted small">주말이 평일의 {(offAvg / wdAvg).toFixed(1)}배</span>}
       </div>
       <p className="muted small">
-        <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일 (주말에 포함) · 주 이름이나 그래프의 점을 누르면 그 주 자세히
+        <span className="legend-chip we" /> 주말 <span className="legend-chip hol" /> 공휴일 (주말에 포함) <span className="legend-chip eta" /> ETA (주문 제품 도착) · 주 이름이나 그래프의 점을 누르면 그 주 자세히
       </p>
     </div>
   );
