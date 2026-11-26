@@ -15,6 +15,7 @@ import { attOf } from '../components/DeptRoster';
 import { characterSrc, charOf, Modal } from '../components/ui';
 import { parseDate } from '../components/DateInput';
 import { useProfiles, withProfile } from '../lib/profiles';
+import { BLINKS, isXmas, PALETTES, type LightBlink, type LightPalette } from '../components/LightsFx';
 import { TEAMS, teamLabel } from '../lib/team';
 import type { Attendance, Company, Member, Order } from '../types';
 
@@ -227,6 +228,18 @@ export default function Plaza() {
     );
   }, [me]);
   const unread = inbox.filter((n) => !n.read).length;
+  // 🎄 크리스마스 기간: 각자 헤더 꼬마전구 설정으로 지붕 꾸미기 (기간 밖엔 미리보기 버튼)
+  const { profiles } = useProfiles();
+  const [xmasPreview, setXmasPreview] = useState(false);
+  const xmasOn = isXmas() || xmasPreview;
+  const roofOf = (email?: string): RoofLight | null => {
+    if (!xmasOn) return null;
+    const l = profiles[(email ?? '').toLowerCase()]?.lights;
+    if (l && l.on === false) return null; // 전구를 끈 사람
+    const palette = (l?.palette && l.palette in PALETTES ? l.palette : 'warm') as LightPalette;
+    const blink = (l?.blink && l.blink in BLINKS ? l.blink : 'twinkle') as LightBlink;
+    return { palette, blink };
+  };
   const [drawTo, setDrawTo] = useState<{ email: string; name: string } | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
   const myName = nameOf(me) || me.split('@')[0];
@@ -360,6 +373,11 @@ export default function Plaza() {
           ← 돌아가기
         </button>
         <b className="pz-title">🪼 광장</b>
+        {!isXmas() && (
+          <button className={`pz-xmas-btn ${xmasPreview ? 'on' : ''}`} onClick={() => setXmasPreview((v) => !v)} title="크리스마스 기간(12/18~12/26)엔 자동으로 켜져요">
+            🎄 {xmasPreview ? '미리보기 끄기' : '크리스마스 미리보기'}
+          </button>
+        )}
         {unread > 0 ? (
           <button className="pz-mailbtn" onClick={() => setInboxOpen(true)}>
             📬 받은 쪽지 {unread}
@@ -386,6 +404,7 @@ export default function Plaza() {
           <div key={x.key} className="pz-spot" style={posOf(angles[i] ?? 0)}>
             {x.leader ? (
               <LeaderHouse
+                roof={roofOf(x.leader.email)}
                 flip={i % 2 === 1}
                 sayBelow={Math.sin(((angles[i] ?? 0) * Math.PI) / 180) < -0.55}
                 email={x.leader.email}
@@ -400,7 +419,7 @@ export default function Plaza() {
                 alt={[nameOf(x.leader.email)]}
               />
             ) : (
-              <House {...houseProps(x.m!)} flip={i % 2 === 1} sayBelow={Math.sin(((angles[i] ?? 0) * Math.PI) / 180) < -0.55} light={lightOf(attOf(x.m!, todayIso, data.memAttendance, alt(x.m!)), nowMin, todayIso)} />
+              <House {...houseProps(x.m!)} roof={roofOf(x.m!.email)} flip={i % 2 === 1} sayBelow={Math.sin(((angles[i] ?? 0) * Math.PI) / 180) < -0.55} light={lightOf(attOf(x.m!, todayIso, data.memAttendance, alt(x.m!)), nowMin, todayIso)} />
             )}
           </div>
         ))}
@@ -478,7 +497,7 @@ export default function Plaza() {
   );
 }
 
-function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, onMail, alt, flip, sayBelow }: { sayBelow?: boolean; flip?: boolean; email: string; name: string; label: string; space?: string; todayIso: string; nowMin: number; me: string; unread: number; onMail: (email: string, name: string) => void; alt: string[] }) {
+function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, onMail, alt, flip, sayBelow, roof }: { roof?: RoofLight | null; sayBelow?: boolean; flip?: boolean; email: string; name: string; label: string; space?: string; todayIso: string; nowMin: number; me: string; unread: number; onMail: (email: string, name: string) => void; alt: string[] }) {
   const { data } = useStore();
   const sp = useSpaceData(space ?? '', space ? ['members'] : []);
   const { profiles } = useProfiles();
@@ -495,6 +514,7 @@ function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, 
       big
       flip={flip}
       sayBelow={sayBelow}
+      roof={roof}
       onMail={() => onMail(email, `${short} ${label}`)}
       light={lightOf(attOf(card, todayIso, data.memAttendance, [...alt, name]), nowMin, todayIso)}
     />
@@ -507,8 +527,45 @@ const maskOf = (name: string): CSSProperties => {
   return { WebkitMaskImage: u, maskImage: u, WebkitMaskSize: '100% 100%', maskSize: '100% 100%' } as CSSProperties;
 };
 
+/** 크리스마스 지붕 전구: 각자 헤더 꼬마전구에서 고른 색 · 깜빡임 (house.png 지붕 테두리를 따라) */
+type RoofLight = { palette: LightPalette; blink: LightBlink };
+// 지붕 테두리 (그림 기준 %): 왼쪽 처마 → 앞 박공 꼭대기 → 앞 모서리 → 오른쪽 처마 끝
+const ROOF_LINE: [number, number][] = [
+  [12.5, 43],
+  [34.2, 18.6],
+  [54.7, 57],
+  [91.7, 43.6],
+];
+function RoofLights({ palette, blink }: RoofLight) {
+  const colors = PALETTES[palette]?.colors ?? PALETTES.warm.colors;
+  const bulbs: { x: number; y: number }[] = [];
+  let wire = '';
+  for (let i = 0; i < ROOF_LINE.length - 1; i++) {
+    const [x0, y0] = ROOF_LINE[i];
+    const [x1, y1] = ROOF_LINE[i + 1];
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const n = Math.max(2, Math.round(len / 6.5));
+    const sag = Math.min(3, len * 0.04);
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2 + sag * 2;
+    wire += `${i ? '' : `M${x0},${y0}`} Q${cx},${cy} ${x1},${y1}`;
+    for (let k = i ? 1 : 0; k <= n; k++) {
+      const t = k / n;
+      bulbs.push({ x: (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1, y: (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1 + 1.6 });
+    }
+  }
+  return (
+    <svg className={`pz-roof-lights blink-${blink}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <path d={wire} fill="none" stroke="#1f3b1f" strokeWidth="0.9" />
+      {bulbs.map((b, i) => (
+        <circle key={i} cx={b.x} cy={b.y} r="2.7" fill={colors[i % colors.length]} style={{ color: colors[i % colors.length], animationDelay: `${blink === 'chase' ? (i % 2) * 0.6 : (i * 0.37) % 2.2}s` } as CSSProperties} />
+      ))}
+    </svg>
+  );
+}
+
 /** 집 그림 (public/plaza/house.png) — 지붕은 담당자 색 (house-roof.png 모양으로 칠함) · flip 이면 좌우 반대 */
-function House({ m, light, mine, unread, onMail, big, flip, sayBelow }: { sayBelow?: boolean; m: Member; light: ReturnType<typeof lightOf>; mine: boolean; unread: number; onMail: () => void; big?: boolean; flip?: boolean }) {
+function House({ m, light, mine, unread, onMail, big, flip, sayBelow, roof }: { roof?: RoofLight | null; sayBelow?: boolean; m: Member; light: ReturnType<typeof lightOf>; mine: boolean; unread: number; onMail: () => void; big?: boolean; flip?: boolean }) {
   const canMail = mine || !!m.email;
   // 빈집을 누르면 말풍선 (5초 뒤 사라짐)
   const [say, setSay] = useState(false);
@@ -528,6 +585,7 @@ function House({ m, light, mine, unread, onMail, big, flip, sayBelow }: { sayBel
         <img className="pz-art-base" src="./plaza/house.png" alt="" draggable={false} />
         <span className="pz-art-roof" style={maskOf('house-roof')} />
         <span className="pz-art-glass" style={maskOf('house-glass')} />
+        {roof && <RoofLights {...roof} />}
         {light.on && <img className="pz-art-char" src={characterSrc(charOf(m))} alt="" draggable={false} />}
         <button className={`pz-mailbox ${mine && unread ? 'has' : ''}`} disabled={!canMail || DATA_MODE === 'local'} onClick={onMail} title={mine ? '받은 쪽지' : canMail ? `${m.name}에게 그림 쪽지` : '로그인 이메일이 없어서 쪽지를 못 보내요'} aria-label={mine ? '받은 쪽지' : `${m.name}에게 그림 쪽지`}>
           {mine && unread > 0 && <i>{unread}</i>}

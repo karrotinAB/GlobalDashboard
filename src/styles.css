@@ -9782,3 +9782,15 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-mail-tabs small { opacity: 0.75; margin-left: 2px; }
 .pz-read { font-size: 11px; font-weight: 700; color: var(--mut); background: var(--surface-2); border-radius: 999px; padding: 0 7px; }
 .pz-read.on { color: var(--olive); background: var(--olive-soft); }
+/* 🎄 크리스마스 지붕 전구 */
+.pz-roof-lights { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 1; }
+.pz-roof-lights circle { stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.35; filter: drop-shadow(0 0 1.6px currentColor); }
+.pz-roof-lights.blink-soft circle { animation: pz-bulb-soft 3s ease-in-out infinite; }
+.pz-roof-lights.blink-twinkle circle { animation: pz-bulb-tw 1.6s ease-in-out infinite; }
+.pz-roof-lights.blink-chase circle { animation: pz-bulb-chase 1.2s steps(1) infinite; }
+@keyframes pz-bulb-soft { 50% { opacity: 0.55; } }
+@keyframes pz-bulb-tw { 0%, 100% { opacity: 1; } 45% { opacity: 0.25; } 55% { opacity: 1; } }
+@keyframes pz-bulb-chase { 0% { opacity: 1; } 50% { opacity: 0.2; } }
+.pz-night .pz-roof-lights circle { filter: drop-shadow(0 0 3px currentColor); }
+.pz-xmas-btn { border-radius: 999px; padding: 5px 12px; font-size: 13px; background: rgba(255, 255, 255, 0.85); }
+.pz-xmas-btn.on { background: #c92a2a; border-color: #c92a2a; color: #fff; }

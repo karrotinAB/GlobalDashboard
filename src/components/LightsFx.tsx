@@ -1,6 +1,8 @@
 // 헤더 꼬마전구: 헤더 위쪽에 전선 여러 가닥이 늘어지고, 전구가 깜빡임
 //   지금은 관리자 미리보기 (설정 > 관리자 설정 > 헤더 꼬마전구) — 나중에 크리스마스 주간에 자동으로
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 export type LightPalette = 'rainbow' | 'warm' | 'xmas' | 'ice';
 export type LightBlink = 'soft' | 'twinkle' | 'chase';
@@ -39,6 +41,11 @@ export function writeLights(v: LightsCfg) {
     /* 무시 */
   }
   window.dispatchEvent(new Event(EVT));
+  // 광장 지붕 꾸미기에도 쓰도록 내 프로필에 같이 (profiles/{이메일}.lights · 프로필이 없으면 그냥 넘어감)
+  const email = auth.currentUser?.email?.toLowerCase();
+  if (email && import.meta.env.VITE_DATA_MODE !== 'local') {
+    void updateDoc(doc(db, 'profiles', email), { lights: { on: v.on, palette: v.palette, blink: v.blink } }).catch(() => {});
+  }
 }
 export function useLightsSetting() {
   const [v, setV] = useState(readLights);
