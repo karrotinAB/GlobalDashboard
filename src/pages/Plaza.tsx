@@ -539,16 +539,41 @@ const EAVE: [[number, number], [number, number]] = [
   [55, 56],
   [91, 43],
 ];
+// 한 줄일 때: 지붕 가 (그림 기준 %)
+const ROOF_EDGE: [number, number][] = [
+  [12.5, 43],
+  [34.2, 18.6],
+  [54.7, 57],
+  [91.7, 43.6],
+];
 const lerp = (a: [number, number], b: [number, number], t: number): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 // 굴뚝 (여기 걸리는 전구는 안 그림)
 const inChimney = (x: number, y: number) => x > 57 && x < 74 && y < 25;
 /** 지붕 옆면을 가로질러 늘어진 전구 줄 (헤더에서 고른 가닥 수만큼) */
 function RoofLights({ palette, blink, strands }: RoofLight) {
   const colors = PALETTES[palette]?.colors ?? PALETTES.warm.colors;
-  const fs = strands === 1 ? [0.5] : strands === 2 ? [0.34, 0.7] : [0.27, 0.53, 0.8];
+  const fs = strands === 2 ? [0.34, 0.7] : [0.27, 0.53, 0.8];
   const wires: string[] = [];
   const bulbs: { x: number; y: number; c: number }[] = [];
-  fs.forEach((f, si) => {
+  if (strands === 1) {
+    // 한 줄: 지붕 가(왼쪽 처마 → 앞 꼭대기 → 앞 모서리 → 오른쪽 처마 끝)를 따라
+    let d = '';
+    for (let i = 0; i < ROOF_EDGE.length - 1; i++) {
+      const [x0, y0] = ROOF_EDGE[i];
+      const [x1, y1] = ROOF_EDGE[i + 1];
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      const n = Math.max(2, Math.round(len / 6));
+      const cx = (x0 + x1) / 2;
+      const cy = (y0 + y1) / 2 + Math.min(3, len * 0.04) * 2;
+      d += `${i ? '' : `M${x0},${y0}`} Q${cx},${cy} ${x1},${y1}`;
+      for (let k = i ? 1 : 0; k <= n; k++) {
+        const t = k / n;
+        bulbs.push({ x: (1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1, y: (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1 + 1.6, c: bulbs.length });
+      }
+    }
+    wires.push(d);
+  }
+  if (strands !== 1) fs.forEach((f, si) => {
     // 지붕 양 끝(앞 박공 테두리 ~ 뒤쪽 끝)까지 살짝 넘치게
     const L0 = lerp(RIDGE[0], EAVE[0], f);
     const R0 = lerp(RIDGE[1], EAVE[1], f);
