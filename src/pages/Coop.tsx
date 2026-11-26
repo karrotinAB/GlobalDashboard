@@ -16,7 +16,7 @@ const coShort = (n: string) => n.replace(/\s*\(.*\)\s*$/, '').trim();
 const KINDS = [
   { key: 'packing', no: 1, label: '주문 등록 후 패킹 요청', icon: '📦', color: '#3f7d5a' },
   { key: 'arrival', no: 2, label: '관리부에 입고 안내', icon: '🚛', color: '#b5652b' },
-  { key: 'inbound', no: 3, label: '입고 및 패킹리스트 등록 요청', icon: '📥', color: '#2f6fb3' },
+  { key: 'inbound', no: 3, label: '전산 입고 및 패킹리스트 등록 요청', icon: '📥', color: '#2f6fb3' },
 ] as const;
 const QTY = '주문서상의 주문수량으로 등록';
 type Kind = (typeof KINDS)[number]['key'];
@@ -37,7 +37,7 @@ interface Draft {
   personName: string;
   personPhone: string;
   titleEdit?: string | null; // ✎ 제목을 통째로 직접 고친 것 (null/없음 = 양식대로)
-  // 3. 입고 및 패킹리스트 등록 요청
+  // 3. 전산 입고 및 패킹리스트 등록 요청
   orderName?: string; // 비우면 불러온 주문 이름 (묶음이면 묶음 이름)
   storeText?: string; // 2. 매장코드 (비우면 불러온 주문 매장코드)
   dateText?: string; // 3. 주문일자 (비우면 불러온 주문 주문일자)
@@ -180,7 +180,7 @@ export default function Coop() {
   const isIn = d.kind === 'inbound';
   const isArr = d.kind === 'arrival';
   const autoTitle = isIn
-    ? `(업무협조전-글로벌사업부) ${[country, coName, orderName].filter(Boolean).join(' ')} 입고 및 패킹리스트 등록 요청`
+    ? `(업무협조전-글로벌사업부) ${[country, coName, orderName].filter(Boolean).join(' ')} 전산 입고 및 패킹리스트 등록 요청`
     : isArr
       ? `(업무협조전-글로벌사업부) ${[country, coName, orderName].filter(Boolean).join(' ')} 입고 (입고조)`
       : `(업무협조전-글로벌사업부) ${[country, coName].filter(Boolean).join(' ')} 패킹 요청`;
@@ -207,7 +207,7 @@ export default function Coop() {
     '',
     ' --------------------------아 래----------------------------',
     '',
-    `1. 내용: ${[country, coName, orderName].filter(Boolean).join(' ')} 입고 및 패킹리스트 등록 요청`,
+    `1. 내용: ${[country, coName, orderName].filter(Boolean).join(' ')} 전산 입고 및 패킹리스트 등록 요청`,
     `2. 매장코드 ${storeText}`,
     `3. 주문일자: ${dateText}`,
     `4. 입고등록일자: ${d.inboundDate ?? ''}`,
@@ -358,7 +358,7 @@ export default function Coop() {
                 <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} />{' '}
                 {isIn || isArr ? (
                   <>
-                    <Blank value={d.orderName ?? ''} auto={autoOrderName} ph="주문명" onChange={(v) => set({ orderName: v })} /> {isArr ? '입고 (입고조)' : '입고 및 패킹리스트 등록 요청'}
+                    <Blank value={d.orderName ?? ''} auto={autoOrderName} ph="주문명" onChange={(v) => set({ orderName: v })} /> {isArr ? '입고 (입고조)' : '전산 입고 및 패킹리스트 등록 요청'}
                   </>
                 ) : (
                   '패킹 요청'
@@ -421,7 +421,7 @@ export default function Coop() {
           ) : isIn ? (
             <>
           <p>
-            1. 내용: {[country, coName].filter(Boolean).join(' ')} <Blank value={d.orderName ?? ''} auto={autoOrderName} ph="주문명" onChange={(v) => set({ orderName: v })} /> 입고 및 패킹리스트 등록 요청
+            1. 내용: {[country, coName].filter(Boolean).join(' ')} <Blank value={d.orderName ?? ''} auto={autoOrderName} ph="주문명" onChange={(v) => set({ orderName: v })} /> 전산 입고 및 패킹리스트 등록 요청
           </p>
           <p>
             2. 매장코드 <Blank value={d.storeText ?? ''} auto={autoStores} ph="매장번호" w={8} onChange={(v) => set({ storeText: v })} />
