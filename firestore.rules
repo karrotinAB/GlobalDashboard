@@ -221,6 +221,18 @@ service cloud.firestore {
       allow read, delete: if signedIn() && resource.data.email == myEmail();
     }
     // 생일 한마디: 누구나 읽고, 내 이름으로만 25자까지 남김 · 지우기는 쓴 사람 · 관리자
+    // 광장 그림 쪽지: 보낸 사람 = 나 · 받은 사람만 읽고 읽음 표시 · 지우기 (관리자는 모두)
+    match /plazaNotes/{id} {
+      allow read: if isAny() && (resource.data.to == myEmail() || resource.data.from == myEmail() || isAdmin());
+      allow create: if isAny()
+        && request.resource.data.from == myEmail()
+        && request.resource.data.to is string
+        && request.resource.data.img is string
+        && request.resource.data.img.size() < 900000;
+      allow update: if isAny() && resource.data.to == myEmail()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAny() && (resource.data.to == myEmail() || isAdmin());
+    }
     match /bdayMsgs/{id} {
       allow read: if isAny();
       allow create: if isAny()

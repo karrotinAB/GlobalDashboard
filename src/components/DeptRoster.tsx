@@ -147,7 +147,7 @@ function MiniCard({ m, r, nowMin }: { m: Member; r?: Attendance; nowMin: number 
 export type DeptSide = '1' | '2' | '3' | 'trade' | 'leader';
 const short = (n: string) => (/^[가-힣]{3}$/.test(n) ? n.slice(1) : n);
 /** 근태: 카드 이름(mem 이름) → 안 맞으면 사용자 목록 · 주소록 이름으로도 찾아봄 */
-function attOf(m: Member, todayIso: string, shared: Parameters<typeof attendanceOf>[3], alt: string[]) {
+export function attOf(m: Member, todayIso: string, shared: Parameters<typeof attendanceOf>[3], alt: string[]) {
   const r = attendanceOf(m, todayIso, [], shared);
   if (r) return r;
   for (const n of alt.filter(Boolean)) {

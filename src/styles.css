@@ -9596,3 +9596,121 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .rp-share { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; position: relative; }
 .rp-shared { display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: #eef3fb; color: #2f6fb3; }
 .rp-shared.in { background: #fff1e0; color: #b5652b; }
+
+/* ---------- 🪼 광장 (pages/Plaza.tsx) ---------- */
+.page-icon-link { display: inline-block; cursor: pointer; transition: transform 0.2s; }
+.page-icon-link:hover { transform: translateY(-4px) rotate(-4deg); }
+.pz { --sky1: #bfe3f7; --sky2: #eaf6ff; --grass: #b9d98f; --grass2: #a3c977; --path: #eadfc9; position: relative; border-radius: 24px; overflow: hidden; padding: 28px 28px 36px; background: linear-gradient(var(--sky1), var(--sky2) 210px, var(--grass) 211px, var(--grass2)); min-height: 760px; isolation: isolate; }
+.pz-dusk { --sky1: #f2a57a; --sky2: #f9d6b0; --grass: #9fbf7c; --grass2: #8aab68; }
+.pz-night { --sky1: #1d2546; --sky2: #39456f; --grass: #5f7a52; --grass2: #4d6643; }
+.pz-sky { position: absolute; inset: 0 0 auto; height: 210px; z-index: -1; pointer-events: none; }
+.pz-sun { position: absolute; right: 8%; top: 26px; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(#fff6c2, #ffd75e); box-shadow: 0 0 40px 10px rgba(255, 220, 110, 0.6); }
+.pz-dusk .pz-sun { top: 110px; background: radial-gradient(#ffe0a8, #ff9c5a); }
+.pz-night .pz-sun { background: radial-gradient(#fbfbf0, #dcdcc8); box-shadow: 0 0 30px 6px rgba(240, 240, 220, 0.35); width: 48px; height: 48px; }
+.pz-star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; animation: pz-tw 2.4s ease-in-out infinite; }
+@keyframes pz-tw { 50% { opacity: 0.25; } }
+.pz-cloud { position: absolute; top: 40px; width: 120px; height: 34px; border-radius: 40px; background: rgba(255, 255, 255, 0.85); animation: pz-cloud 60s linear infinite; }
+.pz-cloud::before { content: ''; position: absolute; left: 22px; top: -18px; width: 56px; height: 44px; border-radius: 50%; background: inherit; }
+.pz-cloud.b { top: 96px; transform: scale(0.7); animation-duration: 85s; animation-delay: -40s; }
+.pz-night .pz-cloud { opacity: 0.15; }
+@keyframes pz-cloud { from { left: -140px; } to { left: 100%; } }
+.pz-head { position: relative; color: #2e2a3a; margin-bottom: 16px; }
+.pz-night .pz-head { color: #f2f0ff; }
+.pz-head h1 { font-size: 30px; }
+.pz-head p { margin: 4px 0 0; font-size: 14px; opacity: 0.85; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pz-mailbtn { padding: 4px 12px; border-radius: 999px; background: #fff; font-weight: 700; color: var(--primary); animation: pz-bounce 1.2s ease-in-out infinite; }
+@keyframes pz-bounce { 50% { transform: translateY(-3px); } }
+
+.pz-hill { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 60px; }
+.pz-wh { display: flex; align-items: flex-end; justify-content: center; gap: 18px; margin: 34px 0 30px; padding: 0 0 14px; background: linear-gradient(transparent 85%, var(--path) 85%); border-radius: 0 0 20px 20px; }
+.pz-town { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+.pz-street { background: rgba(255, 255, 255, 0.22); border-radius: 18px; padding: 12px 14px 10px; }
+.pz-night .pz-street { background: rgba(0, 0, 0, 0.12); }
+.pz-street-sign { display: inline-block; font-size: 13px; font-weight: 700; color: #5a3b22; background: #f4dfb8; border: 2px solid #b98a52; border-radius: 6px; padding: 2px 10px; margin-bottom: 10px; box-shadow: 0 2px 0 #9a7040; }
+.pz-houses { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+
+/* 집 */
+.pz-house { position: relative; width: 112px; display: flex; flex-direction: column; align-items: center; }
+.pz-house.big { width: 136px; }
+.pz-roof { width: 100%; height: 40px; background: var(--c); clip-path: polygon(50% 0, 100% 100%, 0 100%); filter: saturate(0.85); }
+.pz-house.big .pz-roof { height: 44px; }
+.pz-wall { position: relative; width: 82%; height: 74px; background: #fbf3e6; border: 2px solid #d9c6ad; border-top: 0; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 8px 0 7px; }
+.pz-house.big .pz-wall { height: 86px; }
+.pz-window { position: absolute; left: 8px; top: 9px; width: 46px; height: 42px; border-radius: 5px; border: 3px solid #a98a6a; background: #4b5a7a; overflow: hidden; transition: background 0.4s, box-shadow 0.4s; }
+.pz-house.big .pz-window { width: 56px; height: 50px; }
+.pz-window img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; animation: pz-peek 3.6s ease-in-out infinite; }
+@keyframes pz-peek { 50% { transform: translateY(2px); } }
+.pz-house.on .pz-window { background: radial-gradient(#fff6c8, #ffd66b); box-shadow: 0 0 18px 6px rgba(255, 214, 107, 0.55); }
+.pz-night .pz-house.on .pz-window { box-shadow: 0 0 26px 10px rgba(255, 214, 107, 0.7); }
+.pz-house.off { filter: saturate(0.7); }
+.pz-night .pz-house.off .pz-wall { background: #cfc6ba; }
+.pz-door { position: absolute; right: 9px; bottom: 0; width: 18px; height: 28px; background: #a5734a; border-radius: 9px 9px 0 0; }
+.pz-name { margin-top: 4px; font-size: 12.5px; font-weight: 700; color: #2e2a3a; background: rgba(255, 255, 255, 0.75); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.pz-house.mine .pz-name { background: var(--primary); color: #fff; }
+.pz-sign { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); z-index: 2; font-size: 11px; font-weight: 700; white-space: nowrap; background: #fff; color: #5b4a5e; border-radius: 999px; padding: 1px 8px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
+.pz-mailbox { position: absolute; right: -8px; bottom: 22px; width: 28px; height: 28px; padding: 0; border-radius: 8px; font-size: 15px; background: #fff; border: 1.5px solid #d9c6ad; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12); }
+.pz-mailbox:hover:not(:disabled) { transform: translateY(-2px) rotate(-6deg); }
+.pz-mailbox:disabled { opacity: 0.45; cursor: default; }
+.pz-mailbox i { position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10px; font-style: normal; font-weight: 700; display: grid; place-items: center; }
+.pz-mailbox.has { animation: pz-bounce 1.2s ease-in-out infinite; }
+
+/* 게시판 */
+.pz-board { display: flex; flex-direction: column; align-items: center; flex: none; }
+.pz-board-face { width: 170px; padding: 12px 14px; background: #f4dfb8; border: 4px solid #9a7040; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #5a3b22; box-shadow: 0 4px 0 #7d5a32; }
+.pz-board-face span { font-size: 13px; }
+.pz-board-face small { font-size: 11px; opacity: 0.7; }
+.pz-board-legs { width: 110px; height: 34px; background: linear-gradient(90deg, transparent 10%, #7d5a32 10%, #7d5a32 18%, transparent 18%, transparent 82%, #7d5a32 82%, #7d5a32 90%, transparent 90%); }
+
+/* 관리부 물류센터 */
+.pz-wh-building { position: relative; width: min(620px, 100%); }
+.pz-wh-roof { height: 56px; background: linear-gradient(#7d8a99, #66737f); clip-path: polygon(6% 100%, 14% 0, 86% 0, 94% 100%); display: flex; align-items: center; justify-content: center; gap: 8px; color: #fff; }
+.pz-wh-roof b { font-size: 20px; letter-spacing: 2px; }
+.pz-wh-roof span { font-size: 13px; opacity: 0.85; }
+.pz-wh-door { margin: 0 4%; min-height: 150px; padding: 14px 16px 10px; background: repeating-linear-gradient(#5b4b3f 0 2px, #3f352d 2px 14px); border: 8px solid #b7bec6; border-bottom: 0; display: flex; flex-wrap: wrap-reverse; align-content: flex-start; align-items: flex-end; justify-content: center; gap: 4px 5px; }
+.pz-box { position: relative; background: color-mix(in srgb, var(--c) 35%, #d8a86a); border: 2px solid #8f6534; border-radius: 3px; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12); cursor: help; transition: transform 0.15s; }
+.pz-box::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 18%; transform: translateX(-50%); background: rgba(255, 240, 200, 0.55); }
+.pz-box:hover { transform: translateY(-4px); }
+.pz-wh-empty { margin: auto; color: #f3e7d8; font-size: 14px; }
+.pz-wh-count { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 12px; font-size: 12.5px; font-weight: 700; color: #4a3b2e; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; }
+.pz-truck { position: relative; flex: none; cursor: pointer; padding-bottom: 4px; }
+.pz-truck-body { position: relative; width: 190px; height: 92px; }
+.pz-truck-box { position: absolute; left: 0; bottom: 18px; width: 128px; height: 70px; background: #f4f1ea; border: 2px solid #9aa1a8; border-radius: 6px; display: grid; place-items: center; font-weight: 800; color: var(--primary); font-size: 15px; }
+.pz-truck-cab { position: absolute; left: 130px; bottom: 18px; width: 56px; height: 52px; background: var(--primary); border-radius: 6px 18px 4px 4px; }
+.pz-truck-cab::after { content: ''; position: absolute; right: 8px; top: 8px; width: 22px; height: 16px; background: #cfe7f7; border-radius: 3px 10px 3px 3px; }
+.pz-wheel { position: absolute; bottom: 4px; width: 26px; height: 26px; border-radius: 50%; background: #333; border: 5px solid #555; }
+.pz-wheel.a { left: 20px; }
+.pz-wheel.b { left: 142px; }
+.pz-truck:hover .pz-truck-body, .pz-truck.open .pz-truck-body { animation: pz-rumble 0.25s linear infinite; }
+@keyframes pz-rumble { 50% { transform: translateY(-1px); } }
+.pz-truck-pop { position: absolute; z-index: 5; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 300px; max-height: 340px; overflow: auto; background: var(--surface); border-radius: 14px; padding: 12px 14px; box-shadow: 0 12px 34px rgba(30, 20, 20, 0.3); cursor: default; }
+.pz-truck-pop ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pz-truck-pop li { display: flex; gap: 10px; font-size: 13px; }
+.pz-ship-d { flex: none; width: 40px; font-weight: 700; color: var(--primary); }
+.pz-ship-n em { font-style: normal; font-weight: 700; }
+
+/* 그림 쪽지 */
+.pz-draw canvas { width: 100%; max-width: 520px; aspect-ratio: 520 / 360; display: block; margin: 0 auto; border-radius: 12px; border: 2px solid var(--line); touch-action: none; cursor: crosshair; background: #fffaf2; }
+.pz-draw-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.pz-colors, .pz-sizes { display: flex; gap: 5px; }
+.pz-colors button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid #ddd; }
+.pz-colors button.on { outline: 3px solid var(--primary); outline-offset: 1px; }
+.pz-sizes button { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; }
+.pz-sizes button i { display: block; border-radius: 50%; background: var(--ink); }
+.pz-sizes button.on { border-color: var(--primary); background: var(--primary-soft); }
+.pz-draw-gap { flex: 1; }
+.pz-err { color: var(--red); font-size: 13px; margin: 8px 0 0; }
+.pz-inbox { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.pz-inbox figure { margin: 0; border-radius: 12px; border: 2px solid var(--line); overflow: hidden; cursor: zoom-in; background: #fff; }
+.pz-inbox figure.new { border-color: var(--primary); }
+.pz-inbox img { width: 100%; display: block; aspect-ratio: 520 / 360; object-fit: contain; background: #fffaf2; }
+.pz-inbox figcaption { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 12.5px; }
+.pz-inbox figcaption button { margin-left: auto; }
+.pz-note-big { position: fixed; inset: 0; z-index: 1200; background: rgba(20, 12, 12, 0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: zoom-out; color: #fff; }
+.pz-note-big img { max-width: min(92vw, 900px); max-height: 80vh; border-radius: 12px; background: #fffaf2; }
+@media (max-width: 720px) {
+  .pz { padding: 18px 12px 26px; }
+  .pz-hill { flex-direction: column; align-items: stretch; }
+  .pz-board { align-self: center; }
+  .pz-wh { flex-direction: column; align-items: center; }
+  .pz-town { grid-template-columns: 1fr; }
+}

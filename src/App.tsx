@@ -13,6 +13,7 @@ const TradeShipping = lazyPage(() => import('./pages/TradeShipping'));
 const Import = lazyPage(() => import('./pages/Import'));
 const Reports = lazyPage(() => import('./pages/Reports'));
 const Settings = lazyPage(() => import('./pages/Settings'));
+const Plaza = lazyPage(() => import('./pages/Plaza'));
 const Petty = lazyPage(() => import('./pages/Petty'));
 import { BirthdayBubbles, BirthdayWishPopup } from './components/BirthdayWish';
 import { rectOf } from './lib/zoom';
@@ -66,6 +67,7 @@ const PAGES = [
   { key: 'petty', label: '전도금', icon: '💰' },
   { key: 'overview', label: '조 현황', icon: '🔭' },
   { key: 'calendar', label: '달력', icon: '📅' },
+  { key: 'plaza', label: '광장', icon: 'jelly' }, // 홈 해파리를 누르면 (지금은 관리자만)
 ] as const;
 type PageKey = (typeof PAGES)[number]['key'] | 'import';
 const GOP_URL = 'https://karrotinab.github.io/Global-Opening-Prep/';
@@ -297,9 +299,16 @@ export default function App() {
         <ProfileMenu />
       </div>
       <div className="shell">
-        <div className="page-icon" aria-hidden="true">
-          <PageIcon icon={current.icon} />
-        </div>
+        {page === 'home' && isToolAdmin({ role, realRole, auditor }) ? (
+          // 관리자: 홈 해파리를 누르면 광장으로
+          <a className="page-icon page-icon-link" href="#/plaza" title="🪼 광장으로">
+            <PageIcon icon={current.icon} />
+          </a>
+        ) : (
+          <div className="page-icon" aria-hidden="true">
+            <PageIcon icon={current.icon} />
+          </div>
+        )}
         <nav className="tabs">
           {tabs.map((k) => PAGES.find((p) => p.key === k)!).map((p) => (
             <a key={p.key} href={`#/${p.key}`} className={page === p.key ? 'active' : ''}>
@@ -374,6 +383,8 @@ export default function App() {
             <Claims />
           ) : page === 'requests' ? (
             <RequestBoard key="team" side="team" />
+          ) : page === 'plaza' && isToolAdmin({ role, realRole, auditor }) ? (
+            <Plaza />
           ) : page === 'calendar' ? (
             <Calendar />
           ) : page === 'overview' && canOverview ? (
