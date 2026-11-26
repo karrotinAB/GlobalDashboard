@@ -54,12 +54,13 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
   const [pick, setPick] = useState<string | null>(null);
 
   // 줄: 시작(접수일 · 없으면 주문일자) ~ 끝(패킹완료일 · 없으면 주문일자 + 14일)
-  //   묶음 주문은 묶음 하나 = 한 줄 (안의 주문 중 가장 이른 시작 ~ 가장 늦은 패킹완료일) · 묶음 아닌 주문은 주문마다
+  //   묶음 주문은 같은 주문일(접수일)끼리 한 줄 (가장 늦은 패킹완료일까지) · 주문일이 다르면 따로 · 묶음 아닌 주문은 주문마다
   const bars = useMemo(() => {
     const groups = new Map<string, T[]>();
     for (const o of orders) {
       if (teamF && o.team !== teamF) continue;
-      const k = o.bundle ? `${o.team}|b:${o.bundle.id}` : `${o.team}|${o.id}`;
+      // 묶음이라도 주문일(접수일)이 다르면 따로 줄
+      const k = o.bundle ? `${o.team}|b:${o.bundle.id}|${(o.acceptDate || o.orderDate || '').slice(0, 10)}` : `${o.team}|${o.id}`;
       groups.set(k, [...(groups.get(k) ?? []), o]);
     }
     return [...groups.entries()].map(([key, os]) => {
