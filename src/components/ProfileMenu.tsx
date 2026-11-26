@@ -3,11 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { logout, useAccess } from './AuthGate';
 import { useStore } from '../data/store';
 import { DATA_MODE } from '../data/store';
-import { startPresent } from './PresentMode';
 
 export default function ProfileMenu() {
-  const { email, accountName, role, realRole, auditor } = useAccess();
-  const isAdmin = ((realRole ?? role) === 'admin' && !auditor) || role === null; // IT 발표 모드: 관리자 · 로컬만 (IT 검토용 계정은 안 보임)
+  const { email, accountName } = useAccess();
   const { data } = useStore();
   const card = [...data.members, ...data.tradeMembers].find((m) => !!email && m.email?.toLowerCase() === email);
   const name = accountName || card?.name || (email ? email.split('@')[0] : '로컬 모드');
@@ -42,17 +40,6 @@ export default function ProfileMenu() {
           <a href="#/petty" role="menuitem" onClick={() => setOpen(false)}>
             <span aria-hidden="true">💰</span> 전도금
           </a>
-          {isAdmin && (
-            <button
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                startPresent();
-              }}
-            >
-              <span aria-hidden="true">🎤</span> IT 발표 모드
-            </button>
-          )}
           <a href="#/settings" role="menuitem" onClick={() => setOpen(false)}>
             <span aria-hidden="true">⚙️</span> 설정
           </a>

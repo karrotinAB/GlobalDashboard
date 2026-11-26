@@ -1,3 +1,4 @@
+import { startPresent } from '../components/PresentMode';
 import { SALES_CURRENCIES } from '../lib/sales';
 import { disablePush, enablePush, sendTestPush, usePushState } from '../lib/push';
 import { setBubblePreview, setWishOn, useBubblePreview, useWishOn } from '../lib/bdayMsgs';
@@ -188,6 +189,16 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
             </button>
           )}
         </div>
+      )}
+      {/* 🎤 IT 발표 모드 (관리자 · IT 검토용 계정은 안 보임) — 프로필 메뉴에서 옮겨 옴 */}
+      {showAdm && (((access.realRole ?? access.role) === 'admin' && !access.auditor) || access.role === null) && (
+        <section className="card">
+          <h2>🎤 IT 발표 모드</h2>
+          <p className="muted small">실제 화면 위에 발표 메모를 크게 띄우고, 보여줄 부분만 밝게 해요. ← → 로 넘기고 Esc 로 끝내요.</p>
+          <button className="primary" onClick={() => startPresent()}>
+            🎤 발표 시작
+          </button>
+        </section>
       )}
       {/* 무역사무 담당자: 무역사무 계정, 또는 관리자가 무역사무 페이지에서 설정에 들어왔을 때만 */}
       {showGen && (access.role === 'trade' || ((access.role === null || access.role === 'admin') && side === 'trade')) && (

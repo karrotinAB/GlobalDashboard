@@ -1,5 +1,5 @@
 // IT 발표 모드: 실제 화면 위에 메모를 크게 띄우고, 보여줄 부분만 밝게
-//   켜기: 프로필 › 🎤 IT 발표 모드 (관리자만)   순서·글: src/lib/presentDeck.ts
+//   켜기: 설정 › 🛡 관리자 설정 › 🎤 IT 발표 모드 (관리자만)   순서·글: src/lib/presentDeck.ts
 //   → / Space / PageDown 다음 · ← / PageUp 이전 · T 목차 · H 메모 숨기기 · D 어둡게 끄기 · Esc 끝내기
 //   발표 중에도 화면은 그대로 눌러짐 (진짜 데모)
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
