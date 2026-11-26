@@ -9456,3 +9456,14 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pk-ships { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .pk-ships li { display: flex; gap: 10px; align-items: flex-start; }
 .pk-ship-star { font-size: 18px; line-height: 1.2; }
+.coop-load > div { display: flex; flex-direction: column; gap: 6px; }
+.coop-hits { display: flex; flex-direction: column; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.coop-hit { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 7px 10px; cursor: pointer; font: inherit; }
+.coop-hit:last-child { border-bottom: 0; }
+.coop-hit:hover { background: #f6eeec; }
+.coop-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.coop-kinds-h { font-weight: 700; font-size: 14px; margin-right: 4px; }
+.coop-kind { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px 9px 10px; border-radius: 999px; border: 2px solid color-mix(in srgb, var(--k) 45%, transparent); background: color-mix(in srgb, var(--k) 8%, #fff); color: var(--k); font-weight: 700; font-size: 14px; cursor: pointer; }
+.coop-kind.on { background: var(--k); color: #fff; border-color: var(--k); box-shadow: 0 4px 12px color-mix(in srgb, var(--k) 35%, transparent); }
+.coop-kind-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--k) 18%, #fff); color: var(--k); font-size: 12px; }
+.coop-kind.on .coop-kind-n { background: #fff; }

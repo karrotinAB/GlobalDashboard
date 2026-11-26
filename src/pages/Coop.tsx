@@ -1,7 +1,7 @@
 // 도구함 › 4. 업무협조전 (지금은 관리자만): 종류를 고르면 제목 · 양식이 나오고 빈칸만 채움
 //   주문을 연결하면 나라 · 업체 · 매장 · 주문일자 · 패킹완료일이 자동으로 · 제목 / 내용 따로 클립보드 복사
 //   연락처: 기본 = 나 (주소록 이름 · 회사번호) · 다른 사람으로 바꿀 수 있음
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useAccess } from '../components/AuthGate';
 import { usePeople } from '../components/AddressBook';
 import { parseDate } from '../components/DateInput';
@@ -13,7 +13,7 @@ const dot = (s?: string | null) => (s ? s.slice(0, 10).replace(/-/g, '.') : '');
 const coShort = (n: string) => n.replace(/\s*\(.*\)\s*$/, '').trim();
 
 /** 업무협조전 종류 (양식 추가는 여기에) */
-const KINDS = [{ key: 'packing', label: '1. 주문 등록 후 패킹 요청' }] as const;
+const KINDS = [{ key: 'packing', label: '주문 등록 후 패킹 요청', icon: '📦', color: '#3f7d5a' }] as const;
 type Kind = (typeof KINDS)[number]['key'];
 
 interface Draft {
@@ -59,6 +59,33 @@ export default function Coop() {
     () => data.orders.filter((o) => o.companyId === d.companyId).sort((a, b) => String(b.orderDate ?? b.createdAt).localeCompare(String(a.orderDate ?? a.createdAt))),
     [data.orders, d.companyId],
   );
+  // 📥 주문 불러오기: 주문 · 묶음을 찾아 고르면 업체 · 주문 · 내용 · 날짜가 한 번에 (진행중 먼저)
+  const [q, setQ] = useState('');
+  const hits = useMemo(() => {
+    const nq = q.trim().toLowerCase();
+    const groups = new Map<string, Order[]>();
+    for (const o of data.orders) {
+      if (o.erpArchive) continue;
+      const k = o.bundle ? `b:${o.bundle.id}` : o.id;
+      groups.set(k, [...(groups.get(k) ?? []), o]);
+    }
+    return [...groups.entries()]
+      .map(([k, os]) => {
+        const o = os[0];
+        const name = o.bundle ? `📦 ${o.bundle.name || '묶음'} (주문 ${os.length}개)` : o.name;
+        const hay = [name, ...os.map((x) => `${x.name} ${x.storeCode ?? ''} ${x.orderDate ?? ''}`), companyById.get(o.companyId ?? '')?.name ?? ''].join(' ').toLowerCase();
+        const done = os.every((x) => x.closed || x.shipped);
+        const last = os.map((x) => x.orderDate ?? x.createdAt).sort().at(-1) ?? '';
+        return { k, os, name, hay, done, last, co: companyById.get(o.companyId ?? '')?.name ?? '' };
+      })
+      .filter((h) => (nq ? h.hay.includes(nq) : !h.done))
+      .sort((a, b) => Number(a.done) - Number(b.done) || b.last.localeCompare(a.last))
+      .slice(0, 12);
+  }, [q, data.orders, companyById]);
+  const loadFrom = (os: Order[]) => {
+    setD((x) => ({ ...x, companyId: os[0].companyId ?? '', orderIds: os.map((o) => o.id), country: '', coName: '', content: '', packDate: '', extraLines: [] }));
+    setQ('');
+  };
   const linked = d.orderIds.map((id) => data.orders.find((o) => o.id === id)).filter((o): o is Order => !!o);
   const stores = [...new Set(linked.map((o) => String(o.storeCode ?? '').trim()).filter(Boolean))];
   const storeNames = useStoreNames(stores, stores.length > 0);
@@ -131,18 +158,38 @@ export default function Coop() {
           <p className="muted">종류를 고르고 빈칸만 채우면 돼요. 주문을 연결하면 나라 · 업체 · 매장 · 주문일자 · 패킹완료일이 자동으로 들어가요. 다 되면 제목 / 내용을 따로 복사해요.</p>
         </div>
       </div>
+      {/* 종류: 따로 띄운 색 카드 (고른 것만 진하게) */}
+      <div className="coop-kinds">
+        <span className="coop-kinds-h">어떤 업무협조전?</span>
+        {KINDS.map((k, i) => (
+          <button key={k.key} className={`coop-kind ${d.kind === k.key ? 'on' : ''}`} style={{ '--k': k.color } as CSSProperties} onClick={() => set({ kind: k.key })}>
+            <span className="coop-kind-n">{i + 1}</span>
+            <span aria-hidden="true">{k.icon}</span> {k.label}
+          </button>
+        ))}
+        <span className="muted small">종류는 계속 늘어나요</span>
+      </div>
       <div className="coop-grid">
         <section className="card coop-form">
-          <label className="coop-row">
-            <span>종류</span>
-            <select value={d.kind} onChange={(e) => set({ kind: e.target.value as Kind })}>
-              {KINDS.map((k) => (
-                <option key={k.key} value={k.key}>
-                  {k.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="coop-row coop-load">
+            <span>📥 주문 불러오기</span>
+            <div>
+              <input value={q} placeholder="주문 · 묶음 · 매장코드 · 업체로 찾기 (비우면 진행중 주문)" onChange={(e) => setQ(e.target.value)} />
+              <div className="coop-hits">
+                {hits.map((h) => (
+                  <button key={h.k} className="coop-hit" onClick={() => loadFrom(h.os)} title={h.os.map((o) => `${o.name} · ${o.storeCode ?? ''} · ${dot(o.orderDate)}`).join('\n')}>
+                    <b>{h.name}</b>
+                    <span className="muted small">
+                      {h.co.replace(/\s*\(.*\)\s*$/, '')} · {[...new Set(h.os.map((o) => o.storeCode).filter(Boolean))].join(', ')} · {dot(h.last)}
+                      {h.done ? ' · 완료' : ''}
+                    </span>
+                  </button>
+                ))}
+                {!hits.length && <span className="muted small">맞는 주문이 없어요</span>}
+              </div>
+              <span className="muted small">고르면 업체 · 주문 · 1. 내용 · 2. 주문일자 · 3. 패킹완료일자가 한 번에 채워져요 (지금 쓴 내용은 바뀌어요)</span>
+            </div>
+          </div>
           <label className="coop-row">
             <span>업체</span>
             <select value={d.companyId} onChange={(e) => set({ companyId: e.target.value, orderIds: [], country: '', coName: '' })}>
