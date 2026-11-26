@@ -9724,3 +9724,13 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-field > .pz-board { z-index: 1; }
 .pz-dusk .pz-ground { filter: sepia(0.25) brightness(0.92); }
 .pz-night .pz-ground { filter: brightness(0.55) saturate(0.75) hue-rotate(10deg); }
+/* 빈집을 누르면 뜨는 말풍선 */
+.pz-art.can-say { cursor: pointer; }
+.pz-say { position: absolute; z-index: 5; bottom: 92%; left: 50%; transform: translateX(-50%); width: max-content; max-width: 220px; background: #fff; color: #3b2626; font-size: 13.5px; font-weight: 700; line-height: 1.4; text-align: center; border: 2.5px solid #2b2b2b; border-radius: 16px; padding: 8px 12px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.15); animation: pz-pop 0.25s ease-out; cursor: pointer; }
+.pz-say::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 9px solid transparent; border-top-color: #2b2b2b; }
+.pz-say::before { content: ''; position: absolute; left: 50%; top: calc(100% - 4px); transform: translateX(-50%); z-index: 1; border: 7px solid transparent; border-top-color: #fff; }
+@keyframes pz-pop { from { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.9); } to { opacity: 1; transform: translateX(-50%); } }
+.pz-say.below { bottom: auto; top: calc(100% + 12px); }
+.pz-say.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: #2b2b2b; }
+.pz-say.below::before { top: auto; bottom: calc(100% - 4px); border-top-color: transparent; border-bottom-color: #fff; }
+.pz-say { max-width: 240px; }

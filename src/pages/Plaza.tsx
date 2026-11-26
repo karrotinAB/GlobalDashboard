@@ -29,22 +29,44 @@ const md = (s: string) => `${Number(s.slice(5, 7))}.${Number(s.slice(8, 10))}`;
 const won = (n: number) => (n >= 100_000_000 ? `${(n / 100_000_000).toFixed(1)}억` : n >= 10_000 ? `${Math.round(n / 10_000).toLocaleString()}만` : n ? `${n.toLocaleString()}원` : '금액 없음');
 const coShort = (c?: Company) => (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '');
 
-/** 지금 불이 켜져 있나 + 꺼져 있으면 왜 */
-function lightOf(r: Attendance | undefined, nowMin: number): { on: boolean; sign: string; icon: string } {
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+/** 휴가 다음 날 (주말이면 그다음 월요일): '26.11.09~26.11.24' 의 끝날 → 없으면 오늘 */
+function backDay(period: string | undefined, todayIso: string) {
+  const ds = [...(period ?? '').matchAll(/(\d{2,4})[.\-/](\d{1,2})[.\-/](\d{1,2})/g)];
+  const last = ds.at(-1);
+  let end = todayIso;
+  if (last) {
+    const y = last[1].length === 2 ? 2000 + Number(last[1]) : Number(last[1]);
+    end = `${y}-${pad(Number(last[2]))}-${pad(Number(last[3]))}`;
+    if (end < todayIso) end = todayIso;
+  }
+  let d = addDays(end, 1);
+  while ([0, 6].includes(new Date(`${d}T00:00:00`).getDay())) d = addDays(d, 1);
+  const x = new Date(`${d}T00:00:00`);
+  return `${x.getMonth() + 1}월 ${x.getDate()}일(${WEEK[x.getDay()]})`;
+}
+const hourText = (min: number) => `${Math.floor(min / 60)}시${min % 60 ? ` ${min % 60}분` : ''}`;
+
+/** 지금 불이 켜져 있나 + 꺼져 있으면 왜 + 빈집을 누르면 뜨는 말 */
+function lightOf(r: Attendance | undefined, nowMin: number, todayIso = ''): { on: boolean; sign: string; icon: string; msg?: string } {
   if (!r) return { on: false, sign: '', icon: '' };
   const txt = `${r.status} ${r.period ?? ''}`;
   if (r.status.includes('퇴근')) return { on: false, sign: '퇴근', icon: '🌙' };
-  if (/출장/.test(txt)) return { on: false, sign: '출장', icon: '✈️' };
+  if (/출장/.test(txt)) return { on: false, sign: '출장', icon: '✈️', msg: '집에만 없을 뿐.. 여전히 일하는 중 💼' };
   // 대체시차 · 반차 · 외출: 그 시간 안이면 꺼짐
   const tm = r.period?.match(/(\d{1,2}):(\d{2})\s*[~\-–]\s*(\d{1,2}):(\d{2})/);
   if (tm && /시차|반차|외출/.test(txt)) {
     const a = Number(tm[1]) * 60 + Number(tm[2]);
     const b = Number(tm[3]) * 60 + Number(tm[4]);
-    if (nowMin >= a && nowMin < b) return { on: false, sign: /시차/.test(txt) ? '대체시차' : /반차/.test(txt) ? '반차' : '외출', icon: '⏱' };
+    if (nowMin >= a && nowMin < b) return { on: false, sign: /시차/.test(txt) ? '대체시차' : /반차/.test(txt) ? '반차' : '외출', icon: '⏱', msg: `곧 갑니다! ${hourText(b)}에 봐요 🏃` };
   }
   if (r.status === '근무') return { on: true, sign: '', icon: '' };
-  if (r.status === '근무전') return { on: false, sign: '출근 전', icon: '💤' };
-  if (/연차|휴가|반차|병가|경조/.test(txt)) return { on: false, sign: '휴가', icon: '🌴' };
+  if (r.status === '근무전') {
+    // 아침 시차로 늦게 오는 날: 시차가 끝나는 시각
+    if (tm && /시차|반차|외출/.test(txt) && Number(tm[1]) < 12) return { on: false, sign: '곧 출근', icon: '⏱', msg: `곧 갑니다! ${hourText(Number(tm[3]) * 60 + Number(tm[4]))}에 봐요 🏃` };
+    return { on: false, sign: '출근 전', icon: '💤' };
+  }
+  if (/연차|휴가|반차|병가|경조/.test(txt)) return { on: false, sign: '휴가', icon: '🌴', msg: `나를 찾지 마시오. ${backDay(r.period, todayIso)}에 돌아올 예정 🌴` };
   return { on: false, sign: r.status, icon: '' };
 }
 
@@ -326,6 +348,7 @@ export default function Plaza() {
             {x.leader ? (
               <LeaderHouse
                 flip={i % 2 === 1}
+                sayBelow={Math.sin(((angles[i] ?? 0) * Math.PI) / 180) < -0.55}
                 email={x.leader.email}
                 name={contacts[x.leader.email]?.name || x.leader.name || x.leader.email.split('@')[0]}
                 label={x.leader.role === 'director' ? '이사님' : '팀장님'}
@@ -338,7 +361,7 @@ export default function Plaza() {
                 alt={[nameOf(x.leader.email)]}
               />
             ) : (
-              <House {...houseProps(x.m!)} flip={i % 2 === 1} light={lightOf(attOf(x.m!, todayIso, data.memAttendance, alt(x.m!)), nowMin)} />
+              <House {...houseProps(x.m!)} flip={i % 2 === 1} sayBelow={Math.sin(((angles[i] ?? 0) * Math.PI) / 180) < -0.55} light={lightOf(attOf(x.m!, todayIso, data.memAttendance, alt(x.m!)), nowMin, todayIso)} />
             )}
           </div>
         ))}
@@ -404,7 +427,7 @@ export default function Plaza() {
   );
 }
 
-function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, onMail, alt, flip }: { flip?: boolean; email: string; name: string; label: string; space?: string; todayIso: string; nowMin: number; me: string; unread: number; onMail: (email: string, name: string) => void; alt: string[] }) {
+function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, onMail, alt, flip, sayBelow }: { sayBelow?: boolean; flip?: boolean; email: string; name: string; label: string; space?: string; todayIso: string; nowMin: number; me: string; unread: number; onMail: (email: string, name: string) => void; alt: string[] }) {
   const { data } = useStore();
   const sp = useSpaceData(space ?? '', space ? ['members'] : []);
   const { profiles } = useProfiles();
@@ -420,8 +443,9 @@ function LeaderHouse({ email, name, label, space, todayIso, nowMin, me, unread, 
       unread={unread}
       big
       flip={flip}
+      sayBelow={sayBelow}
       onMail={() => onMail(email, `${short} ${label}`)}
-      light={lightOf(attOf(card, todayIso, data.memAttendance, [...alt, name]), nowMin)}
+      light={lightOf(attOf(card, todayIso, data.memAttendance, [...alt, name]), nowMin, todayIso)}
     />
   );
 }
@@ -433,8 +457,15 @@ const maskOf = (name: string): CSSProperties => {
 };
 
 /** 집 그림 (public/plaza/house.png) — 지붕은 담당자 색 (house-roof.png 모양으로 칠함) · flip 이면 좌우 반대 */
-function House({ m, light, mine, unread, onMail, big, flip }: { m: Member; light: ReturnType<typeof lightOf>; mine: boolean; unread: number; onMail: () => void; big?: boolean; flip?: boolean }) {
+function House({ m, light, mine, unread, onMail, big, flip, sayBelow }: { sayBelow?: boolean; m: Member; light: ReturnType<typeof lightOf>; mine: boolean; unread: number; onMail: () => void; big?: boolean; flip?: boolean }) {
   const canMail = mine || !!m.email;
+  // 빈집을 누르면 말풍선 (5초 뒤 사라짐)
+  const [say, setSay] = useState(false);
+  useEffect(() => {
+    if (!say) return;
+    const t = window.setTimeout(() => setSay(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [say]);
   return (
     <div className={`pz-house ${light.on ? 'on' : 'off'} ${big ? 'big' : ''} ${mine ? 'mine' : ''} ${flip ? 'flip' : ''}`} style={{ '--c': m.color || '#8c2f3c' } as CSSProperties}>
       {light.sign && (
@@ -442,7 +473,12 @@ function House({ m, light, mine, unread, onMail, big, flip }: { m: Member; light
           {light.icon} {light.sign}
         </span>
       )}
-      <div className="pz-art">
+      {say && light.msg && (
+        <div className={`pz-say ${sayBelow ? 'below' : ''}`} onClick={() => setSay(false)}>
+          {light.msg}
+        </div>
+      )}
+      <div className={`pz-art ${light.msg ? 'can-say' : ''}`} onClick={(e) => !(e.target as HTMLElement).closest('.pz-mailbox') && light.msg && setSay((v) => !v)}>
         <img className="pz-art-base" src="./plaza/house.png" alt="" draggable={false} />
         <span className="pz-art-roof" style={maskOf('house-roof')} />
         <span className="pz-art-glass" style={maskOf('house-glass')} />
