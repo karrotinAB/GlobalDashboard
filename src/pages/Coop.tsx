@@ -94,10 +94,11 @@ export default function Coop() {
         const last = os.map((x) => x.orderDate ?? x.createdAt).sort().at(-1) ?? '';
         return { k, os, name, hay, done, last, co: coN };
       })
+      .filter((h) => !d.companyId || h.os[0].companyId === d.companyId)
       .filter((h) => (nq ? h.hay.includes(nq) : !h.done))
       .sort((a, b) => Number(a.done) - Number(b.done) || b.last.localeCompare(a.last))
       .slice(0, 15);
-  }, [q, data.orders, companyById]);
+  }, [q, data.orders, companyById, d.companyId]);
   const loadFrom = (os: Order[], add = false) => {
     setD((x) => {
       const ids = add ? [...new Set([...x.orderIds, ...os.map((o) => o.id)])] : os.map((o) => o.id);
@@ -203,8 +204,21 @@ export default function Coop() {
       {/* 📥 주문 불러오기 */}
       <div className="coop-loadbar">
         <span className="coop-load-h">📥 주문 불러오기</span>
+        <select
+          className="coop-co-pick"
+          value={d.companyId}
+          onChange={(e) => set({ companyId: e.target.value, orderIds: [], lines: [], country: '', coName: '', content: '', packDate: '' })}
+          title="업체를 고르면 나라 · 업체명이 채워지고, 아래 검색에 그 업체 주문만 나와요"
+        >
+          <option value="">업체 고르기</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
         <div className="coop-load-box">
-          <input value={q} placeholder="주문 · 묶음 · 매장코드 · 업체로 찾기 (누르면 진행중 주문)" onFocus={() => setFinding(true)} onChange={(e) => (setQ(e.target.value), setFinding(true))} />
+          <input value={q} placeholder={d.companyId ? '이 업체 주문 · 묶음 · 매장코드로 찾기 (누르면 진행중 주문)' : '주문 · 묶음 · 매장코드 · 업체로 찾기 (누르면 진행중 주문)'} onFocus={() => setFinding(true)} onChange={(e) => (setQ(e.target.value), setFinding(true))} />
           {finding && (
             <>
               <div className="coop-load-bg" onClick={() => setFinding(false)} />
@@ -254,16 +268,6 @@ export default function Coop() {
         <div className="coop-paper coop-title">
           (업무협조전-글로벌사업부) <Blank value={d.country} auto={autoCountry} ph="나라" onChange={(v) => set({ country: v })} />{' '}
           <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} />{' '}
-          {!co && (
-            <select className="coop-co-pick" value="" onChange={(e) => set({ companyId: e.target.value })} title="업체를 고르면 나라 · 업체명이 채워져요">
-              <option value="">업체 고르기</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}{' '}
           패킹 요청
         </div>
 
