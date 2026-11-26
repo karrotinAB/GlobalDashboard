@@ -9502,3 +9502,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pk-pal i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; box-sizing: border-box; background: #fff; }
 .pk-pal small { font-size: 10px; color: var(--muted); }
 .pk-pal-dot { width: 14px; height: 14px; border-radius: 50%; border: 3px solid; box-sizing: border-box; margin-top: 3px; flex: none; }
+/* 출고 관리: 방금 열어 봤던 줄 */
+.sh-table tr.sh-row.last-seen > td { background: color-mix(in srgb, var(--c) 13%, #fff); }
+.sh-table tr.sh-row.last-seen .sh-title { font-weight: 800; color: var(--ink); }
+.sh-table tr.sh-row.last-seen.done td { opacity: 1; }

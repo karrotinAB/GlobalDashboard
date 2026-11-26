@@ -4,7 +4,7 @@
 //   외화정리 · 수출면장 · 배차 · 관리부출고 ○ → ● (관리부출고는 날짜 = 주문 관리 '출고일')
 //   ON BOARD ☐ · 출고마감 · 결재서류 ○
 //   저장: 묶음이면 묶음 안 주문마다 bundle.ship 에 같이, 묶음 아니면 order.ship (주문 관리 묶음과 같은 방식)
-import { Fragment, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { DateCell } from '../components/OrderCells';
 import { Modal } from '../components/ui';
@@ -70,6 +70,11 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
   const [coOpen, setCoOpen] = useState(false); // 업체 칩은 '업체 선택' 을 눌렀을 때만
   const [kinds, setKinds] = useState<CalKind[]>([]); // 달력: DOC · CARGO · ETD · ETA 골라 보기 (비면 모두)
   const [calPick, setCalPick] = useState<string | null>(null); // 누른 묶음 (상세 창 — 목록 · 달력 같이)
+  // 방금 열어 봤던 줄: 창을 닫아도 (다른 걸 누르거나 페이지를 나가기 전까지) 색 · 굵게
+  const [lastSeen, setLastSeen] = useState<string | null>(null);
+  useEffect(() => {
+    if (calPick) setLastSeen(calPick);
+  }, [calPick]);
   const [files, setFiles] = useState<{ key: string; step: FileStep } | null>(null);
   const viewKey = trade ? 'gd:shipView:trade' : 'gd:shipView';
   const [view, setView] = useState<'list' | 'cal'>(() => {
@@ -460,7 +465,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
                   const cur = curOf(g);
                   return (
                     <Fragment key={g.key}>
-                      <tr className={`sh-row ${isDone(g) ? 'done' : ''}`} style={{ '--c': g.color ?? companyById.get(g.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties}>
+                      <tr className={`sh-row ${isDone(g) ? 'done' : ''} ${lastSeen === g.key ? 'last-seen' : ''}`} style={{ '--c': g.color ?? companyById.get(g.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties}>
                         <td className="sh-name">
                           <button className="sh-title" onClick={() => setCalPick(g.key)} title="눌러서 상세 (출고 일정 · 안의 주문)">
                             <span className="sh-dot" />
