@@ -13,7 +13,11 @@ const dot = (s?: string | null) => (s ? s.slice(0, 10).replace(/-/g, '.') : '');
 const coShort = (n: string) => n.replace(/\s*\(.*\)\s*$/, '').trim();
 
 /** 업무협조전 종류 (양식 추가는 여기에) */
-const KINDS = [{ key: 'packing', label: '주문 등록 후 패킹 요청', icon: '📦', color: '#3f7d5a' }] as const;
+const KINDS = [
+  { key: 'packing', no: 1, label: '주문 등록 후 패킹 요청', icon: '📦', color: '#3f7d5a' },
+  { key: 'inbound', no: 3, label: '입고 및 패킹리스트 등록 요청', icon: '📥', color: '#2f6fb3' },
+] as const;
+const QTY = '주문서상의 주문수량으로 등록';
 type Kind = (typeof KINDS)[number]['key'];
 
 type Line = { store: string; date: string };
@@ -32,6 +36,13 @@ interface Draft {
   personName: string;
   personPhone: string;
   titleEdit?: string | null; // ✎ 제목을 통째로 직접 고친 것 (null/없음 = 양식대로)
+  // 3. 입고 및 패킹리스트 등록 요청
+  orderName?: string; // 비우면 불러온 주문 이름 (묶음이면 묶음 이름)
+  storeText?: string; // 2. 매장코드 (비우면 불러온 주문 매장코드)
+  dateText?: string; // 3. 주문일자 (비우면 불러온 주문 주문일자)
+  inboundDate?: string; // 4. 입고등록일자 (직접)
+  qty?: string; // 5. 입고 수량 및 패킹수량 (비우면 '주문서상의 주문수량으로 등록')
+  note3?: string | null; // 6. 비고 (null = 안 씀)
 }
 const EMPTY: Draft = { kind: 'packing', companyId: '', country: '', coName: '', orderIds: [], lines: [], content: '', note1: null, note2: null, packDate: '', personEmail: '', personName: '', personPhone: '' };
 const LS = 'gd:coopDraft2';
@@ -109,7 +120,7 @@ export default function Coop() {
         companyId: os[0].companyId ?? x.companyId,
         orderIds: ids,
         lines: all.map((o) => ({ store: String(o.storeCode ?? ''), date: dot(o.orderDate) })),
-        ...(add ? {} : { country: '', coName: '', content: '', packDate: '' }),
+        ...(add ? {} : { country: '', coName: '', content: '', packDate: '', orderName: '', storeText: '', dateText: '' }),
       };
     });
     setQ('');
@@ -145,9 +156,35 @@ export default function Coop() {
   const personPhone = d.personPhone || autoPhone;
 
   const lineText = (l: Line) => `- ${[l.store.trim(), l.date.trim()].filter(Boolean).join(' ')} 주문`;
-  const autoTitle = `(업무협조전-글로벌사업부) ${[country, coName].filter(Boolean).join(' ')} 패킹 요청`;
+  // 3. 입고 및 패킹리스트: 주문명 · 매장코드 · 주문일자 (불러온 주문에서)
+  const oneBundle = linked.length > 0 && linked.every((o) => o.bundle && o.bundle.id === linked[0].bundle?.id);
+  const autoOrderName = !linked.length ? '' : oneBundle ? linked[0].bundle?.name || '' : [...new Set(linked.map((o) => o.name))].join(', ');
+  const orderName = d.orderName || autoOrderName;
+  const autoStores = stores.join(', ');
+  const storeText = d.storeText || autoStores;
+  const autoDates = [...new Set(d.lines.map((l) => l.date.trim()).filter(Boolean))].join(', ');
+  const dateText = d.dateText || autoDates;
+  const qty = d.qty || QTY;
+  const isIn = d.kind === 'inbound';
+  const autoTitle = isIn
+    ? `(업무협조전-글로벌사업부) ${[country, coName, orderName].filter(Boolean).join(' ')} 입고 및 패킹리스트 등록 요청`
+    : `(업무협조전-글로벌사업부) ${[country, coName].filter(Boolean).join(' ')} 패킹 요청`;
   const title = d.titleEdit ?? autoTitle;
-  const body = [
+  const bodyIn = [
+    '상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.',
+    '',
+    ' --------------------------아 래----------------------------',
+    '',
+    `1. 내용: ${[country, coName, orderName].filter(Boolean).join(' ')} 입고 및 패킹리스트 등록 요청`,
+    `2. 매장코드 ${storeText}`,
+    `3. 주문일자: ${dateText}`,
+    `4. 입고등록일자: ${d.inboundDate ?? ''}`,
+    `5. 입고 수량 및 패킹수량: ${qty}`,
+    ...(d.note3?.trim() ? [`6. ${d.note3.trim()}`] : []),
+    '',
+    `해당 업무협조전 관련 사항은 글로벌사업부 ${personName}${personPhone ? `(${personPhone})` : ''}에게 연락 바랍니다. 끝.`,
+  ].join('\n');
+  const bodyPack = [
     '상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.',
     '',
     '-------------- 아      래 ---------------',
@@ -164,6 +201,7 @@ export default function Coop() {
     '',
     `해당 업무협조전 관련 사항은 글로벌사업부 ${[personName, personPhone].filter(Boolean).join(' ')} 에게 연락 바랍니다. 끝.`,
   ].join('\n');
+  const body = isIn ? bodyIn : bodyPack;
 
   const [copied, setCopied] = useState('');
   const copy = async (what: 'title' | 'body') => {
@@ -181,7 +219,11 @@ export default function Coop() {
     setCopied(what);
     setTimeout(() => setCopied(''), 1500);
   };
-  const missing = [!country && '나라', !coName && '업체명', !content && '내용', !d.lines.some((l) => l.store || l.date) && '주문일자', !packDate && '패킹완료일자', !personName && '연락처'].filter(Boolean) as string[];
+  const missing = (
+    isIn
+      ? [!country && '나라', !coName && '업체명', !orderName && '주문명', !storeText && '매장코드', !dateText && '주문일자', !d.inboundDate?.trim() && '입고등록일자', !personName && '연락처']
+      : [!country && '나라', !coName && '업체명', !content && '내용', !d.lines.some((l) => l.store || l.date) && '주문일자', !packDate && '패킹완료일자', !personName && '연락처']
+  ).filter(Boolean) as string[];
   const setLine = (i: number, p: Partial<Line>) => set({ lines: d.lines.map((l, j) => (j === i ? { ...l, ...p } : l)) });
   const kind = KINDS.find((k) => k.key === d.kind) ?? KINDS[0];
 
@@ -196,9 +238,9 @@ export default function Coop() {
       {/* 종류: 색 카드 */}
       <div className="coop-kinds">
         <span className="coop-kinds-h">어떤 업무협조전?</span>
-        {KINDS.map((k, i) => (
-          <button key={k.key} className={`coop-kind ${d.kind === k.key ? 'on' : ''}`} style={{ '--k': k.color } as CSSProperties} onClick={() => set({ kind: k.key })}>
-            <span className="coop-kind-n">{i + 1}</span>
+        {KINDS.map((k) => (
+          <button key={k.key} className={`coop-kind ${d.kind === k.key ? 'on' : ''}`} style={{ '--k': k.color } as CSSProperties} onClick={() => d.kind !== k.key && set({ kind: k.key, titleEdit: null })}>
+            <span className="coop-kind-n">{k.no}</span>
             <span aria-hidden="true">{k.icon}</span> {k.label}
           </button>
         ))}
@@ -210,7 +252,7 @@ export default function Coop() {
         <select
           className="coop-co-pick"
           value={d.companyId}
-          onChange={(e) => set({ companyId: e.target.value, orderIds: [], lines: [], country: '', coName: '', content: '', packDate: '' })}
+          onChange={(e) => set({ companyId: e.target.value, orderIds: [], lines: [], country: '', coName: '', content: '', packDate: '', orderName: '', storeText: '', dateText: '' })}
           title="업체를 고르면 나라 · 업체명이 채워지고, 아래 검색에 그 업체 주문만 나와요"
         >
           <option value="">업체 고르기</option>
@@ -279,7 +321,14 @@ export default function Coop() {
             <>
               <span>
                 (업무협조전-글로벌사업부) <Blank value={d.country} auto={autoCountry} ph="나라" onChange={(v) => set({ country: v })} />{' '}
-                <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} /> 패킹 요청
+                <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} />{' '}
+                {isIn ? (
+                  <>
+                    <Blank value={d.orderName ?? ''} auto={autoOrderName} ph="주문명" onChange={(v) => set({ orderName: v })} /> 입고 및 패킹리스트 등록 요청
+                  </>
+                ) : (
+                  '패킹 요청'
+                )}
               </span>
               <button className="icon-btn coop-title-btn" onClick={() => set({ titleEdit: autoTitle })} title="제목 통째로 고치기">
                 ✎
@@ -293,8 +342,43 @@ export default function Coop() {
         </div>
         <div className="coop-paper">
           <p>상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.</p>
-          <p className="coop-center">-------------- 아&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;래 ---------------</p>
+          <p className="coop-center">{isIn ? '--------------------------아 래----------------------------' : <>-------------- 아&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;래 ---------------</>}</p>
 
+          {isIn ? (
+            <>
+          <p>
+            1. 내용: {[country, coName].filter(Boolean).join(' ')} <Blank value={d.orderName ?? ''} auto={autoOrderName} ph="주문명" onChange={(v) => set({ orderName: v })} /> 입고 및 패킹리스트 등록 요청
+          </p>
+          <p>
+            2. 매장코드 <Blank value={d.storeText ?? ''} auto={autoStores} ph="매장번호" w={8} onChange={(v) => set({ storeText: v })} />
+          </p>
+          <p>
+            3. 주문일자: <Blank value={d.dateText ?? ''} auto={autoDates} ph="2026.11.20" w={10} onChange={(v) => set({ dateText: v })} />
+          </p>
+          <p>
+            4. 입고등록일자: <Blank value={d.inboundDate ?? ''} ph="직접 입력" w={10} onChange={(v) => set({ inboundDate: v })} />
+          </p>
+          <p>
+            5. 입고 수량 및 패킹수량: <Blank value={d.qty ?? ''} auto={QTY} ph={QTY} w={24} onChange={(v) => set({ qty: v })} />
+          </p>
+          {d.note3 != null ? (
+            <div className="coop-note">
+              <span>6.</span>
+              <textarea rows={2} value={d.note3} placeholder="비고" onChange={(e) => set({ note3: e.target.value })} />
+              <button className="link small" onClick={() => set({ note3: null })}>
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button className="link small coop-add" onClick={() => set({ note3: '' })}>
+              + 6. 비고
+            </button>
+          )}
+          {!linked.length && <p className="muted small">위에서 📥 주문을 불러오면 주문명 · 매장코드 · 주문일자가 채워져요</p>}
+
+            </>
+          ) : (
+            <>
           <p>
             1. 내 용 :&nbsp; <Blank value={d.content} auto={autoContent} ph="나라 매장명 (매장번호) 패킹 요청" w={30} className="wide" onChange={(v) => set({ content: v })} />
           </p>
@@ -363,6 +447,8 @@ export default function Coop() {
             3. 패킹완료일자: <Blank value={d.packDate} auto={autoPack} ph="2026.12.09" w={10} onChange={(v) => set({ packDate: v })} />
           </p>
 
+            </>
+          )}
           <p className="coop-gap2">
             해당 업무협조전 관련 사항은 글로벌사업부{' '}
             <select
@@ -379,7 +465,7 @@ export default function Coop() {
                 </option>
               ))}
             </select>{' '}
-            <Blank value={d.personName} auto={autoName} ph="이름" w={6} onChange={(v) => set({ personName: v })} /> <Blank value={d.personPhone} auto={autoPhone} ph="회사번호" w={12} onChange={(v) => set({ personPhone: v })} /> 에게 연락 바랍니다. 끝.
+            <Blank value={d.personName} auto={autoName} ph="이름" w={6} onChange={(v) => set({ personName: v })} /> <Blank value={d.personPhone} auto={autoPhone} ph="회사번호" w={12} onChange={(v) => set({ personPhone: v })} /> {isIn ? '에게' : ' 에게'} 연락 바랍니다. 끝.
           </p>
         </div>
         {missing.length > 0 && <p className="warn small">아직 빈 칸: {missing.join(' · ')}</p>}
