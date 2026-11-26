@@ -92,14 +92,12 @@ export default function App() {
   // '조 현황' 탭: 팀장님·이사님 대시보드에만 (관리자는 팀장님·이사님 대시보드를 볼 때만)
   const canOverview = leader || ((role === 'admin' || role === null) && isPersonal(viewTeam));
   const page: PageKey = tradeOnly
-    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate' || hashPage === 'petty' || hashPage === 'trip' || hashPage === 'contract'
+    ? isTradePage(hashPage) || hashPage === 'settings' || hashPage === 'calendar' || hashPage === 'translate' || hashPage === 'petty' || hashPage === 'trip' || hashPage === 'contract' || hashPage === 'coop'
       ? hashPage
       : 'thome'
     : isTradePage(hashPage) && !canTrade
       ? 'home'
-      : hashPage === 'coop' && !isToolAdmin({ role, realRole, auditor })
-        ? 'home' // 업무협조전: 준비 중 · 관리자만
-        : hashPage;
+      : hashPage;
   // 설정 화면에서는 직전에 보던 쪽(2조/무역사무) 탭을 그대로
   const [side, setSide] = useState<'team' | 'trade'>(tradeOnly || isTradePage(page) ? 'trade' : 'team');
   useEffect(() => {

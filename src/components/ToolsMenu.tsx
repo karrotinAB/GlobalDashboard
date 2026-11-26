@@ -7,8 +7,7 @@ export const TOOLS: { key: string; label: string; icon: string; href?: string; r
   { key: 'translate', label: '제품번역', icon: '🌐', href: '#/translate', ready: true },
   { key: 'trip', label: '출장신청서', icon: '✈️', href: '#/trip', ready: true },
   { key: 'contract', label: '계약서', icon: '📄', href: '#/contract', ready: true },
-  // 준비 중: 회색 · 관리자만 들어감
-  { key: 'coop', label: '업무협조전', icon: '🤝', href: '#/coop', ready: false, adminOnly: true },
+  { key: 'coop', label: '업무협조전', icon: '🤝', href: '#/coop', ready: true },
 ];
 /** 관리자 (IT 검토용 계정 빼고 · 로컬 포함) — 준비 중 도구에 들어갈 수 있음 */
 export const isToolAdmin = (a: { role: string | null; realRole?: string | null; auditor?: boolean }) => ((a.realRole ?? a.role) === 'admin' && !a.auditor) || a.role === null;
