@@ -9600,20 +9600,10 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 /* ---------- 🪼 광장 (pages/Plaza.tsx) ---------- */
 .page-icon-link { display: inline-block; cursor: pointer; transition: transform 0.2s; }
 .page-icon-link:hover { transform: translateY(-4px) rotate(-4deg); }
-.pz { --sky1: #bfe3f7; --sky2: #eaf6ff; --grass: #b9d98f; --grass2: #a3c977; --path: #eadfc9; position: relative; border-radius: 24px; overflow: hidden; padding: 28px 28px 36px; background: linear-gradient(var(--sky1), var(--sky2) 210px, var(--grass) 211px, var(--grass2)); min-height: 760px; isolation: isolate; }
-.pz-dusk { --sky1: #f2a57a; --sky2: #f9d6b0; --grass: #9fbf7c; --grass2: #8aab68; }
-.pz-night { --sky1: #1d2546; --sky2: #39456f; --grass: #5f7a52; --grass2: #4d6643; }
-.pz-sky { position: absolute; inset: 0 0 auto; height: 210px; z-index: -1; pointer-events: none; }
-.pz-sun { position: absolute; right: 8%; top: 26px; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(#fff6c2, #ffd75e); box-shadow: 0 0 40px 10px rgba(255, 220, 110, 0.6); }
-.pz-dusk .pz-sun { top: 110px; background: radial-gradient(#ffe0a8, #ff9c5a); }
-.pz-night .pz-sun { background: radial-gradient(#fbfbf0, #dcdcc8); box-shadow: 0 0 30px 6px rgba(240, 240, 220, 0.35); width: 48px; height: 48px; }
-.pz-star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; animation: pz-tw 2.4s ease-in-out infinite; }
-@keyframes pz-tw { 50% { opacity: 0.25; } }
-.pz-cloud { position: absolute; top: 40px; width: 120px; height: 34px; border-radius: 40px; background: rgba(255, 255, 255, 0.85); animation: pz-cloud 60s linear infinite; }
-.pz-cloud::before { content: ''; position: absolute; left: 22px; top: -18px; width: 56px; height: 44px; border-radius: 50%; background: inherit; }
-.pz-cloud.b { top: 96px; transform: scale(0.7); animation-duration: 85s; animation-delay: -40s; }
-.pz-night .pz-cloud { opacity: 0.15; }
-@keyframes pz-cloud { from { left: -140px; } to { left: 100%; } }
+.pz { --grass: #b5d88a; --grass2: #9ccb6e; --path: #e8dcc2; position: relative; border-radius: 24px; overflow: hidden; padding: 28px 28px 36px; background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.25) 0 2px, transparent 3px) 0 0 / 46px 46px, radial-gradient(circle at 70% 60%, rgba(60, 110, 40, 0.18) 0 2px, transparent 3px) 0 0 / 38px 38px, linear-gradient(var(--grass), var(--grass2)); min-height: 760px; isolation: isolate; }
+.pz-dusk { --grass: #a6c97c; --grass2: #8fb862; }
+.pz-night { --grass: #6f8f5c; --grass2: #5c7a4b; }
+.pz-sky { display: none; }
 .pz-head { position: relative; color: #2e2a3a; margin-bottom: 16px; }
 .pz-night .pz-head { color: #f2f0ff; }
 .pz-head h1 { font-size: 30px; }
@@ -9621,7 +9611,7 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pz-mailbtn { padding: 4px 12px; border-radius: 999px; background: #fff; font-weight: 700; color: var(--primary); animation: pz-bounce 1.2s ease-in-out infinite; }
 @keyframes pz-bounce { 50% { transform: translateY(-3px); } }
 
-.pz-hill { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 60px; }
+.pz-hill { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: 12px; }
 .pz-wh { display: flex; align-items: flex-end; justify-content: center; gap: 18px; margin: 34px 0 30px; padding: 0 0 14px; background: linear-gradient(transparent 85%, var(--path) 85%); border-radius: 0 0 20px 20px; }
 .pz-town { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
 .pz-street { background: rgba(255, 255, 255, 0.22); border-radius: 18px; padding: 12px 14px 10px; }
