@@ -485,11 +485,6 @@ function House({ m, light, mine, unread, onMail, big, flip, sayBelow }: { sayBel
   }, [say]);
   return (
     <div className={`pz-house ${light.on ? 'on' : 'off'} ${big ? 'big' : ''} ${mine ? 'mine' : ''} ${flip ? 'flip' : ''}`} style={{ '--c': m.color || '#8c2f3c' } as CSSProperties}>
-      {light.sign && (
-        <span className="pz-sign" title={light.sign}>
-          {light.icon} {light.sign}
-        </span>
-      )}
       {say && light.msg && (
         <div className={`pz-say ${light.memo ? 'memo' : sayBelow ? 'below' : ''}`} onClick={() => setSay(false)}>
           {light.msg}
@@ -504,9 +499,14 @@ function House({ m, light, mine, unread, onMail, big, flip, sayBelow }: { sayBel
           {mine && unread > 0 && <i>{unread}</i>}
         </button>
       </div>
-      <span className="pz-name">
+      <span className="pz-name" title={light.sign || undefined}>
         {m.name}
         {mine && <small> (나)</small>}
+        {light.icon && (
+          <span className="pz-name-ic" aria-label={light.sign}>
+            {light.icon}
+          </span>
+        )}
       </span>
     </div>
   );

@@ -9767,3 +9767,4 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-box-pop-name { font-size: 13px; color: #4a3b2e; }
 .pz-box-pop-amt { font-size: 15px; font-weight: 800; color: var(--primary); }
 .pz-box-pop small { font-size: 11px; color: #8a7a6a; }
+.pz-name-ic { margin-left: 3px; }
