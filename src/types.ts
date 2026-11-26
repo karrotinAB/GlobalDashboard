@@ -75,6 +75,11 @@ export interface Order {
   invoice: boolean; // 인보이스 제작 여부
   storeCode?: string; // 주문넣은 매장코드
   orderDate?: string; // 주문넣은 일자
+  // ↓ 관리부 패킹 상태 (회사 API 예정 — 서버가 채움 · 아직 비어 있음 · functions/packStatus.js)
+  packListDone?: boolean; // 패킹리스트 등록여부 = 패킹 완료 (안 됐는데 패킹완료일이 지나면 '지연')
+  packListAt?: string; // 등록된 날 (API 가 주면)
+  finalApproved?: boolean; // 최종승인 여부 = 팔렛트 작업 완료 (토요일 팔렛트 원을 채움)
+  finalApprovedAt?: string;
   acceptDate?: string; // 주문접수일 (관리부로 실제 들어간 날 · 없으면 = 주문일자) — 관리부 패킹 달력
   packing?: string; // 패킹 완료일 (자유 텍스트)
   shipFrom?: string; // 출고 장소

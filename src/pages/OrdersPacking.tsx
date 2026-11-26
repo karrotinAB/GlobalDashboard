@@ -86,7 +86,15 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
       const o = os[0];
       const c = companies.get(o.companyId ?? '');
       const krw = os.reduce((a, x) => a + (x.amountKRW ?? 0), 0);
-      return { o, os, key, krw, name: os.length > 1 ? `${dot(start)} 주문 ${os.length}건` : o.name, start, end, guess: rs.every((r) => r.guess), color: c?.color ?? '#8c2f3c', coName: (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '') };
+      // 상태 (회사 API 가 packListDone · finalApproved 를 채우면 켜짐 — 지금은 늘 undefined → 예전과 같음)
+      //   done: 안의 주문 모두 패킹리스트 등록 · delay: 패킹완료일 다음 날부터 아직 등록 안 됨 (오늘까지 며칠) · approved: 모두 최종승인 (팔렛트 작업 끝)
+      const todayIso = iso(new Date());
+      const known = os.some((x) => x.packListDone !== undefined);
+      const done = known && os.every((x) => x.packListDone);
+      const delay = known && !done && end < todayIso ? Math.round((Date.parse(todayIso) - Date.parse(end)) / 86400000) : 0;
+      const approvedKnown = os.some((x) => x.finalApproved !== undefined);
+      const approved = approvedKnown && os.every((x) => x.finalApproved);
+      return { o, os, key, krw, done, delay, approved, approvedKnown, name: os.length > 1 ? `${dot(start)} 주문 ${os.length}건` : o.name, start, end, guess: rs.every((r) => r.guess), color: c?.color ?? '#8c2f3c', coName: (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '') };
     });
   }, [orders, teamF, companies]);
   // ○ 팔렛트 작업: 매주 토요일 — 패킹이 끝나는 주의 토요일에 (업체마다 원 하나)
@@ -109,7 +117,9 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
   const days14 = Array.from({ length: 14 }, (_, i) => addDays(from, i));
   const days28 = Array.from({ length: 28 }, (_, i) => addDays(from, i));
   // 날짜마다 패킹 중인 덩어리 (바쁜 정도)
-  const loadOf = (d: string) => bars.filter((b) => b.start <= d && b.end >= d);
+  // 패킹 중: 시작 ~ 패킹완료일 (지연이면 오늘까지 · 완료면 빠짐)
+  const loadOf = (d: string) => bars.filter((b) => !b.done && b.start <= d && (b.end >= d || (b.delay > 0 && d <= today)));
+  const delayed = bars.filter((b) => b.delay > 0);
   const maxLoad = Math.max(1, ...days14.map((d) => loadOf(d).length));
   // ★ 관리부 출고일
   //   묶음이면 묶음 하나 = 별 하나 (안의 주문은 같이)
@@ -244,11 +254,23 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
                             <span className="muted">없음</span>
                           )}
                         </button>
+                        {/* ⚠ 지연 (오늘 카드에만): 패킹완료일이 지났는데 패킹리스트 등록 안 됨 */}
+                        {d === today && delayed.length > 0 && (
+                          <div className="pb-delay">
+                            <span className="pb-sec-h">⚠ 지연 {delayed.length}건</span>
+                            {delayed.map((b) => (
+                              <button key={b.key} className="pb-chip delay" style={{ '--c': b.color } as CSSProperties} onClick={() => setPick(b.key)} title={`${b.o.team}조 · ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건\n패킹완료일 ${dot(b.end)} → ${b.delay}일 지남`}>
+                                {b.coName} +{b.delay}일
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {ends.length > 0 && (
                           <div className="pb-done">
                             <span className="pb-sec-h">✓ 패킹 완료</span>
                             {ends.map((b) => (
-                              <button key={b.key} className={`pb-chip ${b.guess ? 'guess' : ''}`} style={{ '--c': b.color } as CSSProperties} onClick={() => setPick(b.key)} title={`${b.o.team}조 · ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건${b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}${b.guess ? '\n패킹완료일 없음 (예상)' : ''}`}>
+                              <button key={b.key} className={`pb-chip ${b.guess ? 'guess' : ''} ${b.done ? 'ok' : ''} ${b.delay ? 'late' : ''}`} style={{ '--c': b.color } as CSSProperties} onClick={() => setPick(b.key)} title={`${b.o.team}조 · ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건${b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}${b.guess ? '\n패킹완료일 없음 (예상)' : ''}${b.done ? '\n✓ 패킹리스트 등록됨' : ''}${b.delay ? `\n⚠ ${b.delay}일 지연` : ''}`}>
+                                {b.done ? '✓ ' : b.delay ? '⚠ ' : ''}
                                 {b.coName} {b.os.length}건
                               </button>
                             ))}
@@ -260,10 +282,11 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
                             <span className="pb-pal-h">팔렛트 작업</span>
                             <span className="pb-pal-dots">
                               {pals.slice(0, 6).map((g) => (
-                                <i key={g[0].key} style={{ borderColor: g[0].color }} />
+                                // 최종승인(팔렛트 작업 끝)이면 채운 원
+                                <i key={g[0].key} className={g.every((b) => b.approved) ? 'fill' : ''} style={{ borderColor: g[0].color, background: g.every((b) => b.approved) ? g[0].color : undefined }} />
                               ))}
                             </span>
-                            <b>{pals.length}곳</b>
+                            <b>{pals.some((g) => g.some((b) => b.approvedKnown)) ? `${pals.filter((g) => g.every((b) => b.approved)).length}/${pals.length} 완료` : `${pals.length}곳`}</b>
                           </button>
                         )}
                       </div>
@@ -277,7 +300,7 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
           {/* 아래: 업체별 일정 (4주) */}
           {(() => {
             const last = days28[27];
-            const rows = bars.filter((b) => b.start <= last && b.end >= from).sort((a, b) => a.coName.localeCompare(b.coName, 'ko') || a.start.localeCompare(b.start));
+            const rows = bars.filter((b) => b.start <= last && (b.end >= from || b.delay > 0)) // 지연이면 패킹완료일이 지나도 계속.sort((a, b) => a.coName.localeCompare(b.coName, 'ko') || a.start.localeCompare(b.start));
             return (
               <div className="card pg">
                 <div className="pg-title">
@@ -313,13 +336,28 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
                           {days28.map((d, ci) => (
                             <div key={d} className={`pg-cell ${dowOf(d) === 0 ? 'wk' : ''} ${d === today ? 'today' : ''}`} style={{ gridRow: gr, gridColumn: ci + 2 }} />
                           ))}
+                          {b.end >= from && (
                           <div
                             className={`pg-bar ${b.guess ? 'guess' : ''} ${b.start < from ? 'cut-l' : ''} ${b.end > last ? 'cut-r' : ''}`}
                             style={{ '--c': b.color, gridColumn: `${c0 + 2} / ${c1 + 3}`, gridRow: gr } as CSSProperties}
-                            title={`${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (패킹완료일 없음 · 예상)' : ''}`}
+                            title={`${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (패킹완료일 없음 · 예상)' : ''}${b.done ? ' · ✓ 패킹리스트 등록됨' : ''}`}
                           >
-                            <span>{md(b.end)}</span>
+                            <span>
+                              {b.done ? '✓ ' : ''}
+                              {md(b.end)}
+                            </span>
                           </div>
+                          )}
+                          {/* ⚠ 지연 꼬리: 패킹완료일 다음 날 ~ 오늘 */}
+                          {b.delay > 0 && b.end < last && (() => {
+                            const ds = days28.indexOf(addDays(b.end, 1) < from ? from : addDays(b.end, 1));
+                            const de = days28.indexOf(today > last ? last : today);
+                            return ds >= 0 && de >= ds ? (
+                              <div className="pg-delay" style={{ gridColumn: `${ds + 2} / ${de + 3}`, gridRow: gr }} title={`⚠ ${b.delay}일 지연 (패킹리스트 미등록)`}>
+                                +{b.delay}일
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
                       );
                     })}
