@@ -266,7 +266,7 @@ export function guessCurrency(country?: string): string | undefined {
 
 // ---------- 수출 통화 (업체마다, 기본 USD) → 화면에는 USD 로 바꿔서 ----------
 /** 이 업체 수출 외화 통화 (없으면 USD) */
-//   KRW 업체: 원화로 거래 → 화면의 외화(USD) 칸은 원화를 그날 환율로 바꾼 달러
+//   KRW 업체: ERP 외화 금액은 USD 그대로 (바꾸지 않음)
 export const exportCur = (c?: { exportCurrency?: string } | null) => (c?.exportCurrency && c.exportCurrency !== 'USD' ? c.exportCurrency : 'USD');
 /** 표 안에서 그 통화의 가장 최근 환율 (그날 환율이 아직 없을 때) */
 function latestRate(table: FxTable, cur: string) {
@@ -307,14 +307,9 @@ export function useOrderUsd(companies: { id: string; exportCurrency?: string }[]
   const months = curs.length ? [...new Set([nowMonth(), prevMon(nowMonth()), ...foreign.map((o) => monthOf(o.orderDate || o.createdAt)).filter(Boolean)])] : [];
   const table = useFxRates(curs.length ? [...curs, 'USD'] : [], months);
   const curOf = (o: { companyId?: string | null }) => curById.get(o.companyId ?? '') ?? 'USD';
-  // KRW 업체(구매확인서 등)라도 ERP 외화 금액은 보통 USD 로 옴 (₩22,284,130 · 16,828.7 처럼 원화보다 훨씬 작으면 USD) → 바꾸지 않음
-  //   외화 칸에 원화가 그대로 들어온 주문(외화 ≈ 원화)만 원화 → 달러로 바꿈
-  type O = { companyId?: string | null; orderDate?: string; createdAt?: string; amountKRW?: number; amountForeign?: number };
-  const usdAlready = (o: O) => {
-    const k = o.amountKRW;
-    const f = o.amountForeign;
-    return !k || f === undefined || f === null || f < k * 0.2;
-  };
+  // KRW 업체(구매확인서 등): ERP 외화 금액은 다 USD 로 옴 → 그대로 $ (바꾸지 않음)
+  type O = { companyId?: string | null; orderDate?: string; createdAt?: string };
+  const usdAlready = (o: O) => curOf(o) === 'KRW';
   return {
     curOf,
     usd: (o: O, n?: number | null, date?: string | null): number | undefined => {

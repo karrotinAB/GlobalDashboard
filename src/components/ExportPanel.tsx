@@ -181,10 +181,12 @@ export default function ExportPanel({ companies, view = 'table', mobile, hideTea
           // 수출 통화가 USD 가 아니면 외화를 USD 로 (출고일 · 주문일 환율), 원래 외화는 fo 에
           const cur = exportCur(c);
           const cv = (f: number, d?: string | null) => (cur === 'USD' || !f ? f : (toUsd(fx, cur, f, d) ?? f));
-          // KRW 업체는 원화 금액을 달러로 (외화 칸이 비어 있어도)
+          // KRW 업체: 원래 금액(fo)은 원화
           const src = (v: { k: number; f: number }) => (cur === 'KRW' ? v.k : v.f);
-          const shipU = ship.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: src(x.v), f: cv(src(x.v), x.v.date ?? x.o.orderDate) } }));
-          const pack = pack0.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: src(x.v), f: cv(src(x.v), x.o.orderDate) } }));
+          // KRW 업체: ERP 외화 금액이 USD 로 오면 그대로 (없을 때만 원화를 달러로)
+          const usdOf = (v: { k: number; f: number }, d?: string | null) => (cur === 'KRW' && v.f ? v.f : cv(src(v), d));
+          const shipU = ship.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: src(x.v), f: usdOf(x.v, x.v.date ?? x.o.orderDate) } }));
+          const pack = pack0.map((x) => (cur === 'USD' ? x : { ...x, v: { ...x.v, fo: src(x.v), f: usdOf(x.v, x.o.orderDate) } }));
           // 로열티 받기 시작한 달 전에는 없음
           const sale = c.royalty && (!c.royaltyFrom || month >= c.royaltyFrom) ? salesOf(c, month, fx) : null;
           const r = {
