@@ -122,7 +122,8 @@ export default function Coop() {
   const autoCo = coShort(co?.name ?? '');
   const country = d.country || autoCountry;
   const coName = d.coName || autoCo;
-  const autoContent = stores.length === 1 ? [country, storeNames[stores[0]] || coName, stores[0], '패킹 요청'].filter(Boolean).join(' ') : stores.length ? [country, coName, stores.join(', '), '패킹 요청'].filter(Boolean).join(' ') : '';
+  // 매장번호는 ( ) 안에: 나라 매장명 (매장번호) 패킹 요청
+  const autoContent = stores.length === 1 ? [country, storeNames[stores[0]] || coName, `(${stores[0]})`, '패킹 요청'].filter(Boolean).join(' ') : stores.length ? [country, coName, `(${stores.join(', ')})`, '패킹 요청'].filter(Boolean).join(' ') : '';
   const content = d.content || autoContent;
   const autoPack = dot(linked.map((o) => (o.packing ? parseDate(o.packing) : null)).filter((x): x is string => !!x).sort().at(-1) ?? '');
   const packDate = d.packDate || autoPack;
@@ -282,7 +283,7 @@ export default function Coop() {
           <p className="coop-center">-------------- 아&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;래 ---------------</p>
 
           <p>
-            1. 내 용 :&nbsp; <Blank value={d.content} auto={autoContent} ph="나라 매장명 매장번호 패킹 요청" w={30} className="wide" onChange={(v) => set({ content: v })} />
+            1. 내 용 :&nbsp; <Blank value={d.content} auto={autoContent} ph="나라 매장명 (매장번호) 패킹 요청" w={30} className="wide" onChange={(v) => set({ content: v })} />
           </p>
           {d.note1 !== null ? (
             <div className="coop-note">
