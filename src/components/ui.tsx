@@ -183,7 +183,7 @@ export function Cover({ tall, children }: { tall?: boolean; children?: ReactNode
 
 export const CHARACTERS = ['c01', 'c02', 'c04', 'c05', 'c06', 'c07', 'c08', 'c09', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 'c17']; // c12 개구리 · c17 병아리 (원래 c12 한 장에 같이 있던 것 나눔)
 /** 캐릭터 그림 버전: 그림 파일을 바꾸면 숫자를 올림 → 브라우저 · GitHub Pages 에 남은 예전 그림 대신 새 그림을 바로 불러옴 */
-const CHAR_VER = 3;
+const CHAR_VER = 4;
 export const characterSrc = (c: string) => `./characters/${c}.png?v=${CHAR_VER}`;
 
 /** 기본 캐릭터 고를 때 쓰는 목록 — 새 캐릭터를 더해도 이미 쓰던 기본 캐릭터가 안 바뀌게 따로 둠 */
