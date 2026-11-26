@@ -9393,3 +9393,33 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 @media print { .mcal-btn, .mcal-pop, .mcal-bg { display: none !important; } }
 .tr-auto-col { margin-left: auto; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .tr-auto-col .tr-sug-all { margin-left: 0; }
+
+/* 주문 관리 탭 · 🗓 관리부 패킹 달력 */
+.ord-tabs { margin: 0 0 12px; }
+.pk-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pk-cal { padding: 10px; }
+.pk-dow { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); padding-bottom: 4px; }
+.pk-dow .sun { color: #c0392b; }
+.pk-dow .sat { color: #2f6fb3; }
+.pk-week { position: relative; display: grid; grid-template-columns: repeat(7, 1fr); min-height: calc(30px + var(--lanes) * 7px + 10px); border-top: 1px solid var(--line); }
+.pk-day { border-left: 1px solid var(--line); padding: 3px 5px; }
+.pk-day:first-child { border-left: 0; }
+.pk-day.other { background: rgba(0, 0, 0, 0.025); }
+.pk-day.other .pk-num { opacity: 0.45; }
+.pk-day.sun .pk-num { color: #c0392b; }
+.pk-day.sat .pk-num { color: #2f6fb3; }
+.pk-num { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+.pk-day.today .pk-num { background: var(--primary); color: #fff; border-radius: 6px; padding: 0 5px; }
+.pk-star { display: inline-flex; align-items: center; font-size: 12px; line-height: 1; cursor: help; }
+.pk-star i { font-style: normal; text-shadow: 0 0 1px rgba(0,0,0,.35); }
+.pk-star small { font-size: 10px; color: var(--muted); margin-left: 1px; }
+.pk-bars { position: absolute; left: 0; right: 0; top: 24px; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 7px; row-gap: 0; pointer-events: none; padding: 0 2px; }
+.pk-bar { pointer-events: auto; height: 4px; margin: 1.5px 2px; padding: 0; border: 0; border-radius: 999px; background: var(--c); cursor: pointer; }
+.pk-bar.cut-l { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
+.pk-bar.cut-r { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+.pk-bar.guess { background: repeating-linear-gradient(90deg, var(--c) 0 6px, transparent 6px 10px); }
+.pk-bar:hover, .pk-bar.on { height: 6px; margin-top: 0.5px; box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--c); }
+.pk-dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 12px; align-items: center; margin: 0; }
+.pk-dl dt { font-weight: 600; font-size: 13px; color: var(--muted); }
+.pk-dl dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pk-dl dd .cell-view { min-width: 110px; }

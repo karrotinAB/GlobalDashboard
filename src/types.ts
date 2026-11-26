@@ -74,6 +74,7 @@ export interface Order {
   invoice: boolean; // 인보이스 제작 여부
   storeCode?: string; // 주문넣은 매장코드
   orderDate?: string; // 주문넣은 일자
+  acceptDate?: string; // 주문접수일 (관리부로 실제 들어간 날 · 없으면 = 주문일자) — 관리부 패킹 달력
   packing?: string; // 패킹 완료일 (자유 텍스트)
   shipFrom?: string; // 출고 장소
   note?: string;

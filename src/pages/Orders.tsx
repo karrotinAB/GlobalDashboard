@@ -1,8 +1,9 @@
+import OrdersPacking from './OrdersPacking';
 import { useOrderUsd, useStoreBranches } from '../lib/sales';
 import { useStoreNames } from '../lib/storeNames';
 import { rectOf } from '../lib/zoom';
 import { useIsMobile } from '../lib/useMobile';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { DATA_MODE, useLookups, useStore } from '../data/store';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
@@ -54,7 +55,7 @@ function toUnits(rows: Order[]): Unit[] {
   return units.sort((a, b) => top(a) - top(b));
 }
 
-export default function Orders() {
+function OrdersList({ tabs }: { tabs: ReactNode }) {
   const auditorView = !!useAccess().auditor; // IT 검토용 계정
   const { data, save, saveMany, remove } = useStore();
   const { myCompanies: companies, companyById } = useLookups();
@@ -391,6 +392,7 @@ export default function Orders() {
           <p className="muted">마지막 단계인 출고에 체크하면 자동으로 '완료'로 이동해요. 칸을 누르면 바로 고칠 수 있어요 · 완료건도 검색하면 다 나와요.</p>
         </div>
       </div>
+      {tabs}
 
       {!landing && (
       <>
@@ -1396,4 +1398,34 @@ function SavedErp({ o }: { o: Order }) {
       )}
     </div>
   );
+}
+
+/** 주문 관리: 📋 주문 리스트 · 🗓 관리부 패킹 (달력) */
+export default function Orders() {
+  const [tab, setTab] = useState<'list' | 'pack'>(() => {
+    try {
+      return localStorage.getItem('gd:ordersTab') === 'pack' ? 'pack' : 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  const pickTab = (t: 'list' | 'pack') => {
+    setTab(t);
+    try {
+      localStorage.setItem('gd:ordersTab', t);
+    } catch {
+      /* 무시 */
+    }
+  };
+  const tabs = (
+    <div className="seg ord-tabs">
+      <button className={tab === 'list' ? 'on' : ''} onClick={() => pickTab('list')}>
+        📋 주문 리스트
+      </button>
+      <button className={tab === 'pack' ? 'on' : ''} onClick={() => pickTab('pack')}>
+        🗓 관리부 패킹
+      </button>
+    </div>
+  );
+  return tab === 'pack' ? <OrdersPacking tabs={tabs} /> : <OrdersList tabs={tabs} />;
 }
