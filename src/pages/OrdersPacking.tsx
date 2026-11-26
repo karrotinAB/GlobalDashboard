@@ -1,7 +1,9 @@
-// 주문 관리 › 🗓 관리부 패킹: 1~3조 'ERP 등록' 주문을 달력에 — 주문접수일(없으면 주문일자) ~ 패킹완료일(없으면 주문일자 + 14일) 한 줄
-//   줄 색 = 업체 색 · 마우스 올리면 무슨 주문인지 · 누르면 주문일자 / 주문접수일 / 패킹완료일 (접수일 · 패킹완료일 고침 → 주문 리스트에도)
-//   ★ = 관리부 출고일 (주문 리스트의 관리부 출고일 · 묶음이면 묶음 출고일)
+// 주문 관리 › 🗓 관리부 패킹: 1~3조 'ERP 등록' 주문 (업체 + 실주문 일자별 한 덩어리 = 주문접수일(없으면 주문일자) ~ 패킹완료일(없으면 주문일자 + 14일, 연하게))
+//   위: 2주 보드 — 날짜마다 '패킹 중 N건 · 금액'(바쁠수록 진하게) · 그날 패킹 완료 · ★ 관리부 출고 · 토요일 ○ 팔렛트
+//   아래: 업체별 일정 (4주) — 업체 이름 고정 · 한 줄에 하나
+//   누르면 주문일자 / 주문접수일 / 패킹완료일 (접수일 · 패킹완료일 고침 → 주문 리스트에도)
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+
 import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useSpaceData } from '../data/store';
@@ -23,16 +25,12 @@ const addDays = (s: string, n: number) => {
 const dot = (s?: string) => (s ? s.replace(/-/g, '.') : '');
 /** 패킹완료일 (자유 글자) → YYYY-MM-DD */
 const packIso = (o: Order) => (o.packing ? parseDate(o.packing) : null);
-/** 줄 두께: 주문 금액 합계(원화) — 1천만 미만 2px · 3천만 미만 3px · 5천만 미만 5px · 1억 미만 7px · 1억 이상 9px */
-const THICK: [number, number, string][] = [
-  [10_000_000, 2, '~1천만'],
-  [30_000_000, 3, '~3천만'],
-  [50_000_000, 5, '~5천만'],
-  [100_000_000, 7, '~1억'],
-  [Infinity, 9, '1억~'],
-];
-const thick = (krw: number) => THICK.find(([max]) => krw < max)![1];
 const shipOf = (o: Order) => o.bundle?.shipDate || o.shipDate || '';
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+const dowOf = (d: string) => new Date(`${d}T00:00:00`).getDay();
+const md = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
+/** 금액 짧게: 1.2억 · 3,400만 */
+const won = (n: number) => (n >= 100_000_000 ? `${(n / 100_000_000).toFixed(n >= 1_000_000_000 ? 0 : 1)}억` : n >= 10_000 ? `${Math.round(n / 10_000).toLocaleString()}만` : n ? n.toLocaleString() : '');
 
 export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs: ReactNode; title?: string }) {
   const access = useAccess();
@@ -56,10 +54,13 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t1.data.companies, t2.data.companies, t3.data.companies]);
   const [teamF, setTeamF] = useState('');
-  const [month, setMonth] = useState(() => {
+  // 보는 주: 이번 주 일요일부터 (‹ › 로 한 주씩)
+  const thisSun = (() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-  });
+    d.setDate(d.getDate() - d.getDay());
+    return iso(d);
+  })();
+  const [from, setFrom] = useState(thisSun);
   const [pick, setPick] = useState<string | null>(null);
 
   // 줄: 시작(접수일 · 없으면 주문일자) ~ 끝(패킹완료일 · 없으면 주문일자 + 14일)
@@ -103,22 +104,12 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
   }, [bars]);
   const [palPick, setPalPick] = useState<string | null>(null);
 
-  // 이 달 달력 (일요일부터 · 6주까지)
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const gridStart = new Date(first);
-  gridStart.setDate(1 - first.getDay());
-  const weeks: string[][] = [];
-  for (let w = 0; w < 6; w++) {
-    const row = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(gridStart);
-      d.setDate(gridStart.getDate() + w * 7 + i);
-      return iso(d);
-    });
-    if (w > 3 && !row.some((d) => d.slice(0, 7) === iso(first).slice(0, 7))) break;
-    weeks.push(row);
-  }
   const today = iso(new Date());
-  const ym = iso(first).slice(0, 7);
+  const days14 = Array.from({ length: 14 }, (_, i) => addDays(from, i));
+  const days28 = Array.from({ length: 28 }, (_, i) => addDays(from, i));
+  // 날짜마다 패킹 중인 덩어리 (바쁜 정도)
+  const loadOf = (d: string) => bars.filter((b) => b.start <= d && b.end >= d);
+  const maxLoad = Math.max(1, ...days14.map((d) => loadOf(d).length));
   // ★ 관리부 출고일
   //   묶음이면 묶음 하나 = 별 하나 (안의 주문은 같이)
   type Ship = { key: string; o: T; os: T[]; name: string };
@@ -175,19 +166,19 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
       <div className="page-head">
         <div>
           <h1>{title}</h1>
-          <p className="muted">1~3조에서 ERP 등록한 주문을 업체 · 실주문 일자(주문접수일, 없으면 주문일자)별로 패킹완료일까지 한 줄로 보여요. 패킹완료일이 없으면 주문일자 + 14일 (점선). ★ = 관리부 출고일 · ○ = 팔렛트 작업 (패킹이 끝나는 주의 토요일).</p>
+          <p className="muted">1~3조 ERP 등록 주문 (업체 + 실주문 일자별). 위 2주 보드는 날마다 패킹 중인 양 · 그날 패킹 완료 · ★ 관리부 출고 · ○ 토요일 팔렛트 작업, 아래는 업체별 일정이에요. 패킹완료일이 없으면 주문일자 + 14일로 연하게.</p>
         </div>
       </div>
       {tabs}
       <div className="card toolbar pk-toolbar">
         <span className="seg">
-          <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="앞 달">
+          <button onClick={() => setFrom(addDays(from, -7))} aria-label="앞 주">
             ‹
           </button>
-          <button className="on" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} title="이번 달로">
-            {month.getFullYear()}. {month.getMonth() + 1}월
+          <button className={from === thisSun ? 'on' : ''} onClick={() => setFrom(thisSun)} title="이번 주로">
+            {md(from)} ~ {md(addDays(from, 13))}
           </button>
-          <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="다음 달">
+          <button onClick={() => setFrom(addDays(from, 7))} aria-label="다음 주">
             ›
           </button>
         </span>
@@ -199,87 +190,140 @@ export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs:
             </option>
           ))}
         </select>
-        <span className="pk-legend small" title="줄 두께 = 그 줄 주문 금액 합계 (원화)">
-          {THICK.map(([, h, l]) => (
-            <span key={l}>
-              <i style={{ height: h }} />
-              {l}
-            </span>
-          ))}
+        <span className="pk-legend small">
+          <span>
+            <i className="pk-lg-real" /> 패킹완료일 적힘
+          </span>
+          <span>
+            <i className="pk-lg-guess" /> 패킹완료일 없음 (주문일자 + 14일 · 연하게)
+          </span>
         </span>
-        <span className="muted small">이 달 주문 {bars.filter((b) => b.start <= weeks.at(-1)!.at(-1)! && b.end >= weeks[0][0]).length}개</span>
       </div>
       {loading ? (
         <p className="muted small">불러오는 중…</p>
       ) : (
-        <div className="card pk-cal">
-          <div className="pk-dow">
-            {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-              <span key={d} className={i === 0 ? 'sun' : i === 6 ? 'sat' : ''}>
-                {d}
-              </span>
-            ))}
-          </div>
-          {weeks.map((row) => {
-            const ws = row[0];
-            const we = row[6];
-            // 이 주에 걸친 줄 → 겹치지 않게 자리(lane) 나눔
-            const inWeek = bars.filter((b) => b.start <= we && b.end >= ws).sort((a, b) => a.start.localeCompare(b.start) || b.end.localeCompare(a.end));
-            const lanes: string[] = [];
-            const placed = inWeek.map((b) => {
-              const s = b.start < ws ? ws : b.start;
-              const e = b.end > we ? we : b.end;
-              let lane = lanes.findIndex((end) => end < s);
-              if (lane < 0) lane = lanes.length;
-              lanes[lane] = e;
-              return { b, col: row.indexOf(s), span: row.indexOf(e) - row.indexOf(s) + 1, lane, cutL: b.start < ws, cutR: b.end > we };
-            });
-            return (
-              <div key={ws} className="pk-week" style={{ '--lanes': Math.max(lanes.length, 1) } as CSSProperties}>
-                {row.map((d, i) => {
-                  const ships = shipByDay.get(d) ?? [];
-                  const pals = [...(palletByDay.get(d)?.values() ?? [])];
-                  return (
-                    <div key={d} className={`pk-day ${d.slice(0, 7) !== ym ? 'other' : ''} ${d === today ? 'today' : ''} ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}`}>
-                      <span className="pk-num">
-                        {Number(d.slice(8))}
-                        {ships.length > 0 && (
-                          <button className="pk-star" onClick={() => setShipPick(d)} title={`관리부 출고 ${ships.length}건 — 눌러서 보기`}>
-                            {ships.slice(0, 4).map((x, k) => (
-                              <i key={k} style={{ color: companies.get(x.o.companyId ?? '')?.color ?? '#c0392b' }}>
-                                ★
-                              </i>
+        <>
+          {/* 위: 2주 보드 */}
+          <div className="pb-board">
+            {[0, 1].map((w) => (
+              <div key={w} className="pb-week">
+                <div className="pb-week-h">{w === 0 && from === thisSun ? '이번 주' : w === 1 && from === thisSun ? '다음 주' : `${md(days14[w * 7])} 주`}</div>
+                <div className="pb-days">
+                  {days14.slice(w * 7, w * 7 + 7).map((d) => {
+                    const load = loadOf(d);
+                    const krw = load.reduce((a, b) => a + b.krw, 0);
+                    const ends = bars.filter((b) => b.end === d);
+                    const ships = shipByDay.get(d) ?? [];
+                    const pals = dowOf(d) === 6 ? [...(palletByDay.get(d)?.values() ?? [])] : [];
+                    const dow = dowOf(d);
+                    return (
+                      <div key={d} className={`pb-day ${d === today ? 'today' : ''} ${d < today ? 'past' : ''} ${dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}`} style={{ '--load': load.length / maxLoad } as CSSProperties}>
+                        <div className="pb-head">
+                          <b>{md(d)}</b> <span>{WEEK[dow]}</span>
+                        </div>
+                        <div className="pb-load" title={load.map((b) => `${b.o.team}조 ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건${b.guess ? ' (예상)' : ''}`).join('\n')}>
+                          {load.length ? (
+                            <>
+                              <b>{load.length}</b>건 패킹 중{krw ? <span> · ₩{won(krw)}</span> : null}
+                            </>
+                          ) : (
+                            <span className="muted">없음</span>
+                          )}
+                        </div>
+                        {ends.length > 0 && (
+                          <div className="pb-sec">
+                            <span className="pb-sec-h">패킹 완료</span>
+                            {ends.map((b) => (
+                              <button key={b.key} className={`pb-chip ${b.guess ? 'guess' : ''}`} style={{ '--c': b.color } as CSSProperties} onClick={() => setPick(b.key)} title={`${b.o.team}조 · ${b.coName} · ${dot(b.start)} 주문 ${b.os.length}건${b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}${b.guess ? '\n패킹완료일 없음 (예상)' : ''}`}>
+                                {b.coName} {b.os.length}건
+                              </button>
                             ))}
-                            {ships.length > 4 && <small>+{ships.length - 4}</small>}
-                          </button>
+                          </div>
+                        )}
+                        {ships.length > 0 && (
+                          <div className="pb-sec">
+                            <span className="pb-sec-h">★ 관리부 출고</span>
+                            {ships.map((x) => (
+                              <button key={x.key} className="pb-chip ship" style={{ '--c': companies.get(x.o.companyId ?? '')?.color ?? '#8c2f3c' } as CSSProperties} onClick={() => setShipPick(d)} title={x.os.map((o) => o.name).join(' · ')}>
+                                ★ {(companies.get(x.o.companyId ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')} · {x.name}
+                              </button>
+                            ))}
+                          </div>
                         )}
                         {pals.length > 0 && (
-                          <button className="pk-pal" onClick={() => setPalPick(d)} title={`팔렛트 작업 (이번 주 패킹 완료) ${pals.length}곳 — 눌러서 보기`}>
-                            {pals.slice(0, 5).map((g, k) => (
-                              <i key={k} style={{ borderColor: g[0].color }} />
+                          <div className="pb-sec">
+                            <span className="pb-sec-h">○ 팔렛트</span>
+                            {pals.map((g) => (
+                              <button key={g[0].key} className="pb-chip pal" style={{ '--c': g[0].color } as CSSProperties} onClick={() => setPalPick(d)}>
+                                ○ {g[0].coName} {g.reduce((a, b) => a + b.os.length, 0)}건
+                              </button>
                             ))}
-                            {pals.length > 5 && <small>+{pals.length - 5}</small>}
-                          </button>
+                          </div>
                         )}
-                      </span>
-                    </div>
-                  );
-                })}
-                <div className="pk-bars">
-                  {placed.map(({ b, col, span, lane, cutL, cutR }) => (
-                    <button
-                      key={b.key}
-                      className={`pk-bar ${b.guess ? 'guess' : ''} ${cutL ? 'cut-l' : ''} ${cutR ? 'cut-r' : ''} ${pick === b.key ? 'on' : ''}`}
-                      style={{ '--c': b.color, '--h': `${thick(b.krw)}px`, gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 1 } as CSSProperties}
-                      title={`${b.o.team}조 · ${b.coName} · ${b.os.length > 1 ? `주문 ${b.os.length}건` : `${b.name}${b.o.storeCode ? ` (${b.o.storeCode})` : ''}`}${b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}\n${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (예상: 주문일자 + 14일)' : ''}`}
-                      onClick={() => setPick(b.key)}
-                    />
-                  ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 아래: 업체별 일정 (4주) */}
+          {(() => {
+            const last = days28[27];
+            const rows = bars.filter((b) => b.start <= last && b.end >= from).sort((a, b) => a.coName.localeCompare(b.coName, 'ko') || a.start.localeCompare(b.start));
+            return (
+              <div className="card pg">
+                <div className="pg-title">
+                  <b>업체별 일정</b> <span className="muted small">4주 · 업체 + 실주문 일자마다 한 줄 · 누르면 날짜 고치기</span>
+                </div>
+                <div className="pg-scroll">
+                  <div className="pg-grid" style={{ '--n': 28 } as CSSProperties}>
+                    <div className="pg-label pg-hcell" />
+                    {days28.map((d) => {
+                      const dow = dowOf(d);
+                      return (
+                        <div key={d} className={`pg-hcell ${dow === 0 ? 'sun wk' : dow === 6 ? 'sat' : ''} ${d === today ? 'today' : ''}`}>
+                          {Number(d.slice(8)) === 1 || d === from ? <small>{Number(d.slice(5, 7))}월</small> : null}
+                          {Number(d.slice(8))}
+                        </div>
+                      );
+                    })}
+                    {rows.map((b, ri) => {
+                      const gr = ri + 2; // 1줄 = 날짜 머리
+                      const s0 = b.start < from ? from : b.start;
+                      const e0 = b.end > last ? last : b.end;
+                      const c0 = days28.indexOf(s0);
+                      const c1 = days28.indexOf(e0);
+                      return (
+                        <div key={b.key} className="pg-row" onClick={() => setPick(b.key)}>
+                          <div className="pg-label" style={{ gridRow: gr }} title={`${b.o.team}조 · ${b.coName}`}>
+                            <span className="dot" style={{ background: b.color }} />
+                            <b>{b.coName}</b>
+                            <span className="muted small">
+                              {b.o.team}조 · {md(b.start)} 주문 {b.os.length}건{b.krw ? ` · ₩${won(b.krw)}` : ''}
+                            </span>
+                          </div>
+                          {days28.map((d, ci) => (
+                            <div key={d} className={`pg-cell ${dowOf(d) === 0 ? 'wk' : ''} ${d === today ? 'today' : ''}`} style={{ gridRow: gr, gridColumn: ci + 2 }} />
+                          ))}
+                          <div
+                            className={`pg-bar ${b.guess ? 'guess' : ''} ${b.start < from ? 'cut-l' : ''} ${b.end > last ? 'cut-r' : ''}`}
+                            style={{ '--c': b.color, gridColumn: `${c0 + 2} / ${c1 + 3}`, gridRow: gr } as CSSProperties}
+                            title={`${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (패킹완료일 없음 · 예상)' : ''}`}
+                          >
+                            <span>{md(b.end)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!rows.length && <p className="muted small pg-empty">이 4주에 걸친 주문이 없어요.</p>}
+                  </div>
                 </div>
               </div>
             );
-          })}
-        </div>
+          })()}
+        </>
       )}
       {palPick && (
         <Modal title={`○ 팔렛트 작업 · ${dot(palPick)} (토)`} onClose={() => setPalPick(null)}>
