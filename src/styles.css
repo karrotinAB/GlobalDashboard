@@ -9719,7 +9719,8 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
   .pz { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
   .pz-top { position: fixed; padding: 10px 12px; gap: 8px; background: linear-gradient(rgba(60, 120, 40, 0.55), transparent); }
   .pz-hint { display: none; }
-  .pz-field { position: relative; inset: auto; height: max(100vh, 178vw); }
+  .pz-field { position: relative; inset: auto; height: calc(max(100vh, 178vw) + 40vw); }
+  .pz-field > .pz-board { top: 45%; }
   .pz-house { width: 20vw; }
   .pz-house.big { width: 23vw; }
   .pz-name { font-size: 11px; padding: 1px 6px; }

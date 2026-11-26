@@ -75,6 +75,8 @@ const RX0 = 50;
 const RY0 = 50;
 const RX = 41;
 const RY = 37;
+/** 세로로 긴 화면(휴대폰): 원은 위쪽에 (물류센터는 원 밖 맨 아래) */
+const geo = (tall: boolean) => (tall ? { x0: RX0, y0: 45, rx: 35, ry: 32 } : { x0: RX0, y0: RY0, rx: RX, ry: RY });
 
 /** 고정된 난수 (새로 그려도 덤불 자리가 그대로) */
 function rng(seed: number) {
@@ -86,11 +88,12 @@ function rng(seed: number) {
 }
 
 /** 바닥: 잔디 · 가운데 흙 광장 · 물류센터 마당 · 덤불 · 꽃 · 돌 조금 (길은 아직 안 그림) */
-function Ground({ w, h }: { w: number; h: number }) {
-  const cx = (w * RX0) / 100;
-  const cy = (h * RY0) / 100;
-  const rx = (w * RX) / 100;
-  const ry = (h * RY) / 100;
+function Ground({ w, h, tall }: { w: number; h: number; tall: boolean }) {
+  const g = geo(tall);
+  const cx = (w * g.x0) / 100;
+  const cy = (h * g.y0) / 100;
+  const rx = (w * g.rx) / 100;
+  const ry = (h * g.ry) / 100;
   const plazaR = Math.min(w, h) * 0.16;
   // 꾸미기: 길 · 광장 · 물류센터 · 위 줄을 피해서
   const deco = useMemo(() => {
@@ -105,7 +108,7 @@ function Ground({ w, h }: { w: number; h: number }) {
       const rr = Math.hypot(nx, ny);
       if (Math.abs(rr - 1) < 0.16) continue; // 둥근 길 · 집
       if (rr < 0.52) continue; // 가운데 광장 · 갈래길
-      if (y > h * 0.7 && Math.abs(x - cx) < w * 0.3) continue; // 물류센터
+      if (tall ? y > h * 0.84 : y > h * 0.7 && Math.abs(x - cx) < w * 0.3) continue; // 물류센터
       if (y < 64) continue; // 위 줄 (돌아가기)
       const roll = rand();
       const k = roll < 0.5 ? 'bush' : roll < 0.85 ? 'flower' : 'rock';
@@ -133,8 +136,8 @@ function Ground({ w, h }: { w: number; h: number }) {
       <ellipse cx={cx} cy={cy} rx={plazaR} ry={plazaR * 0.78} fill="#dcaa6c" />
       <ellipse cx={cx} cy={cy - plazaR * 0.1} rx={plazaR * 0.72} ry={plazaR * 0.48} fill="#e6bd85" opacity="0.6" />
       {/* 물류센터 마당 */}
-      <ellipse cx={cx} cy={h * 0.93} rx={w * 0.27} ry={h * 0.11} fill="#9b6a3a" />
-      <ellipse cx={cx} cy={h * 0.93} rx={w * 0.27 - 4} ry={h * 0.11 - 4} fill="#d6a668" />
+      <ellipse cx={cx} cy={h * (tall ? 0.95 : 0.93)} rx={w * (tall ? 0.56 : 0.27)} ry={h * (tall ? 0.07 : 0.11)} fill="#9b6a3a" />
+      <ellipse cx={cx} cy={h * (tall ? 0.95 : 0.93)} rx={w * (tall ? 0.56 : 0.27) - 4} ry={h * (tall ? 0.07 : 0.11) - 4} fill="#d6a668" />
       {/* 덤불 · 꽃 · 돌 · 풀 */}
       {deco.map((d, i) => (
         <g key={i} transform={`translate(${d.x.toFixed(1)},${d.y.toFixed(1)}) scale(${d.s.toFixed(2)})`}>
@@ -251,15 +254,15 @@ export default function Plaza() {
   }, []);
   // 세로로 긴 화면(휴대폰)은 양옆 집이 잘리지 않게 원을 조금 좁게
   const tall = !!fieldSize && fieldSize.w / fieldSize.h < 0.8;
-  const rxPct = tall ? 35 : RX;
+  const g = geo(tall);
   // 집 자리 = 타원 둘레를 같은 길이로 나눔 (각도로 나누면 길쭉한 화면에서 위 · 아래 집이 겹침)
   //   12시부터 시계 방향 · 6시 쪽은 물류센터 몫으로 비움 (넓은 화면은 물류센터가 커서 더 넓게)
   const angles = useMemo(() => {
     const n = ring.length;
     const w = fieldSize?.w ?? 1200;
     const h = fieldSize?.h ?? 800;
-    const rx = (w * rxPct) / 100;
-    const ry = (h * RY) / 100;
+    const rx = (w * g.rx) / 100;
+    const ry = (h * g.ry) / 100;
     const cum: number[] = [0];
     for (let d = 1; d <= 360; d++) {
       const a0 = ((d - 1 - 90) * Math.PI) / 180;
@@ -267,7 +270,7 @@ export default function Plaza() {
       cum.push(cum[d - 1] + Math.hypot(rx * (Math.cos(a1) - Math.cos(a0)), ry * (Math.sin(a1) - Math.sin(a0))));
     }
     const P = cum[360];
-    const G = P * (tall ? 0.17 : 0.3);
+    const G = tall ? 0 : P * 0.3; // 휴대폰은 물류센터가 원 밖이라 빈칸 없이
     const step = (P - G) / Math.max(1, n);
     return Array.from({ length: n }, (_, k) => {
       let want = k * step;
@@ -277,10 +280,11 @@ export default function Plaza() {
       const f = cum[d + 1] > cum[d] ? (want - cum[d]) / (cum[d + 1] - cum[d]) : 0;
       return -90 + d + f;
     });
-  }, [fieldSize, ring.length, rxPct, tall]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldSize, ring.length, tall]);
   const posOf = (deg: number): CSSProperties => {
     const r = (deg * Math.PI) / 180;
-    return { left: `${RX0 + rxPct * Math.cos(r)}%`, top: `${RY0 + RY * Math.sin(r)}%` };
+    return { left: `${g.x0 + g.rx * Math.cos(r)}%`, top: `${g.y0 + g.ry * Math.sin(r)}%` };
   };
 
   // ---------- 관리부: 패킹 중인 주문 · 출고 예정 ----------
@@ -352,7 +356,7 @@ export default function Plaza() {
       </div>
 
       <div className="pz-field" ref={fieldRef} onClick={() => setPickBox(null)}>
-        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} />}
+        {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} tall={tall} />}
         {/* 가운데: 게시판 */}
         <div className="pz-board" title="게시판 · 투표 · 공지 (준비 중)">
           <div className="pz-board-face">
