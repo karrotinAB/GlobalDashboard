@@ -6,7 +6,7 @@ import { DATA_MODE, useStore } from '../data/store';
 import { useAccess } from '../components/AuthGate';
 import { PRIORITIES, REQUEST_STATUS, type Member, type RequestFile, type TradeRequest } from '../types';
 import { today, uid } from './date';
-import { CHARACTERS } from '../components/ui';
+import { DEFAULT_CHARS } from '../components/ui';
 
 export const isOpen = (r: TradeRequest) => r.status === 'requested' || r.status === 'progress';
 
@@ -181,7 +181,7 @@ export function useTrade() {
 }
 
 /** 무역사무 담당자 캐릭터: 고른 게 없으면 순서대로 기본 캐릭터 */
-export const tradeChar = (m: Member, list: Member[]) => m.character ?? CHARACTERS[(Math.max(0, list.indexOf(m)) * 5 + 3) % CHARACTERS.length]; // 무역사무는 순서대로 (예전 그대로)
+export const tradeChar = (m: Member, list: Member[]) => m.character ?? DEFAULT_CHARS[(Math.max(0, list.indexOf(m)) * 5 + 3) % DEFAULT_CHARS.length]; // 무역사무는 순서대로 (예전 그대로)
 
 /** '3분 전', '2시간 전', '어제' … */
 export function ago(iso: string, now = Date.now()) {

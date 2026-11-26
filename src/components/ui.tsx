@@ -181,13 +181,15 @@ export function Cover({ tall, children }: { tall?: boolean; children?: ReactNode
   );
 }
 
-export const CHARACTERS = ['c01', 'c02', 'c04', 'c05', 'c06', 'c07', 'c08', 'c09', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16'];
+export const CHARACTERS = ['c01', 'c02', 'c04', 'c05', 'c06', 'c07', 'c08', 'c09', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16', 'c17']; // c12 개구리 · c17 병아리 (원래 c12 한 장에 같이 있던 것 나눔)
 export const characterSrc = (c: string) => `./characters/${c}.png`;
 
+/** 기본 캐릭터 고를 때 쓰는 목록 — 새 캐릭터를 더해도 이미 쓰던 기본 캐릭터가 안 바뀌게 따로 둠 */
+export const DEFAULT_CHARS = ['c01', 'c02', 'c04', 'c05', 'c06', 'c07', 'c08', 'c09', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16'];
 /** 캐릭터: 고른 게 없으면 사람마다 정해진 기본 캐릭터 (id 로 골라서 늘 같음) */
 export function charOf(m: { id: string; character?: string }) {
   if (m.character) return m.character;
   let h = 0;
   for (const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return CHARACTERS[h % CHARACTERS.length];
+  return DEFAULT_CHARS[h % DEFAULT_CHARS.length];
 }
