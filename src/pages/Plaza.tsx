@@ -509,9 +509,13 @@ export default function Plaza() {
         {fieldSize && <Ground w={fieldSize.w} h={fieldSize.h} tall={tall} short={short} />}
         {/* 가운데: 게시판 */}
         {/* 게시판 뒤: 동상 */}
-        <img className="pz-statue" src="./plaza/statue.png" alt="" draggable={false} />
+        <span className="pz-statue">
+          <img src="./plaza/statue.png" alt="" draggable={false} />
+          <img className="pz-snowcap" src="./plaza/statue-snow.png" alt="" draggable={false} />
+        </span>
         <div className="pz-board" title="마을 게시판 · 투표 · 공지 (준비 중)">
           <img src="./plaza/board.png" alt="" draggable={false} />
+          <img className="pz-snowcap" src="./plaza/board-snow.png" alt="" draggable={false} />
           <div className="pz-board-paper">
             <span className="pz-note n1">
               <i />
@@ -561,6 +565,7 @@ export default function Plaza() {
         <section className="pz-wh">
           <div className="pz-wh-building">
             <img src="./plaza/warehouse.png" alt="관리부 물류센터" draggable={false} />
+            <img className="pz-snowcap" src="./plaza/warehouse-snow.png" alt="" draggable={false} />
             <span className={`pz-wh-glass ${whOn ? 'on' : ''}`} style={maskOf('warehouse-glass')} title={whOn ? '관리부 근무 중' : '관리부 퇴근 (평일 8:30 ~ 18:00 에 불이 켜져요)'} />
             <span className="pz-wh-sign">관리부</span>
           </div>
@@ -599,7 +604,10 @@ export default function Plaza() {
           </div>
           <div className={`pz-truck ${truckOpen ? 'open' : ''}`} onMouseEnter={() => setTruckOpen(true)} onMouseLeave={() => setTruckOpen(false)} onClick={() => setTruckOpen((v) => !v)}>
             <img className="pz-truck-shadow" src="./plaza/truck-shadow.png" alt="" draggable={false} />
-            <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
+            <span className="pz-truck-body">
+              <img className="pz-truck-img" src="./plaza/truck.png" alt="출고 트럭" draggable={false} />
+              <img className="pz-snowcap" src="./plaza/truck-snow.png" alt="" draggable={false} />
+            </span>
             <span className="pz-truck-n">출고 예정 {ships.length}</span>
             {truckOpen && (
               <div className="pz-truck-pop" role="tooltip">
@@ -770,6 +778,7 @@ function House({ m, light, mine, unread, onMail, big, flip, sayBelow, roof }: { 
         <span className="pz-art-roof" style={maskOf('house-roof')} />
         <span className="pz-art-roof" style={maskOf('house-mailbox')} />
         <span className="pz-art-glass" style={maskOf('house-glass')} />
+        <img className="pz-snowcap" src="./plaza/house-snow.png" alt="" draggable={false} />
         {roof && <RoofLights {...roof} />}
         {light.on && <img className="pz-art-char" src={characterSrc(charOf(m))} alt="" draggable={false} />}
         <button className={`pz-mailbox ${mine && unread ? 'has' : ''}`} disabled={!canMail || DATA_MODE === 'local'} onClick={onMail} title={mine ? '받은 쪽지' : canMail ? `${m.name}에게 그림 쪽지` : '로그인 이메일이 없어서 쪽지를 못 보내요'} aria-label={mine ? '받은 쪽지' : `${m.name}에게 그림 쪽지`}>

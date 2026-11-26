@@ -9685,7 +9685,7 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-wh-count { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); background: #fff; border-radius: 999px; padding: 2px 12px; font-size: 12.5px; font-weight: 700; color: #4a3b2e; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); white-space: nowrap; }
 .pz-truck { position: relative; flex: none; width: clamp(130px, 20vmin, 240px); cursor: pointer; }
 .pz-truck-img { width: 100%; display: block; user-select: none; transition: transform 0.2s; }
-.pz-truck:hover .pz-truck-img, .pz-truck.open .pz-truck-img { animation: pz-rumble 0.22s linear infinite; }
+.pz-truck:hover .pz-truck-body, .pz-truck.open .pz-truck-body { animation: pz-rumble 0.22s linear infinite; }
 @keyframes pz-rumble { 50% { transform: translateY(-1.5px); } }
 .pz-truck-n { position: absolute; left: 58%; top: 26%; transform: translateX(-50%) rotate(-8deg); background: #fff; color: var(--primary); font-weight: 800; font-size: 13px; border-radius: 8px; padding: 2px 8px; border: 2px solid #3b2626; white-space: nowrap; pointer-events: none; }
 .pz-truck-pop { position: absolute; z-index: 5; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: 300px; max-height: 340px; overflow: auto; background: var(--surface); border-radius: 14px; padding: 12px 14px; box-shadow: 0 12px 34px rgba(30, 20, 20, 0.3); cursor: default; }
@@ -9858,3 +9858,13 @@ html.pz-open .mcal-btn, html.pz-open .mcal-pop { display: none; }
 .pz-snowy:not(.pz-night) .pz-title, .pz-snowy:not(.pz-night) .pz-hint { color: #2e3a4a; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8); }
 
 @media (max-height: 560px) and (min-aspect-ratio: 4/5) { .pz-hint { display: none; } .pz-field > .pz-board, .pz-field > .pz-statue { top: 55%; } }
+
+/* ❄️ 눈이 많이 오면 지붕 · 관리부 · 트럭 · 동상 · 게시판 위에도 쌓임 */
+.pz-snowcap { position: absolute; left: 0; top: 0; width: 100%; height: auto; pointer-events: none; user-select: none; opacity: 0; transition: opacity 3s; }
+.pz-snowy .pz-snowcap { opacity: 1; }
+.pz-art > .pz-snowcap { inset: 0; height: 100%; z-index: 2; }
+.pz-truck-body { position: relative; display: block; }
+.pz-wh-building > .pz-snowcap { z-index: 1; }
+.pz-board > .pz-snowcap { z-index: 1; }
+.pz-field > .pz-statue { display: block; }
+.pz-statue > img:first-child { width: 100%; display: block; }
