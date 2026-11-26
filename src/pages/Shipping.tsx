@@ -4,7 +4,7 @@
 //   외화정리 · 수출면장 · 배차 · 관리부출고 ○ → ● (관리부출고는 날짜 = 주문 관리 '출고일')
 //   ON BOARD ☐ · 출고마감 · 결재서류 ○
 //   저장: 묶음이면 묶음 안 주문마다 bundle.ship 에 같이, 묶음 아니면 order.ship (주문 관리 묶음과 같은 방식)
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLookups, useStore } from '../data/store';
 import { DateCell } from '../components/OrderCells';
 import { Modal } from '../components/ui';
@@ -53,7 +53,7 @@ export default function Shipping() {
 }
 
 /** 출고 관리 화면 (조 · 무역사무 같이 씀) */
-export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, readOnly = false }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void; readOnly?: boolean }) {
+export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, readOnly = false, tabs }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void; readOnly?: boolean; tabs?: ReactNode }) {
   const trade = mode === 'trade';
   const acc = useAccess();
   const me = acc.accountName || acc.email.split('@')[0] || '알 수 없음';
@@ -345,6 +345,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
             : '주문 관리에서 출고 승인된 주문이 묶음별로 들어와요. 묶음 이름을 누르면 안의 주문이 보여요. 붉은 칸(실제 입금 · ON BOARD)은 조원이 쓰는 칸이에요. 관리부출고 날짜는 주문 관리 출고일에 같이 들어가요.'}
         </p>
       </div>
+      {tabs}
       {/* 맨 위: 목록 · 달력 */}
       <div className="sh-viewbar">
         <span className="seg">

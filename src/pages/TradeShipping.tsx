@@ -1,17 +1,49 @@
 // 무역사무 › 🚚 출고 관리: 1~3조에서 출고 승인된 주문을 묶음별로 (조원 화면과 같은 표)
 //   무역사무가 고치는 것: 외화정리 · 수출면장 · 배차 · 관리부출고(날짜 → 그 조 주문 관리 출고일) · 출고마감 · 결재서류 · 단계별 파일
 //   저장: 그 조 주문 문서의 ship · shipDate · bundle(ship · shipDate) 만 (서버 규칙도 이 칸만 허락)
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { deleteField, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DATA_MODE, useSpaceData } from '../data/store';
 import { physName, TEAMS } from '../lib/team';
 import { ShipBoard } from './Shipping';
+import OrdersPacking from './OrdersPacking';
 import type { Claim, Company, Order } from '../types';
 
 type Tagged = Order & { team?: string };
 
 export default function TradeShipping({ readOnly = false }: { readOnly?: boolean } = {}) {
+  // 무역사무: 🚚 출고 관리 · 🗓 관리부 패킹 (팀장님 · 이사님 보기 화면은 출고 관리만)
+  const [tab, setTab] = useState<'ship' | 'pack'>(() => {
+    try {
+      return !readOnly && localStorage.getItem('gd:tshipTab') === 'pack' ? 'pack' : 'ship';
+    } catch {
+      return 'ship';
+    }
+  });
+  const pickTab = (t: 'ship' | 'pack') => {
+    setTab(t);
+    try {
+      localStorage.setItem('gd:tshipTab', t);
+    } catch {
+      /* 무시 */
+    }
+  };
+  const tabs = readOnly ? undefined : (
+    <div className="seg ord-tabs">
+      <button className={tab === 'ship' ? 'on' : ''} onClick={() => pickTab('ship')}>
+        🚚 출고 관리
+      </button>
+      <button className={tab === 'pack' ? 'on' : ''} onClick={() => pickTab('pack')}>
+        🗓 관리부 패킹
+      </button>
+    </div>
+  );
+  if (tab === 'pack' && tabs) return <OrdersPacking tabs={tabs} title="출고 관리" />;
+  return <TradeShipBoard readOnly={readOnly} tabs={tabs} />;
+}
+
+function TradeShipBoard({ readOnly, tabs }: { readOnly: boolean; tabs?: ReactNode }) {
   const t1 = useSpaceData('1', ['orders', 'companies', 'claims']);
   const t2 = useSpaceData('2', ['orders', 'companies', 'claims']);
   const t3 = useSpaceData('3', ['orders', 'companies', 'claims']);
@@ -72,7 +104,7 @@ export default function TradeShipping({ readOnly = false }: { readOnly?: boolean
   return (
     <>
       {err && <p className="warn small page">주문을 못 불러왔어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat): {err}</p>}
-      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" readOnly={readOnly} orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
+      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" readOnly={readOnly} tabs={tabs} orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
     </>
   );
 }

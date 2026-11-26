@@ -34,7 +34,7 @@ const THICK: [number, number, string][] = [
 const thick = (krw: number) => THICK.find(([max]) => krw < max)![1];
 const shipOf = (o: Order) => o.bundle?.shipDate || o.shipDate || '';
 
-export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
+export default function OrdersPacking({ tabs, title = '주문 관리' }: { tabs: ReactNode; title?: string }) {
   const access = useAccess();
   const t1 = useSpaceData('1', ['orders', 'companies']);
   const t2 = useSpaceData('2', ['orders', 'companies']);
@@ -174,7 +174,7 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>주문 관리</h1>
+          <h1>{title}</h1>
           <p className="muted">1~3조에서 ERP 등록한 주문을 업체 · 실주문 일자(주문접수일, 없으면 주문일자)별로 패킹완료일까지 한 줄로 보여요. 패킹완료일이 없으면 주문일자 + 14일 (점선). ★ = 관리부 출고일 · ○ = 팔렛트 작업 (패킹이 끝나는 주의 토요일).</p>
         </div>
       </div>
