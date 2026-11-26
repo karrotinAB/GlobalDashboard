@@ -29,21 +29,34 @@ export default function TradeShipping({ readOnly = false }: { readOnly?: boolean
       /* 무시 */
     }
   };
-  const tabs = readOnly ? undefined : (
-    <div className="seg ord-tabs">
-      <button className={tab === 'ship' ? 'on' : ''} onClick={() => pickTab('ship')}>
-        🚚 출고 관리
-      </button>
-      <button className={tab === 'pack' ? 'on' : ''} onClick={() => pickTab('pack')}>
-        🗓 관리부 패킹
-      </button>
-    </div>
-  );
-  if (tab === 'pack' && tabs) return <OrdersPacking tabs={tabs} title="출고 관리" />;
-  return <TradeShipBoard readOnly={readOnly} tabs={tabs} />;
+  // 📋 목록 · 📅 달력 · 🗓 관리부 패킹 를 한 줄에 (목록 · 달력은 출고 관리 화면 안의 보기)
+  const goShip = (v: 'list' | 'cal') => {
+    try {
+      localStorage.setItem('gd:shipView:trade', v);
+    } catch {
+      /* 무시 */
+    }
+    pickTab('ship');
+  };
+  if (tab === 'pack' && !readOnly)
+    return (
+      <OrdersPacking
+        title="출고 관리"
+        tabs={
+          <div className="sh-viewbar">
+            <span className="seg">
+              <button onClick={() => goShip('list')}>📋 목록</button>
+              <button onClick={() => goShip('cal')}>📅 달력</button>
+              <button className="on">🗓 관리부 패킹</button>
+            </span>
+          </div>
+        }
+      />
+    );
+  return <TradeShipBoard readOnly={readOnly} viewExtra={readOnly ? undefined : <button onClick={() => pickTab('pack')}>🗓 관리부 패킹</button>} />;
 }
 
-function TradeShipBoard({ readOnly, tabs }: { readOnly: boolean; tabs?: ReactNode }) {
+function TradeShipBoard({ readOnly, viewExtra }: { readOnly: boolean; viewExtra?: ReactNode }) {
   const t1 = useSpaceData('1', ['orders', 'companies', 'claims']);
   const t2 = useSpaceData('2', ['orders', 'companies', 'claims']);
   const t3 = useSpaceData('3', ['orders', 'companies', 'claims']);
@@ -104,7 +117,7 @@ function TradeShipBoard({ readOnly, tabs }: { readOnly: boolean; tabs?: ReactNod
   return (
     <>
       {err && <p className="warn small page">주문을 못 불러왔어요 (서버 규칙을 새로 올렸는지 확인 — deploy.bat): {err}</p>}
-      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" readOnly={readOnly} tabs={tabs} orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
+      {loading && !orders.length ? <p className="muted small page">불러오는 중…</p> : <ShipBoard mode="trade" readOnly={readOnly} viewExtra={viewExtra} orders={orders} claims={claims} companies={companies} saveOrders={saveOrders} />}
     </>
   );
 }

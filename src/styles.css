@@ -9511,3 +9511,6 @@ button.drawer-tools-head:hover { background: var(--primary-soft); }
 .pk-legend { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
 .pk-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .pk-legend i { display: inline-block; width: 22px; background: var(--muted); border-radius: 999px; }
+.sh-drop { border-radius: 12px; transition: background .15s; }
+.sh-drop.over { background: #f3eefc; outline: 2px dashed #8a6bc4; outline-offset: 4px; }
+.sh-drop-hint { margin: 8px 0 0; }

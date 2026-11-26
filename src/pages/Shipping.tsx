@@ -53,7 +53,7 @@ export default function Shipping() {
 }
 
 /** 출고 관리 화면 (조 · 무역사무 같이 씀) */
-export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, readOnly = false, tabs }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void; readOnly?: boolean; tabs?: ReactNode }) {
+export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, readOnly = false, tabs, viewExtra }: { mode: Mode; orders: Order[]; claims?: Claim[]; companies: Company[]; saveOrders: (os: Order[]) => Promise<void> | void; readOnly?: boolean; tabs?: ReactNode; viewExtra?: ReactNode }) {
   const trade = mode === 'trade';
   const acc = useAccess();
   const me = acc.accountName || acc.email.split('@')[0] || '알 수 없음';
@@ -355,6 +355,7 @@ export function ShipBoard({ mode, orders, claims = [], companies, saveOrders, re
           <button className={view === 'cal' ? 'on' : ''} onClick={() => pickView('cal')}>
             📅 달력
           </button>
+          {viewExtra}
         </span>
       </div>
       {/* 그 아래: 거르기 · 검색 · 업체 고르기 */}
@@ -711,7 +712,7 @@ function ShipFiles({ title, list, canEdit, folder, onChange, onClose }: { title:
     onChange([...list, { name: u.replace(/^https?:\/\//i, '').slice(0, 60), url }]);
     setLink('');
   };
-  const upload = async (fs: FileList | null) => {
+  const upload = async (fs: FileList | File[] | null) => {
     if (!fs?.length) return;
     setBusy(true);
     setErr('');
@@ -729,8 +730,39 @@ function ShipFiles({ title, list, canEdit, folder, onChange, onClose }: { title:
       if (fileRef.current) fileRef.current.value = '';
     }
   };
+  // 끌어다 놓기 · Ctrl+V (캡처한 사진 등) 로도 올림
+  const [over, setOver] = useState(false);
+  const uploadRef = useRef(upload);
+  uploadRef.current = upload;
+  useEffect(() => {
+    if (!canEdit) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (!files.length) return; // 글자 붙여넣기는 그대로 (링크 칸)
+      e.preventDefault();
+      const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+      void uploadRef.current(files.map((f, i) => (/^image\.\w+$/i.test(f.name) || !f.name ? new File([f], `붙여넣기_${stamp}${i ? `_${i}` : ''}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type }) : f)));
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [canEdit]);
   return (
     <Modal title={`📎 ${title}`} onClose={onClose}>
+      <div
+        className={`sh-drop ${over ? 'over' : ''}`}
+        onDragOver={(e) => {
+          if (!canEdit) return;
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          if (!canEdit) return;
+          e.preventDefault();
+          setOver(false);
+          void upload(Array.from(e.dataTransfer.files));
+        }}
+      >
       {list.length === 0 ? (
         <p className="muted small">아직 올린 게 없어요.</p>
       ) : (
@@ -769,6 +801,8 @@ function ShipFiles({ title, list, canEdit, folder, onChange, onClose }: { title:
           <input ref={fileRef} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
         </div>
       )}
+      {canEdit && <p className="muted small sh-drop-hint">{busy ? '올리는 중…' : '파일을 여기로 끌어다 놓거나, 캡처한 사진은 Ctrl+V 로 바로 올려요'}</p>}
+      </div>
       {err && <p className="warn small">{err}</p>}
     </Modal>
   );
