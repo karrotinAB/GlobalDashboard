@@ -31,6 +31,7 @@ interface Draft {
   personEmail: string;
   personName: string;
   personPhone: string;
+  titleEdit?: string | null; // ✎ 제목을 통째로 직접 고친 것 (null/없음 = 양식대로)
 }
 const EMPTY: Draft = { kind: 'packing', companyId: '', country: '', coName: '', orderIds: [], lines: [], content: '', note1: null, note2: null, packDate: '', personEmail: '', personName: '', personPhone: '' };
 const LS = 'gd:coopDraft2';
@@ -144,7 +145,8 @@ export default function Coop() {
   const personPhone = d.personPhone || autoPhone;
 
   const lineText = (l: Line) => `- ${[l.store.trim(), l.date.trim()].filter(Boolean).join(' ')} 주문`;
-  const title = `(업무협조전-글로벌사업부) ${[country, coName].filter(Boolean).join(' ')} 패킹 요청`;
+  const autoTitle = `(업무협조전-글로벌사업부) ${[country, coName].filter(Boolean).join(' ')} 패킹 요청`;
+  const title = d.titleEdit ?? autoTitle;
   const body = [
     '상기의 건에 대하여 아래와 같이 요청하오니 업무 협조 바랍니다.',
     '',
@@ -265,9 +267,25 @@ export default function Coop() {
           <b>제목</b>
         </div>
         <div className="coop-paper coop-title">
-          (업무협조전-글로벌사업부) <Blank value={d.country} auto={autoCountry} ph="나라" onChange={(v) => set({ country: v })} />{' '}
-          <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} />{' '}
-          패킹 요청
+          {d.titleEdit != null ? (
+            // ✎ 제목 직접 고치기
+            <>
+              <input className="coop-title-edit" autoFocus value={d.titleEdit} onChange={(e) => set({ titleEdit: e.target.value })} />
+              <button className="link small coop-title-btn" onClick={() => set({ titleEdit: null })} title="양식대로 (나라 · 업체명 빈칸) 돌아가기">
+                ↺ 양식대로
+              </button>
+            </>
+          ) : (
+            <>
+              <span>
+                (업무협조전-글로벌사업부) <Blank value={d.country} auto={autoCountry} ph="나라" onChange={(v) => set({ country: v })} />{' '}
+                <Blank value={d.coName} auto={autoCo} ph="업체명" onChange={(v) => set({ coName: v })} /> 패킹 요청
+              </span>
+              <button className="icon-btn coop-title-btn" onClick={() => set({ titleEdit: autoTitle })} title="제목 통째로 고치기">
+                ✎
+              </button>
+            </>
+          )}
         </div>
 
         <div className="coop-copy">
