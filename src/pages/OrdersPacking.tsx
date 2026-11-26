@@ -96,15 +96,24 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
   const today = iso(new Date());
   const ym = iso(first).slice(0, 7);
   // ★ 관리부 출고일
+  //   묶음이면 묶음 하나 = 별 하나 (안의 주문은 같이)
+  type Ship = { key: string; o: T; os: T[]; name: string };
   const shipByDay = useMemo(() => {
-    const m = new Map<string, T[]>();
+    const byKey = new Map<string, Ship & { day: string }>();
     for (const o of orders) {
       if (teamF && o.team !== teamF) continue;
-      const s = shipOf(o);
-      if (s) m.set(s.slice(0, 10), [...(m.get(s.slice(0, 10)) ?? []), o]);
+      const s = shipOf(o).slice(0, 10);
+      if (!s) continue;
+      const k = `${s}|${o.team}|${o.bundle ? `b:${o.bundle.id}` : o.id}`;
+      const cur = byKey.get(k);
+      if (cur) cur.os.push(o);
+      else byKey.set(k, { key: k, day: s, o, os: [o], name: o.bundle ? o.bundle.name || '묶음' : o.name });
     }
+    const m = new Map<string, Ship[]>();
+    for (const x of byKey.values()) m.set(x.day, [...(m.get(x.day) ?? []), x]);
     return m;
   }, [orders, teamF]);
+  const [shipPick, setShipPick] = useState<string | null>(null); // 누른 날짜의 ★ 목록
 
   // 고치기: 관리자 · 조원 (다른 조 주문도 패킹완료일 · 주문접수일만 — 서버 규칙도 이 두 칸만) / 팀장님 · 이사님 · 무역사무 · IT 검토용은 보기만
   const canEdit = (o: T) => { void o; return !access.auditor && (access.role === 'admin' || access.role === null || access.role === 'member'); };
@@ -202,14 +211,14 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
                       <span className="pk-num">
                         {Number(d.slice(8))}
                         {ships.length > 0 && (
-                          <span className="pk-star" title={`관리부 출고\n${ships.map((o) => `${o.team}조 ${(companies.get(o.companyId ?? '')?.name ?? '').replace(/\s*\(.*\)\s*$/, '')} · ${o.bundle?.name || o.name}`).join('\n')}`}>
-                            {ships.slice(0, 4).map((o, k) => (
-                              <i key={k} style={{ color: companies.get(o.companyId ?? '')?.color ?? '#c0392b' }}>
+                          <button className="pk-star" onClick={() => setShipPick(d)} title={`관리부 출고 ${ships.length}건 — 눌러서 보기`}>
+                            {ships.slice(0, 4).map((x, k) => (
+                              <i key={k} style={{ color: companies.get(x.o.companyId ?? '')?.color ?? '#c0392b' }}>
                                 ★
                               </i>
                             ))}
                             {ships.length > 4 && <small>+{ships.length - 4}</small>}
-                          </span>
+                          </button>
                         )}
                       </span>
                     </div>
@@ -230,6 +239,30 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
             );
           })}
         </div>
+      )}
+      {shipPick && (
+        <Modal title={`★ 관리부 출고 · ${dot(shipPick)}`} onClose={() => setShipPick(null)}>
+          <ul className="pk-ships">
+            {(shipByDay.get(shipPick) ?? []).map((x) => {
+              const c = companies.get(x.o.companyId ?? '');
+              return (
+                <li key={x.key}>
+                  <span className="pk-ship-star" style={{ color: c?.color ?? '#c0392b' }}>
+                    ★
+                  </span>
+                  <div>
+                    <b>
+                      {x.o.team}조 · {(c?.name ?? '').replace(/\s*\(.*\)\s*$/, '')} · {x.o.bundle ? `📦 ${x.name}` : x.name}
+                    </b>
+                    <div className="muted small">
+                      {x.os.map((o) => `${o.name}${o.storeCode ? ` (${o.storeCode})` : ''}`).join(' · ')}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Modal>
       )}
       {sel && (
         <Modal title={`📦 ${sel.o.team}조 · ${sel.name}`} onClose={() => setPick(null)} wide={sel.os.length > 1}>
