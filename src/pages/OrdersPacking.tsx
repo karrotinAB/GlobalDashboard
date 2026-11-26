@@ -54,20 +54,29 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
   const [pick, setPick] = useState<string | null>(null);
 
   // 줄: 시작(접수일 · 없으면 주문일자) ~ 끝(패킹완료일 · 없으면 주문일자 + 14일)
-  const bars = useMemo(
-    () =>
-      orders
-        .filter((o) => !teamF || o.team === teamF)
-        .map((o) => {
-          const start = (o.acceptDate || o.orderDate)!.slice(0, 10);
-          const p = packIso(o);
-          let end = p ?? addDays((o.orderDate || start).slice(0, 10), 14);
-          if (end < start) end = start;
-          const c = companies.get(o.companyId ?? '');
-          return { o, key: `${o.team}|${o.id}`, start, end, guess: !p, color: c?.color ?? '#8c2f3c', coName: (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '') };
-        }),
-    [orders, teamF, companies],
-  );
+  //   묶음 주문은 묶음 하나 = 한 줄 (안의 주문 중 가장 이른 시작 ~ 가장 늦은 패킹완료일) · 묶음 아닌 주문은 주문마다
+  const bars = useMemo(() => {
+    const groups = new Map<string, T[]>();
+    for (const o of orders) {
+      if (teamF && o.team !== teamF) continue;
+      const k = o.bundle ? `${o.team}|b:${o.bundle.id}` : `${o.team}|${o.id}`;
+      groups.set(k, [...(groups.get(k) ?? []), o]);
+    }
+    return [...groups.entries()].map(([key, os]) => {
+      const one = (o: T) => {
+        const start = (o.acceptDate || o.orderDate)!.slice(0, 10);
+        const p = packIso(o);
+        const end = p ?? addDays((o.orderDate || start).slice(0, 10), 14);
+        return { start, end: end < start ? start : end, guess: !p };
+      };
+      const rs = os.map(one);
+      const start = rs.map((r) => r.start).sort()[0];
+      const end = rs.map((r) => r.end).sort().at(-1)!;
+      const o = os[0];
+      const c = companies.get(o.companyId ?? '');
+      return { o, os, key, name: o.bundle ? o.bundle.name || '묶음' : o.name, start, end, guess: rs.every((r) => r.guess), color: c?.color ?? '#8c2f3c', coName: (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '') };
+    });
+  }, [orders, teamF, companies]);
 
   // 이 달 달력 (일요일부터 · 6주까지)
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -211,7 +220,7 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
                       key={b.key}
                       className={`pk-bar ${b.guess ? 'guess' : ''} ${cutL ? 'cut-l' : ''} ${cutR ? 'cut-r' : ''} ${pick === b.key ? 'on' : ''}`}
                       style={{ '--c': b.color, gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 1 } as CSSProperties}
-                      title={`${b.o.team}조 · ${b.coName} · ${b.o.name}${b.o.storeCode ? ` (${b.o.storeCode})` : ''}\n${b.o.acceptDate ? '접수' : '주문'} ${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (예상: 주문일자 + 14일)' : ''}`}
+                      title={`${b.o.team}조 · ${b.coName} · ${b.o.bundle ? `📦 ${b.name} (주문 ${b.os.length}개)` : `${b.name}${b.o.storeCode ? ` (${b.o.storeCode})` : ''}`}\n${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (예상: 주문일자 + 14일)' : ''}`}
                       onClick={() => setPick(b.key)}
                     />
                   ))}
@@ -222,29 +231,61 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
         </div>
       )}
       {sel && (
-        <Modal title={`📦 ${sel.o.team}조 · ${sel.o.name}`} onClose={() => setPick(null)}>
+        <Modal title={`📦 ${sel.o.team}조 · ${sel.name}`} onClose={() => setPick(null)} wide={sel.os.length > 1}>
           <p className="muted small" style={{ marginTop: 0 }}>
             <span className="dot" style={{ background: sel.color }} /> {companies.get(sel.o.companyId ?? '')?.name ?? ''}
-            {sel.o.storeCode ? ` · 매장 ${sel.o.storeCode}` : ''}
+            {sel.o.bundle ? ` · 묶음 주문 ${sel.os.length}개` : sel.o.storeCode ? ` · 매장 ${sel.o.storeCode}` : ''} · 달력 {dot(sel.start)} → {dot(sel.end)}
+            {sel.guess && ' (패킹완료일 없음 → 주문일자 + 14일)'}
           </p>
-          <dl className="pk-dl">
-            <dt>주문일자</dt>
-            <dd>{dot(sel.o.orderDate) || '-'} <span className="muted small">(ERP 에 등록한 날)</span></dd>
-            <dt>주문접수일</dt>
-            <dd>
-              {canEdit(sel.o) ? <DateCell value={sel.o.acceptDate || sel.o.orderDate} onSave={(v) => void save(sel.o, { acceptDate: v && v !== sel.o.orderDate ? v : null })} /> : dot(sel.o.acceptDate || sel.o.orderDate)}
-              <span className="muted small">{sel.o.acceptDate ? '관리부로 실제 들어간 날' : '= 주문일자 (관리부로 실제 들어간 날이 다르면 고쳐요)'}</span>
-            </dd>
-            <dt>패킹완료일</dt>
-            <dd>
-              {canEdit(sel.o) ? <DateCell value={packIso(sel.o) ?? undefined} onSave={(v) => void save(sel.o, { packing: v ? dot(v) : null })} /> : dot(packIso(sel.o) ?? '') || '-'}
-              <span className="muted small">{packIso(sel.o) ? '주문 리스트 패킹 완료일과 같이 바뀌어요' : `비어 있어서 달력엔 주문일자 + 14일 (${dot(sel.end)})`}</span>
-              {sel.o.packing && !packIso(sel.o) && <span className="warn small">적힌 글: "{sel.o.packing}"</span>}
-            </dd>
-            <dt>관리부 출고일</dt>
-            <dd>{shipOf(sel.o) ? `★ ${dot(shipOf(sel.o))}` : '-'}</dd>
-          </dl>
-          {!canEdit(sel.o) && <p className="muted small">보기만 할 수 있어요.</p>}
+          <div className="table-scroll">
+            <table className="pk-table">
+              <thead>
+                <tr>
+                  <th>주문</th>
+                  <th>주문일자</th>
+                  <th title="관리부로 실제 들어간 날 · 비우면 = 주문일자">주문접수일</th>
+                  <th title="주문 리스트 패킹 완료일과 같이 바뀌어요 · 비우면 달력엔 주문일자 + 14일">패킹완료일</th>
+                  <th>관리부 출고일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sel.os.map((o) => (
+                  <tr key={o.id}>
+                    <td>
+                      <b>{o.name}</b>
+                      {o.storeCode && <span className="muted small"> {o.storeCode}</span>}
+                    </td>
+                    <td>{dot(o.orderDate) || '-'}</td>
+                    <td className={o.acceptDate ? '' : 'pk-same'}>
+                      {canEdit(o) ? <DateCell value={o.acceptDate || o.orderDate} onSave={(v) => void save(o, { acceptDate: v && v !== o.orderDate ? v : null })} /> : dot(o.acceptDate || o.orderDate)}
+                    </td>
+                    <td className={packIso(o) ? '' : 'pk-same'}>
+                      {canEdit(o) ? (
+                        <DateCell value={packIso(o) ?? undefined} onSave={(v) => void save(o, { packing: v ? dot(v) : null })} />
+                      ) : (
+                        dot(packIso(o) ?? '') || '-'
+                      )}
+                      {!packIso(o) && <span className="muted small"> 예상 {dot(addDays((o.orderDate || '').slice(0, 10), 14))}</span>}
+                      {o.packing && !packIso(o) && <span className="warn small"> "{o.packing}"</span>}
+                    </td>
+                    <td>{shipOf(o) ? `★ ${dot(shipOf(o))}` : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {sel.os.length > 1 && canEdit(sel.o) && (
+            <div className="pk-all small">
+              <span>묶음 전체 한 번에:</span>
+              <label>
+                접수일 <DateCell value={undefined} onSave={(v) => v && sel.os.forEach((o) => void save(o, { acceptDate: v !== o.orderDate ? v : null }))} />
+              </label>
+              <label>
+                패킹완료일 <DateCell value={undefined} onSave={(v) => v && sel.os.forEach((o) => void save(o, { packing: dot(v) }))} />
+              </label>
+            </div>
+          )}
+          <p className="muted small">주문접수일 = 관리부로 실제 들어간 날 (비우면 주문일자) · 패킹완료일은 주문 리스트와 같이 바뀌어요.{!canEdit(sel.o) && ' 보기만 할 수 있어요.'}</p>
         </Modal>
       )}
     </div>
