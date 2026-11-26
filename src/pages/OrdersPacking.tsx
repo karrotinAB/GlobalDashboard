@@ -23,6 +23,15 @@ const addDays = (s: string, n: number) => {
 const dot = (s?: string) => (s ? s.replace(/-/g, '.') : '');
 /** 패킹완료일 (자유 글자) → YYYY-MM-DD */
 const packIso = (o: Order) => (o.packing ? parseDate(o.packing) : null);
+/** 줄 두께: 주문 금액 합계(원화) — 1천만 미만 2px · 3천만 미만 3px · 5천만 미만 5px · 1억 미만 7px · 1억 이상 9px */
+const THICK: [number, number, string][] = [
+  [10_000_000, 2, '~1천만'],
+  [30_000_000, 3, '~3천만'],
+  [50_000_000, 5, '~5천만'],
+  [100_000_000, 7, '~1억'],
+  [Infinity, 9, '1억~'],
+];
+const thick = (krw: number) => THICK.find(([max]) => krw < max)![1];
 const shipOf = (o: Order) => o.bundle?.shipDate || o.shipDate || '';
 
 export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
@@ -75,7 +84,8 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
       const end = rs.map((r) => r.end).sort().at(-1)!;
       const o = os[0];
       const c = companies.get(o.companyId ?? '');
-      return { o, os, key, name: os.length > 1 ? `${dot(start)} 주문 ${os.length}건` : o.name, start, end, guess: rs.every((r) => r.guess), color: c?.color ?? '#8c2f3c', coName: (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '') };
+      const krw = os.reduce((a, x) => a + (x.amountKRW ?? 0), 0);
+      return { o, os, key, krw, name: os.length > 1 ? `${dot(start)} 주문 ${os.length}건` : o.name, start, end, guess: rs.every((r) => r.guess), color: c?.color ?? '#8c2f3c', coName: (c?.name ?? '').replace(/\s*\(.*\)\s*$/, '') };
     });
   }, [orders, teamF, companies]);
   // ○ 팔렛트 작업: 매주 토요일 — 패킹이 끝나는 주의 토요일에 (업체마다 원 하나)
@@ -129,8 +139,8 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
   }, [orders, teamF]);
   const [shipPick, setShipPick] = useState<string | null>(null); // 누른 날짜의 ★ 목록
 
-  // 고치기: 관리자 · 조원 (다른 조 주문도 패킹완료일 · 주문접수일만 — 서버 규칙도 이 두 칸만) / 팀장님 · 이사님 · 무역사무 · IT 검토용은 보기만
-  const canEdit = (o: T) => { void o; return !access.auditor && (access.role === 'admin' || access.role === null || access.role === 'member'); };
+  // 고치기: 관리자는 모두 · 조원은 자기 조 주문만 / 팀장님 · 이사님 · 무역사무 · IT 검토용은 보기만
+  const canEdit = (o: T) => !access.auditor && (access.role === 'admin' || access.role === null || (access.role === 'member' && o.team === access.team));
   const save = async (o: T, patch: { packing?: string | null; acceptDate?: string | null }) => {
     const next = { ...o } as T;
     if ('packing' in patch) next.packing = patch.packing || undefined;
@@ -189,6 +199,14 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
             </option>
           ))}
         </select>
+        <span className="pk-legend small" title="줄 두께 = 그 줄 주문 금액 합계 (원화)">
+          {THICK.map(([, h, l]) => (
+            <span key={l}>
+              <i style={{ height: h }} />
+              {l}
+            </span>
+          ))}
+        </span>
         <span className="muted small">이 달 주문 {bars.filter((b) => b.start <= weeks.at(-1)!.at(-1)! && b.end >= weeks[0][0]).length}개</span>
       </div>
       {loading ? (
@@ -252,8 +270,8 @@ export default function OrdersPacking({ tabs }: { tabs: ReactNode }) {
                     <button
                       key={b.key}
                       className={`pk-bar ${b.guess ? 'guess' : ''} ${cutL ? 'cut-l' : ''} ${cutR ? 'cut-r' : ''} ${pick === b.key ? 'on' : ''}`}
-                      style={{ '--c': b.color, gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 1 } as CSSProperties}
-                      title={`${b.o.team}조 · ${b.coName} · ${b.os.length > 1 ? `주문 ${b.os.length}건` : `${b.name}${b.o.storeCode ? ` (${b.o.storeCode})` : ''}`}\n${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (예상: 주문일자 + 14일)' : ''}`}
+                      style={{ '--c': b.color, '--h': `${thick(b.krw)}px`, gridColumn: `${col + 1} / span ${span}`, gridRow: lane + 1 } as CSSProperties}
+                      title={`${b.o.team}조 · ${b.coName} · ${b.os.length > 1 ? `주문 ${b.os.length}건` : `${b.name}${b.o.storeCode ? ` (${b.o.storeCode})` : ''}`}${b.krw ? ` · ₩${b.krw.toLocaleString()}` : ''}\n${dot(b.start)} → 패킹 ${dot(b.end)}${b.guess ? ' (예상: 주문일자 + 14일)' : ''}`}
                       onClick={() => setPick(b.key)}
                     />
                   ))}

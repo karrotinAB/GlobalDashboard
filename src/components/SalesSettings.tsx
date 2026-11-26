@@ -15,7 +15,7 @@ const looksAbbr = (a?: string) => /^[A-Za-z0-9][A-Za-z0-9 ._\-&]{0,15}$/.test((a
 /** 지점별 평수 (판매 데이터에 나온 지점 + 직접 추가) */
 export function StoreAreaSection() {
   const { companies } = useLookups();
-  const own = companies.filter((c) => !c.team && c.storeCodes?.length);
+  const own = companies.filter((c) => !c.team && c.kind !== 'other' && c.storeCodes?.length); // 그외(구분)는 매장 설정에 안 나옴
   const allCodes = own.flatMap((c) => c.storeCodes ?? []);
   const { months } = useSales(allCodes);
   // 지점 목록·이름: ERP 거래처 정보(BRANCH_NAME). 서버가 7일 보관하니 들어올 때마다 불러도 괜찮음

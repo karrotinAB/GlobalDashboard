@@ -337,11 +337,6 @@ service cloud.firestore {
       // 무역사무: 1~3조 주문의 출고 관리 칸만 (출고 관리 페이지)
       allow update: if teamCol(col) && baseOf(col) == 'orders' && teamTag(col).matches('t[0-9]+') && isTrade() && tradeShipOnly();
 
-      // 조원: 주문 관리 › 관리부 패킹 달력에서 다른 조 주문의 패킹완료일 · 주문접수일만
-      allow update: if teamCol(col) && baseOf(col) == 'orders' && teamTag(col).matches('t[0-9]+')
-        && signedIn() && role() == 'member'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['packing', 'acceptDate']);
-
       // 담당자 카드: 말풍선(status)·시계(clocks)는 카드 주인(email)만, 캐릭터는 주인 또는 관리자
       // 카드 주인 이메일: 관리자는 언제나, 본인은 '주인 없는 카드'를 자기 이메일로 연결할 때만 ("이 카드가 나예요")
       allow update: if teamCol(col) && baseOf(col) != 'config'

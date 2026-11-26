@@ -274,6 +274,7 @@ export default function Settings({ side = 'team' }: { side?: 'team' | 'trade' })
               <tr>
                 {hasMirror && <th title="체크한 업체만 주간 할일·주문 관리·클레임에 보여요">내 담당</th>}
                 <th>업체명</th>
+                <th className="m-hide" title="업체: 시계 · 수출 통화 · 판매/수출에 나옴 / 그외: 주문 관리 등에만 (시계 · 판매 · 수출 · 매장 설정엔 안 나옴)">구분</th>
                 <th className="m-hide">나라 (시계 이름)</th>
                 <th className="m-hide">매장코드 (4자리)</th>
                 <th className="m-hide">타임존</th>
@@ -552,6 +553,7 @@ function CompanyRow({
         <td>
           {c.name} <span className="tag gray small">{c.team}조 업체</span>
         </td>
+        <td className="m-hide">{c.kind === 'other' ? '그외' : '업체'}</td>
         <td className="m-hide">{c.country}</td>
         <td className="m-hide">{(c.storeCodes ?? []).join(', ')}</td>
         <td className="m-hide">{c.timezone ?? ''}</td>
@@ -638,6 +640,14 @@ function CompanyRow({
       ))}
     </select>
   );
+  // 구분: 업체 / 그외 (그외면 나라 · 타임존 · 수출 통화는 안 씀)
+  const other = c.kind === 'other';
+  const kindEl = (
+    <select className={`co-kind ${other ? 'other' : ''}`} value={other ? 'other' : ''} onChange={(e) => onSave({ ...c, kind: e.target.value === 'other' ? 'other' : undefined })} title="업체: 시계 · 수출 통화 · 판매/수출에 나옴 / 그외: 주문 관리 등에만">
+      <option value="">업체</option>
+      <option value="other">그외</option>
+    </select>
+  );
   const colorEl = <input type="color" value={c.color ?? '#888888'} onChange={(e) => onSave({ ...c, color: e.target.value })} />;
   const orderEl = <input type="number" className="num" value={c.order} onChange={(e) => onSave({ ...c, order: Number(e.target.value) })} />;
   const delEl = onDelete && (
@@ -649,10 +659,11 @@ function CompanyRow({
     <tr>
       {mineCell}
       <td className="c-name">{nameEl}</td>
-      <td className="m-hide">{countryEl}</td>
+      <td className="m-hide">{kindEl}</td>
+      <td className={`m-hide ${other ? 'co-off' : ''}`}>{countryEl}</td>
       <td className="m-hide">{codesEl}</td>
-      <td className="m-hide">{tzEl}</td>
-      <td className="m-hide">{curEl}</td>
+      <td className={`m-hide ${other ? 'co-off' : ''}`}>{tzEl}</td>
+      <td className={`m-hide ${other ? 'co-off' : ''}`}>{curEl}</td>
       <td className="c-color">{colorEl}</td>
       <td className="m-hide">{orderEl}</td>
       <td className="m-hide">{delEl}</td>
@@ -666,6 +677,10 @@ function CompanyRow({
               <label>
                 <span>업체명</span>
                 {nameEl}
+              </label>
+              <label>
+                <span>구분</span>
+                {kindEl}
               </label>
               <label>
                 <span>나라 (시계 이름)</span>

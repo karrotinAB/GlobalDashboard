@@ -75,7 +75,7 @@ export default function SalesPanel({ companies: myCos, allTeams }: { companies: 
   const s1 = useSpaceData('1', needOf('1') ? ['companies'] : []).data.companies;
   const s2 = useSpaceData('2', needOf('2') ? ['companies'] : []).data.companies;
   const s3 = useSpaceData('3', needOf('3') ? ['companies'] : []).data.companies;
-  const companies = useMemo(() => {
+  const companies0 = useMemo(() => {
     if (leaderSpace) return scope === 'all' ? myCos : myCos.filter((c) => c.team === scope);
     const other: Record<string, Company[] | undefined> = { '1': s1, '2': s2, '3': s3 };
     const tagged = (t: string) => (t === viewTeam ? myCos.map((c) => ({ ...c, team: t })) : (other[t] ?? []).map((c) => ({ ...c, team: t })));
@@ -83,6 +83,8 @@ export default function SalesPanel({ companies: myCos, allTeams }: { companies: 
     if (scope === 'all') return TEAMS.flatMap((t) => tagged(t));
     return tagged(scope);
   }, [leaderSpace, scope, myCos, s1, s2, s3, viewTeam]);
+  // 그외(구분)는 판매 · 수출에 안 나옴
+  const companies = useMemo(() => companies0.filter((c) => c.kind !== 'other'), [companies0]);
   const scopeBox = (
     <select className="scope-pick" value={scope} onChange={(e) => pickScope(e.target.value)} title="볼 조 고르기">
       <option value="all">전체 조</option>

@@ -778,10 +778,10 @@ const IT_CLOCKS: ClockDef[] = [
   { tz: 'Europe/Berlin', label: '독일', codes: ['DE'] },
   { tz: 'Asia/Tokyo', label: '일본', codes: ['JP'] },
 ];
-export function clockDefaultsOf(companies: { timezone?: string; country?: string; name: string; color?: string }[]): ClockDef[] {
+export function clockDefaultsOf(companies: { timezone?: string; country?: string; name: string; color?: string; kind?: string }[]): ClockDef[] {
   const map = new Map<string, { names: string[]; codes: string[]; color?: string }>();
   for (const c of companies) {
-    if (!c.timezone || !isValidTz(c.timezone) || c.timezone === HOME_TZ) continue;
+    if (c.kind === 'other' || !c.timezone || !isValidTz(c.timezone) || c.timezone === HOME_TZ) continue; // 그외(구분)는 시계 없음
     const e = map.get(c.timezone) ?? { names: [], codes: [], color: c.color };
     e.names.push(c.country || c.name);
     const code = countryCode(c.country || c.name, c.timezone);
